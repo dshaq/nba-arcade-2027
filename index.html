@@ -97,6 +97,57 @@ img{display:block;}
   font-family:var(--pixel);font-size:7px;
 }
 
+/* ── GAME TICKER ── */
+#game-ticker{
+  overflow:hidden;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  height:26px;
+  display:flex;
+  align-items:center;
+  position:sticky;
+  top:49px;
+  z-index:99;
+}
+.ticker-track{
+  display:flex;
+  align-items:center;
+  gap:0;
+  white-space:nowrap;
+  animation:ticker-scroll 40s linear infinite;
+  will-change:transform;
+}
+.ticker-track:hover{animation-play-state:paused;}
+@keyframes ticker-scroll{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-50%);}
+}
+.ticker-game{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:0 18px;
+  font-family:var(--pixel);
+  font-size:5.5px;
+  border-right:1px solid var(--border);
+  height:26px;
+  color:var(--text2);
+  flex-shrink:0;
+}
+.ticker-game .score{color:var(--text1);font-size:6px;}
+.ticker-game .live-dot{
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--accent4);
+  box-shadow:0 0 4px var(--accent4);
+  animation:pulse 1s ease-in-out infinite;
+  flex-shrink:0;
+}
+.ticker-game .period{color:var(--accent4);font-size:5px;}
+.ticker-game .final{color:var(--text3);}
+.ticker-game .upcoming{color:var(--text3);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
 /* ── BOTTOM NAV ── */
 #bottom-nav{
   position:fixed;
@@ -933,6 +984,11 @@ img{display:block;}
       <div class="avatar" id="chip-avatar"></div>
       <span id="chip-name"></span>
     </div>
+  </div>
+
+  <!-- Game ticker -->
+  <div id="game-ticker" style="display:none">
+    <div class="ticker-track" id="ticker-track"></div>
   </div>
 
   <!-- HOME screen -->

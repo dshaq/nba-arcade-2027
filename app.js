@@ -2238,6 +2238,94 @@ function updateUserChip(){
   if(nameEl) nameEl.textContent=myProfile.display_name||'';
 }
 
+// ── GAME TICKER ──────────────────────────────────────────────────────────────
+const TICKER_REFRESH_MS = 60_000; // refresh every minute
+let tickerTimer = null;
+
+async function startTicker(){
+  await fetchAndRenderTicker();
+  tickerTimer = setInterval(fetchAndRenderTicker, TICKER_REFRESH_MS);
+}
+
+async function fetchAndRenderTicker(){
+  try {
+    // ESPN scoreboard — today's games (no API key needed)
+    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${today}`;
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    const events = data.events || [];
+    renderTicker(events);
+  } catch(e){
+    console.warn('Ticker fetch failed:', e);
+  }
+}
+
+function renderTicker(events){
+  const el = document.getElementById('game-ticker');
+  const track = document.getElementById('ticker-track');
+  if(!el || !track) return;
+  if(!events.length){ el.style.display='none'; return; }
+
+  const fmtTime = dateStr => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  };
+
+  let html = '';
+  events.forEach(ev => {
+    const comp = ev.competitions?.[0];
+    if(!comp) return;
+    const teams = comp.competitors || [];
+    const home = teams.find(t=>t.homeAway==='home') || teams[0];
+    const away = teams.find(t=>t.homeAway==='away') || teams[1];
+    const status = comp.status?.type;
+    const stateVal = status?.state; // 'pre','in','post'
+    const homeAbbr = home?.team?.abbreviation || '???';
+    const awayAbbr = away?.team?.abbreviation || '???';
+    const homeScore = home?.score || '';
+    const awayScore = away?.score || '';
+
+    if(stateVal === 'in'){
+      const period = comp.status?.period || '';
+      const clock = comp.status?.displayClock || '';
+      const pLabel = period === 5 ? 'OT' : `Q${period}`;
+      html += `<div class="ticker-game">
+        <span class="live-dot"></span>
+        <span>${awayAbbr} <span class="score">${awayScore}</span></span>
+        <span class="period">${pLabel} ${clock}</span>
+        <span>${homeAbbr} <span class="score">${homeScore}</span></span>
+      </div>`;
+    } else if(stateVal === 'post'){
+      const winner = parseFloat(homeScore) > parseFloat(awayScore) ? homeAbbr : awayAbbr;
+      html += `<div class="ticker-game">
+        <span class="final">FINAL</span>
+        <span>${awayAbbr} <span class="score">${awayScore}</span></span>
+        <span style="color:var(--border)">·</span>
+        <span>${homeAbbr} <span class="score">${homeScore}</span></span>
+      </div>`;
+    } else {
+      // upcoming
+      html += `<div class="ticker-game">
+        <span class="upcoming">${fmtTime(comp.date)}</span>
+        <span>${awayAbbr} vs ${homeAbbr}</span>
+      </div>`;
+    }
+  });
+
+  if(!html){ el.style.display='none'; return; }
+
+  // Duplicate for seamless loop
+  track.innerHTML = html + html;
+  el.style.display = 'flex';
+
+  // Adjust animation speed to content width
+  const totalW = track.scrollWidth / 2;
+  const speed = Math.max(20, totalW / 80); // px/s rough
+  track.style.animationDuration = `${speed}s`;
+}
+
 // ── BOOT ────────────────────────────────────────────────────────────────────
 async function boot(){
   // Auth state listener
@@ -2271,6 +2359,7 @@ function showApp(){
   document.getElementById('app').style.display='block';
   document.getElementById('bottom-nav').style.display='flex';
   showScreen('home');
+  startTicker();
 }
 
 function showLogin(){

@@ -1164,10 +1164,129 @@ function showScreen(screen){
 
 // ── HOME SCREEN ──────────────────────────────────────────────────────────────
 function renderHomeScreen(){
+  renderNewsBanner();
   renderDuelCard();
   renderMatchupCard();
   renderLineupPreview();
   renderQuickStats();
+}
+
+// ── NEWS BANNER ───────────────────────────────────────────────────────────────
+// Shows contextual info above the Daily Duel card:
+//   • During draft window → draft schedule + who's on the clock
+//   • During season → top fantasy scorer headlines
+//   • Off-season / nothing → hidden
+
+// Draft windows per run (inclusive start/end, ET)
+const DRAFT_WINDOWS = [
+  { run:1, label:'FALL DRAFT',   start:'2026-10-18T20:30:00-04:00', end:'2026-10-20T12:00:00-04:00' },
+  { run:2, label:'WINTER DRAFT', start:'2027-01-05T20:30:00-05:00', end:'2027-01-07T12:00:00-05:00' },
+  { run:3, label:'SPRING DRAFT', start:'2027-03-29T20:30:00-04:00', end:'2027-03-31T12:00:00-04:00' },
+  { run:4, label:'SUMMER DRAFT', start:'2027-06-21T20:30:00-04:00', end:'2027-06-23T12:00:00-04:00' },
+];
+
+function renderNewsBanner(){
+  const el = document.getElementById('news-banner');
+  if(!el) return;
+
+  const now = new Date();
+  const rows = [];
+
+  // ── Check draft windows ──────────────────────────────────────────────────
+  DRAFT_WINDOWS.forEach(dw => {
+    const s = new Date(dw.start), e = new Date(dw.end);
+    const isLive = now >= s && now <= e;
+    const isSoon = !isLive && now < s && (s - now) < 7 * 24 * 60 * 60 * 1000; // within 7 days
+
+    if(isLive || isSoon){
+      const fmtDT = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' · ' +
+        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+
+      if(isLive){
+        // Who's on the clock?
+        const onClock = getDraftOnClock(dw.run);
+        rows.push({
+          label:'live', labelText:'LIVE',
+          text: onClock
+            ? `${dw.label} is live · On the clock: <strong>${onClock}</strong>`
+            : `${dw.label} is underway · Ends ${fmtDT(e)}`
+        });
+      } else {
+        rows.push({
+          label:'draft', labelText:'DRAFT',
+          text:`${dw.label} · ${fmtDT(s)} – ${fmtDT(e)}`
+        });
+      }
+    }
+  });
+
+  // ── Top scorers from this week (during season) ───────────────────────────
+  if(!rows.length){
+    const top = getTopScorerHeadlines();
+    top.forEach(h => rows.push({ label:'top', labelText:'TOP', text: h }));
+  }
+
+  if(!rows.length){ el.style.display='none'; return; }
+
+  const fmtDate = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const [firstDraft] = DRAFT_WINDOWS;
+  const soon = DRAFT_WINDOWS.find(dw=>{
+    const s=new Date(dw.start); return new Date()<s && (s-new Date())<7*24*60*60*1000;
+  });
+
+  let html = '';
+  // header only when there's a draft context
+  const hasDraft = rows.some(r=>r.label==='draft'||r.label==='live');
+  if(hasDraft){
+    html += `<div class="news-banner-header"><span>📋 LEAGUE NEWS</span><span style="color:var(--text3)">${fmtDate(now)}</span></div>`;
+  }
+  rows.forEach(r=>{
+    html += `<div class="news-banner-row">
+      <span class="news-banner-label ${r.label}">${r.labelText}</span>
+      <span>${r.text}</span>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function getDraftOnClock(runId){
+  // Returns name of manager currently on the clock in an active draft, or null
+  const draft = (leagueState.drafts||{})[runId];
+  if(!draft || draft.status !== 'active') return null;
+  const pick = draft.currentPick || 0;
+  const managers = leagueState.managers || [];
+  if(!managers.length) return null;
+  // Snake draft order
+  const round = Math.floor(pick / managers.length);
+  const posInRound = pick % managers.length;
+  const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
+  return managers[idx]?.display_name || null;
+}
+
+function getTopScorerHeadlines(){
+  // Pull top 3 FP scorers from current week's rosters
+  const managers = leagueState.managers || [];
+  if(!managers.length) return [];
+
+  const lines = [];
+  const allRosters = managers.flatMap(m => {
+    const roster = (m.rosters || {})[currentRun] || [];
+    return roster.map(pid => ({ mid: m.id, mname: m.display_name, pid }));
+  });
+
+  // Score each by projected PPG as proxy (no live stats yet)
+  const scored = allRosters.map(r => {
+    const p = getPlayer(r.pid);
+    return p ? { ...r, fp: p.ppg + p.rpg*1.2 + p.apg*1.5 + p.spg*3 + p.bpg*3, player: p } : null;
+  }).filter(Boolean).sort((a,b)=>b.fp-a.fp);
+
+  scored.slice(0,3).forEach((s,i) => {
+    const medal = ['🥇','🥈','🥉'][i];
+    lines.push(`${medal} <strong>${s.player.name}</strong> · ${s.fp.toFixed(1)} proj FP (${s.mname})`);
+  });
+  return lines;
 }
 
 // ── DAILY DUEL ───────────────────────────────────────────────────────────────

@@ -1683,16 +1683,126 @@ function renderQuickStats(){
 }
 
 // ── FANTASY SCREEN ───────────────────────────────────────────────────────────
+let currentFantasyTab = 'standings';
+
+function switchFantasyTab(tab){
+  currentFantasyTab = tab;
+  document.querySelectorAll('.fantasy-sub-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  document.querySelectorAll('.fantasy-sub-pane').forEach(p=>{
+    p.classList.toggle('active', p.id === 'fantasy-pane-'+tab);
+  });
+  if(tab==='standings') renderFantasyRunContent();
+  else if(tab==='schedule') renderFantasySchedule();
+  else if(tab==='roster') renderRosterScreen();
+  else if(tab==='waivers') renderRosterScreen();
+  else if(tab==='draft') renderFantasyDraftPane();
+}
+
 function switchRun(runId){
   currentRun=runId;
   document.querySelectorAll('.run-tab').forEach(t=>{
     t.classList.toggle('active',parseInt(t.dataset.run)===runId);
   });
-  renderFantasyRunContent();
+  if(currentFantasyTab==='standings') renderFantasyRunContent();
+  else if(currentFantasyTab==='schedule') renderFantasySchedule();
 }
 
 function renderFantasyScreen(){
-  renderFantasyRunContent();
+  switchFantasyTab(currentFantasyTab);
+}
+
+function renderFantasyDraftPane(){
+  const el=document.getElementById('fantasy-draft-content');
+  if(!el) return;
+  const run=RUNS.find(r=>r.id===currentRun);
+  const now=new Date();
+  const start=new Date(run.start);
+  if(now < start){
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📋</div><div class="label">DRAFT OPENS ${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`;
+  } else {
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">✅</div><div class="label">DRAFT COMPLETE<br/>CHECK MY ROSTER</div></div>`;
+  }
+}
+
+function renderFantasySchedule(){
+  const el=document.getElementById('fantasy-schedule-content');
+  if(!el) return;
+  const managers=leagueState.managers||[];
+  if(!managers.length){
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">SCHEDULE GENERATES<br/>AFTER DRAFT</div></div>`;
+    return;
+  }
+  const schedule=(leagueState.schedule||{})[currentRun]||[];
+  if(!schedule.length){
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">NO SCHEDULE YET</div></div>`;
+    return;
+  }
+  const run=RUNS.find(r=>r.id===currentRun);
+  const myId=getMyId();
+  const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
+  const weekIdx=getCurrentWeekIndex(currentRun);
+
+  // Build week date ranges from run start (Mon–Sun)
+  const runStart=new Date(run.start);
+  // Snap to Monday
+  const dow=runStart.getDay(); // 0=Sun
+  const daysToMon=dow===0?1:(8-dow)%7||7;
+  const firstMon=new Date(runStart);
+  if(dow!==1) firstMon.setDate(runStart.getDate()+((1-dow+7)%7));
+
+  const fmtDate=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  let html='<div style="height:8px"></div>';
+  schedule.forEach((week,wi)=>{
+    const monDate=new Date(firstMon); monDate.setDate(firstMon.getDate()+wi*7);
+    const sunDate=new Date(monDate); sunDate.setDate(monDate.getDate()+6);
+    const isCurrent=wi===weekIdx;
+    const isPast=wi<weekIdx;
+    const status=isCurrent?'current':isPast?'past':'future';
+    const label=isCurrent?'▶ CURRENT WEEK':'';
+    html+=`<div class="schedule-week">
+      <div class="schedule-week-header ${status}">
+        <span>WEEK ${wi+1} · ${fmtDate(monDate)}–${fmtDate(sunDate)}</span>
+        <span>${label}</span>
+      </div>`;
+    week.forEach(matchup=>{
+      const h=getM(matchup.home), a=getM(matchup.away);
+      const isMine=matchup.home===myId||matchup.away===myId;
+      let hFPStr='—', aFPStr='—', hWin=false, aWin=false;
+      if(isPast||isCurrent){
+        const hFP=managerFP(matchup.home), aFP=managerFP(matchup.away);
+        hFPStr=hFP.toFixed(1); aFPStr=aFP.toFixed(1);
+        if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
+        else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
+      }
+      html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
+        <div class="schedule-team-cell">
+          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7)}
+          <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
+          <span class="schedule-vs">VS</span>
+          <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
+        </div>
+        <div class="schedule-team-cell right">
+          <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
+          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7)}
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
+  // Scroll current week into view
+  if(weekIdx>=0){
+    setTimeout(()=>{
+      const headers=el.querySelectorAll('.schedule-week-header.current');
+      if(headers[0]) headers[0].scrollIntoView({behavior:'smooth',block:'nearest'});
+    },100);
+  }
 }
 
 function renderFantasyRunContent(){

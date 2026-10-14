@@ -494,6 +494,48 @@ img{display:block;}
 
 /* ── FANTASY SCREEN ── */
 #fantasy-screen{padding-bottom:4px;}
+.fantasy-sub-tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+  overflow-x:auto;
+  scrollbar-width:none;
+  padding:0 14px;
+  gap:0;
+  background:var(--bg2);
+}
+.fantasy-sub-tabs::-webkit-scrollbar{display:none;}
+.fantasy-sub-tab{
+  flex-shrink:0;
+  font-family:var(--pixel);font-size:5.5px;
+  padding:9px 11px;
+  color:var(--text3);
+  border-bottom:2px solid transparent;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:color .1s,border-color .1s;
+}
+.fantasy-sub-tab.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+.fantasy-sub-pane{display:none;}
+.fantasy-sub-pane.active{display:block;}
+.schedule-week{margin:0 14px 10px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+.schedule-week-header{
+  font-family:var(--pixel);font-size:5.5px;
+  padding:8px 12px;background:var(--bg3);
+  display:flex;justify-content:space-between;align-items:center;
+  color:var(--text2);
+}
+.schedule-week-header.current{color:var(--accent2);}
+.schedule-week-header.past{color:var(--text3);}
+.schedule-matchup-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-top:1px solid var(--border);
+  font-size:12px;
+}
+.schedule-matchup-row.is-mine{background:rgba(74,158,255,.06);}
+.schedule-team-cell{display:flex;align-items:center;gap:7px;flex:1;}
+.schedule-team-cell.right{flex-direction:row-reverse;}
+.schedule-fp{font-family:var(--pixel);font-size:8px;min-width:36px;text-align:center;}
+.schedule-vs{font-family:var(--pixel);font-size:5px;color:var(--text3);padding:0 6px;}
 .run-tabs{
   display:flex;
   border-bottom:1px solid var(--border);
@@ -905,7 +947,7 @@ img{display:block;}
     <!-- My Lineup -->
     <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
       <span>📋 MY LINEUP</span>
-      <button class="btn btn-sm btn-secondary" onclick="showScreen('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE</button>
+      <button class="btn btn-sm btn-secondary" onclick="showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE</button>
     </div>
     <div id="lineup-preview-container"></div>
 
@@ -923,25 +965,52 @@ img{display:block;}
       <div class="run-tab" data-run="3" onclick="switchRun(3)">SPRING</div>
       <div class="run-tab" data-run="4" onclick="switchRun(4)">SUMMER</div>
     </div>
-    <div id="fantasy-run-content"></div>
+    <div class="fantasy-sub-tabs" id="fantasy-sub-tabs">
+      <div class="fantasy-sub-tab active" data-tab="standings" onclick="switchFantasyTab('standings')">STANDINGS</div>
+      <div class="fantasy-sub-tab" data-tab="schedule" onclick="switchFantasyTab('schedule')">SCHEDULE</div>
+      <div class="fantasy-sub-tab" data-tab="roster" onclick="switchFantasyTab('roster')">MY ROSTER</div>
+      <div class="fantasy-sub-tab" data-tab="waivers" onclick="switchFantasyTab('waivers')">WAIVERS</div>
+      <div class="fantasy-sub-tab" data-tab="draft" onclick="switchFantasyTab('draft')">DRAFT</div>
+    </div>
+
+    <!-- STANDINGS pane -->
+    <div class="fantasy-sub-pane active" id="fantasy-pane-standings">
+      <div id="fantasy-run-content"></div>
+    </div>
+
+    <!-- SCHEDULE pane -->
+    <div class="fantasy-sub-pane" id="fantasy-pane-schedule">
+      <div id="fantasy-schedule-content"></div>
+    </div>
+
+    <!-- MY ROSTER pane -->
+    <div class="fantasy-sub-pane" id="fantasy-pane-roster">
+      <div class="section-label" style="margin-top:4px">MY ROSTER</div>
+      <div id="roster-list-container"></div>
+    </div>
+
+    <!-- WAIVERS pane -->
+    <div class="fantasy-sub-pane" id="fantasy-pane-waivers">
+      <div class="section-label" style="margin-top:4px">WAIVERS</div>
+      <div class="waiver-counter">
+        <div class="label">ADD/DROPS THIS WEEK</div>
+        <div class="count" id="waiver-remaining">— / 3</div>
+      </div>
+      <div class="section-label" style="margin-top:4px">AVAILABLE PLAYERS</div>
+      <div style="padding:0 14px 8px;display:flex;gap:8px;">
+        <input type="text" id="player-search" placeholder="Search players..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px;color:var(--text1);outline:none;" oninput="renderAvailablePlayers()"/>
+      </div>
+      <div id="available-players-container"></div>
+    </div>
+
+    <!-- DRAFT pane -->
+    <div class="fantasy-sub-pane" id="fantasy-pane-draft">
+      <div id="fantasy-draft-content"></div>
+    </div>
   </div>
 
-  <!-- ROSTER screen -->
-  <div id="roster-screen" class="screen">
-    <div class="page-header">WAIVERS</div>
-    <div class="section-label">MY ROSTER</div>
-    <div class="waiver-counter">
-      <div class="label">ADD/DROPS THIS WEEK</div>
-      <div class="count" id="waiver-remaining">— / 3</div>
-    </div>
-    <div id="roster-list-container"></div>
-
-    <div class="section-label" style="margin-top:4px">AVAILABLE PLAYERS</div>
-    <div style="padding:0 14px 8px;display:flex;gap:8px;">
-      <input type="text" id="player-search" placeholder="Search players..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px;color:var(--text1);outline:none;" oninput="renderAvailablePlayers()"/>
-    </div>
-    <div id="available-players-container"></div>
-  </div>
+  <!-- ROSTER screen (kept for back-compat, hidden) -->
+  <div id="roster-screen" class="screen" style="display:none"></div>
 
   <!-- WEEKLY LINE-UP CHALLENGE screen -->
   <div id="wlc-screen" class="screen">
@@ -1033,7 +1102,7 @@ img{display:block;}
   <button class="nav-btn" id="nav-wlc" onclick="showScreen('wlc')">
     <span class="icon">🎯</span>WEEKLY
   </button>
-  <button class="nav-btn" id="nav-roster" onclick="showScreen('roster')">
+  <button class="nav-btn" id="nav-roster" onclick="showScreen('fantasy');switchFantasyTab('roster')">
     <span class="icon">📋</span>ROSTER
   </button>
   <button class="nav-btn" id="nav-profile" onclick="showScreen('profile')">

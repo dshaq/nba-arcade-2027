@@ -2382,13 +2382,136 @@ function render(){
 function updateUserChip(){
   if(!myProfile) return;
   const el=document.getElementById('chip-avatar');
-  const nameEl=document.getElementById('chip-name');
   if(el){
     el.style.background=myProfile.color||'#4a9eff';
     el.style.color='#000';
     el.textContent=initials(myProfile.display_name||'?');
   }
-  if(nameEl) nameEl.textContent=myProfile.display_name||'';
+}
+
+// ── CHAT ─────────────────────────────────────────────────────────────────────
+let chatPollTimer = null;
+const CHAT_POLL_MS = 30_000;
+const CHAT_LAST_SEEN_KEY = 'chat-last-seen-2027';
+
+function getChatLastSeen(){
+  try{ return localStorage.getItem(CHAT_LAST_SEEN_KEY) || ''; }
+  catch(e){ return ''; }
+}
+function setChatLastSeen(ts){
+  try{ localStorage.setItem(CHAT_LAST_SEEN_KEY, ts); }catch(e){}
+}
+
+function updateChatBadge(){
+  const badge = document.getElementById('chat-badge');
+  if(!badge) return;
+  const msgs = leagueState?.chat || [];
+  const lastSeen = getChatLastSeen();
+  const myId = getMyId();
+  const hasNew = msgs.some(m => m.ts > lastSeen && m.managerId !== myId);
+  badge.style.display = hasNew ? 'block' : 'none';
+}
+
+function openChat(){
+  const panel = document.getElementById('chat-panel');
+  if(!panel) return;
+  panel.classList.add('open');
+  renderChatMessages();
+  // Mark all as seen
+  const msgs = leagueState?.chat || [];
+  if(msgs.length){
+    setChatLastSeen(msgs[msgs.length-1].ts);
+  }
+  updateChatBadge();
+  // Scroll to bottom
+  setTimeout(()=>{
+    const el = document.getElementById('chat-messages');
+    if(el) el.scrollTop = el.scrollHeight;
+  }, 50);
+  // Focus input
+  setTimeout(()=>{ document.getElementById('chat-input')?.focus(); }, 300);
+}
+
+function closeChat(){
+  document.getElementById('chat-panel')?.classList.remove('open');
+}
+
+function renderChatMessages(){
+  const el = document.getElementById('chat-messages');
+  if(!el) return;
+  const msgs = leagueState?.chat || [];
+  const myId = getMyId();
+  const managers = leagueState?.managers || [];
+
+  if(!msgs.length){
+    el.innerHTML = `<div style="text-align:center;padding:40px 16px;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO MESSAGES YET<br/><br/>BE THE FIRST TO TALK TRASH 🗑️</div>`;
+    return;
+  }
+
+  el.innerHTML = msgs.map(m=>{
+    const mine = m.managerId === myId;
+    const mgr = managers.find(x=>x.id===m.managerId);
+    const name = mgr?.display_name || 'Unknown';
+    const color = mgr?.color || '#4a9eff';
+    const time = new Date(m.ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    const dateStr = new Date(m.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const avatar = `<div style="width:26px;height:26px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:6px;color:#000;flex-shrink:0">${initials(name)}</div>`;
+    return `
+      <div class="chat-msg${mine?' mine':''}">
+        ${!mine ? avatar : ''}
+        <div>
+          ${!mine ? `<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:3px">${name}</div>` : ''}
+          <div class="chat-msg-bubble">${escapeHtml(m.text)}</div>
+          <div class="chat-msg-meta">${dateStr} · ${time}</div>
+        </div>
+        ${mine ? avatar : ''}
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function sendChatMessage(){
+  const input = document.getElementById('chat-input');
+  const text = (input?.value||'').trim();
+  if(!text) return;
+  const mid = getMyId();
+  if(!mid){ toast('Sign in to chat!'); return; }
+  const msg = { id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), managerId:mid, text, ts: new Date().toISOString() };
+  if(!leagueState.chat) leagueState.chat = [];
+  leagueState.chat.push(msg);
+  // Trim to last 200 messages
+  if(leagueState.chat.length > 200) leagueState.chat = leagueState.chat.slice(-200);
+  if(input) input.value = '';
+  await saveLeagueState();
+  setChatLastSeen(msg.ts);
+  renderChatMessages();
+  updateChatBadge();
+  setTimeout(()=>{
+    const el = document.getElementById('chat-messages');
+    if(el) el.scrollTop = el.scrollHeight;
+  }, 30);
+}
+
+async function pollChat(){
+  try{
+    await loadLeagueState();
+    const panel = document.getElementById('chat-panel');
+    const isOpen = panel?.classList.contains('open');
+    if(isOpen){
+      renderChatMessages();
+      const msgs = leagueState?.chat || [];
+      if(msgs.length) setChatLastSeen(msgs[msgs.length-1].ts);
+    }
+    updateChatBadge();
+  }catch(e){}
+}
+
+function startChatPoll(){
+  if(chatPollTimer) clearInterval(chatPollTimer);
+  chatPollTimer = setInterval(pollChat, CHAT_POLL_MS);
 }
 
 // ── GAME TICKER ──────────────────────────────────────────────────────────────
@@ -2513,6 +2636,8 @@ function showApp(){
   document.getElementById('bottom-nav').style.display='flex';
   showScreen('home');
   startTicker();
+  startChatPoll();
+  updateChatBadge();
 }
 
 function showLogin(){

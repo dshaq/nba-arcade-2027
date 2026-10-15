@@ -740,7 +740,10 @@ function currentWeekStart(){
   return d;
 }
 function avatarColor(idx){ return AVATAR_COLORS[idx % AVATAR_COLORS.length]; }
-function avatarEl(name,color,size=22,fontSize=7){
+function avatarEl(name,color,size=22,fontSize=7,avatarUrl=null){
+  if(avatarUrl){
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color}"><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:var(--pixel);font-size:${fontSize}px;color:#000\\'>${initials(name)}</div>'" /></div>`;
+  }
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:${fontSize}px;color:#000;flex-shrink:0">${initials(name)}</div>`;
 }
 function toast(msg, duration=2200){
@@ -1596,7 +1599,7 @@ function showDuelLeaderboard(){
   let rowsHtml = rows.map((m,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);margin:0 -16px;padding-left:16px;padding-right:16px;':''}">
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8)}
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.avatar_url||null)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
@@ -2021,7 +2024,7 @@ function renderFantasySchedule(){
       }
       html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
         <div class="schedule-team-cell">
-          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7)}
+          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.avatar_url||null)}
           <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
@@ -2031,7 +2034,7 @@ function renderFantasySchedule(){
         </div>
         <div class="schedule-team-cell right">
           <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
-          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7)}
+          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.avatar_url||null)}
         </div>
       </div>`;
     });
@@ -2093,7 +2096,7 @@ function renderFantasyRunContent(){
           <td class="rank">${i===0?'👑':(i+1)}</td>
           <td>
             <div style="display:flex;align-items:center;gap:8px">
-              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8)}
+              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.avatar_url||null)}
               <span class="team-name">${s.m.display_name}</span>
               ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
             </div>
@@ -2411,12 +2414,31 @@ async function renderAdminContent(){
   <div class="card" style="padding:0;overflow:hidden;margin:0">
     ${(managers||[]).map(m=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
-      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9)}
+      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.avatar_url||null)}
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${m.display_name}</div>
         <div style="font-size:10px;color:var(--text3)">${m.email}</div>
       </div>
       ${m.is_commissioner?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent3)">⭐ COMM</span>':''}
+    </div>`).join('')}
+  </div>
+
+  <div class="section-label" style="padding:12px 0 8px">MANAGER PORTRAITS</div>
+  <div class="card" style="margin:0;padding:10px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Upload a photo for each manager. Square JPG/PNG works best.</div>
+    ${(managers||[]).map(m=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div id="mgr-avatar-preview-${m.id}" style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${m.color||'#4a9eff'};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:7px;color:#000">
+        ${m.avatar_url?`<img src="${m.avatar_url}" style="width:100%;height:100%;object-fit:cover;display:block"/>`:`${initials(m.display_name)}`}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.display_name}</div>
+        <label style="display:inline-block;margin-top:4px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;border:1px solid var(--accent1);border-radius:2px;padding:3px 7px">
+          ${m.avatar_url?'CHANGE':'UPLOAD'}
+          <input type="file" accept="image/*" style="display:none" onchange="adminUploadPortrait('${m.id}',this)"/>
+        </label>
+        ${m.avatar_url?`<button onclick="adminRemovePortrait('${m.id}')" style="margin-left:6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4);background:none;border:1px solid var(--accent4);border-radius:2px;padding:3px 7px;cursor:pointer">REMOVE</button>`:''}
+      </div>
     </div>`).join('')}
   </div>
 
@@ -2436,6 +2458,51 @@ async function renderAdminContent(){
   ${renderAdminDuelSection()}
   ${renderAdminWlcSection()}
   `;
+}
+
+// ── MANAGER PORTRAIT UPLOAD ──────────────────────────────────────────────────
+async function adminUploadPortrait(managerId, input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){ toast('Image must be under 2MB'); return; }
+  toast('Uploading…');
+  // Resize to 200×200 via canvas then store as base64
+  const url=await new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        canvas.width=200; canvas.height=200;
+        const ctx=canvas.getContext('2d');
+        // center-crop
+        const s=Math.min(img.width,img.height);
+        const sx=(img.width-s)/2, sy=(img.height-s)/2;
+        ctx.drawImage(img,sx,sy,s,s,0,0,200,200);
+        resolve(canvas.toDataURL('image/jpeg',0.82));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  const {error}=await db.from('managers').update({avatar_url:url}).eq('id',managerId);
+  if(error){ toast('Upload failed'); return; }
+  // Update preview in-place
+  const preview=document.getElementById(`mgr-avatar-preview-${managerId}`);
+  if(preview) preview.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block"/>`;
+  // Refresh my profile chip if this is me
+  if(myProfile?.id===managerId){ myProfile.avatar_url=url; updateUserChip(); }
+  toast('Portrait saved ✓');
+  // Refresh full admin panel after short delay so CHANGE/REMOVE buttons update
+  setTimeout(renderAdminContent, 600);
+}
+
+async function adminRemovePortrait(managerId){
+  const {error}=await db.from('managers').update({avatar_url:null}).eq('id',managerId);
+  if(error){ toast('Failed to remove'); return; }
+  if(myProfile?.id===managerId){ myProfile.avatar_url=null; updateUserChip(); }
+  toast('Portrait removed');
+  renderAdminContent();
 }
 
 // ── SCHEDULE GENERATION ──────────────────────────────────────────────────────
@@ -2496,9 +2563,15 @@ function updateUserChip(){
   if(!myProfile) return;
   const el=document.getElementById('chip-avatar');
   if(el){
-    el.style.background=myProfile.color||'#4a9eff';
-    el.style.color='#000';
-    el.textContent=initials(myProfile.display_name||'?');
+    if(myProfile.avatar_url){
+      el.style.background=myProfile.color||'#4a9eff';
+      el.style.padding='0';
+      el.innerHTML=`<img src="${myProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" onerror="this.style.display='none'"/>`;
+    } else {
+      el.style.background=myProfile.color||'#4a9eff';
+      el.style.color='#000';
+      el.textContent=initials(myProfile.display_name||'?');
+    }
   }
 }
 

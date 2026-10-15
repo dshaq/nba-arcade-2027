@@ -1180,7 +1180,10 @@ img{display:block;}
 
   <!-- FANTASY screen -->
   <div id="fantasy-screen" class="screen">
-    <div class="page-header">NBA FANTASY</div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px">
+      <span>NBA FANTASY</span>
+      <button onclick="showFantasyRulesModal()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer;flex-shrink:0">📖 RULES</button>
+    </div>
     <div class="run-tabs" id="run-tabs">
       <div class="run-tab active" data-run="1" onclick="switchRun(1)">FALL</div>
       <div class="run-tab" data-run="2" onclick="switchRun(2)">WINTER</div>
@@ -1317,8 +1320,7 @@ img{display:block;}
       </div>
     </div>
 
-    <div style="padding:24px 0 8px;display:flex;flex-direction:column;gap:10px">
-      <button class="btn btn-secondary btn-full" onclick="showFantasyRulesModal()" style="font-family:var(--pixel);font-size:6px">📖 FANTASY RULES</button>
+    <div style="padding:24px 0 8px;">
       <button class="btn btn-danger btn-full" onclick="doSignOut()">SIGN OUT</button>
     </div>
   </div>

@@ -1871,6 +1871,8 @@ function showFantasyRulesModal(){
     ['Missed FG','− 1.0 FP each'],
     ['Missed FT','− 1.0 FP each'],
     ['Turnovers','− 1.0 FP each'],
+    ['Flagrant Fouls','− 1.0 FP each'],
+    ['Technical Fouls','− 1.0 FP each'],
   ].map(([l,v])=>row(l,v)).join('');
 
   modal.innerHTML=`

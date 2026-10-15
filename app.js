@@ -740,11 +740,11 @@ function currentWeekStart(){
   return d;
 }
 function avatarColor(idx){ return AVATAR_COLORS[idx % AVATAR_COLORS.length]; }
-function avatarEl(name,color,size=22,fontSize=7,avatarUrl=null){
-  if(avatarUrl){
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color}"><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:var(--pixel);font-size:${fontSize}px;color:#000\\'>${initials(name)}</div>'" /></div>`;
-  }
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:${fontSize}px;color:#000;flex-shrink:0">${initials(name)}</div>`;
+function avatarEl(name,color,size=22,fontSize=7,icon=null){
+  const inner=icon
+    ? `<span style="font-size:${Math.round(size*0.54)}px;line-height:1">${icon}</span>`
+    : `<span style="font-family:var(--pixel);font-size:${fontSize}px;color:#000">${initials(name)}</span>`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0">${inner}</div>`;
 }
 function toast(msg, duration=2200){
   const el=document.getElementById('toast');
@@ -1599,7 +1599,7 @@ function showDuelLeaderboard(){
   let rowsHtml = rows.map((m,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);margin:0 -16px;padding-left:16px;padding-right:16px;':''}">
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.avatar_url||null)}
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
@@ -2024,7 +2024,7 @@ function renderFantasySchedule(){
       }
       html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
         <div class="schedule-team-cell">
-          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.avatar_url||null)}
+          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null)}
           <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
@@ -2034,7 +2034,7 @@ function renderFantasySchedule(){
         </div>
         <div class="schedule-team-cell right">
           <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
-          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.avatar_url||null)}
+          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null)}
         </div>
       </div>`;
     });
@@ -2096,7 +2096,7 @@ function renderFantasyRunContent(){
           <td class="rank">${i===0?'👑':(i+1)}</td>
           <td>
             <div style="display:flex;align-items:center;gap:8px">
-              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.avatar_url||null)}
+              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.icon||null)}
               <span class="team-name">${s.m.display_name}</span>
               ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
             </div>
@@ -2355,10 +2355,17 @@ function renderProfileScreen(){
   }
 }
 
+const AVATAR_ICONS=[
+  '🏀','⭐','🔥','💎','👑','⚡','🎯','🦁',
+  '🐺','🦅','🐉','🦊','🏆','💪','🎮','🌟',
+  '🦈','🐯','🦍','🚀','❄️','🌊','☄️','🎪',
+];
+const AVATAR_COLORS=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d','#06b6d4','#84cc16'];
+
 function openAvatarEditor(){
-  // Simple color picker for now — future: photo upload
-  const colors=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d'];
   const myId=getMyId();
+  const curIcon=myProfile?.icon||null;
+  const curColor=myProfile?.color||'#4a9eff';
   let modal=document.getElementById('avatar-modal');
   if(modal) modal.remove();
   modal=document.createElement('div');
@@ -2367,33 +2374,72 @@ function openAvatarEditor(){
   modal.style.display='flex';
   modal.innerHTML=`
     <div class="modal-box" style="max-width:340px;width:calc(100% - 32px);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">PICK YOUR COLOR</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">CUSTOMIZE AVATAR</div>
         <button onclick="document.getElementById('avatar-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-        ${colors.map(c=>`<div onclick="setMyColor('${c}')" style="width:100%;aspect-ratio:1;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===(myProfile?.color||'#4a9eff')?'#fff':'transparent'};transition:transform .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
+      <!-- Live preview -->
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <div id="avatar-preview" style="width:56px;height:56px;border-radius:50%;background:${curColor};display:flex;align-items:center;justify-content:center;font-size:26px;border:3px solid var(--border);transition:all .2s">
+          ${curIcon||`<span style="font-family:var(--pixel);font-size:12px;color:#000">${initials(myProfile?.display_name||'?')}</span>`}
+        </div>
       </div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-align:center">More avatar options coming soon</div>
+      <!-- Icon grid -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK AN ICON</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px" id="icon-grid">
+        ${AVATAR_ICONS.map(ic=>`<div onclick="avatarPickIcon('${ic}')" data-icon="${ic}" style="aspect-ratio:1;border-radius:6px;background:var(--bg3);border:2px solid ${ic===curIcon?'var(--accent1)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:border-color .1s">${ic}</div>`).join('')}
+      </div>
+      <!-- Color row -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK A COLOR</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="color-row">
+        ${AVATAR_COLORS.map(c=>`<div onclick="avatarPickColor('${c}')" data-color="${c}" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===curColor?'#fff':'transparent'};transition:transform .1s,border-color .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
+      </div>
+      <button class="btn btn-primary btn-full" onclick="saveAvatarChoice()">SAVE AVATAR</button>
     </div>`;
   document.body.appendChild(modal);
 }
 
-async function setMyColor(color){
+function avatarPickIcon(icon){
+  // Update selection highlight
+  document.querySelectorAll('#icon-grid [data-icon]').forEach(el=>{
+    el.style.borderColor=el.dataset.icon===icon?'var(--accent1)':'transparent';
+  });
+  // Update preview
+  const preview=document.getElementById('avatar-preview');
+  if(preview) preview.innerHTML=icon;
+  modal_pendingIcon=icon;
+}
+function avatarPickColor(color){
+  document.querySelectorAll('#color-row [data-color]').forEach(el=>{
+    el.style.borderColor=el.dataset.color===color?'#fff':'transparent';
+  });
+  const preview=document.getElementById('avatar-preview');
+  if(preview) preview.style.background=color;
+  modal_pendingColor=color;
+}
+let modal_pendingIcon=null;
+let modal_pendingColor=null;
+
+async function saveAvatarChoice(){
   const myId=getMyId();
   if(!myId) return;
+  const icon=modal_pendingIcon??myProfile?.icon??null;
+  const color=modal_pendingColor??myProfile?.color??'#4a9eff';
+  const updates={color};
+  if(icon) updates.icon=icon;
   const managers=leagueState.managers||[];
   const m=managers.find(m=>m.id===myId);
-  if(m) m.color=color;
-  if(myProfile) myProfile.color=color;
+  if(m){ m.color=color; if(icon) m.icon=icon; }
+  if(myProfile){ myProfile.color=color; if(icon) myProfile.icon=icon; }
   await saveLeagueState();
-  // Also update managers table
-  await db.from('managers').update({color}).eq('id',myId);
+  await db.from('managers').update(updates).eq('id',myId);
+  modal_pendingIcon=null; modal_pendingColor=null;
   document.getElementById('avatar-modal')?.remove();
   renderProfileScreen();
   updateUserChip();
-  toast('Color updated!');
+  toast('Avatar saved!');
 }
+
 
 // ── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function openAdminPanel(){
@@ -2414,31 +2460,12 @@ async function renderAdminContent(){
   <div class="card" style="padding:0;overflow:hidden;margin:0">
     ${(managers||[]).map(m=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
-      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.avatar_url||null)}
+      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.icon||null)}
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${m.display_name}</div>
         <div style="font-size:10px;color:var(--text3)">${m.email}</div>
       </div>
       ${m.is_commissioner?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent3)">⭐ COMM</span>':''}
-    </div>`).join('')}
-  </div>
-
-  <div class="section-label" style="padding:12px 0 8px">MANAGER PORTRAITS</div>
-  <div class="card" style="margin:0;padding:10px">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Upload a photo for each manager. Square JPG/PNG works best.</div>
-    ${(managers||[]).map(m=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div id="mgr-avatar-preview-${m.id}" style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${m.color||'#4a9eff'};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:7px;color:#000">
-        ${m.avatar_url?`<img src="${m.avatar_url}" style="width:100%;height:100%;object-fit:cover;display:block"/>`:`${initials(m.display_name)}`}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.display_name}</div>
-        <label style="display:inline-block;margin-top:4px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;border:1px solid var(--accent1);border-radius:2px;padding:3px 7px">
-          ${m.avatar_url?'CHANGE':'UPLOAD'}
-          <input type="file" accept="image/*" style="display:none" onchange="adminUploadPortrait('${m.id}',this)"/>
-        </label>
-        ${m.avatar_url?`<button onclick="adminRemovePortrait('${m.id}')" style="margin-left:6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4);background:none;border:1px solid var(--accent4);border-radius:2px;padding:3px 7px;cursor:pointer">REMOVE</button>`:''}
-      </div>
     </div>`).join('')}
   </div>
 
@@ -2460,50 +2487,6 @@ async function renderAdminContent(){
   `;
 }
 
-// ── MANAGER PORTRAIT UPLOAD ──────────────────────────────────────────────────
-async function adminUploadPortrait(managerId, input){
-  const file=input.files[0];
-  if(!file) return;
-  if(file.size > 2*1024*1024){ toast('Image must be under 2MB'); return; }
-  toast('Uploading…');
-  // Resize to 200×200 via canvas then store as base64
-  const url=await new Promise(resolve=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const img=new Image();
-      img.onload=()=>{
-        const canvas=document.createElement('canvas');
-        canvas.width=200; canvas.height=200;
-        const ctx=canvas.getContext('2d');
-        // center-crop
-        const s=Math.min(img.width,img.height);
-        const sx=(img.width-s)/2, sy=(img.height-s)/2;
-        ctx.drawImage(img,sx,sy,s,s,0,0,200,200);
-        resolve(canvas.toDataURL('image/jpeg',0.82));
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-  const {error}=await db.from('managers').update({avatar_url:url}).eq('id',managerId);
-  if(error){ toast('Upload failed'); return; }
-  // Update preview in-place
-  const preview=document.getElementById(`mgr-avatar-preview-${managerId}`);
-  if(preview) preview.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block"/>`;
-  // Refresh my profile chip if this is me
-  if(myProfile?.id===managerId){ myProfile.avatar_url=url; updateUserChip(); }
-  toast('Portrait saved ✓');
-  // Refresh full admin panel after short delay so CHANGE/REMOVE buttons update
-  setTimeout(renderAdminContent, 600);
-}
-
-async function adminRemovePortrait(managerId){
-  const {error}=await db.from('managers').update({avatar_url:null}).eq('id',managerId);
-  if(error){ toast('Failed to remove'); return; }
-  if(myProfile?.id===managerId){ myProfile.avatar_url=null; updateUserChip(); }
-  toast('Portrait removed');
-  renderAdminContent();
-}
 
 // ── SCHEDULE GENERATION ──────────────────────────────────────────────────────
 function generateSchedule(){
@@ -2563,12 +2546,13 @@ function updateUserChip(){
   if(!myProfile) return;
   const el=document.getElementById('chip-avatar');
   if(el){
-    if(myProfile.avatar_url){
-      el.style.background=myProfile.color||'#4a9eff';
-      el.style.padding='0';
-      el.innerHTML=`<img src="${myProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" onerror="this.style.display='none'"/>`;
+    el.style.background=myProfile.color||'#4a9eff';
+    if(myProfile.icon){
+      el.style.fontSize='18px';
+      el.style.color='inherit';
+      el.textContent=myProfile.icon;
     } else {
-      el.style.background=myProfile.color||'#4a9eff';
+      el.style.fontSize='';
       el.style.color='#000';
       el.textContent=initials(myProfile.display_name||'?');
     }

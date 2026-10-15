@@ -2267,9 +2267,17 @@ function renderProfileScreen(){
   if(!myProfile) return;
   const color=myProfile.color||'#4a9eff';
   const name=myProfile.display_name||'Player';
-  document.getElementById('profile-avatar').style.background=color;
-  document.getElementById('profile-avatar').style.color='#000';
-  document.getElementById('profile-avatar').textContent=initials(name);
+  const avatarEl=document.getElementById('profile-avatar');
+  avatarEl.style.background=color;
+  if(myProfile.icon){
+    avatarEl.style.fontSize='28px';
+    avatarEl.style.color='inherit';
+    avatarEl.textContent=myProfile.icon;
+  } else {
+    avatarEl.style.fontSize='';
+    avatarEl.style.color='#000';
+    avatarEl.textContent=initials(name);
+  }
   document.getElementById('profile-name-display').textContent=name;
   document.getElementById('profile-email-display').textContent=myProfile.email||'';
   // Commissioner row
@@ -2440,6 +2448,38 @@ async function saveAvatarChoice(){
   toast('Avatar saved!');
 }
 
+
+// ── TEAM NAME EDITING ────────────────────────────────────────────────────────
+function startEditTeamName(){
+  const row=document.getElementById('team-name-row');
+  const editRow=document.getElementById('team-name-edit-row');
+  const input=document.getElementById('team-name-input');
+  if(!editRow||!input) return;
+  input.value=myProfile?.team_name||'';
+  row.style.display='none';
+  editRow.style.display='flex';
+  input.focus();
+  input.select();
+}
+function cancelEditTeamName(){
+  document.getElementById('team-name-row').style.display='flex';
+  document.getElementById('team-name-edit-row').style.display='none';
+}
+async function saveTeamName(){
+  const input=document.getElementById('team-name-input');
+  const name=(input?.value||'').trim();
+  if(!name){ toast('Enter a team name'); return; }
+  const myId=getMyId();
+  if(!myId) return;
+  const {error}=await db.from('managers').update({team_name:name}).eq('id',myId);
+  if(error){ toast('Could not save'); return; }
+  if(myProfile) myProfile.team_name=name;
+  const m=(leagueState.managers||[]).find(m=>m.id===myId);
+  if(m) m.team_name=name;
+  cancelEditTeamName();
+  document.getElementById('team-name-value').textContent=name;
+  toast('Team name updated!');
+}
 
 // ── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function openAdminPanel(){

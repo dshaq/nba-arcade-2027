@@ -1257,9 +1257,15 @@ img{display:block;}
         <span class="label">⚙️ Commissioner Panel</span>
         <span class="arrow">›</span>
       </div>
-      <div class="settings-row">
+      <div class="settings-row" id="team-name-row" onclick="startEditTeamName()" style="cursor:pointer">
         <span class="label">Team Name</span>
         <span class="value" id="team-name-value">—</span>
+        <span style="font-family:var(--pixel);font-size:5px;color:var(--accent1);margin-left:6px">✎</span>
+      </div>
+      <div id="team-name-edit-row" style="display:none;padding:8px 14px;gap:8px;align-items:center;border-bottom:1px solid var(--border)">
+        <input id="team-name-input" maxlength="32" style="flex:1;background:var(--bg3);border:1px solid var(--accent1);border-radius:4px;padding:8px 10px;font-size:13px;color:var(--text1);outline:none;" onkeydown="if(event.key==='Enter')saveTeamName();if(event.key==='Escape')cancelEditTeamName()"/>
+        <button onclick="saveTeamName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--accent1);color:#000;border:none;border-radius:4px;padding:7px 10px;cursor:pointer">SAVE</button>
+        <button onclick="cancelEditTeamName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:7px 10px;cursor:pointer">✕</button>
       </div>
       <div class="settings-row" id="current-run-row">
         <span class="label">Current Fantasy Run</span>

@@ -845,10 +845,21 @@ async function loadManagerProfile(){
     const color=avatarColor(Math.floor(Math.random()*10));
     const {data:newRow}=await db.from('managers').insert({
       user_id:currentUser.id, email:currentUser.email,
-      display_name:name, color, is_commissioner:currentUser.email===COMMISSIONER_EMAIL
+      display_name:name, color, team_name:randomTeamName(),
+      is_commissioner:currentUser.email===COMMISSIONER_EMAIL
     }).select().single();
     myProfile=newRow||null;
   }
+}
+
+const DEFAULT_TEAM_NAMES=[
+  'Ankle Breakers','Rim Runners','Bucket Getters','Court Jesters',
+  'Alley-Oop Squad','Fast Break FC','Triple Threat','Buzzer Beaters',
+  'Paint Dominators','Dunk Dynasty','Full Court Press','Steal & Deal',
+  'The Bricklayers','Pick & Roll Posse','Swish Factory'
+];
+function randomTeamName(){
+  return DEFAULT_TEAM_NAMES[Math.floor(Math.random()*DEFAULT_TEAM_NAMES.length)];
 }
 
 function defaultLeagueState(){

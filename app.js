@@ -1833,6 +1833,105 @@ function showMatchupDetail(){
   document.body.appendChild(modal);
 }
 
+function showFantasyRulesModal(){
+  let modal=document.getElementById('fantasy-rules-modal');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='fantasy-rules-modal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
+
+  const section=(title,color,body)=>`
+    <div style="margin-bottom:18px">
+      <div style="font-family:var(--pixel);font-size:6.5px;color:${color};margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">${title}</div>
+      ${body}
+    </div>`;
+
+  const row=(label,value)=>`
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${label}</span>
+      <span style="font-family:var(--pixel);font-size:6px;color:var(--text1);text-align:right;max-width:55%">${value}</span>
+    </div>`;
+
+  const runsHtml=RUNS.map(r=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${r.color};flex-shrink:0"></div>
+      <div>
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--text1)">${r.name.toUpperCase()}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:2px">${r.start} → ${r.end}</div>
+      </div>
+    </div>`).join('');
+
+  const scoringRows=[
+    ['Points','+ 1.0 FP each'],
+    ['Rebounds','+ 1.0 FP each'],
+    ['Assists','+ 1.0 FP each'],
+    ['Steals','+ 1.0 FP each'],
+    ['Blocks','+ 1.0 FP each'],
+    ['Missed FG','− 1.0 FP each'],
+    ['Missed FT','− 1.0 FP each'],
+    ['Turnovers','− 1.0 FP each'],
+  ].map(([l,v])=>row(l,v)).join('');
+
+  modal.innerHTML=`
+    <div class="modal-box" style="max-width:440px;width:calc(100% - 32px);max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1)">📖 FANTASY RULES</div>
+        <button onclick="document.getElementById('fantasy-rules-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+      </div>
+
+      ${section('ROSTER','var(--accent2)',`
+        ${row('Total Roster Size','10 players')}
+        ${row('Active (scoring)','8 players')}
+        ${row('Inactive (bench)','2 players')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Set players active/inactive each week from the Roster tab. Your top-FP player cannot be dropped.
+        </div>
+      `)}
+
+      ${section('SCORING','var(--accent3)',`
+        ${scoringRows}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Only your 8 active players score each week. Stats are updated from live NBA box scores.
+        </div>
+      `)}
+
+      ${section('MATCHUPS','var(--accent1)',`
+        ${row('Schedule','Weekly · Mon – Sun')}
+        ${row('Scoring period','Each run has its own standings')}
+        ${row('Tiebreaker','Total FP for the run')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Head-to-head matchups reset every Monday. Win your matchup by scoring more FP than your opponent across all active players that week.
+        </div>
+      `)}
+
+      ${section('WAIVERS','var(--accent4)',`
+        ${row('Waiver claims per week','3 max')}
+        ${row('Claim window','Mon – Sun · resets Monday')}
+        ${row('Free agents','Claim anytime if roster < 10')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Drop a player to make room before claiming off waivers if your roster is full. Claims are first-come, first-served.
+        </div>
+      `)}
+
+      ${section('RUNS (SEASONS)','var(--text2)',runsHtml+`
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Each run has its own snake draft and standings. Your roster carries over but is re-drafted at the start of each run.
+        </div>
+      `)}
+
+      ${section('DRAFT','var(--accent2)',`
+        ${row('Format','Snake draft')}
+        ${row('Rounds','10 rounds = 10 players')}
+        ${row('Order','Randomized each run')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          The snake draft alternates direction each round. Round 1 goes 1→N, Round 2 goes N→1, and so on. Draft order is re-randomized at the start of every run.
+        </div>
+      `)}
+    </div>`;
+  document.body.appendChild(modal);
+}
+
 function findMyMatchup(mid, runId){
   const schedule=(leagueState.schedule||{})[runId]||[];
   const weekIdx=getCurrentWeekIndex(runId);

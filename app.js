@@ -1718,7 +1718,7 @@ function renderMatchupCard(){
   const oppName=opp?.display_name||'Opponent';
   const oppColor=opp?.color||'#4a9eff';
   el.innerHTML=`
-  <div class="matchup-card">
+  <div class="matchup-card" onclick="showMatchupDetail()" style="cursor:pointer">
     <div class="matchup-header">
       <span>${run.name.toUpperCase()} RUN · ${getWeekLabel()}</span>
       ${liveGamesActive?'<span class="live-badge">LIVE</span>':''}
@@ -1736,9 +1736,87 @@ function renderMatchupCard(){
     </div>
     <div class="matchup-footer">
       <span>${myLeading?'▲ LEADING':'▼ TRAILING'} BY ${Math.abs(myFP-oppFP).toFixed(1)} FP</span>
-      <span>ACTIVE 8 ONLY</span>
+      <span style="color:var(--accent1)">TAP FOR DETAILS ›</span>
     </div>
   </div>`;
+}
+
+function showMatchupDetail(){
+  const mid=getMyId();
+  if(!mid||!leagueState) return;
+  const run=getCurrentRun();
+  const weekMatchup=findMyMatchup(mid,run.id);
+  if(!weekMatchup) return;
+  const isHome=weekMatchup.home===mid;
+  const oppId=isHome?weekMatchup.away:weekMatchup.home;
+  const opp=leagueState.managers?.find(m=>m.id===oppId);
+  const myName=myProfile?.display_name||'Me';
+  const myColor=myProfile?.color||'#4a9eff';
+  const oppName=opp?.display_name||'Opponent';
+  const oppColor=opp?.color||'#4a9eff';
+
+  const buildRosterRows=(managerId)=>{
+    const active=(leagueState.active||{})[managerId]||autoActiveFor(managerId);
+    return active.map(pid=>{
+      const p=getPlayer(pid); if(!p) return '';
+      const fp=playerTotalFP(pid);
+      const live=(leagueState.playerStats||{})[`${pid}_${todayKey()}`];
+      const liveFP=live?`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`:'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-family:var(--pixel);font-size:6px;color:var(--text1)">${p.name.split(' ').pop()}</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${p.pos} · ${p.team}</div>
+        </div>
+        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3);text-align:right">${fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span>${liveFP}</div>
+      </div>`;
+    }).join('');
+  };
+
+  const myFP=managerFP(mid);
+  const oppFP=managerFP(oppId);
+  const myLeading=myFP>=oppFP;
+  const diff=Math.abs(myFP-oppFP).toFixed(1);
+
+  let modal=document.getElementById('matchup-detail-modal');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='matchup-detail-modal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
+  modal.innerHTML=`
+    <div class="modal-box" style="max-width:420px;width:calc(100% - 32px);max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">${run.name.toUpperCase()} · ${getWeekLabel()}</div>
+        <button onclick="document.getElementById('matchup-detail-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+      </div>
+      <!-- Score summary -->
+      <div style="display:flex;align-items:center;justify-content:space-around;padding:12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:14px">
+        <div style="text-align:center">
+          <div style="font-family:var(--pixel);font-size:16px;color:${myLeading?'var(--accent2)':'var(--text2)'}">${myFP.toFixed(1)}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${myName}</div>
+        </div>
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--text3)">VS</div>
+        <div style="text-align:center">
+          <div style="font-family:var(--pixel);font-size:16px;color:${!myLeading?'var(--accent2)':'var(--text2)'}">${oppFP.toFixed(1)}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-top:4px">${oppName}</div>
+        </div>
+      </div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:${myLeading?'var(--accent2)':'var(--accent4)'};text-align:center;margin-bottom:14px">
+        ${myLeading?'▲':'▼'} ${myLeading?myName:oppName} LEADS BY ${diff} FP
+      </div>
+      <!-- Two roster columns -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent1)">${myName.toUpperCase()}</div>
+          ${buildRosterRows(mid)||'<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ACTIVE PLAYERS</div>'}
+        </div>
+        <div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${oppColor}">${oppName.toUpperCase()}</div>
+          ${buildRosterRows(oppId)||'<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ACTIVE PLAYERS</div>'}
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 }
 
 function findMyMatchup(mid, runId){
@@ -2207,8 +2285,32 @@ function renderProfileScreen(){
     const fp=managerFP(myId);
     const recEl=document.getElementById('profile-record');
     const fpEl=document.getElementById('profile-total-fp');
+    const standEl=document.getElementById('profile-standing');
     if(recEl) recEl.textContent=record||'0-0';
     if(fpEl) fpEl.textContent=fp.toFixed(1)+' FP';
+    // Compute standings rank for current run
+    if(standEl){
+      const allMgrs=leagueState.managers||[];
+      const runSchedule=(leagueState.schedule||{})[currentRun]||[];
+      const mgrStats=allMgrs.map(m=>{
+        let w=0,l=0,t=0;
+        runSchedule.forEach(week=>week.forEach(mu=>{
+          if(mu.home===m.id||mu.away===m.id){
+            if(!mu.winner) return;
+            if(mu.winner===m.id) w++;
+            else if(mu.winner==='tie') t++;
+            else l++;
+          }
+        }));
+        return {id:m.id, wins:w, losses:l, ties:t, fp:managerFP(m.id)};
+      });
+      // Sort: wins desc, then FP desc
+      mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
+      const rank=mgrStats.findIndex(m=>m.id===myId)+1;
+      const total=allMgrs.length;
+      const ordinal=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
+      standEl.textContent=rank>0?`${ordinal(rank)} of ${total}`:'—';
+    }
   }
 
   // WLC stats

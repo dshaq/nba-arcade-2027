@@ -1551,7 +1551,10 @@ function renderDuelCard(){
   <div class="duel-card">
     <div class="duel-header">
       <span>⚡ DAILY DUEL</span>
-      <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="event.stopPropagation();showDuelRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:0">RULES ›</button>
+        <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+      </div>
     </div>
     <div class="duel-prompt">${duel.prompt}</div>
     ${statLine}
@@ -3680,6 +3683,123 @@ function showWlcRules(){
         <div>$2 TIER — Role players</div>
         <div>$1 TIER — Deep cuts</div>
       </div>
+    </div>`;
+  modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
+
+function showDuelRules(){
+  let modal=document.getElementById('duel-rules-modal');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='duel-rules-modal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
+
+  const row=(label,value)=>`
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${label}</span>
+      <span style="font-family:var(--pixel);font-size:6px;color:var(--text1);text-align:right;max-width:60%">${value}</span>
+    </div>`;
+
+  const statTypes=[
+    ['Points (PTS)','Who scores more?'],
+    ['Rebounds (REB)','Who grabs more boards?'],
+    ['Assists (AST)','Who dishes more dimes?'],
+    ['Fantasy Points (FP)','Who earns more total FP?'],
+    ['REB + AST','Who racks up more combined?'],
+    ['STL + BLK','Who locks down more?'],
+  ].map(([l,v])=>row(l,v)).join('');
+
+  modal.innerHTML=`
+    <div class="modal-box" style="max-width:420px;width:calc(100% - 32px);max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent5)">⚡ DAILY DUEL</div>
+        <button onclick="document.getElementById('duel-rules-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">HOW IT WORKS</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:2.2">
+          Each day, two NBA players go head-to-head in a single stat category. Pick the one you think will win. Get it right and extend your streak — get it wrong and it resets to zero. A tie counts as a win for everyone.
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">STAT CATEGORIES</div>
+        ${statTypes}
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">STREAK & SCORING</div>
+        ${row('Correct pick','Streak +1 🔥')}
+        ${row('Wrong pick','Streak resets to 0')}
+        ${row('Tie','Both streaks hold')}
+        ${row('No pick','Streak unchanged')}
+        ${row('Picks lock','Once the game tips off')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Streaks and total correct picks are tracked all season. Check the Leaderboard inside the Duel card to see how you stack up.
+        </div>
+      </div>
+    </div>`;
+  modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
+
+function showSiteOverview(){
+  let modal=document.getElementById('site-overview-modal');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='site-overview-modal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
+
+  const game=(icon,title,color,tagline,bullets,action,actionLabel)=>`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:20px">${icon}</span>
+        <div>
+          <div style="font-family:var(--pixel);font-size:7px;color:${color}">${title}</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${tagline}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+        ${bullets.map(b=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="color:${color};font-size:10px">·</span><span style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:1.8">${b}</span></div>`).join('')}
+      </div>
+      <button onclick="document.getElementById('site-overview-modal').remove();${action}" style="font-family:var(--pixel);font-size:5.5px;background:${color};color:#000;border:none;border-radius:4px;padding:7px 12px;cursor:pointer;width:100%">${actionLabel}</button>
+    </div>`;
+
+  modal.innerHTML=`
+    <div class="modal-box" style="max-width:440px;width:calc(100% - 32px);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1)">🕹️ HOW TO PLAY</div>
+        <button onclick="document.getElementById('site-overview-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+      </div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:16px;line-height:1.8">Three games. One league. All season long.</div>
+
+      ${game('🏀','NBA FANTASY','var(--accent2)','Season-long head-to-head fantasy',[
+        'Draft 10 players each seasonal run (Fall, Winter, Spring, Summer)',
+        'Set 8 active and 2 inactive each week',
+        'Score FP from real NBA box scores — points, rebounds, assists and more',
+        'Win your weekly matchup to climb the standings',
+        'Up to 3 waiver claims per week to improve your roster',
+      ],'showScreen(\'fantasy\')','GO TO FANTASY →')}
+
+      ${game('🎯','WEEKLY LINE-UP CHALLENGE','var(--accent3)','Pick 5 players under the $15 salary cap',[
+        'Every week: a themed pool of 25 players split into 5 salary tiers ($1–$5)',
+        'Build a 5-man team that fits under the $15 cap',
+        'Your squad earns FP all week from real game stats',
+        'One mid-week swap allowed — same tier, injury only',
+        'Most FP wins the week. Wins and total FP tracked all season',
+      ],'showScreen(\'wlc\')','GO TO WEEKLY CHALLENGE →')}
+
+      ${game('⚡','DAILY DUEL','var(--accent5)','One pick, every day',[
+        'Two NBA players face off in a single stat category each day',
+        'Pick who you think wins — points, rebounds, assists, FP and more',
+        'Get it right: streak grows 🔥. Get it wrong: streak resets',
+        'Ties count as a win for everyone',
+        'Streaks and correct picks tracked on the leaderboard',
+      ],'','GO TO TODAY\'S DUEL →')}
     </div>`;
   modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };
   document.body.appendChild(modal);

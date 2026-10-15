@@ -1159,6 +1159,12 @@ img{display:block;}
     <!-- Contextual news banner -->
     <div id="news-banner" style="display:none"></div>
 
+    <!-- Home header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 2px">
+      <div style="font-family:var(--pixel);font-size:7px;color:var(--accent1)">🕹️ NBA ARCADE</div>
+      <button onclick="showSiteOverview()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer">📖 HOW TO PLAY</button>
+    </div>
+
     <!-- Daily Duel -->
     <div id="duel-card-container"></div>
 
@@ -1239,7 +1245,10 @@ img{display:block;}
 
   <!-- WEEKLY LINE-UP CHALLENGE screen -->
   <div id="wlc-screen" class="screen">
-    <div class="page-header">WEEKLY LINE-UP CHALLENGE</div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px">
+      <span>WEEKLY CHALLENGE</span>
+      <button onclick="showWlcRules()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer;flex-shrink:0">📖 RULES</button>
+    </div>
     <div id="wlc-content"></div>
   </div>
 

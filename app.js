@@ -1175,26 +1175,11 @@ function showScreen(screen){
 
 // ── HOME SCREEN ──────────────────────────────────────────────────────────────
 function renderHomeScreen(){
-  renderMarquee();
   renderNewsBanner();
   renderDuelCard();
   renderMatchupCard();
   renderLineupPreview();
   renderQuickStats();
-}
-
-function renderMarquee(){
-  const run=getCurrentRun();
-  const badge=document.getElementById('marquee-run-badge');
-  const insert=document.getElementById('marquee-insert');
-  if(badge){
-    const label=run?.name?.toUpperCase()||'SEASON 2026-27';
-    badge.textContent=`◉ ${label}`;
-  }
-  if(insert){
-    const played=getMyDuelPick()!==null;
-    insert.classList.toggle('hidden',played);
-  }
 }
 
 // ── NEWS BANNER ───────────────────────────────────────────────────────────────
@@ -1414,7 +1399,6 @@ async function makeDuelPick(side){
   await saveLeagueState();
   toast(`LOCKED IN! Check back after games for the result. 🔥`);
   renderDuelCard();
-  renderMarquee();
 }
 
 // Commissioner: set the result and update streaks

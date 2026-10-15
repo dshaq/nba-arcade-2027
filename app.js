@@ -2360,7 +2360,7 @@ const AVATAR_ICONS=[
   '🐺','🦅','🐉','🦊','🏆','💪','🎮','🌟',
   '🦈','🐯','🦍','🚀','❄️','🌊','☄️','🎪',
 ];
-const AVATAR_COLORS=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d','#06b6d4','#84cc16'];
+const PICKER_COLORS=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d','#06b6d4','#84cc16'];
 
 function openAvatarEditor(){
   const myId=getMyId();
@@ -2392,7 +2392,7 @@ function openAvatarEditor(){
       <!-- Color row -->
       <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK A COLOR</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="color-row">
-        ${AVATAR_COLORS.map(c=>`<div onclick="avatarPickColor('${c}')" data-color="${c}" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===curColor?'#fff':'transparent'};transition:transform .1s,border-color .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
+        ${PICKER_COLORS.map(c=>`<div onclick="avatarPickColor('${c}')" data-color="${c}" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===curColor?'#fff':'transparent'};transition:transform .1s,border-color .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
       </div>
       <button class="btn btn-primary btn-full" onclick="saveAvatarChoice()">SAVE AVATAR</button>
     </div>`;

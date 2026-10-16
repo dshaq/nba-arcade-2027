@@ -6,6 +6,7 @@ const SUPABASE_URL  = 'https://ipsngddnavymcmfbbcxu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlwc25nZGRuYXZ5bWNtZmJiY3h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDk3NDMsImV4cCI6MjA5MTc4NTc0M30.0MmQn49Y0FCn3r8GFI5XspZR12YwGWTcTbv765VoJEQ';
 const LEAGUE_KEY    = 'nba-arcade-2027';
 const PORTRAITS_KEY = 'nba-portraits-2027';
+const PORTRAITS_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/player-portraits`;
 const INVITE_CODE   = 'HOOPTIME27';  // commissioner sets this
 const COMMISSIONER_EMAIL = 'daveschachter@gmail.com';
 
@@ -40,6 +41,7 @@ let livePolling    = null;
 let liveActive     = false;
 let currentScreen  = 'home';
 let currentRun     = 1;
+let scheduleWeekOffset = 0; // 0 = current week, -1 = prev week, +1 = next, etc.
 
 // ── PLAYER DATABASE ─────────────────────────────────────────────────────────
 // 2026-27 NBA rosters — all ~600 players from official PDF
@@ -392,7 +394,6 @@ const PLAYERS = [
   {id:1620,name:"Ryan Conwell",pos:"G",team:"MIA",ppg:3.0,rpg:1.0,apg:1.5,spg:0.3,bpg:0.1},
   {id:1621,name:"Tre Donaldson",pos:"G",team:"MIA",ppg:2.5,rpg:0.8,apg:1.2,spg:0.2,bpg:0.1},
   // Milwaukee Bucks
-  {id:1701,name:"Damian Lillard",pos:"PG",team:"MIL",ppg:26.5,rpg:4.5,apg:8.5,spg:1.0,bpg:0.3},
   {id:1702,name:"Tyler Herro",pos:"SG",team:"MIL",ppg:24.5,rpg:5.5,apg:5.5,spg:1.0,bpg:0.4},
   {id:1703,name:"Myles Turner",pos:"FC",team:"MIL",ppg:16.5,rpg:8.0,apg:2.0,spg:0.8,bpg:2.5},
   {id:1704,name:"Gary Trent Jr.",pos:"SG",team:"MIL",ppg:17.5,rpg:3.5,apg:2.5,spg:0.8,bpg:0.2},
@@ -568,7 +569,7 @@ const PLAYERS = [
   {id:2420,name:"C.J. Huntley",pos:"F",team:"PHX",ppg:3.5,rpg:2.5,apg:0.5,spg:0.3,bpg:0.3},
   {id:2421,name:"Phillip Wheeler",pos:"F",team:"PHX",ppg:3.0,rpg:2.0,apg:0.4,spg:0.2,bpg:0.2},
   // Portland Trail Blazers
-  {id:2501,name:"Damian Lillard",pos:"G",team:"POR",ppg:27.5,rpg:4.5,apg:8.0,spg:1.0,bpg:0.3},
+  {id:2501,name:"Damian Lillard",pos:"PG",team:"POR",ppg:26.5,rpg:4.5,apg:8.5,spg:1.0,bpg:0.3},
   {id:2502,name:"Scoot Henderson",pos:"G",team:"POR",ppg:22.5,rpg:5.5,apg:8.5,spg:1.5,bpg:0.5},
   {id:2503,name:"Donovan Clingan",pos:"C",team:"POR",ppg:14.5,rpg:11.5,apg:2.0,spg:0.7,bpg:3.0},
   {id:2504,name:"Shaedon Sharpe",pos:"F",team:"POR",ppg:21.5,rpg:5.5,apg:3.5,spg:1.0,bpg:0.5},
@@ -721,10 +722,10 @@ const ESPN_TO_ABBR = {
 function espnToAbbr(s){ return ESPN_TO_ABBR[s] || s; }
 
 // ── FP SCORING ───────────────────────────────────────────────────────────────
-// ESPN standard: pts + reb + ast + stl + blk - missed FG - missed FT - TO
+// ESPN standard: pts + reb + ast + stl + blk - missed FG - missed FT - TO - flagrant - technical
 function calcFP(stats){
-  const {pts=0,reb=0,ast=0,stl=0,blk=0,fgm=0,fga=0,ftm=0,fta=0,to=0} = stats;
-  return pts + reb + ast + stl + blk - (fga-fgm) - (fta-ftm) - to;
+  const {pts=0,reb=0,ast=0,stl=0,blk=0,fgm=0,fga=0,ftm=0,fta=0,to=0,flagrant=0,technical=0} = stats;
+  return pts + reb + ast + stl + blk - (fga-fgm) - (fta-ftm) - to - flagrant - technical;
 }
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -814,29 +815,18 @@ async function saveLeagueState(){
 }
 
 async function loadPortraits(){
-  // Try localStorage first
-  try{
-    const cached=localStorage.getItem('portraits-2027');
-    if(cached) playerPortraits=JSON.parse(cached);
-  }catch(e){}
-  // Background refresh from Supabase
-  const {data}=await db.from('leagues').select('state').eq('id',PORTRAITS_KEY).maybeSingle();
-  if(data?.state){
-    try{
-      const p=JSON.parse(data.state);
-      if(p && typeof p==='object' && Object.keys(p).length>0){
-        playerPortraits=p;
-        localStorage.setItem('portraits-2027',JSON.stringify(p));
-      }
-    }catch(e){}
+  // Build portrait URLs from Supabase Storage for any player whose team folder exists
+  // URL pattern: /player-portraits/{TEAM}/{Player Name}.jpeg (or .jpg)
+  // We build a lookup eagerly from the PLAYERS array — no round-trip needed for the URL itself.
+  // Images that don't exist in Storage will 404 silently (img onerror falls back to initials).
+  playerPortraits = {};
+  for(const p of PLAYERS){
+    // Try .jpeg first (most uploads), fallback handled by onerror in the img tag
+    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${p.team}/${encodeURIComponent(p.name)}.jpeg`;
   }
 }
 
-async function savePortraits(){
-  await db.from('leagues').upsert({id:PORTRAITS_KEY, state:JSON.stringify(playerPortraits)});
-  localStorage.setItem('portraits-2027',JSON.stringify(playerPortraits));
-  toast('Portraits saved');
-}
+// savePortraits() removed — portraits now served directly from Supabase Storage URLs
 
 async function loadManagerProfile(){
   if(!currentUser) return;
@@ -963,7 +953,10 @@ async function fetchBoxScore(eventId){
         const stl=parseInt(s[8])||0;
         const blk=parseInt(s[9])||0;
         const [tpm,tpa]=parseSplit(s[3]);
-        const fp=calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to});
+        // ESPN doesn't expose flagrant/technical per-player in box score stats array;
+        // these default to 0 and can be manually set via admin panel if needed
+        const flagrant=0, technical=0;
+        const fp=calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
         const nameLow=name.toLowerCase();
         const matched=
           PLAYERS.find(p=>p.team===teamAbbr && p.name.toLowerCase()===nameLow) ||
@@ -980,7 +973,7 @@ async function fetchBoxScore(eventId){
             const sameTeamLast=PLAYERS.filter(x=>x.team===teamAbbr&&x.name.split(' ').pop().toLowerCase()===pL);
             return pL===eL && sameTeamLast.length===1;
           });
-        if(matched) stats[matched.id]={fp,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,tpm,tpa,name:matched.name};
+        if(matched) stats[matched.id]={fp,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical,tpm,tpa,name:matched.name};
       }
     }
   }
@@ -1136,7 +1129,7 @@ async function toggleActiveStatus(mid, pid){
     leagueState.inactive[mid]=(leagueState.inactive[mid]||[]).filter(id=>id!==pid);
   }
   await saveLeagueState();
-  renderRosterScreen();
+  renderRostersScreen();
   renderHomeScreen();
   toast(isActive ? 'Moved to Inactive' : 'Moved to Active');
 }
@@ -1497,8 +1490,8 @@ function renderDuelCard(){
 
   const portHtml=(p)=>{
     const port=playerPortraits[p.name];
-    if(port) return `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top;image-rendering:pixelated"/>`;
-    return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:9px;color:var(--text3)">${initials(p.name)}</div>`;
+    const fallback=`this.style.display='none';this.nextSibling.style.display='flex'`;
+    return `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="${fallback}"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-family:var(--pixel);font-size:9px;color:var(--text3)">${initials(p.name)}</div>`;
   };
 
   // Result state colors
@@ -1971,9 +1964,7 @@ function renderLineupPreview(){
     const fp=playerTotalFP(pid);
     const isLive=livePlayerStats[pid]?.live;
     const port=playerPortraits[p.name];
-    const portEl=port
-      ? `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top;image-rendering:pixelated"/>`
-      : `<div class="initials" style="color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     return `
     <div class="player-row">
       <div class="player-portrait">${portEl}</div>
@@ -2043,10 +2034,20 @@ function switchFantasyTab(tab){
     p.classList.toggle('active', p.id === 'fantasy-pane-'+tab);
   });
   if(tab==='standings') renderFantasyRunContent();
-  else if(tab==='schedule') renderFantasySchedule();
-  else if(tab==='roster') renderRosterScreen();
-  else if(tab==='waivers') renderRosterScreen();
+  else if(tab==='schedule'){ scheduleWeekOffset=0; renderFantasySchedule(); }
+  else if(tab==='roster') renderRostersScreen();
+  else if(tab==='waivers'){ resetWaiverFilters(); renderWaiversPane(); }
   else if(tab==='draft') renderFantasyDraftPane();
+}
+
+function scheduleNavWeek(delta){
+  const schedule=(leagueState.schedule||{})[currentRun]||[];
+  const curIdx=getCurrentWeekIndex(currentRun);
+  const newOffset=scheduleWeekOffset+delta;
+  const newIdx=curIdx+newOffset;
+  if(newIdx<0 || newIdx>=schedule.length) return;
+  scheduleWeekOffset=newOffset;
+  renderFantasySchedule();
 }
 
 function switchRun(runId){
@@ -2062,96 +2063,196 @@ function renderFantasyScreen(){
   switchFantasyTab(currentFantasyTab);
 }
 
+let draftFilter = { availability:'available', team:'all', sort:'fp' };
+
 function renderFantasyDraftPane(){
   const el=document.getElementById('fantasy-draft-content');
   if(!el) return;
   const run=RUNS.find(r=>r.id===currentRun);
   const now=new Date();
-  const start=new Date(run.start);
-  if(now < start){
-    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📋</div><div class="label">DRAFT OPENS ${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`;
-  } else {
-    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">✅</div><div class="label">DRAFT COMPLETE<br/>CHECK MY ROSTER</div></div>`;
+  const dw=DRAFT_WINDOWS.find(d=>d.run===currentRun);
+  const draftStart=dw?new Date(dw.start):new Date(run.start);
+  const draftEnd=dw?new Date(dw.end):null;
+  const isDraftLive=dw && now>=draftStart && now<=draftEnd;
+  const isDraftPast=draftEnd && now>draftEnd;
+
+  if(!isDraftLive && !isDraftPast){
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📋</div><div class="label">DRAFT OPENS ${draftStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`;
+    return;
   }
+
+  const mid=getMyId();
+  const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
+  const query=(document.getElementById('draft-search')?.value||'').toLowerCase();
+
+  let players=PLAYERS.filter(p=>{
+    if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
+    if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
+    if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if(draftFilter.sort==='fp'){
+    players=[...players].sort((a,b)=>{
+      const bFP=playerTotalFP(b.id)||((b.ppg+b.rpg+b.apg+b.spg+b.bpg));
+      const aFP=playerTotalFP(a.id)||((a.ppg+a.rpg+a.apg+a.spg+a.bpg));
+      return bFP-aFP;
+    });
+  } else {
+    players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  const canDraft=mid && getMyRoster().length<ROSTER_SIZE;
+  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+  const teamOptions=NBA_TEAMS.map(t=>filterBtn(t,draftFilter.team===t,`draftFilter.team='${t}';renderFantasyDraftPane()`)).join('');
+
+  el.innerHTML=`
+    <div style="padding:10px 14px 0">
+      ${isDraftLive?`<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px">🔴 DRAFT IS LIVE</div>`:''}
+
+      <!-- Availability filter -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">AVAILABILITY</span>
+        ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderFantasyDraftPane()")}
+        ${filterBtn('All Players',draftFilter.availability==='all',"draftFilter.availability='all';renderFantasyDraftPane()")}
+      </div>
+
+      <!-- Sort -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SORT</span>
+        ${filterBtn('⬆ FP',draftFilter.sort==='fp',"draftFilter.sort='fp';renderFantasyDraftPane()")}
+        ${filterBtn('A–Z',draftFilter.sort==='alpha',"draftFilter.sort='alpha';renderFantasyDraftPane()")}
+      </div>
+
+      <!-- NBA Team -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NBA TEAM</span>
+          ${filterBtn('All Teams',draftFilter.team==='all',"draftFilter.team='all';renderFantasyDraftPane()")}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${teamOptions}</div>
+      </div>
+
+      <input type="text" id="draft-search" placeholder="Search players..." style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px;color:var(--text1);outline:none;margin-bottom:8px" oninput="renderFantasyDraftPane()"/>
+    </div>
+
+    ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+      ${players.slice(0,60).map(p=>{
+        const fp=playerTotalFP(p.id);
+        const rostered=allRostered.has(p.id);
+        const port=playerPortraits[p.name];
+        const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+        return `
+        <div class="player-row" style="padding:8px 14px">
+          <div class="player-portrait">${portEl}</div>
+          <div class="player-info">
+            <div class="player-name">${p.name}</div>
+            <div class="player-meta">${p.pos} · ${p.team}</div>
+            <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
+            ${rostered?`<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">DRAFTED</span>`:canDraft&&isDraftLive?`<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick('${mid}',${p.id})">DRAFT</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+      ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
+    </div>`}`;
+}
+
+async function confirmDraftPick(mid, pid){
+  const p=getPlayer(pid); if(!p) return;
+  const roster=getMyRoster();
+  if(roster.length>=ROSTER_SIZE){ toast('Roster full!'); return; }
+  const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
+  if(allRostered.has(pid)){ toast('Player already drafted'); return; }
+  if(!leagueState.rosters) leagueState.rosters={};
+  if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
+  leagueState.rosters[mid].push(pid);
+  await saveLeagueState();
+  toast(`${p.name} DRAFTED! ✓`);
+  renderFantasyDraftPane();
 }
 
 function renderFantasySchedule(){
   const el=document.getElementById('fantasy-schedule-content');
   if(!el) return;
+  const labelEl=document.getElementById('schedule-week-label');
+  const prevBtn=document.getElementById('schedule-prev-btn');
+  const nextBtn=document.getElementById('schedule-next-btn');
   const managers=leagueState.managers||[];
   if(!managers.length){
     el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">SCHEDULE GENERATES<br/>AFTER DRAFT</div></div>`;
+    if(labelEl) labelEl.textContent='';
     return;
   }
   const schedule=(leagueState.schedule||{})[currentRun]||[];
   if(!schedule.length){
     el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">NO SCHEDULE YET</div></div>`;
+    if(labelEl) labelEl.textContent='';
     return;
   }
   const run=RUNS.find(r=>r.id===currentRun);
   const myId=getMyId();
   const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
-  const weekIdx=getCurrentWeekIndex(currentRun);
+  const curWeekIdx=getCurrentWeekIndex(currentRun);
+  const displayIdx=(curWeekIdx<0?0:curWeekIdx)+scheduleWeekOffset;
+  const clampedIdx=Math.max(0,Math.min(displayIdx,schedule.length-1));
+  if(clampedIdx!==displayIdx) scheduleWeekOffset=clampedIdx-(curWeekIdx<0?0:curWeekIdx);
 
   // Build week date ranges from run start (Mon–Sun)
   const runStart=new Date(run.start);
-  // Snap to Monday
-  const dow=runStart.getDay(); // 0=Sun
-  const daysToMon=dow===0?1:(8-dow)%7||7;
   const firstMon=new Date(runStart);
+  const dow=runStart.getDay();
   if(dow!==1) firstMon.setDate(runStart.getDate()+((1-dow+7)%7));
 
   const fmtDate=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-  let html='<div style="height:8px"></div>';
-  schedule.forEach((week,wi)=>{
-    const monDate=new Date(firstMon); monDate.setDate(firstMon.getDate()+wi*7);
-    const sunDate=new Date(monDate); sunDate.setDate(monDate.getDate()+6);
-    const isCurrent=wi===weekIdx;
-    const isPast=wi<weekIdx;
-    const status=isCurrent?'current':isPast?'past':'future';
-    const label=isCurrent?'▶ CURRENT WEEK':'';
-    html+=`<div class="schedule-week">
-      <div class="schedule-week-header ${status}">
-        <span>WEEK ${wi+1} · ${fmtDate(monDate)}–${fmtDate(sunDate)}</span>
-        <span>${label}</span>
-      </div>`;
-    week.forEach(matchup=>{
-      const h=getM(matchup.home), a=getM(matchup.away);
-      const isMine=matchup.home===myId||matchup.away===myId;
-      let hFPStr='—', aFPStr='—', hWin=false, aWin=false;
-      if(isPast||isCurrent){
-        const hFP=managerFP(matchup.home), aFP=managerFP(matchup.away);
-        hFPStr=hFP.toFixed(1); aFPStr=aFP.toFixed(1);
-        if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
-        else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
-      }
-      html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
-        <div class="schedule-team-cell">
-          ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null)}
-          <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
-          <span class="schedule-vs">VS</span>
-          <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
-        </div>
-        <div class="schedule-team-cell right">
-          <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
-          ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null)}
-        </div>
-      </div>`;
-    });
-    html+='</div>';
-  });
-  el.innerHTML=html;
-  // Scroll current week into view
-  if(weekIdx>=0){
-    setTimeout(()=>{
-      const headers=el.querySelectorAll('.schedule-week-header.current');
-      if(headers[0]) headers[0].scrollIntoView({behavior:'smooth',block:'nearest'});
-    },100);
+  const wi=clampedIdx;
+  const monDate=new Date(firstMon); monDate.setDate(firstMon.getDate()+wi*7);
+  const sunDate=new Date(monDate); sunDate.setDate(monDate.getDate()+6);
+  const isCurrent=wi===curWeekIdx;
+  const isPast=wi<curWeekIdx;
+  const week=schedule[wi]||[];
+
+  // Update nav label
+  if(labelEl){
+    const weekLabel=isCurrent?'▶ THIS WEEK':isPast?'WEEK '+(wi+1)+' · FINAL':'WEEK '+(wi+1)+' · UPCOMING';
+    labelEl.innerHTML=`<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${weekLabel}</div><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1);margin-top:2px">${fmtDate(monDate)} – ${fmtDate(sunDate)}</div>`;
   }
+  if(prevBtn) prevBtn.style.opacity=wi>0?'1':'0.3';
+  if(nextBtn) nextBtn.style.opacity=wi<schedule.length-1?'1':'0.3';
+
+  let html='<div style="height:8px"></div><div class="schedule-week">';
+  week.forEach(matchup=>{
+    const h=getM(matchup.home), a=getM(matchup.away);
+    const isMine=matchup.home===myId||matchup.away===myId;
+    let hFPStr='—', aFPStr='—', hWin=false, aWin=false;
+    if(isPast||isCurrent){
+      const hFP=managerFP(matchup.home), aFP=managerFP(matchup.away);
+      hFPStr=hFP.toFixed(1); aFPStr=aFP.toFixed(1);
+      if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
+      else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
+    }
+    html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
+      <div class="schedule-team-cell">
+        ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null)}
+        <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
+        <span class="schedule-vs">VS</span>
+        <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
+      </div>
+      <div class="schedule-team-cell right">
+        <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
+        ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null)}
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
 }
 
 function renderFantasyRunContent(){
@@ -2246,13 +2347,82 @@ function renderWeekMatchups(runId){
 }
 
 // ── ROSTER SCREEN ────────────────────────────────────────────────────────────
+let rostersViewId = null; // which manager's roster to show
+
+function renderRostersScreen(){
+  const managers=leagueState.managers||[];
+  const myId=getMyId();
+  // Default to my own roster
+  if(!rostersViewId || !managers.find(m=>m.id===rostersViewId)){
+    rostersViewId=myId||managers[0]?.id||null;
+  }
+  const tabsEl=document.getElementById('rosters-manager-tabs');
+  const contentEl=document.getElementById('rosters-content');
+  if(!tabsEl||!contentEl) return;
+
+  // Manager tab pills
+  if(!managers.length){
+    tabsEl.innerHTML='';
+    contentEl.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📋</div><div class="label">DRAFT HASN'T HAPPENED YET</div></div>`;
+    return;
+  }
+  tabsEl.innerHTML=managers.map(m=>{
+    const isActive=m.id===rostersViewId;
+    const isMe=m.id===myId;
+    return `<button onclick="rostersViewId='${m.id}';renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
+  }).join('');
+
+  const viewManager=managers.find(m=>m.id===rostersViewId);
+  if(!viewManager){ contentEl.innerHTML=''; return; }
+  const isMyRoster=rostersViewId===myId;
+  const roster=(leagueState.rosters||{})[rostersViewId]||[];
+  const active=isMyRoster?(getMyActive().length?getMyActive():autoActiveFor(rostersViewId))
+    :((leagueState.active||{})[rostersViewId]||autoActiveFor(rostersViewId));
+  const topFP=roster.length?Math.max(...roster.map(id=>playerTotalFP(id))):0;
+
+  if(!roster.length){
+    contentEl.innerHTML=`<div class="empty-state" style="padding:32px 24px"><div class="icon">📋</div><div class="label">NO PLAYERS YET</div></div>`;
+    return;
+  }
+
+  const rowHtml=(pid)=>{
+    const p=getPlayer(pid); if(!p) return '';
+    const fp=playerTotalFP(pid);
+    const isActive=active.includes(pid);
+    const isLocked=fp>=topFP && roster.length>1;
+    const port=playerPortraits[p.name];
+    const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${viewManager?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    return `
+    <div class="player-row" style="padding:8px 14px">
+      <div class="player-portrait">${portEl}</div>
+      <div class="player-info">
+        <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}</div>
+        <div class="player-meta">${p.pos} · ${p.team}</div>
+        <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● INACTIVE</span>'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
+        ${isMyRoster?`<div style="display:flex;gap:4px">
+          <button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="toggleActiveStatus('${rostersViewId}',${pid})">
+            ${isActive?'BENCH':'START'}
+          </button>
+          ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">DROP</button>`:''}
+        </div>`:''}
+      </div>
+    </div>`;
+  };
+
+  contentEl.innerHTML=`
+    <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3)">
+      ${viewManager.display_name.toUpperCase()} · ${roster.length} PLAYERS · ${active.length} ACTIVE
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+      ${roster.map(rowHtml).join('')}
+    </div>`;
+}
+
 function renderRosterScreen(){
-  renderMyRosterList();
-  renderAvailablePlayers();
-  const mid=getMyId();
-  const used=mid?waiverUsedThisWeek(mid):0;
-  const el=document.getElementById('waiver-remaining');
-  if(el) el.textContent=`${WAIVER_WEEKLY-used} / ${WAIVER_WEEKLY}`;
+  renderRostersScreen();
 }
 
 function renderMyRosterList(){
@@ -2274,9 +2444,7 @@ function renderMyRosterList(){
     const isActive=active.includes(pid);
     const isLocked=fp>=topFP && roster.length>1;
     const port=playerPortraits[p.name];
-    const portEl=port
-      ? `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top;image-rendering:pixelated"/>`
-      : `<div class="initials" style="color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     return `
     <div class="player-row" style="padding:8px 14px">
       <div class="player-portrait">${portEl}</div>
@@ -2321,9 +2489,7 @@ function renderAvailablePlayers(){
     ${sorted.slice(0,50).map(p=>{
       const fp=playerTotalFP(p.id);
       const port=playerPortraits[p.name];
-      const portEl=port
-        ? `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top;image-rendering:pixelated"/>`
-        : `<div class="initials" style="color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+      const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
       return `
       <div class="player-row" style="padding:8px 14px">
         <div class="player-portrait">${portEl}</div>
@@ -2342,6 +2508,105 @@ function renderAvailablePlayers(){
   </div>`;
 }
 
+// ── WAIVERS PANE ─────────────────────────────────────────────────────────────
+const NBA_TEAMS = ['ATL','BKN','BOS','CHA','CHI','CLE','DAL','DEN','DET','GSW','HOU','IND','LAC','LAL','MEM','MIA','MIL','MIN','NOP','NYK','OKC','ORL','PHI','PHX','POR','SAC','SAS','TOR','UTA','WAS'];
+let waiverFilter = { availability:'available', team:'all', sort:'fp' };
+
+function resetWaiverFilters(){
+  waiverFilter = { availability:'available', team:'all', sort:'fp' };
+}
+
+function renderWaiversPane(){
+  const el=document.getElementById('waivers-content');
+  if(!el) return;
+  const mid=getMyId();
+  const used=mid?waiverUsedThisWeek(mid):0;
+  const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
+  const query=(document.getElementById('waiver-search')?.value||'').toLowerCase();
+
+  let players=PLAYERS.filter(p=>{
+    if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
+    if(waiverFilter.team!=='all' && p.team!==waiverFilter.team) return false;
+    if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if(waiverFilter.sort==='fp'){
+    players=[...players].sort((a,b)=>{
+      const bFP=playerTotalFP(b.id)||((b.ppg+b.rpg+b.apg+b.spg+b.bpg));
+      const aFP=playerTotalFP(a.id)||((a.ppg+a.rpg+a.apg+a.spg+a.bpg));
+      return bFP-aFP;
+    });
+  } else {
+    players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  const canAdd=mid && canWaiver(mid) && getMyRoster().length<ROSTER_SIZE;
+
+  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+
+  const teamOptions=NBA_TEAMS.map(t=>filterBtn(t,waiverFilter.team===t,`waiverFilter.team='${t}';renderWaiversPane()`)).join('');
+
+  el.innerHTML=`
+    <div style="padding:10px 14px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WAIVER WIRE · ADD/DROPS LEFT: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
+      </div>
+
+      <!-- Filter row 1: Availability -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">AVAILABILITY</span>
+        ${filterBtn('Available',waiverFilter.availability==='available',"waiverFilter.availability='available';renderWaiversPane()")}
+        ${filterBtn('All Players',waiverFilter.availability==='all',"waiverFilter.availability='all';renderWaiversPane()")}
+      </div>
+
+      <!-- Filter row 2: Sort -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SORT</span>
+        ${filterBtn('⬆ FP',waiverFilter.sort==='fp',"waiverFilter.sort='fp';renderWaiversPane()")}
+        ${filterBtn('A–Z',waiverFilter.sort==='alpha',"waiverFilter.sort='alpha';renderWaiversPane()")}
+      </div>
+
+      <!-- Filter row 3: NBA Team -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NBA TEAM</span>
+          ${filterBtn('All Teams',waiverFilter.team==='all',"waiverFilter.team='all';renderWaiversPane()")}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${teamOptions}
+        </div>
+      </div>
+
+      <!-- Search -->
+      <input type="text" id="waiver-search" placeholder="Search players..." style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px;color:var(--text1);outline:none;margin-bottom:8px" oninput="renderWaiversPane()"/>
+    </div>
+
+    ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+      ${players.slice(0,60).map(p=>{
+        const fp=playerTotalFP(p.id);
+        const rostered=allRostered.has(p.id);
+        const port=playerPortraits[p.name];
+        const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+        return `
+        <div class="player-row" style="padding:8px 14px">
+          <div class="player-portrait">${portEl}</div>
+          <div class="player-info">
+            <div class="player-name">${p.name}</div>
+            <div class="player-meta">${p.pos} · ${p.team}</div>
+            <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
+            ${rostered?`<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">ROSTERED</span>`:canAdd?`<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmAdd('${mid}',${p.id})">ADD</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+      ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
+    </div>`}`;
+}
+
 async function confirmAdd(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const roster=getMyRoster();
@@ -2352,7 +2617,7 @@ async function confirmAdd(mid, pid){
   const ok=await addPlayer(mid,pid);
   if(ok){
     toast(`${p.name} added!`);
-    renderRosterScreen();
+    renderWaiversPane();
   }
 }
 
@@ -2362,7 +2627,7 @@ async function confirmDrop(mid, pid){
   const ok=await dropPlayer(mid,pid);
   if(ok){
     toast(`${p.name} dropped`);
-    renderRosterScreen();
+    renderRostersScreen();
   }
 }
 
@@ -2856,7 +3121,6 @@ function renderTicker(events){
   const el = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;
-  if(!events.length){ el.style.display='none'; return; }
 
   const fmtTime = dateStr => {
     const d = new Date(dateStr);
@@ -2864,6 +3128,52 @@ function renderTicker(events){
   };
 
   let html = '';
+
+  // ── Draft pick ticker (show starting 1 day before draft) ──────────────────
+  const now = new Date();
+  DRAFT_WINDOWS.forEach(dw => {
+    const s = new Date(dw.start), e = new Date(dw.end);
+    const oneDayBefore = new Date(s); oneDayBefore.setDate(s.getDate() - 1);
+    const isActive = now >= s && now <= e;
+    const isPreview = !isActive && now >= oneDayBefore && now < s;
+
+    if(isPreview){
+      const fmtDT = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' · ' +
+        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+      html += `<div class="ticker-game">
+        <span class="upcoming" style="background:var(--accent2)">DRAFT</span>
+        <span>${dw.label} starts ${fmtDT(s)}</span>
+      </div>`;
+    }
+
+    if(isActive){
+      const onClock = getDraftOnClock(dw.run);
+      // Get next on clock
+      let nextUp = null;
+      if(leagueState && leagueState.drafts) {
+        const draft = leagueState.drafts[dw.run];
+        if(draft && draft.status === 'active'){
+          const managers = leagueState.managers || [];
+          if(managers.length){
+            const pick = (draft.currentPick || 0) + 1;
+            const round = Math.floor(pick / managers.length);
+            const posInRound = pick % managers.length;
+            const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
+            nextUp = managers[idx]?.display_name || null;
+          }
+        }
+      }
+      html += `<div class="ticker-game">
+        <span class="live-dot"></span>
+        <span style="font-weight:700">${dw.label}</span>
+        ${onClock ? `<span>🎯 ON CLOCK: <strong>${onClock}</strong></span>` : ''}
+        ${nextUp ? `<span style="color:var(--text3)">↳ NEXT: ${nextUp}</span>` : ''}
+      </div>`;
+    }
+  });
+
+  if(!events.length && !html){ el.style.display='none'; return; }
+
   events.forEach(ev => {
     const comp = ev.competitions?.[0];
     if(!comp) return;
@@ -2973,20 +3283,22 @@ const WLC_TEAM_SIZE  = 5;
 const WLC_TIER_SIZE  = 5; // players per tier
 const WLC_POOL_SIZE  = 25;
 
-// Get or create current week key (Sun–Sat, starts Sunday)
+// Get or create current week key (Mon–Sun, starts Monday)
 function wlcWeekKey(date){
   const d = date ? new Date(date) : new Date();
-  const day = d.getDay(); // 0=Sun
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - day);
-  return sunday.toISOString().split('T')[0];
+  const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
+  // Days since Monday: Sun=6, Mon=0, Tue=1...Sat=5
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - daysSinceMonday);
+  return monday.toISOString().split('T')[0];
 }
 
 function wlcWeekLabel(weekKey){
-  const sun = new Date(weekKey);
-  const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+  const mon = new Date(weekKey);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  return `${fmt(sun)} – ${fmt(sat)}`;
+  return `${fmt(mon)} – ${fmt(sun)}`;
 }
 
 function getCurrentWlcWeek(){
@@ -3584,10 +3896,10 @@ async function commGenerateWlcWeek(){
 async function commApproveWlcWeek(weekKey){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   leagueState.wlc.weeks[weekKey].status = 'active';
-  // Default tip-off to next Sunday at 1pm ET
-  const sun = new Date(weekKey);
-  sun.setHours(18, 0, 0, 0); // 1pm ET = 18:00 UTC
-  leagueState.wlc.weeks[weekKey].tipoffTime = sun.toISOString();
+  // Default tip-off to Monday of the week at 1pm ET (week starts Monday)
+  const mon = new Date(weekKey);
+  mon.setHours(18, 0, 0, 0); // 1pm ET = 18:00 UTC
+  leagueState.wlc.weeks[weekKey].tipoffTime = mon.toISOString();
   await saveLeagueState();
   toast('Week is LIVE! Users can now submit lineups.');
   renderWlcScreen();

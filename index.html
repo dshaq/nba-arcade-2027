@@ -1199,7 +1199,7 @@ img{display:block;}
     <div class="fantasy-sub-tabs" id="fantasy-sub-tabs">
       <div class="fantasy-sub-tab active" data-tab="standings" onclick="switchFantasyTab('standings')">STANDINGS</div>
       <div class="fantasy-sub-tab" data-tab="schedule" onclick="switchFantasyTab('schedule')">SCHEDULE</div>
-      <div class="fantasy-sub-tab" data-tab="roster" onclick="switchFantasyTab('roster')">MY ROSTER</div>
+      <div class="fantasy-sub-tab" data-tab="roster" onclick="switchFantasyTab('roster')">ROSTERS</div>
       <div class="fantasy-sub-tab" data-tab="waivers" onclick="switchFantasyTab('waivers')">WAIVERS</div>
       <div class="fantasy-sub-tab" data-tab="draft" onclick="switchFantasyTab('draft')">DRAFT</div>
     </div>
@@ -1211,27 +1211,23 @@ img{display:block;}
 
     <!-- SCHEDULE pane -->
     <div class="fantasy-sub-pane" id="fantasy-pane-schedule">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px">
+        <button id="schedule-prev-btn" onclick="scheduleNavWeek(-1)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text1);padding:6px 12px;cursor:pointer;font-family:var(--pixel);font-size:8px">◀</button>
+        <div id="schedule-week-label" style="font-family:var(--pixel);font-size:6px;color:var(--text2);text-align:center;flex:1;padding:0 8px"></div>
+        <button id="schedule-next-btn" onclick="scheduleNavWeek(1)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text1);padding:6px 12px;cursor:pointer;font-family:var(--pixel);font-size:8px">▶</button>
+      </div>
       <div id="fantasy-schedule-content"></div>
     </div>
 
-    <!-- MY ROSTER pane -->
+    <!-- ROSTERS pane -->
     <div class="fantasy-sub-pane" id="fantasy-pane-roster">
-      <div class="section-label" style="margin-top:4px">MY ROSTER</div>
-      <div id="roster-list-container"></div>
+      <div id="rosters-manager-tabs" style="display:flex;overflow-x:auto;gap:6px;padding:10px 14px 0;scrollbar-width:none"></div>
+      <div id="rosters-content"></div>
     </div>
 
     <!-- WAIVERS pane -->
     <div class="fantasy-sub-pane" id="fantasy-pane-waivers">
-      <div class="section-label" style="margin-top:4px">WAIVERS</div>
-      <div class="waiver-counter">
-        <div class="label">ADD/DROPS THIS WEEK</div>
-        <div class="count" id="waiver-remaining">— / 3</div>
-      </div>
-      <div class="section-label" style="margin-top:4px">AVAILABLE PLAYERS</div>
-      <div style="padding:0 14px 8px;display:flex;gap:8px;">
-        <input type="text" id="player-search" placeholder="Search players..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:14px;color:var(--text1);outline:none;" oninput="renderAvailablePlayers()"/>
-      </div>
-      <div id="available-players-container"></div>
+      <div id="waivers-content"></div>
     </div>
 
     <!-- DRAFT pane -->

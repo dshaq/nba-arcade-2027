@@ -2104,7 +2104,7 @@ function renderFantasyDraftPane(){
 
   const canDraft=mid && getMyRoster().length<ROSTER_SIZE;
   const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
-  const teamOptions=NBA_TEAMS.map(t=>filterBtn(t,draftFilter.team===t,`draftFilter.team='${t}';renderFantasyDraftPane()`)).join('');
+  const teamOptions=NBA_TEAMS_LIST.map(t=>filterBtn(t,draftFilter.team===t,`draftFilter.team='${t}';renderFantasyDraftPane()`)).join('');
 
   el.innerHTML=`
     <div style="padding:10px 14px 0">
@@ -2509,7 +2509,8 @@ function renderAvailablePlayers(){
 }
 
 // ── WAIVERS PANE ─────────────────────────────────────────────────────────────
-const NBA_TEAMS = ['ATL','BKN','BOS','CHA','CHI','CLE','DAL','DEN','DET','GSW','HOU','IND','LAC','LAL','MEM','MIA','MIL','MIN','NOP','NYK','OKC','ORL','PHI','PHX','POR','SAC','SAS','TOR','UTA','WAS'];
+// NBA_TEAMS_LIST: sorted array of abbreviations derived from NBA_TEAMS object above
+const NBA_TEAMS_LIST = Object.keys(NBA_TEAMS).sort();
 let waiverFilter = { availability:'available', team:'all', sort:'fp' };
 
 function resetWaiverFilters(){
@@ -2545,7 +2546,7 @@ function renderWaiversPane(){
 
   const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
 
-  const teamOptions=NBA_TEAMS.map(t=>filterBtn(t,waiverFilter.team===t,`waiverFilter.team='${t}';renderWaiversPane()`)).join('');
+  const teamOptions=NBA_TEAMS_LIST.map(t=>filterBtn(t,waiverFilter.team===t,`waiverFilter.team='${t}';renderWaiversPane()`)).join('');
 
   el.innerHTML=`
     <div style="padding:10px 14px 0">

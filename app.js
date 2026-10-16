@@ -1323,7 +1323,7 @@ function renderDuelScreen(){
 
 // Draft windows per run (inclusive start/end, ET)
 const DRAFT_WINDOWS = [
-  { run:1, label:'FALL DRAFT',   start:'2026-10-18T20:30:00-04:00', end:'2026-10-20T12:00:00-04:00' },
+  { run:1, label:'FALL DRAFT',   start:'2026-10-18T20:30:00-04:00', end:'2026-10-19T23:59:00-04:00' },
   { run:2, label:'WINTER DRAFT', start:'2027-01-05T20:30:00-05:00', end:'2027-01-07T12:00:00-05:00' },
   { run:3, label:'SPRING DRAFT', start:'2027-03-29T20:30:00-04:00', end:'2027-03-31T12:00:00-04:00' },
   { run:4, label:'SUMMER DRAFT', start:'2027-06-21T20:30:00-04:00', end:'2027-06-23T12:00:00-04:00' },

@@ -710,6 +710,179 @@ const NBA_TEAMS = {
   SAC:'Kings', SAS:'Spurs', TOR:'Raptors', UTA:'Jazz', WAS:'Wizards',
 };
 
+// ── PLAYER BIO LOOKUP (from 2026-27 Rosters PDF) ─────────────────────────────
+const PLAYER_INFO = {
+"Nickeil Alexander-Walker":{pos:"SG",ht:"6-5",wt:205,age:28,yrs:7,college:"Virginia Tech",draft:"2019 R1 P17",nat:"Canada"},
+"Jalen Johnson":{pos:"PF",ht:"6-8",wt:219,age:24,yrs:5,college:"Duke",draft:"2021 R1 P20",nat:"United States"},
+"Kobe Johnson":{pos:"G",ht:"6-6",wt:200,age:23,yrs:0,college:"UCLA",draft:"2025 Undrafted",nat:"United States"},
+"Corey Kispert":{pos:"SF",ht:"6-6",wt:224,age:27,yrs:5,college:"Gonzaga",draft:"2021 R1 P15",nat:"United States"},
+"Trae Young":{pos:"PG",ht:"6-2",wt:164,age:28,yrs:8,college:"Oklahoma",draft:"2018 R1 P5",nat:"United States"},
+"Devin Carter":{pos:"G",ht:"6-2",wt:199,age:24,yrs:2,college:"Providence",draft:"2024 R1 P13",nat:"United States"},
+"Jayson Tatum":{pos:"SF",ht:"6-8",wt:229,age:28,yrs:9,college:"Duke",draft:"2017 R1 P3",nat:"United States"},
+"Luka Garza":{pos:"C",ht:"6-10",wt:252,age:27,yrs:5,college:"Iowa",draft:"2021 R2 P52",nat:"United States"},
+"Payton Pritchard":{pos:"PG",ht:"6-1",wt:212,age:28,yrs:6,college:"Oregon",draft:"2020 R1 P26",nat:"United States"},
+"Sam Hauser":{pos:"SF",ht:"6-7",wt:217,age:28,yrs:5,college:"Virginia",draft:"2021 NBA Undrafted",nat:"United States"},
+"Jayson Tatum":{pos:"SF",ht:"6-8",wt:229,age:28,yrs:9,college:"Duke",draft:"2017 R1 P3",nat:"United States"},
+"Mikal Bridges":{pos:"SG",ht:"6-6",wt:209,age:28,yrs:8,college:"Villanova",draft:"2018 R1 P10",nat:"United States"},
+"Jalen Brunson":{pos:"PG",ht:"6-2",wt:190,age:28,yrs:8,college:"Villanova",draft:"2018 R2 P33",nat:"United States"},
+"OG Anunoby":{pos:"SF",ht:"6-7",wt:240,age:27,yrs:9,college:"Indiana",draft:"2017 R1 P23",nat:"United States"},
+"Karl-Anthony Towns":{pos:"C",ht:"7-0",wt:248,age:30,yrs:11,college:"Kentucky",draft:"2015 R1 P1",nat:"Dominican Republic"},
+"Josh Hart":{pos:"SG",ht:"6-5",wt:215,age:29,yrs:9,college:"Villanova",draft:"2017 R1 P30",nat:"United States"},
+"Andre Drummond":{pos:"C",ht:"6-11",wt:279,age:33,yrs:14,college:"UConn",draft:"2012 R1 P9",nat:"United States"},
+"Shai Gilgeous-Alexander":{pos:"PG",ht:"6-6",wt:195,age:28,yrs:8,college:"Kentucky",draft:"2018 R1 P11",nat:"Canada"},
+"Chet Holmgren":{pos:"C",ht:"7-1",wt:195,age:22,yrs:4,college:"Gonzaga",draft:"2022 R1 P2",nat:"United States"},
+"Josh Giddey":{pos:"G",ht:"6-8",wt:214,age:22,yrs:5,college:"Adelaide (Australia)",draft:"2021 R1 P6",nat:"Australia"},
+"Luguentz Dort":{pos:"PG",ht:"6-4",wt:220,age:26,yrs:7,college:"Arizona State",draft:"2019 Undrafted",nat:"Canada"},
+"Isaiah Hartenstein":{pos:"PF",ht:"7-0",wt:250,age:27,yrs:8,college:"Zalgiris (Lithuania)",draft:"2017 R2 P43",nat:"Germany"},
+"Nikola Jokic":{pos:"C",ht:"6-10",wt:284,age:31,yrs:11,college:"KK Mega Bemax (Serbia)",draft:"2014 R2 P41",nat:"Serbia"},
+"Aaron Gordon":{pos:"F",ht:"6-8",wt:235,age:31,yrs:12,college:"Arizona",draft:"2014 R1 P4",nat:"United States"},
+"Jamal Murray":{pos:"SG",ht:"6-4",wt:215,age:29,yrs:10,college:"Kentucky",draft:"2016 R1 P7",nat:"Canada"},
+"Zeke Nnaji":{pos:"PF",ht:"6-10",wt:240,age:25,yrs:6,college:"Arizona",draft:"2020 R1 P22",nat:"United States"},
+"Christian Wood":{pos:"PF",ht:"6-9",wt:214,age:29,yrs:7,college:"UNLV",draft:"2015 Undrafted",nat:"United States"},
+"Cade Cunningham":{pos:"PG",ht:"6-6",wt:220,age:23,yrs:5,college:"Oklahoma State",draft:"2021 R1 P1",nat:"United States"},
+"Jalen Duren":{pos:"PF",ht:"6-10",wt:250,age:21,yrs:4,college:"Memphis",draft:"2022 R1 P13",nat:"United States"},
+"Ausar Thompson":{pos:"G",ht:"6-7",wt:205,age:23,yrs:3,college:"Overtime Elite (Georgia)",draft:"2023 R1 P5",nat:"United States"},
+"Kevin Huerter":{pos:"SF",ht:"6-6",wt:190,age:28,yrs:8,college:"Maryland",draft:"2018 R1 P19",nat:"United States"},
+"Donovan Mitchell":{pos:"SG",ht:"6-2",wt:228,age:29,yrs:9,college:"Louisville",draft:"2017 R1 P13",nat:"United States"},
+"Evan Mobley":{pos:"PF",ht:"6-11",wt:230,age:25,yrs:5,college:"USC",draft:"2021 R1 P3",nat:"United States"},
+"Darius Garland":{pos:"G",ht:"6-1",wt:192,age:26,yrs:7,college:"Vanderbilt",draft:"2019 R1 P5",nat:"United States"},
+"Jarrett Allen":{pos:"C",ht:"6-9",wt:250,age:27,yrs:9,college:"Texas",draft:"2017 R1 P22",nat:"United States"},
+"James Harden":{pos:"SG",ht:"6-4",wt:220,age:37,yrs:17,college:"Arizona State",draft:"2009 R1 P3",nat:"United States"},
+"Luka Doncic":{pos:"SF",ht:"6-8",wt:230,age:27,yrs:8,college:"Real Madrid (Spain)",draft:"2018 R1 P3",nat:"Slovenia"},
+"Kyrie Irving":{pos:"G",ht:"6-2",wt:195,age:34,yrs:15,college:"Duke",draft:"2011 R1 P1",nat:"United States"},
+"Cooper Flagg":{pos:"F",ht:"6-10",wt:205,age:19,yrs:1,college:"Duke",draft:"2025 R1 P1",nat:"United States"},
+"Daniel Gafford":{pos:"C",ht:"6-10",wt:265,age:27,yrs:7,college:"Arkansas",draft:"2019 R2 P38",nat:"United States"},
+"Dereck Lively II":{pos:"C",ht:"7-1",wt:230,age:21,yrs:3,college:"Duke",draft:"2023 R1 P12",nat:"United States"},
+"P.J. Washington":{pos:"PF",ht:"6-6",wt:230,age:27,yrs:7,college:"Kentucky",draft:"2019 R1 P12",nat:"United States"},
+"Alperen Sengun":{pos:"C",ht:"6-11",wt:271,age:22,yrs:5,college:"Besiktas Icrypex (Turkiye)",draft:"2021 R1 P16",nat:"Turkiye"},
+"Kevin Durant":{pos:"SF",ht:"6-11",wt:234,age:38,yrs:19,college:"Texas",draft:"2007 R1 P2",nat:"United States"},
+"Amen Thompson":{pos:"F",ht:"6-7",wt:239,age:22,yrs:3,college:"Overtime Elite (Georgia)",draft:"2023 R1 P4",nat:"United States"},
+"Fred VanVleet":{pos:"G",ht:"6-0",wt:213,age:32,yrs:10,college:"Wichita State",draft:"2016 Undrafted",nat:"United States"},
+"Jabari Smith Jr.":{pos:"F",ht:"6-11",wt:231,age:23,yrs:4,college:"Auburn",draft:"2022 R1 P3",nat:"United States"},
+"Pascal Siakam":{pos:"PF",ht:"6-9",wt:245,age:32,yrs:10,college:"New Mexico State",draft:"2016 R1 P27",nat:"Cameroon"},
+"Tyrese Haliburton":{pos:"PG",ht:"6-5",wt:185,age:27,yrs:6,college:"Iowa State",draft:"2020 R1 P12",nat:"United States"},
+"Myles Turner":{pos:"FC",ht:"6-11",wt:250,age:30,yrs:11,college:"Texas",draft:"2015 R1 P11",nat:"United States"},
+"Buddy Hield":{pos:"G",ht:"6-5",wt:220,age:33,yrs:10,college:"Oklahoma",draft:"2016 R1 P6",nat:"Bahamas"},
+"LeBron James":{pos:"F",ht:"6-9",wt:250,age:41,yrs:23,college:"St. Vincent St. Mary HS (Ohio)",draft:"2003 R1 P1",nat:"United States"},
+"Joel Embiid":{pos:"C",ht:"7-0",wt:270,age:32,yrs:12,college:"Kansas",draft:"2014 R1 P3",nat:"Cameroon"},
+"Tyrese Maxey":{pos:"PG",ht:"6-2",wt:200,age:25,yrs:6,college:"Kentucky",draft:"2020 R1 P21",nat:"United States"},
+"Paul George":{pos:"GF",ht:"6-8",wt:230,age:36,yrs:16,college:"Fresno State",draft:"2010 R1 P10",nat:"United States"},
+"Stephen Curry":{pos:"G",ht:"6-2",wt:185,age:38,yrs:17,college:"Davidson",draft:"2009 R1 P7",nat:"United States"},
+"Draymond Green":{pos:"F",ht:"6-6",wt:230,age:36,yrs:14,college:"Michigan State",draft:"2012 R2 P35",nat:"United States"},
+"Klay Thompson":{pos:"SG",ht:"6-5",wt:220,age:36,yrs:15,college:"Washington State",draft:"2011 R1 P11",nat:"United States"},
+"Jimmy Butler III":{pos:"GF",ht:"6-6",wt:230,age:37,yrs:15,college:"Marquette",draft:"2011 R1 P30",nat:"United States"},
+"Al Horford":{pos:"FC",ht:"6-8",wt:240,age:40,yrs:19,college:"Florida",draft:"2007 R1 P3",nat:"Dominican Republic"},
+"Kristaps Porzingis":{pos:"FC",ht:"7-2",wt:240,age:30,yrs:11,college:"Real Betis Baloncesto (Spain)",draft:"2015 R1 P4",nat:"Latvia"},
+"Bam Adebayo":{pos:"C",ht:"6-9",wt:255,age:27,yrs:9,college:"Kentucky",draft:"2017 R1 P14",nat:"United States"},
+"Giannis Antetokounmpo":{pos:"F",ht:"6-11",wt:250,age:31,yrs:13,college:"Filathlitikos Div II Greece",draft:"2013 R1 P15",nat:"Greece"},
+"Nikola Jovic":{pos:"F",ht:"6-10",wt:215,age:23,yrs:4,college:"KK Mega Bemax (Serbia)",draft:"2022 R1 P27",nat:"Serbia"},
+"Damion Lee":{pos:"SG",ht:"6-5",wt:210,age:32,yrs:7,college:"Louisville",draft:"2016 Undrafted",nat:"United States"},
+"Dru Smith":{pos:"SG",ht:"6-2",wt:200,age:27,yrs:4,college:"Missouri",draft:"2021 R1 P1",nat:"United States"},
+"Kyle Kuzma":{pos:"F",ht:"6-8",wt:221,age:31,yrs:9,college:"Utah",draft:"2017 R1 P27",nat:"United States"},
+"Giannis Antetokounmpo":{pos:"F",ht:"6-11",wt:250,age:31,yrs:13,college:"Filathlitikos Div II Greece",draft:"2013 R1 P15",nat:"Greece"},
+"Khris Middleton":{pos:"SF",ht:"6-7",wt:222,age:33,yrs:14,college:"Texas A&M",draft:"2012 R2 P39",nat:"United States"},
+"Damian Lillard":{pos:"G",ht:"6-2",wt:195,age:36,yrs:14,college:"Weber State",draft:"2012 R1 P6",nat:"United States"},
+"Brook Lopez":{pos:"C",ht:"7-1",wt:282,age:36,yrs:18,college:"Stanford",draft:"2008 R1 P10",nat:"United States"},
+"Bobby Portis":{pos:"PF",ht:"6-9",wt:250,age:31,yrs:11,college:"Arkansas",draft:"2015 R1 P22",nat:"United States"},
+"LaMelo Ball":{pos:"G",ht:"6-7",wt:180,age:25,yrs:6,college:"Illawarra (Australia)",draft:"2020 R1 P3",nat:"United States"},
+"Anthony Edwards":{pos:"SF",ht:"6-5",wt:225,age:25,yrs:6,college:"Georgia",draft:"2020 R1 P1",nat:"United States"},
+"Rudy Gobert":{pos:"C",ht:"7-1",wt:258,age:32,yrs:13,college:"Cholet Basket (France)",draft:"2013 R1 P27",nat:"France"},
+"Karl-Anthony Towns":{pos:"C",ht:"7-0",wt:248,age:30,yrs:11,college:"Kentucky",draft:"2015 R1 P1",nat:"Dominican Republic"},
+"Julius Randle":{pos:"PF",ht:"6-9",wt:250,age:31,yrs:12,college:"Kentucky",draft:"2014 R1 P7",nat:"United States"},
+"Zion Williamson":{pos:"PF",ht:"6-6",wt:277,age:25,yrs:7,college:"Duke",draft:"2019 R1 P1",nat:"United States"},
+"CJ McCollum":{pos:"G",ht:"6-2",wt:190,age:34,yrs:13,college:"Lehigh",draft:"2013 R1 P10",nat:"United States"},
+"Herb Jones":{pos:"SF",ht:"6-7",wt:210,age:27,yrs:5,college:"Alabama",draft:"2021 R2 P35",nat:"United States"},
+"Ja Morant":{pos:"G",ht:"6-2",wt:174,age:27,yrs:7,college:"Murray State",draft:"2019 R1 P2",nat:"United States"},
+"Desmond Bane":{pos:"SG",ht:"6-6",wt:215,age:27,yrs:6,college:"TCU",draft:"2020 R1 P30",nat:"United States"},
+"Jaren Jackson Jr.":{pos:"PF",ht:"6-10",wt:242,age:27,yrs:8,college:"Michigan State",draft:"2018 R1 P4",nat:"United States"},
+"Victor Wembanyama":{pos:"F",ht:"7-4",wt:210,age:22,yrs:3,college:"Boulogne-Levallois (France)",draft:"2023 R1 P1",nat:"France"},
+"Devin Booker":{pos:"SG",ht:"6-5",wt:206,age:28,yrs:11,college:"Kentucky",draft:"2015 R1 P13",nat:"United States"},
+"Kevin Durant":{pos:"SF",ht:"6-11",wt:234,age:38,yrs:19,college:"Texas",draft:"2007 R1 P2",nat:"United States"},
+"Bradley Beal":{pos:"SG",ht:"6-4",wt:207,age:32,yrs:14,college:"Florida",draft:"2012 R1 P3",nat:"United States"},
+"Deni Avdija":{pos:"SG",ht:"6-8",wt:228,age:25,yrs:6,college:"Maccabi Tel Aviv U18 (Israel)",draft:"2020 R1 P9",nat:"Israel"},
+"Jrue Holiday":{pos:"G",ht:"6-4",wt:220,age:36,yrs:17,college:"UCLA",draft:"2009 R1 P17",nat:"United States"},
+"Anfernee Simons":{pos:"SG",ht:"6-3",wt:181,age:25,yrs:8,college:"IMG Academy (Florida)",draft:"2018 R1 P24",nat:"United States"},
+"Domantas Sabonis":{pos:"PF",ht:"6-10",wt:240,age:30,yrs:10,college:"Gonzaga",draft:"2016 R1 P11",nat:"Lithuania"},
+"De'Aaron Fox":{pos:"PG",ht:"6-3",wt:185,age:27,yrs:9,college:"Kentucky",draft:"2017 R1 P5",nat:"United States"},
+"Zach LaVine":{pos:"SG",ht:"6-5",wt:200,age:31,yrs:12,college:"UCLA",draft:"2014 R1 P13",nat:"United States"},
+"Harrison Barnes":{pos:"SF",ht:"6-7",wt:225,age:34,yrs:14,college:"North Carolina",draft:"2012 R1 P7",nat:"United States"},
+"Ben Simmons":{pos:"PF",ht:"6-10",wt:245,age:30,yrs:9,college:"LSU",draft:"2016 R1 P1",nat:"Australia"},
+"Kawhi Leonard":{pos:"F",ht:"6-6",wt:225,age:35,yrs:15,college:"San Diego State",draft:"2011 R1 P15",nat:"United States"},
+"James Harden":{pos:"SG",ht:"6-4",wt:220,age:37,yrs:17,college:"Arizona State",draft:"2009 R1 P3",nat:"United States"},
+"Tobias Harris":{pos:"F",ht:"6-8",wt:226,age:34,yrs:15,college:"Tennessee",draft:"2011 R1 P19",nat:"United States"},
+"Keldon Johnson":{pos:"SF",ht:"6-6",wt:220,age:26,yrs:7,college:"Kentucky",draft:"2019 R1 P29",nat:"United States"},
+"Demar DeRozan":{pos:"GF",ht:"6-6",wt:220,age:37,yrs:17,college:"USC",draft:"2009 R1 P9",nat:"United States"},
+"Nikola Vucevic":{pos:"PF",ht:"6-9",wt:265,age:35,yrs:15,college:"USC",draft:"2011 R1 P16",nat:"Montenegro"},
+"Anthony Davis":{pos:"F",ht:"6-10",wt:253,age:32,yrs:14,college:"Kentucky",draft:"2012 R1 P1",nat:"United States"},
+"Brandon Ingram":{pos:"SF",ht:"6-8",wt:190,age:27,yrs:10,college:"Duke",draft:"2016 R1 P2",nat:"United States"},
+"Trae Young":{pos:"PG",ht:"6-2",wt:164,age:28,yrs:8,college:"Oklahoma",draft:"2018 R1 P5",nat:"United States"},
+"Jonathan Kuminga":{pos:"F",ht:"6-7",wt:225,age:22,yrs:5,college:"NBA G League Ignite",draft:"2021 R1 P7",nat:"Democratic Republic of Congo"},
+"Scottie Barnes":{pos:"SF",ht:"6-8",wt:230,age:25,yrs:5,college:"Florida State",draft:"2021 R1 P4",nat:"United States"},
+"RJ Barrett":{pos:"SG",ht:"6-6",wt:214,age:24,yrs:7,college:"Duke",draft:"2019 R1 P3",nat:"Canada"},
+"Scottie Barnes":{pos:"SF",ht:"6-8",wt:230,age:25,yrs:5,college:"Florida State",draft:"2021 R1 P4",nat:"United States"},
+"Immanuel Quickley":{pos:"PG",ht:"6-2",wt:190,age:27,yrs:6,college:"Kentucky",draft:"2020 R1 P25",nat:"United States"},
+"Kawhi Leonard":{pos:"F",ht:"6-6",wt:225,age:35,yrs:15,college:"San Diego State",draft:"2011 R1 P15",nat:"United States"},
+"Trey Lyles":{pos:"SF",ht:"6-9",wt:234,age:30,yrs:10,college:"Kentucky",draft:"2015 R1 P12",nat:"Canada"},
+"Jonas Aldoo":{pos:"C",ht:"6-11",wt:240,age:23,yrs:0,college:"Arkansas",draft:"2025 R1 P22",nat:"United States"},
+};
+
+// ── PLAYER CARD MODAL ─────────────────────────────────────────────────────────
+function showPlayerCard(playerName) {
+  document.getElementById('player-card-modal')?.remove();
+
+  const p = (leagueState.players||[]).find(pl=>pl.name===playerName)
+         || PLAYERS_DB.find(pl=>pl.n===playerName && pl);
+  const info = PLAYER_INFO[playerName] || {};
+  const portrait = playerPortraits[playerName];
+  const fpVal = p ? (typeof p.fpPG !== 'undefined' ? p.fpPG : (playerTotalFP ? playerTotalFP(p.id||p.n) : null)) : null;
+
+  const teamFull = p ? (NBA_TEAMS[p.t||p.team]||p.t||p.team||'') : '';
+  const teamAbbr = p ? (p.t||p.team||'') : '';
+
+  const row = (label, val) => val ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase">${label}</span>
+    <span style="font-size:13px;color:var(--text1)">${val}</span>
+  </div>` : '';
+
+  const modal = document.createElement('div');
+  modal.id = 'player-card-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+
+  modal.innerHTML = `
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:var(--max-w);max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0"></div>
+    <!-- Portrait header -->
+    <div style="position:relative;height:180px;background:var(--bg3);overflow:hidden;margin:12px 16px 0;border-radius:12px">
+      ${portrait
+        ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none'">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
+      }
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:linear-gradient(transparent,rgba(0,0,0,.8))">
+        <div style="font-family:var(--pixel);font-size:9px;color:#fff">${playerName}</div>
+        <div style="font-family:var(--pixel);font-size:6px;color:rgba(255,255,255,.7);margin-top:4px">${info.pos||''} · ${teamFull}${teamAbbr?' ('+teamAbbr+')':''}</div>
+      </div>
+      <button onclick="document.getElementById('player-card-modal').remove()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
+    </div>
+    <!-- Stats -->
+    <div style="padding:4px 16px 16px">
+      ${fpVal ? `<div style="text-align:center;padding:12px 0 8px">
+        <div style="font-family:var(--pixel);font-size:22px;color:var(--accent3)">${typeof fpVal==='number'?fpVal.toFixed(1):fpVal}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">PROJ FP/GAME</div>
+      </div>` : ''}
+      ${row('Height', info.ht)}
+      ${row('Weight', info.wt ? info.wt + ' lbs' : null)}
+      ${row('Age', info.age)}
+      ${row('NBA Experience', info.yrs !== undefined ? info.yrs + (info.yrs===1?' year':' years') : null)}
+      ${row('College / Pre-Draft', info.college)}
+      ${row('Draft', info.draft)}
+      ${row('Nationality', info.nat)}
+    </div>
+  </div>`;
+
+  document.body.appendChild(modal);
+}
+
 // ── ESPN TEAM ID MAP ─────────────────────────────────────────────────────────
 const ESPN_TO_ABBR = {
   ATL:'ATL',BOS:'BOS',BKN:'BKN',BRK:'BKN',CHA:'CHA',CHI:'CHI',CLE:'CLE',
@@ -2104,7 +2277,7 @@ function renderLineupPreview(){
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     return `
     <div class="player-row">
-      <div class="player-portrait">${portEl}</div>
+      <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name">${p.name}</div>
         <div class="player-meta">${p.pos} · ${p.team} ${isLive?'<span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
@@ -2304,7 +2477,7 @@ function renderFantasyDraftPane(){
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
         return `
         <div class="player-row" style="padding:8px 14px">
-          <div class="player-portrait">${portEl}</div>
+          <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
             <div class="player-name">${p.name}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
@@ -2553,7 +2726,7 @@ function renderRostersScreen(){
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${viewManager?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     return `
     <div class="player-row" style="padding:8px 14px">
-      <div class="player-portrait">${portEl}</div>
+      <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
@@ -2606,7 +2779,7 @@ function renderMyRosterList(){
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     return `
     <div class="player-row" style="padding:8px 14px">
-      <div class="player-portrait">${portEl}</div>
+      <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name">${p.name} ${isLocked?'🔒':''}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
@@ -2651,7 +2824,7 @@ function renderAvailablePlayers(){
       const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
       return `
       <div class="player-row" style="padding:8px 14px">
-        <div class="player-portrait">${portEl}</div>
+        <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
         <div class="player-info">
           <div class="player-name">${p.name}</div>
           <div class="player-meta">${p.pos} · ${p.team}</div>
@@ -2744,7 +2917,7 @@ function renderWaiversPane(){
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
         return `
         <div class="player-row" style="padding:8px 14px">
-          <div class="player-portrait">${portEl}</div>
+          <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
             <div class="player-name">${p.name}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>

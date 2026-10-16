@@ -840,8 +840,8 @@ function showPlayerCard(playerName) {
   const teamAbbr = p ? (p.t||p.team||'') : '';
 
   const row = (label, val) => val ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase">${label}</span>
-    <span style="font-size:13px;color:var(--text1)">${val}</span>
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
+    <span style="font-family:var(--pixel);font-size:7px;color:var(--text1)">${val}</span>
   </div>` : '';
 
   const modal = document.createElement('div');
@@ -853,12 +853,12 @@ function showPlayerCard(playerName) {
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:var(--max-w);max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)">
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0"></div>
     <!-- Portrait header -->
-    <div style="position:relative;height:180px;background:var(--bg3);overflow:hidden;margin:12px 16px 0;border-radius:12px">
+    <div style="position:relative;background:var(--bg3);overflow:hidden;margin:12px 16px 0;border-radius:12px">
       ${portrait
-        ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none'">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
+        ? `<img src="${portrait}" style="width:100%;display:block;object-fit:contain" onerror="this.parentNode.querySelector('.card-initials').style.display='flex';this.style.display='none'"><div class="card-initials" style="display:none;width:100%;height:220px;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
+        : `<div style="width:100%;height:220px;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
       }
-      <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:linear-gradient(transparent,rgba(0,0,0,.8))">
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
         <div style="font-family:var(--pixel);font-size:9px;color:#fff">${playerName}</div>
         <div style="font-family:var(--pixel);font-size:6px;color:rgba(255,255,255,.7);margin-top:4px">${info.pos||''} · ${teamFull}${teamAbbr?' ('+teamAbbr+')':''}</div>
       </div>

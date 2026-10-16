@@ -741,7 +741,10 @@ function currentWeekStart(){
   return d;
 }
 function avatarColor(idx){ return AVATAR_COLORS[idx % AVATAR_COLORS.length]; }
-function avatarEl(name,color,size=22,fontSize=7,icon=null){
+function avatarEl(name,color,size=22,fontSize=7,icon=null,photo=null){
+  if(photo){
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color} url(${photo}) center/cover;flex-shrink:0"></div>`;
+  }
   const inner=icon
     ? `<span style="font-size:${Math.round(size*0.54)}px;line-height:1">${icon}</span>`
     : `<span style="font-family:var(--pixel);font-size:${fontSize}px;color:#000">${initials(name)}</span>`;
@@ -1166,6 +1169,7 @@ function showScreen(screen){
   else if(screen==='fantasy') renderFantasyScreen();
   else if(screen==='roster') renderRosterScreen();
   else if(screen==='wlc') renderWlcScreen();
+  else if(screen==='duel') renderDuelScreen();
   else if(screen==='profile') renderProfileScreen();
 }
 
@@ -1176,6 +1180,139 @@ function renderHomeScreen(){
   renderMatchupCard();
   renderLineupPreview();
   renderQuickStats();
+}
+
+// ── DUEL SCREEN ──────────────────────────────────────────────────────────────
+function renderDuelScreen(){
+  const el = document.getElementById('duel-screen-content');
+  if(!el) return;
+
+  const duel = getTodaysDuel();
+  const managers = leagueState.managers || [];
+  const streaks = leagueState.duelStreaks || {};
+  const today = todayKey();
+  const yesterday = getPrevDateKey(today);
+
+  // Build leaderboard table
+  const rows = managers.map(m=>{
+    const s = streaks[m.id] || {streak:0, totalCorrect:0, lastDate:null};
+    const live = (s.lastDate===today||s.lastDate===yesterday) ? s.streak : 0;
+    return {...m, streak:live, totalCorrect:s.totalCorrect||0};
+  }).sort((a,b)=>b.streak!==a.streak?b.streak-a.streak:b.totalCorrect-a.totalCorrect);
+  const myId = getMyId();
+
+  // Main duel card (reuse same logic)
+  let duelCardHtml = '';
+  if(!duel){
+    duelCardHtml = `<div class="duel-card"><div class="duel-empty"><div class="icon">⚡</div><div>DUEL COMING SOON<br/><span style="font-size:5px;color:var(--text3)">CHECK BACK TONIGHT</span></div></div></div>`;
+  } else {
+    const p1=getPlayer(duel.pid1), p2=getPlayer(duel.pid2);
+    if(p1&&p2){
+      const myPick = getMyDuelPick();
+      const streak = getMyDuelStreak();
+      const settled = duel.result !== null;
+      const statType = duel.stat || 'pts';
+      const portHtml=(p)=>{
+        const port=playerPortraits[p.name];
+        const fallback=`this.style.display='none';this.nextSibling.style.display='flex'`;
+        return `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="${fallback}"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-family:var(--pixel);font-size:9px;color:var(--text3)">${initials(p.name)}</div>`;
+      };
+      const winColor='var(--accent2)', loseColor='var(--accent4)', tieColor='var(--accent3)';
+      let resultBanner='', statLine='';
+      let pct1='', pct2='';
+      if(myPick !== null || settled){
+        const picks = duel.picks || {};
+        const allPicks = Object.values(picks).filter(v=>v!==null);
+        const n1 = allPicks.filter(v=>v===1).length;
+        const n2 = allPicks.filter(v=>v===2).length;
+        const total = n1 + n2;
+        if(total > 0){
+          pct1 = `<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n1/total*100)}%</div>`;
+          pct2 = `<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n2/total*100)}%</div>`;
+        }
+      }
+      if(settled){
+        const stat1txt = duel.score1 !== null ? duel.score1 : '—';
+        const stat2txt = duel.score2 !== null ? duel.score2 : '—';
+        statLine = `<div class="duel-scores"><span>${stat1txt}</span><span style="font-size:6px;color:var(--text3)">${statType.toUpperCase()}</span><span>${stat2txt}</span></div>`;
+        if(duel.result==='tie'){
+          resultBanner = `<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
+        } else {
+          const myCorrect = myPick !== null && myPick === duel.result;
+          resultBanner = myPick === null
+            ? `<div class="duel-result-banner" style="color:var(--text3)">PLAYER ${duel.result} WINS — YOU DIDN'T PICK</div>`
+            : myCorrect
+              ? `<div class="duel-result-banner" style="color:${winColor}">✓ CORRECT! STREAK: ${streak} 🔥</div>`
+              : `<div class="duel-result-banner" style="color:${loseColor}">✗ WRONG — STREAK RESET</div>`;
+        }
+      }
+      const pickedStyle = (side) => {
+        if(!settled && myPick===side) return `box-shadow:0 0 0 2px var(--accent2);`;
+        if(settled){
+          const won = duel.result===side || duel.result==='tie';
+          return myPick===side ? `box-shadow:0 0 0 2px ${won?winColor:loseColor};` : '';
+        }
+        return '';
+      };
+      duelCardHtml = `
+      <div class="duel-card">
+        <div class="duel-header">
+          <span>⚡ DAILY DUEL</span>
+          <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+        </div>
+        <div class="duel-prompt">${duel.prompt}</div>
+        ${statLine}
+        <div class="duel-body">
+          <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
+            <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
+            <div class="dname">${p1.name.split(' ').pop()}</div>
+            <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
+            ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
+            ${pct1}
+          </div>
+          <div class="duel-vs">VS</div>
+          <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
+            <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
+            <div class="dname">${p2.name.split(' ').pop()}</div>
+            <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
+            ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
+            ${pct2}
+          </div>
+        </div>
+        ${!myPick && !settled ? `
+        <div class="duel-btns">
+          <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${p1.name.split(' ').pop().toUpperCase()}</button>
+          <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${p2.name.split(' ').pop().toUpperCase()}</button>
+        </div>` : ''}
+        ${resultBanner}
+      </div>`;
+    }
+  }
+
+  // Leaderboard
+  const lbRows = rows.map((m,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);':''}">
+      <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null)}
+      <div style="flex:1">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
+        <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--pixel);font-size:10px;color:${m.streak>0?'var(--accent3)':'var(--text3)'}">${m.streak>0?`🔥 ${m.streak}`:'—'}</div>
+        <div style="font-size:9px;color:var(--text3)">streak</div>
+      </div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="padding:12px 0 80px">
+      ${duelCardHtml}
+      <div class="section-label" style="margin-top:16px">LEADERBOARD</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY STREAK · TIEBREAK: ALL-TIME CORRECT</div>
+        ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
+      </div>
+    </div>`;
 }
 
 // ── NEWS BANNER ───────────────────────────────────────────────────────────────
@@ -1206,8 +1343,8 @@ function renderNewsBanner(){
     const isSoon = !isLive && now < s && (s - now) < 7 * 24 * 60 * 60 * 1000; // within 7 days
 
     if(isLive || isSoon){
-      const fmtDT = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' · ' +
-        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+      const fmtDT = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'}) + ' · ' +
+        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'});
 
       if(isLive){
         // Who's on the clock?
@@ -1235,17 +1372,20 @@ function renderNewsBanner(){
 
   if(!rows.length){ el.style.display='none'; return; }
 
-  const fmtDate = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  const [firstDraft] = DRAFT_WINDOWS;
-  const soon = DRAFT_WINDOWS.find(dw=>{
-    const s=new Date(dw.start); return new Date()<s && (s-new Date())<7*24*60*60*1000;
+  const fmtDateEST = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'});
+  const fmtTimeEST = d => d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'});
+
+  // Find next upcoming draft for sub-header
+  const nextDraft = DRAFT_WINDOWS.find(dw=>{
+    const s=new Date(dw.start); return now<s;
   });
 
   let html = '';
-  // header only when there's a draft context
-  const hasDraft = rows.some(r=>r.label==='draft'||r.label==='live');
-  if(hasDraft){
-    html += `<div class="news-banner-header"><span>📋 LEAGUE NEWS</span><span style="color:var(--text3)">${fmtDate(now)}</span></div>`;
+  // header with EST date + draft time on second row
+  html += `<div class="news-banner-header"><span>📋 LEAGUE NEWS</span><span style="color:var(--text3)">${fmtDateEST(now)}</span></div>`;
+  if(nextDraft){
+    const ds = new Date(nextDraft.start);
+    html += `<div style="font-family:var(--pixel);font-size:5px;color:var(--accent3);padding:3px 14px 5px;letter-spacing:.5px">🏀 ${nextDraft.label}: ${fmtTimeEST(ds)}</div>`;
   }
   rows.forEach(r=>{
     html += `<div class="news-banner-row">
@@ -1395,6 +1535,7 @@ async function makeDuelPick(side){
   await saveLeagueState();
   toast(`LOCKED IN! Check back after games for the result. 🔥`);
   renderDuelCard();
+  if(currentScreen==='duel') renderDuelScreen();
 }
 
 // Commissioner: set the result and update streaks
@@ -1426,6 +1567,7 @@ async function settleDuel(dateKey, result, score1, score2){
   await saveLeagueState();
   toast('Duel settled! Streaks updated.');
   renderDuelCard();
+  if(currentScreen==='duel') renderDuelScreen();
 }
 
 function getPrevDateKey(dateKey){
@@ -1574,7 +1716,6 @@ function renderDuelCard(){
       <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${p2.name.split(' ').pop().toUpperCase()}</button>
     </div>` : ''}
     ${resultBanner}
-    <div class="duel-footer-link" onclick="showDuelLeaderboard()">LEADERBOARD ›</div>
   </div>`;
 }
 
@@ -2009,15 +2150,42 @@ function renderQuickStats(){
   const roster=getMyRoster();
   const topPlayer=roster.length ? roster.reduce((a,b)=>playerTotalFP(a)>playerTotalFP(b)?a:b,roster[0]) : null;
   const topP=topPlayer ? getPlayer(topPlayer) : null;
+
+  // Compute standings rank
+  const allMgrs=leagueState.managers||[];
+  const runSchedule=(leagueState.schedule||{})[currentRun]||[];
+  const mgrStats=allMgrs.map(m=>{
+    let w=0,l=0;
+    runSchedule.forEach(week=>week.forEach(mu=>{
+      if(mu.home===m.id||mu.away===m.id){
+        if(!mu.winner) return;
+        if(mu.winner===m.id) w++; else if(mu.winner!=='tie') l++;
+      }
+    }));
+    return {id:m.id, wins:w, losses:l, fp:managerFP(m.id)};
+  });
+  mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
+  const rank=mgrStats.findIndex(m=>m.id===mid)+1;
+  const total=allMgrs.length;
+  const ordinal=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
+  const rankStr=rank>0?`${ordinal(rank)} / ${total}`:'—';
+  const myRecord=mgrStats.find(m=>m.id===mid);
+  const record=myRecord?`${myRecord.wins}-${myRecord.losses}`:'0-0';
+
   el.innerHTML=`
-  <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div style="text-align:center">
-      <div style="font-family:var(--pixel);font-size:18px;color:var(--accent3)">${myFP.toFixed(1)}</div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${run.name.toUpperCase()} FP</div>
+  <div class="card" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+    <div style="text-align:center;border-right:1px solid var(--border);padding-right:6px">
+      <div style="font-family:var(--pixel);font-size:16px;color:var(--accent3)">${myFP.toFixed(1)}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${run.name.toUpperCase()} FP</div>
     </div>
-    <div style="text-align:center">
-      <div style="font-family:var(--pixel);font-size:11px;color:var(--accent2)">${topP ? topP.name.split(' ').pop() : '—'}</div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">TOP PLAYER · ${topP?playerTotalFP(topPlayer).toFixed(1)+' FP':'—'}</div>
+    <div style="text-align:center;border-right:1px solid var(--border);padding:0 4px">
+      <div style="font-family:var(--pixel);font-size:11px;color:var(--accent1)">${rankStr}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${run.name.toUpperCase()} STAND.</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${record}</div>
+    </div>
+    <div style="text-align:center;padding-left:4px">
+      <div style="font-family:var(--pixel);font-size:10px;color:var(--accent2)">${topP ? topP.name.split(' ').pop() : '—'}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">TOP · ${topP?playerTotalFP(topPlayer).toFixed(1)+' FP':'—'}</div>
     </div>
   </div>`;
 }
@@ -2627,24 +2795,33 @@ function renderProfileScreen(){
   const name=myProfile.display_name||'Player';
   const avatarEl=document.getElementById('profile-avatar');
   avatarEl.style.background=color;
-  if(myProfile.icon){
+  if(myProfile.photo){
+    avatarEl.style.backgroundImage=`url(${myProfile.photo})`;
+    avatarEl.style.backgroundSize='cover';
+    avatarEl.style.backgroundPosition='center';
+    avatarEl.textContent='';
+    avatarEl.style.fontSize='';
+  } else if(myProfile.icon){
+    avatarEl.style.backgroundImage='';
     avatarEl.style.fontSize='28px';
     avatarEl.style.color='inherit';
     avatarEl.textContent=myProfile.icon;
   } else {
+    avatarEl.style.backgroundImage='';
     avatarEl.style.fontSize='';
     avatarEl.style.color='#000';
     avatarEl.textContent=initials(name);
   }
   document.getElementById('profile-name-display').textContent=name;
   document.getElementById('profile-email-display').textContent=myProfile.email||'';
+  const dnVal=document.getElementById('display-name-value');
+  if(dnVal) dnVal.textContent=name;
   // Commissioner row
   const adminRow=document.getElementById('admin-row');
   if(adminRow) adminRow.style.display=(myProfile.is_commissioner||myProfile.email===COMMISSIONER_EMAIL)?'flex':'none';
-  // Run info
-  const run=getCurrentRun();
+  // Run info (current-run-value removed; skip gracefully)
   const runVal=document.getElementById('current-run-value');
-  if(runVal) runVal.textContent=`${run.name} Run`;
+  if(runVal) runVal.textContent='';
   const teamVal=document.getElementById('team-name-value');
   if(teamVal) teamVal.textContent=myProfile.team_name||(name+"'s Team");
 
@@ -2750,8 +2927,18 @@ function openAvatarEditor(){
           ${curIcon||`<span style="font-family:var(--pixel);font-size:12px;color:#000">${initials(myProfile?.display_name||'?')}</span>`}
         </div>
       </div>
+      <!-- Photo upload -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">UPLOAD PHOTO</div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;margin-bottom:16px">
+        <span style="font-size:18px">📸</span>
+        <div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">CHOOSE IMAGE</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">JPG or PNG · max 2MB</div>
+        </div>
+        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="avatarPickPhoto(this)"/>
+      </label>
       <!-- Icon grid -->
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK AN ICON</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">— OR PICK AN ICON —</div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px" id="icon-grid">
         ${AVATAR_ICONS.map(ic=>`<div onclick="avatarPickIcon('${ic}')" data-icon="${ic}" style="aspect-ratio:1;border-radius:6px;background:var(--bg3);border:2px solid ${ic===curIcon?'var(--accent1)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:border-color .1s">${ic}</div>`).join('')}
       </div>
@@ -2789,23 +2976,81 @@ let modal_pendingColor=null;
 async function saveAvatarChoice(){
   const myId=getMyId();
   if(!myId) return;
-  const icon=modal_pendingIcon??myProfile?.icon??null;
+  const photo=modal_pendingPhoto??null;
+  const icon=photo?null:(modal_pendingIcon??myProfile?.icon??null);
   const color=modal_pendingColor??myProfile?.color??'#4a9eff';
   const updates={color};
   if(icon) updates.icon=icon;
+  if(photo) updates.photo=photo;  // store dataURL as photo field
   const managers=leagueState.managers||[];
   const m=managers.find(m=>m.id===myId);
-  if(m){ m.color=color; if(icon) m.icon=icon; }
-  if(myProfile){ myProfile.color=color; if(icon) myProfile.icon=icon; }
+  if(m){ m.color=color; if(icon) m.icon=icon; if(photo) m.photo=photo; }
+  if(myProfile){ myProfile.color=color; if(icon) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
   await saveLeagueState();
   await db.from('managers').update(updates).eq('id',myId);
-  modal_pendingIcon=null; modal_pendingColor=null;
+  modal_pendingIcon=null; modal_pendingColor=null; modal_pendingPhoto=null;
   document.getElementById('avatar-modal')?.remove();
   renderProfileScreen();
   updateUserChip();
   toast('Avatar saved!');
 }
 
+
+function avatarPickPhoto(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2 * 1024 * 1024){ toast('Image too large (max 2MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    // Update preview with photo
+    const preview = document.getElementById('avatar-preview');
+    if(preview){
+      preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;
+    }
+    modal_pendingPhoto = dataUrl;
+    modal_pendingIcon = null; // clear icon selection if photo chosen
+  };
+  reader.readAsDataURL(file);
+}
+let modal_pendingPhoto = null;
+
+// Override saveAvatarChoice to handle photo
+const _origSaveAvatar = saveAvatarChoice;
+// (We modify saveAvatarChoice directly instead)
+
+// ── DISPLAY NAME EDITING ─────────────────────────────────────────────────────
+function startEditDisplayName(){
+  const row = document.getElementById('display-name-row');
+  const editRow = document.getElementById('display-name-edit-row');
+  const input = document.getElementById('display-name-input');
+  if(!row || !editRow || !input) return;
+  input.value = myProfile?.display_name || '';
+  row.style.display = 'none';
+  editRow.style.display = 'flex';
+  input.focus();
+}
+function cancelEditDisplayName(){
+  document.getElementById('display-name-row').style.display = '';
+  document.getElementById('display-name-edit-row').style.display = 'none';
+}
+async function saveDisplayName(){
+  const input = document.getElementById('display-name-input');
+  const name = input?.value?.trim();
+  if(!name || name.length < 2){ toast('Name too short'); return; }
+  const myId = getMyId();
+  if(!myId) return;
+  // Update local state
+  if(myProfile) myProfile.display_name = name;
+  const m = (leagueState.managers||[]).find(m=>m.id===myId);
+  if(m) m.display_name = name;
+  await saveLeagueState();
+  await db.from('managers').update({display_name:name}).eq('id',myId);
+  cancelEditDisplayName();
+  renderProfileScreen();
+  updateUserChip();
+  toast('Name updated!');
+}
 
 // ── TEAM NAME EDITING ────────────────────────────────────────────────────────
 function startEditTeamName(){
@@ -3530,8 +3775,7 @@ function renderWlcScreen(){
   const headerDiv = document.createElement('div');
   headerDiv.className = 'wlc-header';
   headerDiv.innerHTML = `
-    <span class="wlc-theme-badge">${week.theme||'Week'}</span>
-    <button onclick="showWlcRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:4px 0">RULES ›</button>`;
+    <span class="wlc-theme-badge">${week.theme||'Week'}</span>`;
   el.appendChild(headerDiv);
 
   // Week label
@@ -3747,12 +3991,11 @@ function openWlcSwapModal(fromName){
 function renderWlcNoWeek(el, wk){
   const isComm = myProfile?.is_commissioner;
   el.innerHTML = `
-    <div class="wlc-header" style="justify-content:flex-end"><button onclick="showWlcRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;">RULES ›</button></div>
     <div style="padding:20px 14px;">
       <div class="card">
         <div class="empty-state">
           <div class="icon" style="font-size:28px">🎯</div>
-          <div class="label">NO ACTIVE WEEK<br/><span style="color:var(--text3);font-size:5px">CHECK BACK SUNDAY</span></div>
+          <div class="label">NO ACTIVE WEEK<br/><span style="color:var(--text3);font-size:5px">CHECK BACK MONDAY</span></div>
         </div>
       </div>
       ${isComm ? `
@@ -3762,7 +4005,7 @@ function renderWlcNoWeek(el, wk){
       </div>` : ''}
     </div>
     <div style="margin-top:8px">
-      <div class="section-label">LIFETIME STANDINGS</div>
+      <div class="section-label">STANDINGS</div>
       <div class="wlc-standings-table" id="wlc-standings-body"></div>
     </div>`;
   const standDiv = el.querySelector('#wlc-standings-body');
@@ -3772,7 +4015,6 @@ function renderWlcNoWeek(el, wk){
 function renderWlcPendingApproval(el, week, wk){
   const isComm = myProfile?.is_commissioner;
   el.innerHTML = `
-    <div class="wlc-header" style="justify-content:flex-end"><button onclick="showWlcRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;">RULES ›</button></div>
     <div style="padding:12px 14px">
       <div style="background:rgba(245,166,35,.1);border:1px solid var(--accent3);border-radius:var(--radius);padding:12px;margin-bottom:12px;">
         <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3);margin-bottom:6px;">⏳ WEEK PENDING APPROVAL</div>
@@ -3975,14 +4217,6 @@ function showWlcRules(){
         <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1.2 per rebound, +1.5 per assist, +3 per steal, +3 per block, −1 per missed FG, −1 per missed FT, −1 per turnover.</strong></p>
         <p style="margin-bottom:10px">Lineups lock when the first game tips off. After that, you can swap an injured player once per week — same tier only.</p>
         <p>The manager with the most FP at the end of the week wins. Wins and total FP are tracked all season.</p>
-      </div>
-      <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);line-height:2">
-        <div style="margin-bottom:6px;color:var(--accent3)">SALARY TIERS</div>
-        <div>$5 TIER — Elite (top stars)</div>
-        <div>$4 TIER — All-Star level</div>
-        <div>$3 TIER — Solid starters</div>
-        <div>$2 TIER — Role players</div>
-        <div>$1 TIER — Deep cuts</div>
       </div>
     </div>`;
   modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };

@@ -585,9 +585,13 @@ img{display:block;}
   border:1px solid var(--accent5);
   border-radius:var(--radius);
   margin:6px 14px;
-  padding:14px;
+  padding:12px;
   box-shadow:0 0 16px rgba(123,47,255,.2);
 }
+/* Compact duel card on home screen */
+#duel-card-container .duel-player .portrait-wrap{width:50px;height:50px;}
+#duel-card-container .duel-body{margin-bottom:8px;}
+#duel-card-container .duel-card{padding:10px 12px;}
 .duel-header{
   font-family:var(--pixel);
   font-size:7px;
@@ -696,15 +700,16 @@ img{display:block;}
   border-bottom:1px solid var(--border);
   overflow-x:auto;
   scrollbar-width:none;
-  padding:0 14px;
+  padding:0 8px;
   gap:0;
-  background:var(--bg2);
+  background:var(--bg);
+  justify-content:center;
 }
 .fantasy-sub-tabs::-webkit-scrollbar{display:none;}
 .fantasy-sub-tab{
   flex-shrink:0;
   font-family:var(--pixel);font-size:5.5px;
-  padding:9px 11px;
+  padding:9px 10px;
   color:var(--text3);
   border-bottom:2px solid transparent;
   white-space:nowrap;
@@ -735,24 +740,32 @@ img{display:block;}
 .schedule-vs{font-family:var(--pixel);font-size:5px;color:var(--text3);padding:0 6px;}
 .run-tabs{
   display:flex;
-  border-bottom:1px solid var(--border);
   overflow-x:auto;
   scrollbar-width:none;
-  padding:0 14px;
-  gap:2px;
+  padding:10px 14px 8px;
+  gap:6px;
+  justify-content:center;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
 }
 .run-tabs::-webkit-scrollbar{display:none;}
 .run-tab{
   flex-shrink:0;
   font-family:var(--pixel);font-size:6px;
-  padding:10px 12px;
-  color:var(--text3);
-  border-bottom:2px solid transparent;
+  padding:6px 14px;
+  color:var(--text2);
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:20px;
   white-space:nowrap;
   cursor:pointer;
-  transition:color .1s,border-color .1s;
+  transition:color .15s,background .15s,border-color .15s;
 }
-.run-tab.active{color:var(--accent1);border-bottom-color:var(--accent1);}
+.run-tab[data-run="1"]{--run-color:#ff6b35;}
+.run-tab[data-run="2"]{--run-color:#4a9eff;}
+.run-tab[data-run="3"]{--run-color:#2ecc71;}
+.run-tab[data-run="4"]{--run-color:#f5a623;}
+.run-tab.active{color:#fff;background:var(--run-color);border-color:var(--run-color);}
 
 /* ── STANDINGS TABLE ── */
 .standings-table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -1060,9 +1073,25 @@ img{display:block;}
 
 /* ── DESKTOP SCALE ── */
 @media(min-width:441px){
-  body{padding-top:0;}
+  body{padding-top:0;font-size:17px;}
   #app{box-shadow:0 0 0 1px var(--border);}
   #login-screen{max-width:var(--max-w);margin:0 auto;}
+}
+@media(min-width:600px){
+  :root{--max-w:500px;}
+  body{font-size:17px;}
+  .page-header{font-size:10px;}
+  .section-label{font-size:7px;}
+  .settings-row .label,.settings-row .value{font-size:14px;}
+  .card{padding:16px;}
+  .nav-btn{font-size:8px;}
+  .nav-btn .icon{font-size:20px;}
+  .run-tab{font-size:7px;padding:8px 16px;}
+  .fantasy-sub-tab{font-size:6.5px;padding:11px 12px;}
+  .btn{font-size:8px;padding:13px 18px;}
+  .standings-table th,.standings-table td{font-size:14px;}
+  .duel-player .portrait-wrap{width:70px;height:70px;}
+  #duel-card-container .duel-player .portrait-wrap{width:55px;height:55px;}
 }
 </style>
 </head>
@@ -1239,6 +1268,15 @@ img{display:block;}
   <!-- ROSTER screen (kept for back-compat, hidden) -->
   <div id="roster-screen" class="screen" style="display:none"></div>
 
+  <!-- DAILY DUEL screen -->
+  <div id="duel-screen" class="screen">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px">
+      <span>⚡ DAILY DUEL</span>
+      <button onclick="showDuelRules()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer;flex-shrink:0">📖 RULES</button>
+    </div>
+    <div id="duel-screen-content"></div>
+  </div>
+
   <!-- WEEKLY LINE-UP CHALLENGE screen -->
   <div id="wlc-screen" class="screen">
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px">
@@ -1275,9 +1313,15 @@ img{display:block;}
         <button onclick="saveTeamName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--accent1);color:#000;border:none;border-radius:4px;padding:7px 10px;cursor:pointer">SAVE</button>
         <button onclick="cancelEditTeamName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:7px 10px;cursor:pointer">✕</button>
       </div>
-      <div class="settings-row" id="current-run-row">
-        <span class="label">Current Fantasy Run</span>
-        <span class="value" id="current-run-value">—</span>
+      <div class="settings-row" id="display-name-row" onclick="startEditDisplayName()" style="cursor:pointer">
+        <span class="label">Display Name</span>
+        <span class="value" id="display-name-value">—</span>
+        <span style="font-size:14px;color:var(--accent1);margin-left:6px;opacity:.8">✏️</span>
+      </div>
+      <div id="display-name-edit-row" style="display:none;padding:8px 14px;gap:8px;align-items:center;border-bottom:1px solid var(--border)">
+        <input id="display-name-input" maxlength="32" style="flex:1;background:var(--bg3);border:1px solid var(--accent1);border-radius:4px;padding:8px 10px;font-size:13px;color:var(--text1);outline:none;" onkeydown="if(event.key==='Enter')saveDisplayName();if(event.key==='Escape')cancelEditDisplayName()"/>
+        <button onclick="saveDisplayName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--accent1);color:#000;border:none;border-radius:4px;padding:7px 10px;cursor:pointer">SAVE</button>
+        <button onclick="cancelEditDisplayName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:7px 10px;cursor:pointer">✕</button>
       </div>
     </div>
 
@@ -1340,10 +1384,10 @@ img{display:block;}
     <span class="icon">🏀</span>FANTASY
   </button>
   <button class="nav-btn" id="nav-wlc" onclick="showScreen('wlc')">
-    <span class="icon">🎯</span>WEEKLY
+    <span class="icon">🎯</span>CHALLENGE
   </button>
-  <button class="nav-btn" id="nav-roster" onclick="showScreen('fantasy');switchFantasyTab('roster')">
-    <span class="icon">📋</span>ROSTER
+  <button class="nav-btn" id="nav-duel" onclick="showScreen('duel')">
+    <span class="icon">⚡</span>DUEL
   </button>
   <button class="nav-btn" id="nav-profile" onclick="showScreen('profile')">
     <span class="icon">👤</span>PROFILE

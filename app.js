@@ -1373,7 +1373,7 @@ function renderNewsBanner(){
   if(!rows.length){ el.style.display='none'; return; }
 
   const fmtDateEST = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'});
-  const fmtTimeEST = d => d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'});
+  const fmtTimeEST = d => d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'}).replace('EDT','EST');
 
   // Find next upcoming draft for sub-header
   const nextDraft = DRAFT_WINDOWS.find(dw=>{
@@ -1383,10 +1383,6 @@ function renderNewsBanner(){
   let html = '';
   // header with EST date + draft time on second row
   html += `<div class="news-banner-header"><span>📋 LEAGUE NEWS</span><span style="color:var(--text3)">${fmtDateEST(now)}</span></div>`;
-  if(nextDraft){
-    const ds = new Date(nextDraft.start);
-    html += `<div style="font-family:var(--pixel);font-size:5px;color:var(--accent3);padding:3px 14px 5px;letter-spacing:.5px">🏀 ${nextDraft.label}: ${fmtTimeEST(ds)}</div>`;
-  }
   rows.forEach(r=>{
     html += `<div class="news-banner-row">
       <span class="news-banner-label ${r.label}">${r.labelText}</span>
@@ -4214,7 +4210,7 @@ function showWlcRules(){
       <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:16px">
         <p style="margin-bottom:10px">Goal: Spend $15 or less and build the best 5-man team from the week's player pool.</p>
         <p style="margin-bottom:10px">Each week, the Commissioner selects a themed pool of 25 NBA players split into 5 tiers by salary — $1 through $5. Your job is to pick one player from any combination of tiers, as long as your total salary doesn't exceed $15.</p>
-        <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1.2 per rebound, +1.5 per assist, +3 per steal, +3 per block, −1 per missed FG, −1 per missed FT, −1 per turnover.</strong></p>
+        <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1.2 per rebound, +1.5 per assist, +3 per steal, +3 per block, −1 per missed FG, −1 per missed FT, −1 per turnover, −1 per flagrant foul, −1 per technical foul.</strong></p>
         <p style="margin-bottom:10px">Lineups lock when the first game tips off. After that, you can swap an injured player once per week — same tier only.</p>
         <p>The manager with the most FP at the end of the week wins. Wins and total FP are tracked all season.</p>
       </div>

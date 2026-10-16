@@ -2222,6 +2222,22 @@ function showFantasyRulesModal(){
         </div>
       `)}
 
+      ${section('LINEUP CHANGES','var(--accent1)',`
+        ${row('Weekly setting','Lineups lock before the first game each Monday')}
+        ${row('Daily setting','Lineups lock before the first game each day')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Weekly is the casual option — set it and forget it for the week. Daily is for the hardcore fan: you must manage your lineup almost every day of the NBA calendar, and it opens up more waiver activity and strategy throughout the week.
+        </div>
+      `)}
+
+      ${section('INJURY RESERVE (IR)','var(--accent4)',`
+        ${row('IR slots','1 per team')}
+        ${row('Eligible','Players labeled as injured')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Each team may place one injured player on the IR. While a player is on IR, you may carry an extra player on your roster beyond the 10-player limit. To remove a player from IR, you must first have no more than 9 other players on your roster.
+        </div>
+      `)}
+
       ${section('RUNS (SEASONS)','var(--text2)',runsHtml+`
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
           Each run has its own snake draft and standings. Your roster carries over but is re-drafted at the start of each run.

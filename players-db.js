@@ -83,7 +83,7 @@ const PLAYERS_DB = [
 {n:"CJ McCollum",t:"NO",r:77,fpPG:21.8,gp:71,projFP:1547.8},
 {n:"Precious Achiuwa",t:"SAC",r:78,fpPG:18.8,gp:71,projFP:1334.8},
 {n:"Joel Embiid",t:"PHI",r:79,fpPG:37.4,gp:41,projFP:1533.4},
-{n:"Damian Lillard",t:"MIL",r:80,fpPG:25.4,gp:60,projFP:1524},
+{n:"Damian Lillard",t:"POR",r:80,fpPG:25.4,gp:60,projFP:1524},
 {n:"Rudy Gobert",t:"MIN",r:81,fpPG:25.1,gp:60,projFP:1506},
 {n:"De'Aaron Fox",t:"SA",r:82,fpPG:26.7,gp:56,projFP:1495.2},
 {n:"Chris Paul",t:"BKN",r:83,fpPG:21.7,gp:68,projFP:1475.6},

@@ -1738,93 +1738,10 @@ function renderDuelScreen(){
   }).sort((a,b)=>b.streak!==a.streak?b.streak-a.streak:b.totalCorrect-a.totalCorrect);
   const myId = getMyId();
 
-  // Main duel card (reuse same logic)
-  let duelCardHtml = '';
-  if(!duel){
-    duelCardHtml = `<div class="duel-card"><div class="duel-empty"><div class="icon">⚡</div><div>DUEL COMING SOON<br/><span style="font-size:5px;color:var(--text3)">CHECK BACK TONIGHT</span></div></div></div>`;
-  } else {
-    const p1=getPlayer(duel.pid1), p2=getPlayer(duel.pid2);
-    if(p1&&p2){
-      const myPick = getMyDuelPick();
-      const streak = getMyDuelStreak();
-      const settled = duel.result !== null;
-      const statType = duel.stat || 'pts';
-      const portHtml=(p)=>{
-        const port=playerPortraits[p.name];
-        const fallback=`this.style.display='none';this.nextSibling.style.display='flex'`;
-        return `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="${fallback}"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-family:var(--pixel);font-size:9px;color:var(--text3)">${initials(p.name)}</div>`;
-      };
-      const winColor='var(--accent2)', loseColor='var(--accent4)', tieColor='var(--accent3)';
-      let resultBanner='', statLine='';
-      let pct1='', pct2='';
-      if(myPick !== null || settled){
-        const picks = duel.picks || {};
-        const allPicks = Object.values(picks).filter(v=>v!==null);
-        const n1 = allPicks.filter(v=>v===1).length;
-        const n2 = allPicks.filter(v=>v===2).length;
-        const total = n1 + n2;
-        if(total > 0){
-          pct1 = `<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n1/total*100)}%</div>`;
-          pct2 = `<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n2/total*100)}%</div>`;
-        }
-      }
-      if(settled){
-        const stat1txt = duel.score1 !== null ? duel.score1 : '—';
-        const stat2txt = duel.score2 !== null ? duel.score2 : '—';
-        statLine = `<div class="duel-scores"><span>${stat1txt}</span><span style="font-size:6px;color:var(--text3)">${statType.toUpperCase()}</span><span>${stat2txt}</span></div>`;
-        if(duel.result==='tie'){
-          resultBanner = `<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
-        } else {
-          const myCorrect = myPick !== null && myPick === duel.result;
-          resultBanner = myPick === null
-            ? `<div class="duel-result-banner" style="color:var(--text3)">PLAYER ${duel.result} WINS — YOU DIDN'T PICK</div>`
-            : myCorrect
-              ? `<div class="duel-result-banner" style="color:${winColor}">✓ CORRECT! STREAK: ${streak} 🔥</div>`
-              : `<div class="duel-result-banner" style="color:${loseColor}">✗ WRONG — STREAK RESET</div>`;
-        }
-      }
-      const pickedStyle = (side) => {
-        if(!settled && myPick===side) return `box-shadow:0 0 0 2px var(--accent2);`;
-        if(settled){
-          const won = duel.result===side || duel.result==='tie';
-          return myPick===side ? `box-shadow:0 0 0 2px ${won?winColor:loseColor};` : '';
-        }
-        return '';
-      };
-      duelCardHtml = `
-      <div class="duel-card">
-        <div class="duel-header">
-          <span>⚡ DAILY DUEL</span>
-          <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
-        </div>
-        <div class="duel-prompt">${duel.prompt}</div>
-        ${statLine}
-        <div class="duel-body">
-          <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
-            <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p1.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
-            <div class="dname">${p1.name.split(' ').pop()}</div>
-            <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
-            ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
-            ${pct1}
-          </div>
-          <div class="duel-vs">VS</div>
-          <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
-            <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p2.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
-            <div class="dname">${p2.name.split(' ').pop()}</div>
-            <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
-            ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
-            ${pct2}
-          </div>
-        </div>
-        ${!myPick && !settled ? `
-        <div class="duel-btns">
-          <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${p1.name.split(' ').pop().toUpperCase()}</button>
-          <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${p2.name.split(' ').pop().toUpperCase()}</button>
-        </div>` : ''}
-        ${resultBanner}
-      </div>`;
-    }
-  }
+  const seasonLive = new Date() >= NBA_SEASON_START;
+  const seasonNote = !seasonLive
+    ? `<div style="background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);border-radius:var(--radius);padding:8px 12px;margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">⚡ STREAKS & LEADERBOARD COUNT STARTING OCT 20 WHEN THE SEASON TIPS OFF</div>`
+    : '';
 
   // Leaderboard
   const lbRows = rows.map((m,i)=>`
@@ -1843,13 +1760,26 @@ function renderDuelScreen(){
 
   el.innerHTML = `
     <div style="padding:12px 0 80px">
-      ${duelCardHtml}
+      <div id="duel-card-container-screen" style="padding:0 14px 4px"></div>
+      ${seasonNote}
       <div class="section-label" style="margin-top:16px">LEADERBOARD</div>
       <div class="card" style="padding:0;overflow:hidden">
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY STREAK · TIEBREAK: ALL-TIME CORRECT</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY STREAK · TIEBREAK: ALL-TIME CORRECT · STARTS OCT 20</div>
         ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
       </div>
     </div>`;
+
+  // Render duel card into screen container using shared renderDuelCard logic
+  const screenCardEl = document.getElementById('duel-card-container-screen');
+  if(screenCardEl){
+    // Temporarily point renderDuelCard at the screen container
+    const orig = document.getElementById('duel-card-container');
+    if(orig) orig.id = '_duel-card-container-tmp';
+    screenCardEl.id = 'duel-card-container';
+    renderDuelCard();
+    screenCardEl.id = 'duel-card-container-screen';
+    if(orig) orig.id = 'duel-card-container';
+  }
 }
 
 // ── NEWS BANNER ───────────────────────────────────────────────────────────────
@@ -1984,14 +1914,19 @@ function getTopScorerHeadlines(){
 // leagueState.duelStreaks: { [managerId]: { streak, lastDate, totalCorrect } }
 
 const DUEL_STAT_TEMPLATES = [
-  { stat:'pts',     prompt:'Who scores more points tonight?',                     label:'PTS',     statKey:'ppg' },
-  { stat:'reb',     prompt:'Who grabs more rebounds tonight?',                    label:'REB',     statKey:'rpg' },
-  { stat:'ast',     prompt:'Who dishes out more assists tonight?',                label:'AST',     statKey:'apg' },
-  { stat:'fp',      prompt:'Who earns more fantasy points tonight?',              label:'FP',      statKey:'fp'  },
-  { stat:'reb+ast', prompt:'Who gets more combined rebounds and assists tonight?', label:'REB+AST', statKey:'reb+ast' },
-  { stat:'stl+blk', prompt:'Who has more combined steals and blocks tonight?',    label:'STL+BLK', statKey:'stl+blk' },
-  { stat:'pts',     prompt:'Who scores more points tonight?',                     label:'PTS',     statKey:'ppg' },
-  { stat:'fp',      prompt:'Who earns more fantasy points tonight?',              label:'FP',      statKey:'fp'  },
+  { stat:'pts',     prompt:'Who scores more points tonight?',                      label:'PTS',     statKey:'ppg',     maxDiff:6 },
+  { stat:'reb',     prompt:'Who grabs more rebounds tonight?',                     label:'REB',     statKey:'rpg',     maxDiff:2 },
+  { stat:'ast',     prompt:'Who dishes out more assists tonight?',                 label:'AST',     statKey:'apg',     maxDiff:3 },
+  { stat:'fp',      prompt:'Who earns more fantasy points tonight?',               label:'FP',      statKey:'fp',      maxDiff:6 },
+  { stat:'reb+ast', prompt:'Who gets more combined rebounds and assists tonight?',  label:'REB+AST', statKey:'reb+ast', maxDiff:3 },
+  { stat:'stl+blk', prompt:'Who has more combined steals and blocks tonight?',     label:'STL+BLK', statKey:'stl+blk', maxDiff:2 },
+  { stat:'pts',     prompt:'Who scores more points tonight?',                      label:'PTS',     statKey:'ppg',     maxDiff:6 },
+  { stat:'fp',      prompt:'Who earns more fantasy points tonight?',               label:'FP',      statKey:'fp',      maxDiff:6 },
+];
+
+// Team Pick'em duel type — just needs two NBA teams
+const DUEL_TEAM_TEMPLATES = [
+  { stat:'team', prompt:'Who wins tonight?' },
 ];
 
 function todayKey(){
@@ -2004,27 +1939,111 @@ function getTodaysDuel(){
 }
 
 // Auto-generate today's duel (called by boot or commissioner)
+// Every 4th day (by seed) generates a Team Pick'em; otherwise a player stat duel
+// with players matched within the stat's maxDiff threshold.
 function autoGenerateDuel(forDate){
   const dateKey = forDate || todayKey();
   const seed = dateKey.split('-').reduce((a,b)=>a*100+parseInt(b),0);
-  // Pick two high-profile players (ppg >= 18) who differ by team, excluding injured/inactive
   const injured = new Set(leagueState?.injuredPlayers || []);
-  const stars = PLAYERS.filter(p=>p.ppg>=18 && !injured.has(p.id) && !injured.has(p.name));
-  if(stars.length < 2) return null;
-  let i1 = seed % stars.length;
-  let i2 = (seed * 13 + 7) % stars.length;
-  // Make sure they're different players and different teams
-  let attempts = 0;
-  while((i1===i2 || stars[i1].team===stars[i2].team) && attempts < 30){
-    i2 = (i2 + 1) % stars.length;
-    attempts++;
+
+  // ── Team Pick'em (every 4th day) ──────────────────────────────────────────
+  if(seed % 4 === 0){
+    const teams = NBA_TEAMS_LIST || Object.keys(NBA_TEAMS||{});
+    if(teams.length >= 2){
+      let t1i = seed % teams.length;
+      let t2i = (seed * 17 + 3) % teams.length;
+      let att = 0;
+      while(t1i===t2i && att<20){ t2i=(t2i+1)%teams.length; att++; }
+      if(t1i !== t2i){
+        const t1 = teams[t1i], t2 = teams[t2i];
+        const fullName = abbr => NBA_TEAMS?.[abbr] || abbr;
+        return {
+          type: 'team',
+          team1: t1, team2: t2,
+          pid1: null, pid2: null,
+          stat: 'team',
+          prompt: `Who wins tonight? ${fullName(t1)} vs ${fullName(t2)}`,
+          result: null, score1: null, score2: null,
+          picks: {},
+          generatedAt: new Date().toISOString(),
+        };
+      }
+    }
   }
-  if(i1===i2) return null;
-  const p1 = stars[i1], p2 = stars[i2];
+
+  // ── Player stat duel ──────────────────────────────────────────────────────
   const tmpl = DUEL_STAT_TEMPLATES[seed % DUEL_STAT_TEMPLATES.length];
+  const maxDiff = tmpl.maxDiff ?? 6;
+
+  // Helper: get the relevant average for a player given a stat template
+  const statVal = (p) => {
+    switch(tmpl.statKey){
+      case 'ppg':      return p.ppg;
+      case 'rpg':      return p.rpg;
+      case 'apg':      return p.apg;
+      case 'reb+ast':  return p.rpg + p.apg;
+      case 'stl+blk':  return p.spg + p.bpg;
+      case 'fp': {
+        const d = PLAYERS_DB?.find(x=>x.n===p.name);
+        return d?.fpPG || (p.ppg + p.rpg + p.apg + p.spg + p.bpg);
+      }
+      default: return p.ppg;
+    }
+  };
+
+  const stars = PLAYERS.filter(p=>p.ppg>=15 && !injured.has(p.id) && !injured.has(p.name));
+  if(stars.length < 2) return null;
+
+  // Shuffle deterministically with the seed
+  const shuffled = [...stars].sort((a,b)=>{
+    const ha = (seed * a.id) % 997, hb = (seed * b.id) % 997;
+    return ha - hb;
+  });
+
+  // Find a pair whose stat values are within maxDiff and on different teams
+  let p1 = null, p2 = null;
+  outer: for(let i=0; i<shuffled.length; i++){
+    const a = shuffled[i];
+    const va = statVal(a);
+    for(let j=i+1; j<shuffled.length; j++){
+      const b = shuffled[j];
+      if(a.team === b.team) continue;
+      if(Math.abs(va - statVal(b)) <= maxDiff){
+        p1 = a; p2 = b;
+        break outer;
+      }
+    }
+  }
+  // Fallback: any two stars on different teams
+  if(!p1){
+    const i1 = seed % stars.length;
+    let i2 = (seed * 13 + 7) % stars.length;
+    let attempts = 0;
+    while((i1===i2 || stars[i1].team===stars[i2].team) && attempts < 30){
+      i2 = (i2 + 1) % stars.length; attempts++;
+    }
+    if(i1===i2) return null;
+    p1 = stars[i1]; p2 = stars[i2];
+  }
+
+  // Build context-aware prompt with the players' stats
+  const buildPrompt = () => {
+    const v1 = statVal(p1).toFixed(1), v2 = statVal(p2).toFixed(1);
+    switch(tmpl.stat){
+      case 'pts':     return `Who scores more points tonight? ${p1.name} (${v1} PPG) vs ${p2.name} (${v2} PPG)`;
+      case 'reb':     return `Who grabs more rebounds tonight? ${p1.name} (${v1} RPG) vs ${p2.name} (${v2} RPG)`;
+      case 'ast':     return `Who dishes out more assists tonight? ${p1.name} (${v1} APG) vs ${p2.name} (${v2} APG)`;
+      case 'fp':      return `Who earns more fantasy points tonight? ${p1.name} (${v1} FP/G) vs ${p2.name} (${v2} FP/G)`;
+      case 'reb+ast': return `Who gets more combined reb+ast tonight? ${p1.name} (${(p1.rpg+p1.apg).toFixed(1)}) vs ${p2.name} (${(p2.rpg+p2.apg).toFixed(1)})`;
+      case 'stl+blk': return `Who gets more combined stl+blk tonight? ${p1.name} (${(p1.spg+p1.bpg).toFixed(1)}) vs ${p2.name} (${(p2.spg+p2.bpg).toFixed(1)})`;
+      default:        return `Who performs better tonight? ${p1.name} vs ${p2.name}`;
+    }
+  };
+
   return {
+    type: 'player',
     pid1: p1.id, pid2: p2.id,
-    stat: tmpl.stat, prompt: tmpl.prompt,
+    stat: tmpl.stat, prompt: buildPrompt(),
     result: null, score1: null, score2: null,
     picks: {},
     generatedAt: new Date().toISOString(),
@@ -2078,6 +2097,8 @@ async function settleDuel(dateKey, result, score1, score2){
   duel.result = result; // 1, 2, or 'tie'
   duel.score1 = score1;
   duel.score2 = score2;
+  // Streaks and leaderboard only count once the regular season begins (Oct 20)
+  const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
   // Update streaks for all managers who picked
   if(!leagueState.duelStreaks) leagueState.duelStreaks = {};
   const prevDate = getPrevDateKey(dateKey);
@@ -2085,20 +2106,22 @@ async function settleDuel(dateKey, result, score1, score2){
     const correct = result === 'tie' ? true : (pick === result);
     if(!leagueState.duelStreaks[mid]) leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0};
     const s = leagueState.duelStreaks[mid];
-    // Check continuity — if they missed yesterday, streak should already be 0
-    if(correct){
-      s.streak = (s.lastDate === prevDate ? s.streak : 0) + 1;
-      s.totalCorrect = (s.totalCorrect||0) + 1;
-      if(s.streak > (s.longest||0)) s.longest = s.streak;
-    } else {
-      s.streak = 0;
+    // Streaks and totalCorrect only count once the regular season begins (Oct 20)
+    if(countsForStreak){
+      if(correct){
+        s.streak = (s.lastDate === prevDate ? s.streak : 0) + 1;
+        s.totalCorrect = (s.totalCorrect||0) + 1;
+        if(s.streak > (s.longest||0)) s.longest = s.streak;
+      } else {
+        s.streak = 0;
+      }
+      s.lastDate = dateKey;
     }
-    s.lastDate = dateKey;
   }
   // Anyone who had a streak going but didn't pick today — their streak is already "dead"
   // (the getDuelStreak function handles the miss-a-day case live)
   await saveLeagueState();
-  toast('Duel settled! Streaks updated.');
+  toast(countsForStreak ? 'Duel settled! Streaks updated.' : 'Duel settled! (Pre-season — streaks count from Oct 20)');
   renderDuelCard();
   if(currentScreen==='duel') renderDuelScreen();
 }
@@ -2155,6 +2178,79 @@ function renderDuelCard(){
     return;
   }
 
+  const isTeamDuel = duel.type === 'team';
+
+  // ── Team Pick'em rendering ──────────────────────────────────────────────
+  if(isTeamDuel){
+    const myPick = getMyDuelPick();
+    const streak = getMyDuelStreak();
+    const settled = duel.result !== null;
+    const winColor = 'var(--accent2)', loseColor = 'var(--accent4)', tieColor = 'var(--accent3)';
+
+    let pct1='', pct2='';
+    if(myPick !== null || settled){
+      const allPicks = Object.values(duel.picks||{}).filter(v=>v!==null);
+      const n1=allPicks.filter(v=>v===1).length, n2=allPicks.filter(v=>v===2).length, tot=n1+n2;
+      if(tot>0){ pct1=`<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n1/tot*100)}%</div>`; pct2=`<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:4px">${Math.round(n2/tot*100)}%</div>`; }
+    }
+
+    let resultBanner='';
+    if(settled){
+      const stat1txt = duel.score1 !== null ? duel.score1 : '—';
+      const stat2txt = duel.score2 !== null ? duel.score2 : '—';
+      if(duel.result==='tie') resultBanner=`<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
+      else{
+        const myCorrect = myPick!==null && myPick===duel.result;
+        const winnerAbbr = duel.result===1 ? duel.team1 : duel.team2;
+        resultBanner = myPick===null
+          ? `<div class="duel-result-banner" style="color:var(--text3)">${winnerAbbr} WINS — YOU DIDN'T PICK</div>`
+          : myCorrect ? `<div class="duel-result-banner" style="color:${winColor}">✓ CORRECT! STREAK: ${streak} 🔥</div>`
+          : `<div class="duel-result-banner" style="color:${loseColor}">✗ WRONG — STREAK RESET</div>`;
+      }
+    }
+
+    const pickedStyle=(s)=>{
+      if(!settled && myPick===s) return `box-shadow:0 0 0 2px var(--accent2);`;
+      if(settled){ const won=duel.result===s||duel.result==='tie'; return myPick===s?`box-shadow:0 0 0 2px ${won?winColor:loseColor};`:''; }
+      return '';
+    };
+    const teamBox=(abbr,side)=>{
+      const full = NBA_TEAMS?.[abbr] || abbr;
+      return `<div class="duel-player ${myPick===side&&!settled?'duel-picked':''}" style="${pickedStyle(side)}">
+        <div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>
+        <div class="dname">${abbr}</div>
+        <div class="dstat" style="font-size:9px">${full}</div>
+        ${myPick===side?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
+        ${side===1?pct1:pct2}
+      </div>`;
+    };
+
+    el.innerHTML=`
+    <div class="duel-card">
+      <div class="duel-header">
+        <span>⚡ TEAM PICK'EM</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="event.stopPropagation();showDuelRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:0">RULES ›</button>
+          <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+        </div>
+      </div>
+      <div class="duel-prompt">${duel.prompt}</div>
+      <div class="duel-body">
+        ${teamBox(duel.team1, 1)}
+        <div class="duel-vs">VS</div>
+        ${teamBox(duel.team2, 2)}
+      </div>
+      ${!myPick && !settled ? `
+      <div class="duel-btns">
+        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${duel.team1}</button>
+        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${duel.team2}</button>
+      </div>` : ''}
+      ${resultBanner}
+    </div>`;
+    return;
+  }
+
+  // ── Player stat duel rendering ──────────────────────────────────────────
   const p1=getPlayer(duel.pid1), p2=getPlayer(duel.pid2);
   if(!p1||!p2){ el.innerHTML=''; return; }
 
@@ -2729,12 +2825,11 @@ function renderQuickStats(){
     </div>
     <div style="text-align:center;border-right:1px solid var(--border);padding:0 4px">
       <div style="font-family:var(--pixel);font-size:11px;color:var(--accent1)">${rankStr}</div>
-      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${run.name.toUpperCase()} STAND.</div>
-      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${record}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">STANDINGS</div>
     </div>
     <div style="text-align:center;padding-left:4px">
       <div style="font-family:var(--pixel);font-size:10px;color:var(--accent2)">${topP ? topP.name.split(' ').pop() : '—'}</div>
-      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">TOP · ${topP?playerTotalFP(topPlayer).toFixed(1)+' FP':'—'}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">TEAM MVP · ${topP?playerTotalFP(topPlayer).toFixed(1)+' FP':'—'}</div>
     </div>
   </div>`;
 }
@@ -2806,9 +2901,13 @@ function renderFantasyDraftPane(){
 
   if(draftFilter.sort==='fp'){
     players=[...players].sort((a,b)=>{
-      const bFP=playerTotalFP(b.id)||((b.ppg+b.rpg+b.apg+b.spg+b.bpg));
-      const aFP=playerTotalFP(a.id)||((a.ppg+a.rpg+a.apg+a.spg+a.bpg));
-      return bFP-aFP;
+      // Primary: actual FP scored this season (if games have been played)
+      const liveFP = id => playerTotalFP(id) || 0;
+      // Secondary: projected FP from BDL season averages (or static PLAYERS_DB)
+      const projFP = p => { const d=PLAYERS_DB.find(x=>x.n===p.name); return d?.fpPG || (p.ppg+p.rpg+p.apg+p.spg+p.bpg); };
+      const bScore = liveFP(b.id) || projFP(b);
+      const aScore = liveFP(a.id) || projFP(a);
+      return bScore - aScore;
     });
   } else {
     players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
@@ -3909,58 +4008,70 @@ async function startTicker(){
 }
 
 async function fetchAndRenderTicker(){
+  const nowET       = new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const etHour      = nowET.getHours();
   const todayET     = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
   const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+
+  // Ticker logic:
+  //   Before 9:00 AM ET  → show yesterday's final scores only (until window closes at 8:59)
+  //   9:00 AM ET onward  → show today's upcoming games with start times, then live games,
+  //                         then any finals once complete; yesterday's finals no longer shown
+  const showYesterday = etHour < 9;   // true = before 9 AM ET
+  const datesToFetch  = showYesterday ? [yesterdayET] : [todayET, yesterdayET];
 
   // ── Try BallDontLie first ──
   if(bdlKey){
     try{
-      // BDL requires 'dates[]' array param — pass both dates in one request
-      const gamesRes = await bdlFetch('/games', {'dates[]': [todayET, yesterdayET], per_page: 30});
+      const gamesRes = await bdlFetch('/games', {'dates[]': datesToFetch, per_page: 30});
       const combined = gamesRes?.data || [];
-      if(combined.length){ renderTickerBdl(combined, todayET); return; }
+      if(combined.length){ renderTickerBdl(combined, todayET, showYesterday); return; }
     }catch(e){ console.warn('BDL ticker fetch failed, trying ESPN:', e); }
   }
 
   // ── ESPN fallback ──
   try{
-    const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
-    const today     = new Date();
-    const yesterday = new Date(Date.now()-86400000);
+    const fmt = d => d.slice(0,10).replace(/-/g,'');
     let allEvents = [];
-    for(const d of [today, yesterday]){
+    for(const d of datesToFetch){
       try{
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(d)}`);
         if(res.ok){ const data=await res.json(); allEvents=allEvents.concat(data.events||[]); }
       }catch(e){}
     }
-    renderTicker(allEvents, todayET);
+    renderTicker(allEvents, todayET, showYesterday);
   }catch(e){ console.warn('Ticker fetch failed:', e); }
 }
 
 // Render ticker from BDL /games response
-function renderTickerBdl(games, todayDate){
+// showYesterday: when true (before 9 AM ET) only show yesterday's finals, no upcoming times
+function renderTickerBdl(games, todayDate, showYesterday){
   const el    = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;
 
-  // Sort: live first, then today upcoming, then yesterday finals
-  const order = g => g.status==='In Progress' ? 0 : g.date?.startsWith(todayDate) ? 1 : 2;
+  // Sort: live first, then today upcoming, then finals
+  const order = g => g.status==='In Progress' ? 0 : (g.status==='Final'||g.status?.startsWith('Final')) ? 2 : 1;
   games.sort((a,b)=>order(a)-order(b));
 
   let html = buildTickerDraftHtml(); // draft window items
 
-  const fmtTime = dateStr => new Date(dateStr).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  const fmtTime = dateStr => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
+  };
 
   for(const g of games){
     const away = g.visitor_team?.abbreviation || '???';
     const home = g.home_team?.abbreviation    || '???';
     const awayScore = g.visitor_team_score ?? '';
     const homeScore = g.home_team_score    ?? '';
-    const st = g.status; // 'Final', 'In Progress', '1st Qtr', '2nd Qtr', etc.
+    const st = g.status; // 'Final', 'In Progress', '1st Qtr', etc.
     const isYesterday = g.date && !g.date.startsWith(todayDate);
 
     if(st==='Final' || st?.startsWith('Final')){
+      // Before 9 AM: show yesterday's finals. After 9 AM: show today's finals too.
+      if(isYesterday && !showYesterday) continue; // past yesterday window
       const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
       const homeWin = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
@@ -3970,6 +4081,7 @@ function renderTickerBdl(games, todayDate){
         <span>${home} <span class="score" ${homeWin?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else if(st==='In Progress' || /^\d/.test(st||'')){
+      if(isYesterday) continue; // stale live score from yesterday — skip
       const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
       const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
@@ -3979,6 +4091,8 @@ function renderTickerBdl(games, todayDate){
         <span>${home} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else {
+      // Upcoming game — only show from 9 AM ET, and only for today
+      if(showYesterday || isYesterday) continue;
       html += `<div class="ticker-game">
         <span class="upcoming">${fmtTime(g.date)}</span>
         <span>${away} vs ${home}</span>
@@ -4039,12 +4153,16 @@ function buildTickerDraftHtml(){
 }
 
 // ESPN fallback ticker renderer
-function renderTicker(events, todayDate){
+// showYesterday: when true (before 9 AM ET) only show yesterday finals, no upcoming
+function renderTicker(events, todayDate, showYesterday){
   const el = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;
 
-  const fmtTime = dateStr => new Date(dateStr).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  const fmtTime = dateStr => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
+  };
 
   let html = buildTickerDraftHtml();
 
@@ -4066,9 +4184,12 @@ function renderTicker(events, todayDate){
     const awayAbbr = away?.team?.abbreviation || '???';
     const homeScore = home?.score || '';
     const awayScore = away?.score || '';
-    const isYesterday = todayDate && !ev.date?.startsWith(todayDate.replace(/-/g,''));
+    // ESPN date comes as YYYYMMDD format in URL but ISO in the event
+    const evDateStr = ev.date ? ev.date.slice(0,10) : '';
+    const isYesterday = todayDate && evDateStr !== todayDate;
 
     if(stateVal==='in'){
+      if(isYesterday) return; // stale live score — skip
       const period = comp.status?.period || '';
       const clock  = comp.status?.displayClock || '';
       const pLabel = period===5 ? 'OT' : `Q${period}`;
@@ -4081,6 +4202,7 @@ function renderTicker(events, todayDate){
         <span>${homeAbbr} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else if(stateVal==='post'){
+      if(isYesterday && !showYesterday) return; // past yesterday window
       const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
       const homeWin = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
@@ -4090,6 +4212,7 @@ function renderTicker(events, todayDate){
         <span>${homeAbbr} <span class="score" ${homeWin?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else {
+      if(showYesterday || isYesterday) return; // no upcoming before 9 AM
       html += `<div class="ticker-game">
         <span class="upcoming">${fmtTime(comp.date)}</span>
         <span>${awayAbbr} vs ${homeAbbr}</span>

@@ -3840,18 +3840,22 @@ function renderTickerBdl(games, todayDate){
     const isYesterday = g.date && !g.date.startsWith(todayDate);
 
     if(st==='Final' || st?.startsWith('Final')){
+      const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
+      const homeWin = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
         <span class="final">${isYesterday ? 'FINAL ✓' : 'FINAL'}</span>
-        <span>${away} <span class="score">${awayScore}</span></span>
+        <span>${away} <span class="score" ${awayWin?'style="color:#4ade80"':''}>${awayScore}</span></span>
         <span style="color:var(--border)">·</span>
-        <span>${home} <span class="score">${homeScore}</span></span>
+        <span>${home} <span class="score" ${homeWin?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else if(st==='In Progress' || /^\d/.test(st||'')){
+      const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
+      const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
         <span class="live-dot"></span>
-        <span>${away} <span class="score">${awayScore}</span></span>
+        <span>${away} <span class="score" ${awayLead?'style="color:#4ade80"':''}>${awayScore}</span></span>
         <span class="period">${st||'LIVE'}</span>
-        <span>${home} <span class="score">${homeScore}</span></span>
+        <span>${home} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else {
       html += `<div class="ticker-game">
@@ -3947,18 +3951,22 @@ function renderTicker(events, todayDate){
       const period = comp.status?.period || '';
       const clock  = comp.status?.displayClock || '';
       const pLabel = period===5 ? 'OT' : `Q${period}`;
+      const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
+      const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
         <span class="live-dot"></span>
-        <span>${awayAbbr} <span class="score">${awayScore}</span></span>
+        <span>${awayAbbr} <span class="score" ${awayLead?'style="color:#4ade80"':''}>${awayScore}</span></span>
         <span class="period">${pLabel} ${clock}</span>
-        <span>${homeAbbr} <span class="score">${homeScore}</span></span>
+        <span>${homeAbbr} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else if(stateVal==='post'){
+      const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
+      const homeWin = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
         <span class="final">${isYesterday ? 'FINAL ✓' : 'FINAL'}</span>
-        <span>${awayAbbr} <span class="score">${awayScore}</span></span>
+        <span>${awayAbbr} <span class="score" ${awayWin?'style="color:#4ade80"':''}>${awayScore}</span></span>
         <span style="color:var(--border)">·</span>
-        <span>${homeAbbr} <span class="score">${homeScore}</span></span>
+        <span>${homeAbbr} <span class="score" ${homeWin?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else {
       html += `<div class="ticker-game">

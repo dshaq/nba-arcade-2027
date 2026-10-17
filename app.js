@@ -3784,63 +3784,121 @@ async function startTicker(){
 }
 
 async function fetchAndRenderTicker(){
-  try {
-    // ESPN scoreboard — today's games (no API key needed)
-    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${today}`;
-    const res = await fetch(url);
-    if(!res.ok) return;
-    const data = await res.json();
-    const events = data.events || [];
-    renderTicker(events);
-  } catch(e){
-    console.warn('Ticker fetch failed:', e);
+  const todayET     = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+
+  // ── Try BallDontLie first ──
+  if(bdlKey){
+    try{
+      const [todayRes, yestRes] = await Promise.all([
+        bdlFetch('/games', {dates: [todayET], per_page: 15}),
+        bdlFetch('/games', {dates: [yesterdayET], per_page: 15}),
+      ]);
+      const todayGames = todayRes?.data || [];
+      const yestGames  = yestRes?.data  || [];
+      const combined   = [...todayGames, ...yestGames];
+      if(combined.length){ renderTickerBdl(combined, todayET); return; }
+    }catch(e){ console.warn('BDL ticker fetch failed, trying ESPN:', e); }
   }
+
+  // ── ESPN fallback ──
+  try{
+    const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
+    const today     = new Date();
+    const yesterday = new Date(Date.now()-86400000);
+    let allEvents = [];
+    for(const d of [today, yesterday]){
+      try{
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(d)}`);
+        if(res.ok){ const data=await res.json(); allEvents=allEvents.concat(data.events||[]); }
+      }catch(e){}
+    }
+    renderTicker(allEvents, todayET);
+  }catch(e){ console.warn('Ticker fetch failed:', e); }
 }
 
-function renderTicker(events){
-  const el = document.getElementById('game-ticker');
+// Render ticker from BDL /games response
+function renderTickerBdl(games, todayDate){
+  const el    = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;
 
-  const fmtTime = dateStr => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
-  };
+  // Sort: live first, then today upcoming, then yesterday finals
+  const order = g => g.status==='In Progress' ? 0 : g.date?.startsWith(todayDate) ? 1 : 2;
+  games.sort((a,b)=>order(a)-order(b));
 
+  let html = buildTickerDraftHtml(); // draft window items
+
+  const fmtTime = dateStr => new Date(dateStr).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+
+  for(const g of games){
+    const away = g.visitor_team?.abbreviation || '???';
+    const home = g.home_team?.abbreviation    || '???';
+    const awayScore = g.visitor_team_score ?? '';
+    const homeScore = g.home_team_score    ?? '';
+    const st = g.status; // 'Final', 'In Progress', '1st Qtr', '2nd Qtr', etc.
+    const isYesterday = g.date && !g.date.startsWith(todayDate);
+
+    if(st==='Final' || st?.startsWith('Final')){
+      html += `<div class="ticker-game">
+        <span class="final">${isYesterday ? 'FINAL ✓' : 'FINAL'}</span>
+        <span>${away} <span class="score">${awayScore}</span></span>
+        <span style="color:var(--border)">·</span>
+        <span>${home} <span class="score">${homeScore}</span></span>
+      </div>`;
+    } else if(st==='In Progress' || /^\d/.test(st||'')){
+      html += `<div class="ticker-game">
+        <span class="live-dot"></span>
+        <span>${away} <span class="score">${awayScore}</span></span>
+        <span class="period">${st||'LIVE'}</span>
+        <span>${home} <span class="score">${homeScore}</span></span>
+      </div>`;
+    } else {
+      html += `<div class="ticker-game">
+        <span class="upcoming">${fmtTime(g.date)}</span>
+        <span>${away} vs ${home}</span>
+      </div>`;
+    }
+  }
+
+  if(!html){ el.style.display='none'; return; }
+  track.innerHTML = html + html;
+  el.style.display = 'flex';
+  const totalW = track.scrollWidth / 2;
+  const speed = Math.max(20, totalW / 80);
+  track.style.animationDuration = `${speed}s`;
+}
+
+// Extract draft-window ticker items (shared between BDL and ESPN renderers)
+function buildTickerDraftHtml(){
   let html = '';
-
-  // ── Draft pick ticker (show starting 1 day before draft) ──────────────────
   const now = new Date();
   DRAFT_WINDOWS.forEach(dw => {
     const s = new Date(dw.start), e = new Date(dw.end);
-    const oneDayBefore = new Date(s); oneDayBefore.setDate(s.getDate() - 1);
-    const isActive = now >= s && now <= e;
+    const oneDayBefore = new Date(s); oneDayBefore.setDate(s.getDate()-1);
+    const isActive  = now >= s && now <= e;
     const isPreview = !isActive && now >= oneDayBefore && now < s;
-
     if(isPreview){
-      const fmtDT = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' · ' +
+      const fmtDT = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+
         d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
       html += `<div class="ticker-game">
         <span class="upcoming" style="background:var(--accent2)">DRAFT</span>
         <span>${dw.label} starts ${fmtDT(s)}</span>
       </div>`;
     }
-
     if(isActive){
       const onClock = getDraftOnClock(dw.run);
-      // Get next on clock
       let nextUp = null;
-      if(leagueState && leagueState.drafts) {
+      if(leagueState?.drafts){
         const draft = leagueState.drafts[dw.run];
-        if(draft && draft.status === 'active'){
-          const managers = leagueState.managers || [];
+        if(draft?.status==='active'){
+          const managers = leagueState.managers||[];
           if(managers.length){
-            const pick = (draft.currentPick || 0) + 1;
-            const round = Math.floor(pick / managers.length);
-            const posInRound = pick % managers.length;
-            const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
-            nextUp = managers[idx]?.display_name || null;
+            const pick = (draft.currentPick||0)+1;
+            const round = Math.floor(pick/managers.length);
+            const posInRound = pick%managers.length;
+            const idx = round%2===0 ? posInRound : (managers.length-1-posInRound);
+            nextUp = managers[idx]?.display_name||null;
           }
         }
       }
@@ -3852,42 +3910,57 @@ function renderTicker(events){
       </div>`;
     }
   });
+  return html;
+}
 
-  if(!events.length && !html){ el.style.display='none'; return; }
+// ESPN fallback ticker renderer
+function renderTicker(events, todayDate){
+  const el = document.getElementById('game-ticker');
+  const track = document.getElementById('ticker-track');
+  if(!el || !track) return;
 
-  events.forEach(ev => {
+  const fmtTime = dateStr => new Date(dateStr).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+
+  let html = buildTickerDraftHtml();
+
+  // Live/upcoming first, then finals
+  const sorted = [...events].sort((a,b)=>{
+    const stA = a.competitions?.[0]?.status?.type?.state;
+    const stB = b.competitions?.[0]?.status?.type?.state;
+    return (stA==='in'?0:stA==='pre'?1:2) - (stB==='in'?0:stB==='pre'?1:2);
+  });
+
+  sorted.forEach(ev => {
     const comp = ev.competitions?.[0];
     if(!comp) return;
     const teams = comp.competitors || [];
     const home = teams.find(t=>t.homeAway==='home') || teams[0];
     const away = teams.find(t=>t.homeAway==='away') || teams[1];
-    const status = comp.status?.type;
-    const stateVal = status?.state; // 'pre','in','post'
+    const stateVal = comp.status?.type?.state;
     const homeAbbr = home?.team?.abbreviation || '???';
     const awayAbbr = away?.team?.abbreviation || '???';
     const homeScore = home?.score || '';
     const awayScore = away?.score || '';
+    const isYesterday = todayDate && !ev.date?.startsWith(todayDate.replace(/-/g,''));
 
-    if(stateVal === 'in'){
+    if(stateVal==='in'){
       const period = comp.status?.period || '';
-      const clock = comp.status?.displayClock || '';
-      const pLabel = period === 5 ? 'OT' : `Q${period}`;
+      const clock  = comp.status?.displayClock || '';
+      const pLabel = period===5 ? 'OT' : `Q${period}`;
       html += `<div class="ticker-game">
         <span class="live-dot"></span>
         <span>${awayAbbr} <span class="score">${awayScore}</span></span>
         <span class="period">${pLabel} ${clock}</span>
         <span>${homeAbbr} <span class="score">${homeScore}</span></span>
       </div>`;
-    } else if(stateVal === 'post'){
-      const winner = parseFloat(homeScore) > parseFloat(awayScore) ? homeAbbr : awayAbbr;
+    } else if(stateVal==='post'){
       html += `<div class="ticker-game">
-        <span class="final">FINAL</span>
+        <span class="final">${isYesterday ? 'FINAL ✓' : 'FINAL'}</span>
         <span>${awayAbbr} <span class="score">${awayScore}</span></span>
         <span style="color:var(--border)">·</span>
         <span>${homeAbbr} <span class="score">${homeScore}</span></span>
       </div>`;
     } else {
-      // upcoming
       html += `<div class="ticker-game">
         <span class="upcoming">${fmtTime(comp.date)}</span>
         <span>${awayAbbr} vs ${homeAbbr}</span>
@@ -3896,14 +3969,10 @@ function renderTicker(events){
   });
 
   if(!html){ el.style.display='none'; return; }
-
-  // Duplicate for seamless loop
   track.innerHTML = html + html;
   el.style.display = 'flex';
-
-  // Adjust animation speed to content width
   const totalW = track.scrollWidth / 2;
-  const speed = Math.max(20, totalW / 80); // px/s rough
+  const speed = Math.max(20, totalW / 80);
   track.style.animationDuration = `${speed}s`;
 }
 

@@ -1241,11 +1241,57 @@ function autoActiveFor(mid){
   return [...roster].sort((a,b)=>playerTotalFP(b)-playerTotalFP(a)).slice(0,ACTIVE_SIZE);
 }
 
-// ── ESPN LIVE STATS ──────────────────────────────────────────────────────────
+// ── LIVE STATS (BallDontLie primary, ESPN fallback) ──────────────────────────
 const NBA_SEASON_START = new Date('2026-10-20');
-const NBA_SEASON_END   = new Date('2027-07-01'); // approximate
+const NBA_SEASON_END   = new Date('2027-07-01');
 
-async function fetchBoxScore(eventId){
+// Match a BDL player name + team to our PLAYERS array
+function matchBdlPlayer(firstName, lastName, teamAbbr){
+  const full = `${firstName} ${lastName}`.toLowerCase();
+  const last = lastName.toLowerCase();
+  return PLAYERS.find(p=>p.name.toLowerCase()===full) ||
+    PLAYERS.find(p=>p.team===teamAbbr && p.name.toLowerCase()===full) ||
+    PLAYERS.find(p=>p.team===teamAbbr && p.name.split(' ').pop().toLowerCase()===last &&
+      PLAYERS.filter(x=>x.team===teamAbbr&&x.name.split(' ').pop().toLowerCase()===last).length===1);
+}
+
+// Parse BDL live box score into our stats format.
+// Returns { [pid]: { fp, pts, reb, ast, stl, blk, to, tpm, fgm, fga, ftm, fta,
+//                    live, gameId, dateStr } }
+function parseBdlBoxScore(bdlGames, isLive){
+  const stats = {};
+  for(const game of bdlGames){
+    const gameId  = String(game.id);
+    const dateStr = (game.date||'').split('T')[0].replace(/-/g,'');
+    // BDL box scores: players nested under home_team_box_score / visitor_team_box_score
+    const sides = [game.home_team_box_score, game.visitor_team_box_score].filter(Boolean);
+    for(const side of sides){
+      const teamAbbr = side.team?.abbreviation || '';
+      for(const p of (side.players||[])){
+        if(!p.min || p.min==='00:00') continue;
+        const pts=p.pts||0, reb=p.reb||0, ast=p.ast||0, stl=p.stl||0, blk=p.blk||0;
+        const to=p.turnover||0, fgm=p.fgm||0, fga=p.fga||0;
+        const ftm=p.ftm||0, fta=p.fta||0, tpm=p.fg3m||0, tpa=p.fg3a||0;
+        const flagrant=0, technical=0;
+        const fp = calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
+        const matched = matchBdlPlayer(p.player?.first_name||'', p.player?.last_name||'', teamAbbr);
+        if(matched){
+          const pid = String(matched.id);
+          if(!stats[pid]) stats[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,tpm:0,fgm:0,fga:0,ftm:0,fta:0,live:isLive,gameId,dateStr};
+          stats[pid].fp  +=fp;  stats[pid].pts +=pts; stats[pid].reb +=reb;
+          stats[pid].ast +=ast; stats[pid].stl +=stl; stats[pid].blk +=blk;
+          stats[pid].to  +=to;  stats[pid].tpm +=tpm; stats[pid].fgm +=fgm;
+          stats[pid].fga +=fga; stats[pid].ftm +=ftm; stats[pid].fta +=fta;
+          if(isLive) stats[pid].live = true;
+        }
+      }
+    }
+  }
+  return stats;
+}
+
+// ESPN fallback box score fetch (unchanged logic)
+async function fetchBoxScoreESPN(eventId){
   const res=await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${eventId}`);
   const data=await res.json();
   const box=data?.boxscore;
@@ -1267,8 +1313,6 @@ async function fetchBoxScore(eventId){
         const stl=parseInt(s[8])||0;
         const blk=parseInt(s[9])||0;
         const [tpm,tpa]=parseSplit(s[3]);
-        // ESPN doesn't expose flagrant/technical per-player in box score stats array;
-        // these default to 0 and can be manually set via admin panel if needed
         const flagrant=0, technical=0;
         const fp=calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
         const nameLow=name.toLowerCase();
@@ -1297,6 +1341,67 @@ async function fetchBoxScore(eventId){
 async function refreshLiveStats(){
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
+
+  // ── Try BallDontLie first ──
+  if(bdlKey){
+    try{
+      const todayET = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}); // YYYY-MM-DD
+      const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+
+      // Fetch live games
+      const liveData = await bdlFetch('/box_scores/live');
+      const liveGames = liveData?.data || [];
+
+      // Fetch yesterday's final games (to save completed stats)
+      const finalData = await bdlFetch('/box_scores', {date: yesterdayET});
+      const finalGames = finalData?.data || [];
+      // Also today's completed games
+      const todayFinalData = await bdlFetch('/box_scores', {date: todayET});
+      const todayFinalGames = (todayFinalData?.data||[]).filter(g=>g.status==='Final');
+
+      const newLive = parseBdlBoxScore(liveGames, true);
+      const hasLive = liveGames.length > 0;
+
+      // Merge today completed into live view
+      const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
+      for(const [pid, stat] of Object.entries(completedStats)){
+        if(!newLive[pid]) newLive[pid] = stat;
+      }
+
+      livePlayerStats = newLive;
+      liveGamesActive = hasLive;
+
+      // Persist completed game stats
+      const toSave = [...finalGames, ...todayFinalGames];
+      if(toSave.length){
+        if(!leagueState.playerStats) leagueState.playerStats={};
+        let changed=false;
+        const allDoneStats = parseBdlBoxScore(toSave, false);
+        for(const [pid,stat] of Object.entries(allDoneStats)){
+          // Each stat now carries its own dateStr and gameId from parseBdlBoxScore
+          const key=`${pid}_${stat.dateStr}_${stat.gameId}`;
+          if(!leagueState.playerStats[key]){
+            leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:stat.dateStr};
+            changed=true;
+          }
+        }
+        if(changed) await saveLeagueState();
+      }
+
+      // Speed up polling when games are live (30s), slow down otherwise (60s)
+      const targetInterval = hasLive ? 30000 : 60000;
+      if(livePolling && ((hasLive && livePolling._interval!==30000) || (!hasLive && livePolling._interval!==60000))){
+        clearInterval(livePolling);
+        livePolling = setInterval(refreshLiveStats, targetInterval);
+        livePolling._interval = targetInterval;
+      }
+
+      render();
+      return; // BDL succeeded — skip ESPN
+    }catch(e){ console.warn('BDL live stats error, falling back to ESPN:', e); }
+  }
+
+  // ── ESPN fallback ──
   try{
     const fmt=d=>d.toISOString().split('T')[0].replace(/-/g,'');
     const today=new Date(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
@@ -1308,7 +1413,6 @@ async function refreshLiveStats(){
         allEvents=allEvents.concat((data?.events||[]).map(e=>({...e,_dateStr:dateStr})));
       }catch(e){}
     }
-    // Also try undated for live
     try{
       const res=await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
       const data=await res.json();
@@ -1329,15 +1433,11 @@ async function refreshLiveStats(){
       const alreadySaved=isDone && leagueState.playerStats &&
         Object.keys(leagueState.playerStats).some(k=>k.endsWith('_'+event._dateStr) && leagueState.playerStats[k].gameId===event.id);
       try{
-        const gs=await fetchBoxScore(event.id);
+        const gs=await fetchBoxScoreESPN(event.id);
         for(const [pid,stat] of Object.entries(gs)){
           if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id};
-          newLive[pid].fp  +=stat.fp;
-          newLive[pid].pts +=stat.pts;
-          newLive[pid].reb +=stat.reb;
-          newLive[pid].ast +=stat.ast;
-          newLive[pid].stl +=stat.stl;
-          newLive[pid].blk +=stat.blk;
+          newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
+          newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
           newLive[pid].to  +=stat.to;
           if(isLive) newLive[pid].live=true;
         }
@@ -1370,6 +1470,7 @@ function startPolling(){
   refreshLiveStats();
   if(livePolling) clearInterval(livePolling);
   livePolling=setInterval(refreshLiveStats,60000);
+  livePolling._interval=60000;
 }
 
 // ── ROSTER HELPERS ───────────────────────────────────────────────────────────

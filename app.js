@@ -1095,14 +1095,22 @@ async function loadBdlPlayers(){
   applyBdlPlayers(players);
 }
 
+// Normalize a name for fuzzy matching: lowercase, remove punctuation, collapse spaces
+function normName(n){ return n.toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
+
 function applyBdlPlayers(bdlPlayers){
   // Update PLAYER_INFO for every player we have in PLAYERS
-  // Match by full name (covers 95%+ of cases)
+  // Primary: exact name match. Fallback: normalized name match (handles C.J.→CJ, etc.)
   const byName = {};
-  bdlPlayers.forEach(p=>{ byName[p.name] = p; });
+  const byNorm = {};
+  bdlPlayers.forEach(p=>{
+    byName[p.name] = p;
+    const nk = normName(p.name);
+    if(!byNorm[nk]) byNorm[nk] = p; // keep first match on collision
+  });
 
   PLAYERS.forEach(p=>{
-    const bdl = byName[p.name];
+    const bdl = byName[p.name] || byNorm[normName(p.name)];
     if(!bdl) return;
     // Update team abbreviation if changed
     if(bdl.team && bdl.team !== p.team) p.team = bdl.team;
@@ -3801,13 +3809,9 @@ async function fetchAndRenderTicker(){
   // ── Try BallDontLie first ──
   if(bdlKey){
     try{
-      const [todayRes, yestRes] = await Promise.all([
-        bdlFetch('/games', {dates: [todayET], per_page: 15}),
-        bdlFetch('/games', {dates: [yesterdayET], per_page: 15}),
-      ]);
-      const todayGames = todayRes?.data || [];
-      const yestGames  = yestRes?.data  || [];
-      const combined   = [...todayGames, ...yestGames];
+      // BDL requires 'dates[]' array param — pass both dates in one request
+      const gamesRes = await bdlFetch('/games', {'dates[]': [todayET, yesterdayET], per_page: 30});
+      const combined = gamesRes?.data || [];
       if(combined.length){ renderTickerBdl(combined, todayET); return; }
     }catch(e){ console.warn('BDL ticker fetch failed, trying ESPN:', e); }
   }

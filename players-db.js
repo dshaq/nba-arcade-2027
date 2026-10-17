@@ -67,7 +67,7 @@ const PLAYERS_DB = [
 {n:"Jaren Jackson Jr.",t:"MEM",r:61,fpPG:28.4,gp:59,projFP:1675.6},
 {n:"Karl-Anthony Towns",t:"NY",r:62,fpPG:27.9,gp:60,projFP:1674},
 {n:"OG Anunoby",t:"NY",r:63,fpPG:22.4,gp:74,projFP:1657.6},
-{n:"Jaylen Brown",t:"BOS",r:64,fpPG:23.6,gp:70,projFP:1652},
+{n:"Jaylen Brown",t:"PHI",r:64,fpPG:23.6,gp:70,projFP:1652},
 {n:"Zion Williamson",t:"NO",r:65,fpPG:32.6,gp:50,projFP:1630},
 {n:"Khris Middleton",t:"MIL",r:66,fpPG:24.7,gp:66,projFP:1630.2},
 {n:"Andrew Wiggins",t:"GS",r:67,fpPG:22.4,gp:72,projFP:1612.8},

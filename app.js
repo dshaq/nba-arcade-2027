@@ -722,6 +722,7 @@ const PLAYER_INFO = {
 "Luka Garza":{pos:"C",ht:"6-10",wt:252,age:27,yrs:5,college:"Iowa",draft:"2021 R2 P52",nat:"United States"},
 "Payton Pritchard":{pos:"PG",ht:"6-1",wt:212,age:28,yrs:6,college:"Oregon",draft:"2020 R1 P26",nat:"United States"},
 "Sam Hauser":{pos:"SF",ht:"6-7",wt:217,age:28,yrs:5,college:"Virginia",draft:"2021 NBA Undrafted",nat:"United States"},
+"Jaylen Brown":{pos:"SF",ht:"6-6",wt:223,age:29,yrs:9,college:"California",draft:"2016 R1 P3",nat:"United States"},
 "Jayson Tatum":{pos:"SF",ht:"6-8",wt:229,age:28,yrs:9,college:"Duke",draft:"2017 R1 P3",nat:"United States"},
 "Mikal Bridges":{pos:"SG",ht:"6-6",wt:209,age:28,yrs:8,college:"Villanova",draft:"2018 R1 P10",nat:"United States"},
 "Jalen Brunson":{pos:"PG",ht:"6-2",wt:190,age:28,yrs:8,college:"Villanova",draft:"2018 R2 P33",nat:"United States"},
@@ -880,6 +881,7 @@ function showPlayerCard(playerName) {
       ${row('College / Pre-Draft', info.college)}
       ${row('Draft', info.draft)}
       ${row('Nationality', info.nat)}
+      ${!info.ht && !info.age && !info.college ? `<div style="text-align:center;padding:16px 0 4px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO BIO ON FILE</div>` : ''}
     </div>
   </div>`;
 
@@ -987,6 +989,13 @@ async function loadLeagueState(){
     catch(e){ leagueState = data.state; }
   }
   if(!leagueState){ leagueState = defaultLeagueState(); }
+  // Always sync live manager profiles so names/colors are never stale
+  await syncManagersToState();
+}
+
+async function syncManagersToState(){
+  const {data} = await db.from('managers').select('id,user_id,display_name,color,icon,photo,team_name,is_commissioner').order('created_at');
+  if(data) leagueState.managers = data;
 }
 
 async function saveLeagueState(){
@@ -1451,7 +1460,7 @@ function renderDuelScreen(){
         ${statLine}
         <div class="duel-body">
           <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
-            <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
+            <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p1.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
             <div class="dname">${p1.name.split(' ').pop()}</div>
             <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
             ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
@@ -1459,7 +1468,7 @@ function renderDuelScreen(){
           </div>
           <div class="duel-vs">VS</div>
           <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
-            <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
+            <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p2.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
             <div class="dname">${p2.name.split(' ').pop()}</div>
             <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
             ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
@@ -1878,7 +1887,7 @@ function renderDuelCard(){
     ${statLine}
     <div class="duel-body">
       <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
-        <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
+        <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p1.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
         <div class="dname">${p1.name.split(' ').pop()}</div>
         <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
         ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
@@ -1886,7 +1895,7 @@ function renderDuelCard(){
       </div>
       <div class="duel-vs">VS</div>
       <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
-        <div class="portrait-wrap"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
+        <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p2.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
         <div class="dname">${p2.name.split(' ').pop()}</div>
         <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
         ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}

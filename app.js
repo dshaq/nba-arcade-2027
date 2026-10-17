@@ -914,6 +914,28 @@ function calcFP(stats){
   return pts + reb + ast + stl + blk - (fga-fgm) - (fta-ftm) - to - flagrant - technical;
 }
 
+// Estimate projected FP/G from a PLAYERS entry using league-average efficiency assumptions.
+// Used for players not in PLAYERS_DB (no BDL history — e.g. rookies, low-usage vets).
+// Assumes: ~38% FG miss rate on attempts (~pts/2.5 * 0.38), ~18% FT miss rate, ~1.5 TO/15pts
+function estimateFpPG(p){
+  const pts=p.ppg||0, reb=p.rpg||0, ast=p.apg||0, stl=p.spg||0, blk=p.bpg||0;
+  const estFGA = pts / 2.5;           // ~2.5 pts per FGA at league avg efficiency
+  const missedFG = estFGA * 0.38;     // ~38% of attempts missed
+  const estFTA = pts * 0.25;          // FTAs roughly 25% of points
+  const missedFT = estFTA * 0.18;     // ~82% FT% league average
+  const estTO = pts * 0.10;           // roughly 1 TO per 10 pts
+  const fp = pts + reb + ast + stl + blk - missedFG - missedFT - estTO;
+  return Math.round(fp * 10) / 10;
+}
+
+// Get the best available projected FP/G for a player (PLAYERS entry).
+// Priority: BDL season averages (in PLAYERS_DB) → PLAYERS_DB static → estimated from stats
+function getPlayerProjFP(player){
+  const db = PLAYERS_DB.find(x => x.n === player.name);
+  if(db?.fpPG) return db.fpPG;
+  return estimateFpPG(player);
+}
+
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function getPlayer(id){ return PLAYERS.find(p=>p.id===id); }
 function getPlayerByName(name){ return PLAYERS.find(p=>p.name.toLowerCase()===name.toLowerCase()); }
@@ -2903,10 +2925,8 @@ function renderFantasyDraftPane(){
     players=[...players].sort((a,b)=>{
       // Primary: actual FP scored this season (if games have been played)
       const liveFP = id => playerTotalFP(id) || 0;
-      // Secondary: projected FP from BDL season averages (or static PLAYERS_DB)
-      const projFP = p => { const d=PLAYERS_DB.find(x=>x.n===p.name); return d?.fpPG || (p.ppg+p.rpg+p.apg+p.spg+p.bpg); };
-      const bScore = liveFP(b.id) || projFP(b);
-      const aScore = liveFP(a.id) || projFP(a);
+      const bScore = liveFP(b.id) || getPlayerProjFP(b);
+      const aScore = liveFP(a.id) || getPlayerProjFP(a);
       return bScore - aScore;
     });
   } else {
@@ -2955,7 +2975,9 @@ function renderFantasyDraftPane(){
         const port=playerPortraits[p.name];
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
-        const projLine=dbP?`<div class="player-meta" style="color:var(--accent3)">${dbP.fpPG} proj FP/G</div>`:'';
+        const projFPVal = getPlayerProjFP(p);
+        const projLabel = dbP?.fpPG ? 'proj FP/G' : '~proj FP/G';
+        const projLine=`<div class="player-meta" style="color:var(--accent3)">${projFPVal} ${projLabel}</div>`;
         return `
         <div class="player-row" style="padding:8px 14px">
           <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>

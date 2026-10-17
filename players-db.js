@@ -154,6 +154,16 @@ const PLAYERS_DB = [
 {n:"Jordan Walsh",t:"BOS",r:148,fpPG:14.7,gp:64,projFP:940.8},
 {n:"Keldon Johnson",t:"SA",r:149,fpPG:13.4,gp:70,projFP:938},
 {n:"Kyle Lowry",t:"PHI",r:150,fpPG:13.1,gp:71,projFP:930.1},
+// ── 2025 DRAFT CLASS ROOKIES (projected; no BDL history yet) ──────────────────
+{n:"Ace Bailey",t:"UTA",r:151,fpPG:28.5,gp:72,projFP:2052},
+{n:"Tre Johnson",t:"WAS",r:152,fpPG:21.8,gp:72,projFP:1569.6},
+{n:"V.J. Edgecombe",t:"PHI",r:153,fpPG:18.2,gp:72,projFP:1310.4},
+{n:"Khaman Maluach",t:"PHX",r:154,fpPG:18.8,gp:72,projFP:1353.6},
+{n:"Jeremiah Fears",t:"NOP",r:155,fpPG:15.5,gp:72,projFP:1116},
+{n:"Noa Essengue",t:"CHI",r:156,fpPG:15.8,gp:72,projFP:1137.6},
+{n:"Egor Demin",t:"BKN",r:157,fpPG:15.9,gp:72,projFP:1144.8},
+{n:"Zaccharie Risacher",t:"DAL",r:158,fpPG:14.2,gp:72,projFP:1022.4},
+{n:"Liam McNeeley",t:"CHA",r:159,fpPG:10.8,gp:72,projFP:777.6},
 ];
 
 // Helper: get player by name
@@ -201,7 +211,7 @@ const DRAFT_CLASS = {
   2022: ['Chet Holmgren','Jabari Smith Jr.','Jaden Ivey','Dyson Daniels','Jalen Duren','Shaedon Sharpe','Ochai Agbaji','Jeremy Sochan','Tari Eason','Nikola Jovic'],
   2023: ['Victor Wembanyama','Brandon Miller','Scoot Henderson','Amen Thompson','Ausar Thompson','Anthony Black','Alex Sarr','Bilal Coulibaly','Jaime Jaquez Jr.','Dereck Lively II'],
   2024: ['Zaccharie Risacher','Alex Sarr','Reed Sheppard','Stephon Castle','Ron Holland','Donovan Clingan','Tidjane Salaun','Dalton Knecht','Rob Dillingham','Zach Edey'],
-  2025: ['Cooper Flagg','Dylan Harper','Kon Knueppel','Matas Buzelis','Darryn Peterson','Darius Acuff Jr.','Derik Queen'],
+  2025: ['Cooper Flagg','Ace Bailey','Dylan Harper','Kon Knueppel','Matas Buzelis','Darryn Peterson','Darius Acuff Jr.','Derik Queen','Tre Johnson','V.J. Edgecombe','Khaman Maluach','Jeremiah Fears','Noa Essengue','Egor Demin','Zaccharie Risacher','Liam McNeeley'],
   2026: [], // TBD
 };
 

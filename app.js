@@ -1066,6 +1066,7 @@ async function loadBdlPlayers(){
     const cached = JSON.parse(localStorage.getItem(BDL_CACHE_KEY)||'null');
     if(cached && (Date.now()-cached.ts) < BDL_CACHE_TTL){
       applyBdlPlayers(cached.players);
+      // Season avgs also called from boot(), but IDs now in cache so it can proceed
       return;
     }
   }catch(e){}
@@ -1093,6 +1094,8 @@ async function loadBdlPlayers(){
   }catch(e){}
 
   applyBdlPlayers(players);
+  // Season averages need the player ID map — safe to kick off now that cache is written
+  loadBdlSeasonAverages();
 }
 
 // Normalize a name for fuzzy matching: lowercase, remove punctuation, collapse spaces
@@ -1133,6 +1136,109 @@ function applyBdlPlayers(bdlPlayers){
   // If a player card is open and we just got their data, refresh it
   if(openPlayerCardName && byName[openPlayerCardName]){
     showPlayerCard(openPlayerCardName);
+  }
+}
+
+// ── BDL SEASON AVERAGES → projected FP ───────────────────────────────────────
+const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v1';
+const BDL_AVG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+async function loadBdlSeasonAverages(){
+  if(!bdlKey) return;
+
+  // Check cache first
+  try{
+    const cached = JSON.parse(localStorage.getItem(BDL_AVG_CACHE_KEY)||'null');
+    if(cached && (Date.now()-cached.ts) < BDL_AVG_CACHE_TTL){
+      applyBdlSeasonAverages(cached.averages);
+      return;
+    }
+  }catch(e){}
+
+  // Collect BDL player IDs for all players we have in PLAYERS
+  // We need the BDL id — get it from PLAYER_INFO if applyBdlPlayers already ran,
+  // or match by name against the cached players list.
+  let bdlIdMap = {}; // bdlId → PLAYERS name
+  try{
+    const pc = JSON.parse(localStorage.getItem(BDL_CACHE_KEY)||'null');
+    if(pc && pc.players){
+      const byName = {}, byNorm = {};
+      pc.players.forEach(p=>{ byName[p.name]=p; byNorm[normName(p.name)]=p; });
+      PLAYERS.forEach(p=>{
+        const bdl = byName[p.name] || byNorm[normName(p.name)];
+        if(bdl) bdlIdMap[bdl.bdlId ?? bdl.id] = p.name;  // cache uses bdlId field
+      });
+    }
+  }catch(e){}
+
+  if(Object.keys(bdlIdMap).length === 0){
+    console.warn('BDL season avgs: no player IDs available yet, skipping');
+    return;
+  }
+
+  // Fetch season averages — BDL supports up to 100 player_ids[] per request
+  const ids = Object.keys(bdlIdMap);
+  const CHUNK = 100;
+  const averages = {};
+  try{
+    for(let i=0; i<ids.length; i+=CHUNK){
+      const chunk = ids.slice(i, i+CHUNK);
+      const params = { season: 2025, per_page: 100 };
+      chunk.forEach(id => { params['player_ids[]'] = params['player_ids[]'] ? [...params['player_ids[]'], id] : [id]; });
+      const res = await bdlFetch('/season_averages', params);
+      if(!res?.data) continue;
+      for(const avg of res.data){
+        const playerName = bdlIdMap[String(avg.player_id)];
+        if(!playerName) continue;
+        // Run through league calcFP formula
+        const fp = calcFP({
+          pts: avg.pts||0,
+          reb: avg.reb||0,
+          ast: avg.ast||0,
+          stl: avg.stl||0,
+          blk: avg.blk||0,
+          fgm: avg.fgm||0,
+          fga: avg.fga||0,
+          ftm: avg.ftm||0,
+          fta: avg.fta||0,
+          to:  avg.turnover||0,
+          flagrant: 0,
+          technical: 0
+        });
+        averages[playerName] = {
+          fpPG: Math.round(fp * 10) / 10,   // 1 decimal place
+          gp: avg.games_played||0
+        };
+      }
+    }
+  }catch(e){
+    console.warn('BDL season averages fetch failed:', e);
+    return;
+  }
+
+  // Cache result
+  try{
+    localStorage.setItem(BDL_AVG_CACHE_KEY, JSON.stringify({ts: Date.now(), averages}));
+  }catch(e){}
+
+  applyBdlSeasonAverages(averages);
+}
+
+function applyBdlSeasonAverages(averages){
+  let updated = 0;
+  PLAYERS_DB.forEach(p=>{
+    const avg = averages[p.n];
+    if(!avg) return;
+    if(avg.gp >= 3){  // only update if player has played at least 3 games
+      p.fpPG = avg.fpPG;
+      p.gp   = avg.gp;
+      updated++;
+    }
+  });
+  console.log(`BDL season avgs: updated projected FP for ${updated}/${PLAYERS_DB.length} players`);
+  // Re-render Draft page if it's open so sorting reflects new data
+  if(document.getElementById('draft-screen')?.classList.contains('active')){
+    renderFantasyDraftPane();
   }
 }
 
@@ -4004,6 +4110,7 @@ async function boot(){
   // Load BDL key and player data early (no auth needed for config read)
   await loadBdlKey();
   loadBdlPlayers(); // fire-and-forget; updates PLAYERS/PLAYER_INFO in background
+  loadBdlSeasonAverages(); // fire-and-forget; updates PLAYERS_DB fpPG with real season stats
 
   // Auth state listener
   db.auth.onAuthStateChange(async (event,session)=>{

@@ -854,6 +854,9 @@ function showPlayerCard(playerName) {
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0"></div>
     <!-- Portrait header -->
     <div style="position:relative;background:var(--bg3);overflow:hidden;margin:12px 16px 0;border-radius:12px">
+      <!-- CRT scanline overlay -->
+      <div style="position:absolute;inset:0;pointer-events:none;z-index:2;border-radius:12px;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.18) 2px,rgba(0,0,0,.18) 4px);mix-blend-mode:multiply"></div>
+      <div style="position:absolute;inset:0;pointer-events:none;z-index:3;border-radius:12px;background:radial-gradient(ellipse at 50% 50%,transparent 60%,rgba(0,0,0,.45) 100%)"></div>
       ${portrait
         ? `<img src="${portrait}" style="width:100%;display:block;object-fit:contain" onerror="this.parentNode.querySelector('.card-initials').style.display='flex';this.style.display='none'"><div class="card-initials" style="display:none;width:100%;height:220px;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
         : `<div style="width:100%;height:220px;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:32px;color:var(--text3)">${(playerName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>`
@@ -1008,6 +1011,17 @@ async function loadManagerProfile(){
   if(!currentUser) return;
   const {data}=await db.from('managers').select('*').eq('user_id',currentUser.id).maybeSingle();
   myProfile=data||null;
+  // Restore avatar from localStorage cache in case Supabase photo is missing
+  if(myProfile){
+    try{
+      const cached=JSON.parse(localStorage.getItem(`avatar-${myProfile.id}`)||'null');
+      if(cached){
+        if(cached.photo && !myProfile.photo) myProfile.photo=cached.photo;
+        if(cached.icon && !myProfile.icon) myProfile.icon=cached.icon;
+        if(cached.color) myProfile.color=cached.color;
+      }
+    }catch(e){}
+  }
   // If no profile row yet and auto-seeded from invite signup, create one
   if(!myProfile){
     const name=currentUser.user_metadata?.display_name||currentUser.email.split('@')[0];
@@ -1517,7 +1531,7 @@ function renderNewsBanner(){
 
     if(isLive || isSoon){
       const fmtDT = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'}) + ' · ' +
-        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'});
+        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'}).replace('EDT','EST');
 
       if(isLive){
         // Who's on the clock?
@@ -2223,10 +2237,10 @@ function showFantasyRulesModal(){
       `)}
 
       ${section('LINEUP CHANGES','var(--accent1)',`
-        ${row('Weekly setting','Lineups lock before the first game each Monday')}
-        ${row('Daily setting','Lineups lock before the first game each day')}
+        ${row('Setting','Daily')}
+        ${row('Locks','Before the first game of each day')}
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
-          Weekly is the casual option — set it and forget it for the week. Daily is for the hardcore fan: you must manage your lineup almost every day of the NBA calendar, and it opens up more waiver activity and strategy throughout the week.
+          Lineups must be set before the first tip-off each day. This means daily attention to the schedule — swap in hot players, bench injured ones, and pick up free agents throughout the week. The more involved, the better your team.
         </div>
       `)}
 
@@ -2491,6 +2505,8 @@ function renderFantasyDraftPane(){
         const rostered=allRostered.has(p.id);
         const port=playerPortraits[p.name];
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+        const dbP=PLAYERS_DB.find(d=>d.n===p.name);
+        const projLine=dbP?`<div class="player-meta" style="color:var(--accent3)">${dbP.fpPG} proj FP/G</div>`:'';
         return `
         <div class="player-row" style="padding:8px 14px">
           <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
@@ -2498,6 +2514,7 @@ function renderFantasyDraftPane(){
             <div class="player-name">${p.name}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
             <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
+            ${projLine}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
@@ -2838,13 +2855,20 @@ function renderAvailablePlayers(){
       const fp=playerTotalFP(p.id);
       const port=playerPortraits[p.name];
       const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+      const dbP=PLAYERS_DB.find(d=>d.n===p.name);
+      const seasonLive=new Date()>=NBA_SEASON_START;
+      const avgFPLine=seasonLive&&dbP?`<div class="player-meta" style="color:var(--accent3)">${dbP.fpPG} avg FP/G</div>`:'';
+      const statsLine=seasonLive&&dbP
+        ?`<div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>`
+        :`<div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>`;
       return `
       <div class="player-row" style="padding:8px 14px">
         <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
         <div class="player-info">
           <div class="player-name">${p.name}</div>
           <div class="player-meta">${p.pos} · ${p.team}</div>
-          <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
+          ${statsLine}
+          ${avgFPLine}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
@@ -3165,14 +3189,19 @@ async function saveAvatarChoice(){
   const icon=photo?null:(modal_pendingIcon??myProfile?.icon??null);
   const color=modal_pendingColor??myProfile?.color??'#4a9eff';
   const updates={color};
-  if(icon) updates.icon=icon;
-  if(photo) updates.photo=photo;  // store dataURL as photo field
+  if(icon !== undefined) updates.icon=icon||null;
+  if(photo) updates.photo=photo;
   const managers=leagueState.managers||[];
   const m=managers.find(m=>m.id===myId);
-  if(m){ m.color=color; if(icon) m.icon=icon; if(photo) m.photo=photo; }
-  if(myProfile){ myProfile.color=color; if(icon) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
+  if(m){ m.color=color; if(icon!==undefined) m.icon=icon; if(photo) m.photo=photo; }
+  if(myProfile){ myProfile.color=color; if(icon!==undefined) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
+  // Persist avatar locally so it survives reload even if Supabase write is slow
+  try{
+    const localKey=`avatar-${myId}`;
+    localStorage.setItem(localKey, JSON.stringify({photo:photo||myProfile?.photo||null, icon:icon||null, color}));
+  }catch(e){}
   await saveLeagueState();
-  await db.from('managers').update(updates).eq('id',myId);
+  await db.from('managers').update(updates).eq('id',myId).then(({error})=>{ if(error) console.warn('Avatar save error',error); });
   modal_pendingIcon=null; modal_pendingColor=null; modal_pendingPhoto=null;
   document.getElementById('avatar-modal')?.remove();
   renderProfileScreen();
@@ -3375,11 +3404,19 @@ function updateUserChip(){
   const el=document.getElementById('chip-avatar');
   if(el){
     el.style.background=myProfile.color||'#4a9eff';
-    if(myProfile.icon){
+    if(myProfile.photo){
+      el.style.backgroundImage=`url(${myProfile.photo})`;
+      el.style.backgroundSize='cover';
+      el.style.backgroundPosition='center';
+      el.textContent='';
+      el.style.fontSize='';
+    } else if(myProfile.icon){
+      el.style.backgroundImage='';
       el.style.fontSize='18px';
       el.style.color='inherit';
       el.textContent=myProfile.icon;
     } else {
+      el.style.backgroundImage='';
       el.style.fontSize='';
       el.style.color='#000';
       el.textContent=initials(myProfile.display_name||'?');

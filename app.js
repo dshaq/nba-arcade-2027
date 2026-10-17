@@ -1012,7 +1012,7 @@ async function saveLeagueState(){
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
 const BDL_BASE = 'https://api.balldontlie.io/v1';
-const BDL_CACHE_KEY = 'bdl_players_cache';
+const BDL_CACHE_KEY = 'bdl_players_cache_v2';
 const BDL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlKey(){

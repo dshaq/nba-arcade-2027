@@ -42,6 +42,7 @@ let liveActive     = false;
 let currentScreen  = 'home';
 let currentRun     = 1;
 let scheduleWeekOffset = 0; // 0 = current week, -1 = prev week, +1 = next, etc.
+let bdlKey         = null;   // BallDontLie API key (fetched from Supabase config)
 
 // ── PLAYER DATABASE ─────────────────────────────────────────────────────────
 // 2026-27 NBA rosters — all ~600 players from official PDF
@@ -1000,6 +1001,120 @@ async function syncManagersToState(){
 
 async function saveLeagueState(){
   await db.from('leagues').upsert({id:LEAGUE_KEY, state:JSON.stringify(leagueState)});
+}
+
+// ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
+const BDL_BASE = 'https://api.balldontlie.io/v1';
+const BDL_CACHE_KEY = 'bdl_players_cache';
+const BDL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+async function loadBdlKey(){
+  try{
+    const {data} = await db.from('config').select('value').eq('key','bdl_api_key').maybeSingle();
+    if(data?.value) bdlKey = data.value;
+  }catch(e){ console.warn('BDL key fetch failed',e); }
+}
+
+async function bdlFetch(path, params={}){
+  if(!bdlKey) return null;
+  const url = new URL(`${BDL_BASE}${path}`);
+  Object.entries(params).forEach(([k,v])=>{
+    if(Array.isArray(v)) v.forEach(i=>url.searchParams.append(k,i));
+    else url.searchParams.set(k,v);
+  });
+  const res = await fetch(url, { headers:{ Authorization: bdlKey } });
+  if(!res.ok){ console.warn('BDL error', res.status, path); return null; }
+  return res.json();
+}
+
+async function bdlFetchAll(path, params={}){
+  // Paginate through all results using cursor
+  let cursor = 0;
+  const all = [];
+  while(true){
+    const data = await bdlFetch(path, {...params, per_page:100, cursor});
+    if(!data?.data?.length) break;
+    all.push(...data.data);
+    cursor = data.meta?.next_cursor;
+    if(!cursor) break;
+  }
+  return all;
+}
+
+// Convert BDL position string to short abbr
+function bdlPos(p){ return (p||'').split('-')[0].toUpperCase()||'F'; }
+
+// Convert BDL team abbreviation to our app abbr (they mostly match)
+function bdlTeam(t){ return t?.abbreviation || ''; }
+
+// Build a full name from BDL player object
+function bdlName(p){ return `${p.first_name} ${p.last_name}`; }
+
+// Load active players from BDL; cache in localStorage for 24h
+async function loadBdlPlayers(){
+  if(!bdlKey) return;
+
+  // Check cache
+  try{
+    const cached = JSON.parse(localStorage.getItem(BDL_CACHE_KEY)||'null');
+    if(cached && (Date.now()-cached.ts) < BDL_CACHE_TTL){
+      applyBdlPlayers(cached.players);
+      return;
+    }
+  }catch(e){}
+
+  // Fetch fresh
+  const raw = await bdlFetchAll('/players/active');
+  if(!raw?.length) return;
+
+  const players = raw.map(p=>({
+    bdlId: p.id,
+    name: bdlName(p),
+    pos: bdlPos(p.position),
+    team: bdlTeam(p.team),
+    ht: p.height||'',
+    wt: p.weight ? parseInt(p.weight) : null,
+    college: p.college||'',
+    country: p.country||'United States',
+    draftYear: p.draft_year||null,
+    draftRound: p.draft_round||null,
+    draftNumber: p.draft_number||null,
+  }));
+
+  try{
+    localStorage.setItem(BDL_CACHE_KEY, JSON.stringify({ts:Date.now(), players}));
+  }catch(e){}
+
+  applyBdlPlayers(players);
+}
+
+function applyBdlPlayers(bdlPlayers){
+  // Update PLAYER_INFO for every player we have in PLAYERS
+  // Match by full name (covers 95%+ of cases)
+  const byName = {};
+  bdlPlayers.forEach(p=>{ byName[p.name] = p; });
+
+  PLAYERS.forEach(p=>{
+    const bdl = byName[p.name];
+    if(!bdl) return;
+    // Update team abbreviation if changed
+    if(bdl.team && bdl.team !== p.team) p.team = bdl.team;
+    // Build/update PLAYER_INFO entry
+    const draft = bdl.draftYear
+      ? `${bdl.draftYear} R${bdl.draftRound||'?'} P${bdl.draftNumber||'?'}`
+      : 'Undrafted';
+    PLAYER_INFO[p.name] = {
+      pos: bdl.pos || p.pos,
+      ht: bdl.ht || PLAYER_INFO[p.name]?.ht || '',
+      wt: bdl.wt || PLAYER_INFO[p.name]?.wt || null,
+      age: PLAYER_INFO[p.name]?.age || null,  // BDL doesn't return age directly
+      yrs: PLAYER_INFO[p.name]?.yrs || null,
+      college: bdl.college || PLAYER_INFO[p.name]?.college || '',
+      draft,
+      nat: bdl.country || PLAYER_INFO[p.name]?.nat || 'United States',
+    };
+  });
+  console.log(`BDL: updated info for ${PLAYERS.filter(p=>byName[p.name]).length}/${PLAYERS.length} players`);
 }
 
 async function loadPortraits(){
@@ -3693,6 +3808,10 @@ function renderTicker(events){
 
 // ── BOOT ────────────────────────────────────────────────────────────────────
 async function boot(){
+  // Load BDL key and player data early (no auth needed for config read)
+  await loadBdlKey();
+  loadBdlPlayers(); // fire-and-forget; updates PLAYERS/PLAYER_INFO in background
+
   // Auth state listener
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?.user||null;

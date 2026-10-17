@@ -829,7 +829,10 @@ const PLAYER_INFO = {
 };
 
 // ── PLAYER CARD MODAL ─────────────────────────────────────────────────────────
+let openPlayerCardName = null; // track for BDL refresh
+
 function showPlayerCard(playerName) {
+  openPlayerCardName = playerName;
   document.getElementById('player-card-modal')?.remove();
 
   const p = (leagueState.players||[]).find(pl=>pl.name===playerName)
@@ -882,9 +885,13 @@ function showPlayerCard(playerName) {
       ${row('College / Pre-Draft', info.college)}
       ${row('Draft', info.draft)}
       ${row('Nationality', info.nat)}
-      ${!info.ht && !info.age && !info.college ? `<div style="text-align:center;padding:16px 0 4px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO BIO ON FILE</div>` : ''}
+      ${!info.ht && !info.college && !info.draft && !info.nat ? `<div style="text-align:center;padding:16px 0 4px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO BIO ON FILE</div>` : ''}
     </div>
   </div>`;
+
+  // Clear tracker when modal is dismissed
+  const origRemove = modal.remove.bind(modal);
+  modal.remove = ()=>{ if(openPlayerCardName===playerName) openPlayerCardName=null; origRemove(); };
 
   document.body.appendChild(modal);
 }
@@ -1115,6 +1122,10 @@ function applyBdlPlayers(bdlPlayers){
     };
   });
   console.log(`BDL: updated info for ${PLAYERS.filter(p=>byName[p.name]).length}/${PLAYERS.length} players`);
+  // If a player card is open and we just got their data, refresh it
+  if(openPlayerCardName && byName[openPlayerCardName]){
+    showPlayerCard(openPlayerCardName);
+  }
 }
 
 async function loadPortraits(){

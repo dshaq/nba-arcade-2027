@@ -1044,7 +1044,7 @@ async function saveLeagueState(){
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
 const BDL_BASE = 'https://api.balldontlie.io/v1';
-const BDL_CACHE_KEY = 'bdl_players_cache_v2';
+const BDL_CACHE_KEY = 'bdl_players_cache_v3'; // bumped: added yearsExp field
 const BDL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlKey(){
@@ -1329,7 +1329,7 @@ function applyBdlSeasonAverages(averages){
 // Stores a map in leagueState.bdlInjuries: { playerName → {status, description} }
 // Status values from BDL: "Out", "Day-To-Day", "Questionable", etc.
 // Cached in localStorage for 1 hour (injury status changes throughout the day).
-const BDL_INJURY_CACHE_KEY = 'bdl-injuries-2027';
+const BDL_INJURY_CACHE_KEY = 'bdl-injuries-2027-v2'; // bumped to force fresh fetch
 const BDL_INJURY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 async function loadBdlInjuries(){

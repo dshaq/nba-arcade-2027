@@ -2007,7 +2007,13 @@ const DUEL_TEAM_TEMPLATES = [
 ];
 
 function todayKey(){
-  return new Date().toISOString().split('T')[0];
+  // Use ET (UTC-4 in EDT, UTC-5 in EST) so duels roll over at midnight ET not midnight UTC
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', {timeZone:'America/New_York'}));
+  const y = et.getFullYear();
+  const m = String(et.getMonth()+1).padStart(2,'0');
+  const d = String(et.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
 }
 
 function getTodaysDuel(){
@@ -2402,7 +2408,6 @@ function renderDuelCard(){
         <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
       </div>
     </div>
-    <div class="duel-prompt">${duel.prompt}</div>
     ${statLine}
     <div class="duel-body">
       <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">

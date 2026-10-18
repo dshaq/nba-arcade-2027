@@ -946,6 +946,9 @@ function getPlayer(id){ return PLAYERS.find(p=>p.id===id); }
 function getPlayerByName(name){ return PLAYERS.find(p=>p.name.toLowerCase()===name.toLowerCase()); }
 function initials(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function fmtFP(v){ return v===0 ? '0' : (v>0?'+':'')+v.toFixed(1).replace('.0',''); }
+// Parse a YYYY-MM-DD date string as local (not UTC) to avoid off-by-one in US timezones
+function parseLocalDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtRunDate(s){ return parseLocalDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
 function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
 function currentWeekStart(){
   const d=new Date(); const day=d.getDay(); // 0=Sun
@@ -2521,7 +2524,7 @@ function renderMatchupCard(){
   const run=getCurrentRun();
   const weekMatchup=findMyMatchup(mid,run.id);
   if(!weekMatchup){
-    el.innerHTML=`<div class="matchup-card"><div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">SEASON STARTS ${new Date(run.start).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`;
+    el.innerHTML=`<div class="matchup-card"><div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">SEASON STARTS ${fmtRunDate(run.start)}</div></div>`;
     return;
   }
   const isHome=weekMatchup.home===mid;
@@ -3111,7 +3114,7 @@ function renderFantasyRunContent(){
   const run=RUNS.find(r=>r.id===currentRun);
   const managers=leagueState.managers||[];
   if(!managers.length){
-    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">🏀</div><div class="label">DRAFT HASN'T HAPPENED YET<br/>CHECK BACK ON ${new Date(run.start).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`;
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">🏀</div><div class="label">DRAFT HASN'T HAPPENED YET<br/>CHECK BACK ON ${fmtRunDate(run.start)}</div></div>`;
     return;
   }
 
@@ -3122,7 +3125,7 @@ function renderFantasyRunContent(){
     el.innerHTML=`
     <div style="padding:0 14px">
       <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:12px 0 6px">
-        ${run.name.toUpperCase()} RUN · ${new Date(run.start).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(run.end).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+        ${run.name.toUpperCase()} RUN · ${fmtRunDate(run.start)} – ${fmtRunDate(run.end)}
       </div>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
@@ -3151,7 +3154,7 @@ function renderFantasyRunContent(){
       </table>
     </div>
     <div style="padding:16px 14px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">
-      DRAFT STARTS ${new Date(run.start).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+      DRAFT STARTS ${fmtRunDate(run.start)}
     </div>`;
     return;
   }
@@ -3175,7 +3178,7 @@ function renderFantasyRunContent(){
   el.innerHTML=`
   <div style="padding:0 14px">
     <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:12px 0 6px">
-      ${run.name.toUpperCase()} RUN · ${new Date(run.start).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(run.end).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+      ${run.name.toUpperCase()} RUN · ${fmtRunDate(run.start)} – ${fmtRunDate(run.end)}
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">

@@ -2964,17 +2964,14 @@ function renderFantasyScreen(){
 let draftFilter = { availability:'available', team:'all', sort:'fp' };
 let draftSearchQuery = '';
 
-function renderFantasyDraftPane(){
-  const el=document.getElementById('fantasy-draft-content');
+function renderDraftPlayerList(){
+  const el=document.getElementById('draft-player-list');
   if(!el) return;
-  const run=RUNS.find(r=>r.id===currentRun);
   const now=new Date();
   const dw=DRAFT_WINDOWS.find(d=>d.run===currentRun);
-  const draftStart=dw?new Date(dw.start):new Date(run.start);
+  const draftStart=dw?new Date(dw.start):null;
   const draftEnd=dw?new Date(dw.end):null;
   const isDraftLive=dw && now>=draftStart && now<=draftEnd;
-  const isDraftPast=draftEnd && now>draftEnd;
-
   const mid=getMyId();
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   const query=draftSearchQuery.toLowerCase();
@@ -2988,7 +2985,6 @@ function renderFantasyDraftPane(){
 
   if(draftFilter.sort==='fp'){
     players=[...players].sort((a,b)=>{
-      // Primary: actual FP scored this season (if games have been played)
       const liveFP = id => playerTotalFP(id) || 0;
       const bScore = liveFP(b.id) || getPlayerProjFP(b);
       const aScore = liveFP(a.id) || getPlayerProjFP(a);
@@ -2999,41 +2995,10 @@ function renderFantasyDraftPane(){
   }
 
   const canDraft=mid && getMyRoster().length<ROSTER_SIZE;
-  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
-  const teamDropdown=`<select onchange="draftFilter.team=this.value;renderFantasyDraftPane()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
-    <option value="all" ${draftFilter.team==='all'?'selected':''}>All Teams</option>
-    ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${draftFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
-  </select>`;
 
-  const draftBanner = !isDraftLive && !isDraftPast
-    ? `<div style="background:rgba(245,166,35,.12);border:1px solid var(--accent3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-family:var(--pixel);font-size:6px;color:var(--accent3)">📋 DRAFT STARTS OCT 18 AT 8:30PM ET — Browse the player pool below</div>`
-    : isDraftLive ? `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px">🔴 DRAFT IS LIVE</div>` : '';
-
-  el.innerHTML=`
-    <div style="padding:10px 14px 0">
-      ${draftBanner}
-
-      <!-- Availability + Sort row -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
-        ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderFantasyDraftPane()")}
-        ${filterBtn('All Players',draftFilter.availability==='all',"draftFilter.availability='all';renderFantasyDraftPane()")}
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
-        ${filterBtn('⬆ FP',draftFilter.sort==='fp',"draftFilter.sort='fp';renderFantasyDraftPane()")}
-        ${filterBtn('A–Z',draftFilter.sort==='alpha',"draftFilter.sort='alpha';renderFantasyDraftPane()")}
-      </div>
-
-      <!-- NBA Team dropdown -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
-        ${teamDropdown}
-      </div>
-
-      <input type="text" id="draft-search" placeholder="Search players..." value="${draftSearchQuery}" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="draftSearchQuery=this.value;renderFantasyDraftPane()"/>
-    </div>
-
-    ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+  el.innerHTML = !players.length
+    ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
+    : `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${players.slice(0,60).map(p=>{
         const fp=playerTotalFP(p.id);
         const rostered=allRostered.has(p.id);
@@ -3059,7 +3024,52 @@ function renderFantasyDraftPane(){
         </div>`;
       }).join('')}
       ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
-    </div>`}`;
+    </div>`;
+}
+
+function renderFantasyDraftPane(){
+  const el=document.getElementById('fantasy-draft-content');
+  if(!el) return;
+  const run=RUNS.find(r=>r.id===currentRun);
+  const now=new Date();
+  const dw=DRAFT_WINDOWS.find(d=>d.run===currentRun);
+  const draftStart=dw?new Date(dw.start):new Date(run.start);
+  const draftEnd=dw?new Date(dw.end):null;
+  const isDraftLive=dw && now>=draftStart && now<=draftEnd;
+  const isDraftPast=draftEnd && now>draftEnd;
+
+  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+  const teamDropdown=`<select onchange="draftFilter.team=this.value;renderDraftPlayerList()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
+    <option value="all" ${draftFilter.team==='all'?'selected':''}>All Teams</option>
+    ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${draftFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
+  </select>`;
+
+  const draftBanner = !isDraftLive && !isDraftPast
+    ? `<div style="background:rgba(245,166,35,.12);border:1px solid var(--accent3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-family:var(--pixel);font-size:6px;color:var(--accent3)">📋 DRAFT STARTS OCT 18 AT 8:30PM ET — Browse the player pool below</div>`
+    : isDraftLive ? `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px">🔴 DRAFT IS LIVE</div>` : '';
+
+  el.innerHTML=`
+    <div style="padding:10px 14px 0">
+      ${draftBanner}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
+        ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderDraftPlayerList()")}
+        ${filterBtn('All Players',draftFilter.availability==='all',"draftFilter.availability='all';renderDraftPlayerList()")}
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
+        ${filterBtn('⬆ FP',draftFilter.sort==='fp',"draftFilter.sort='fp';renderDraftPlayerList()")}
+        ${filterBtn('A–Z',draftFilter.sort==='alpha',"draftFilter.sort='alpha';renderDraftPlayerList()")}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
+        ${teamDropdown}
+      </div>
+      <input type="text" id="draft-search" placeholder="Search players..."
+        style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none"
+        oninput="draftSearchQuery=this.value;renderDraftPlayerList()"/>
+    </div>
+    <div id="draft-player-list"></div>`;
+
+  renderDraftPlayerList();
 }
 
 async function confirmDraftPick(mid, pid){
@@ -3469,13 +3479,13 @@ function resetWaiverFilters(){
   waiverSearchQuery = '';
 }
 
-function renderWaiversPane(){
-  const el=document.getElementById('waivers-content');
+function renderWaiverPlayerList(){
+  const el=document.getElementById('waiver-player-list');
   if(!el) return;
   const mid=getMyId();
-  const used=mid?waiverUsedThisWeek(mid):0;
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   const query=waiverSearchQuery.toLowerCase();
+  const canAdd=mid && canWaiver(mid) && getMyRoster().length<ROSTER_SIZE;
 
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -3494,42 +3504,9 @@ function renderWaiversPane(){
     players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
   }
 
-  const canAdd=mid && canWaiver(mid) && getMyRoster().length<ROSTER_SIZE;
-
-  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
-  const teamDropdown=`<select onchange="waiverFilter.team=this.value;renderWaiversPane()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
-    <option value="all" ${waiverFilter.team==='all'?'selected':''}>All Teams</option>
-    ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${waiverFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
-  </select>`;
-
-  el.innerHTML=`
-    <div style="padding:10px 14px 0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WAIVER WIRE · ADD/DROPS LEFT: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
-      </div>
-
-      <!-- Availability + Sort row -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
-        ${filterBtn('Available',waiverFilter.availability==='available',"waiverFilter.availability='available';renderWaiversPane()")}
-        ${filterBtn('All Players',waiverFilter.availability==='all',"waiverFilter.availability='all';renderWaiversPane()")}
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
-        ${filterBtn('⬆ FP',waiverFilter.sort==='fp',"waiverFilter.sort='fp';renderWaiversPane()")}
-        ${filterBtn('A–Z',waiverFilter.sort==='alpha',"waiverFilter.sort='alpha';renderWaiversPane()")}
-      </div>
-
-      <!-- NBA Team dropdown -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
-        ${teamDropdown}
-      </div>
-
-      <!-- Search -->
-      <input type="text" id="waiver-search" placeholder="Search players..." value="${waiverSearchQuery}" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="waiverSearchQuery=this.value;renderWaiversPane()"/>
-    </div>
-
-    ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+  el.innerHTML = !players.length
+    ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
+    : `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${players.slice(0,60).map(p=>{
         const fp=playerTotalFP(p.id);
         const rostered=allRostered.has(p.id);
@@ -3550,7 +3527,45 @@ function renderWaiversPane(){
         </div>`;
       }).join('')}
       ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
-    </div>`}`;
+    </div>`;
+}
+
+function renderWaiversPane(){
+  const el=document.getElementById('waivers-content');
+  if(!el) return;
+  const mid=getMyId();
+  const used=mid?waiverUsedThisWeek(mid):0;
+
+  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+  const teamDropdown=`<select onchange="waiverFilter.team=this.value;renderWaiverPlayerList()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
+    <option value="all" ${waiverFilter.team==='all'?'selected':''}>All Teams</option>
+    ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${waiverFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
+  </select>`;
+
+  el.innerHTML=`
+    <div style="padding:10px 14px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WAIVER WIRE · ADD/DROPS LEFT: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
+        ${filterBtn('Available',waiverFilter.availability==='available',"waiverFilter.availability='available';renderWaiverPlayerList()")}
+        ${filterBtn('All Players',waiverFilter.availability==='all',"waiverFilter.availability='all';renderWaiverPlayerList()")}
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
+        ${filterBtn('⬆ FP',waiverFilter.sort==='fp',"waiverFilter.sort='fp';renderWaiverPlayerList()")}
+        ${filterBtn('A–Z',waiverFilter.sort==='alpha',"waiverFilter.sort='alpha';renderWaiverPlayerList()")}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
+        ${teamDropdown}
+      </div>
+      <input type="text" id="waiver-search" placeholder="Search players..."
+        style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none"
+        oninput="waiverSearchQuery=this.value;renderWaiverPlayerList()"/>
+    </div>
+    <div id="waiver-player-list"></div>`;
+
+  renderWaiverPlayerList();
 }
 
 async function confirmAdd(mid, pid){

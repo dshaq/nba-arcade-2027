@@ -1032,8 +1032,10 @@ async function loadLeagueState(){
 }
 
 async function syncManagersToState(){
-  const {data} = await db.from('managers').select('id,user_id,display_name,color,icon,photo,team_name,is_commissioner').order('created_at');
-  if(data) leagueState.managers = data;
+  const {data, error} = await db.from('managers').select('id,user_id,display_name,color,icon,photo,team_name,is_commissioner').order('created_at');
+  if(error) console.error('[syncManagers] error:', error.message, error.code);
+  if(data) { console.log('[syncManagers] got', data.length, 'managers'); leagueState.managers = data; }
+  else console.warn('[syncManagers] data is null/undefined');
 }
 
 async function saveLeagueState(){

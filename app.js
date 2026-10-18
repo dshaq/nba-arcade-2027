@@ -1119,6 +1119,7 @@ async function loadBdlPlayers(){
     draftYear: p.draft_year||null,
     draftRound: p.draft_round||null,
     draftNumber: p.draft_number||null,
+    yearsExp: p.years_experience ?? null, // 0 = true rookie this season
   }));
 
   try{
@@ -1166,7 +1167,7 @@ function applyBdlPlayers(bdlPlayers){
       ht: bdl.ht || PLAYER_INFO[bdl.name]?.ht || '',
       wt: bdl.wt || PLAYER_INFO[bdl.name]?.wt || null,
       age: PLAYER_INFO[bdl.name]?.age || null,
-      yrs: PLAYER_INFO[bdl.name]?.yrs || null,
+      yrs: bdl.yearsExp ?? PLAYER_INFO[bdl.name]?.yrs ?? null, // BDL years_experience wins
       college: bdl.college || PLAYER_INFO[bdl.name]?.college || '',
       draft,
       nat: bdl.country || PLAYER_INFO[bdl.name]?.nat || 'United States',
@@ -1177,6 +1178,7 @@ function applyBdlPlayers(bdlPlayers){
       name: bdl.name,
       pos:  bdl.pos  || existing?.pos  || 'F',
       team: bdl.team || existing?.team || '',
+      yearsExp: bdl.yearsExp ?? existing?.yearsExp ?? null,
       // stats preserved from existing PLAYERS entry; will be updated by season averages
       ppg: existing?.ppg ?? 0,
       rpg: existing?.rpg ?? 0,
@@ -1190,6 +1192,9 @@ function applyBdlPlayers(bdlPlayers){
   PLAYERS.splice(0, PLAYERS.length, ...newPlayers);
 
   console.log(`BDL: rebuilt PLAYERS pool with ${PLAYERS.length} active players`);
+  // Re-render draft/waiver lists now that yearsExp (rookie flag) is populated
+  if(document.getElementById('draft-player-list')) renderDraftPlayerList();
+  if(document.getElementById('waiver-player-list')) renderWaiverPlayerList();
 
   // If a player card is open, refresh it with updated data
   if(openPlayerCardName){
@@ -3095,8 +3100,8 @@ function renderDraftPlayerList(){
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
     if(draftFilter.rookie){
-      // Rookies = positive evidence only (PLAYER_INFO yrs <= 1)
-      if((PLAYER_INFO[p.name]?.yrs ?? 999) > 1) return false;
+      // Rookies = BDL years_experience === 0 only
+      if(p.yearsExp !== 0) return false;
     }
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
@@ -3126,9 +3131,8 @@ function renderDraftPlayerList(){
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
         const projFPVal = getPlayerProjFP(p);
         const projLabel = (dbP?.fpPG || BDL_STATS[p.name]?.fpPG) ? 'proj FP/G' : '~proj FP/G';
-        // Rookie = positive evidence only: PLAYER_INFO says yrs <= 1
-        // Never infer from missing async data (BDL_STATS/PLAYERS_DB may not have loaded yet)
-        const isRookie = (PLAYER_INFO[p.name]?.yrs ?? 999) <= 1;
+        // Rookie = BDL years_experience === 0 (true first-year player this season)
+        const isRookie = p.yearsExp === 0;
         const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
         const inj = getInjuryStatus(p.name);
         const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';

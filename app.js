@@ -835,14 +835,20 @@ function showPlayerCard(playerName) {
   openPlayerCardName = playerName;
   document.getElementById('player-card-modal')?.remove();
 
-  const p = (leagueState.players||[]).find(pl=>pl.name===playerName)
-         || PLAYERS_DB.find(pl=>pl.n===playerName && pl);
+  const pLeague = (leagueState.players||[]).find(pl=>pl.name===playerName);
+  const pDb = PLAYERS_DB.find(pl=>pl.n===playerName);
+  const pArr = PLAYERS.find(pl=>pl.name===playerName);
+  const p = pLeague || pDb || pArr;
   const info = PLAYER_INFO[playerName] || {};
-  const portrait = playerPortraits[playerName];
   const fpVal = p ? (typeof p.fpPG !== 'undefined' ? p.fpPG : (playerTotalFP ? playerTotalFP(p.id||p.n) : null)) : null;
 
-  const teamFull = p ? (NBA_TEAMS[p.t||p.team]||p.t||p.team||'') : '';
-  const teamAbbr = p ? (p.t||p.team||'') : '';
+  // Team priority: PLAYERS array (BDL-updated live) > PLAYERS_DB > leagueState
+  const teamAbbr = pArr?.team || pDb?.t || pLeague?.team || '';
+  const teamFull = NBA_TEAMS[teamAbbr] || teamAbbr;
+  // Build portrait URL using the authoritative team abbreviation
+  const portrait = teamAbbr
+    ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(playerName)}.jpeg`
+    : (playerPortraits[playerName] || '');
 
   const row = (label, val) => val ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
@@ -1271,8 +1277,11 @@ async function loadPortraits(){
   // Images that don't exist in Storage will 404 silently (img onerror falls back to initials).
   playerPortraits = {};
   for(const p of PLAYERS){
+    // Prefer PLAYERS_DB team (manually curated, current season) over PLAYERS array (may be stale)
+    const dbEntry = PLAYERS_DB.find(d=>d.n===p.name);
+    const team = dbEntry?.t || p.team;
     // Try .jpeg first (most uploads), fallback handled by onerror in the img tag
-    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${p.team}/${encodeURIComponent(p.name)}.jpeg`;
+    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(p.name)}.jpeg`;
   }
 }
 

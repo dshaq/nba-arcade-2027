@@ -3172,12 +3172,20 @@ function renderFantasyRunContent(){
   const run=RUNS.find(r=>r.id===currentRun);
   const managers=leagueState.managers||[];
   if(!managers.length){
-    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">🏀</div><div class="label">DRAFT HASN'T HAPPENED YET<br/>CHECK BACK ON ${fmtRunDate(run.start)}</div></div>`;
+    // Show loading spinner — syncManagersToState() will re-render once data arrives
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon" style="animation:spin 1s linear infinite;display:inline-block">⏳</div><div class="label" style="margin-top:8px">LOADING...</div></div>`;
     return;
   }
 
   // Pre-draft: no schedule yet — show enrolled teams waiting for the draft
   const hasDraftHappened = Object.keys(leagueState.rosters||{}).some(id=>(leagueState.rosters[id]||[]).length>0);
+  const draftWindow = DRAFT_WINDOWS.find(d=>d.run===currentRun);
+  const now = new Date();
+  const draftStart = draftWindow ? new Date(draftWindow.start) : null;
+  const draftEnd = draftWindow ? new Date(draftWindow.end) : null;
+  const draftIsToday = draftStart && draftStart.toDateString() === now.toDateString();
+  const draftIsComing = draftStart && now < draftStart;
+  const draftIsLive = draftStart && draftEnd && now >= draftStart && now <= draftEnd;
   if(!hasDraftHappened){
     const myId=getMyId();
     el.innerHTML=`
@@ -3211,8 +3219,8 @@ function renderFantasyRunContent(){
         </tbody>
       </table>
     </div>
-    <div style="padding:16px 14px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">
-      DRAFT STARTS ${fmtRunDate(run.start)}
+    <div style="padding:16px 14px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--accent3)">
+      ${draftIsLive ? `🔴 DRAFT IS LIVE — GO TO THE DRAFT TAB` : draftIsToday ? `🏀 DRAFT TONIGHT AT 8:30 PM ET` : draftIsComing ? `DRAFT STARTS ${fmtRunDate(draftStart.toISOString().slice(0,10))} AT 8:30 PM ET` : `SEASON STARTS ${fmtRunDate(run.start)}`}
     </div>`;
     return;
   }

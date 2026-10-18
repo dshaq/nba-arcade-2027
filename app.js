@@ -841,8 +841,8 @@ function showPlayerCard(playerName) {
   const info = PLAYER_INFO[playerName] || {};
   const fpVal = p ? (typeof p.fpPG !== 'undefined' ? p.fpPG : (playerTotalFP ? playerTotalFP(p.id||p.n) : null)) : null;
 
-  // Team priority: PLAYERS array (BDL-updated live) > PLAYERS_DB > leagueState
-  const teamAbbr = pArr?.team || pDb?.t || pLeague?.team || '';
+  // Team priority: PLAYERS_DB (curated, consistent abbrevs) > PLAYERS array > leagueState
+  const teamAbbr = pDb?.t || pArr?.team || pLeague?.team || '';
   const teamFull = NBA_TEAMS[teamAbbr] || teamAbbr;
   // Build portrait URL using the authoritative team abbreviation
   const portrait = teamAbbr
@@ -2293,10 +2293,11 @@ function renderDuelCard(){
   const statType = duel.stat || 'pts';
 
   const portHtml=(p)=>{
-    // Use live PLAYERS array team (BDL-updated) > PLAYERS_DB team for correct portrait URL
-    const pArr = PLAYERS.find(pl=>pl.name===p.name);
+    // PLAYERS_DB has curated current-season teams with consistent abbreviations
+    // PLAYERS array is stale for many players; BDL will update it but not before first render
     const pDb = PLAYERS_DB.find(pl=>pl.n===p.name);
-    const teamAbbr = pArr?.team || pDb?.t || p.team || '';
+    const pArr = PLAYERS.find(pl=>pl.name===p.name);
+    const teamAbbr = pDb?.t || pArr?.team || p.team || '';
     const port = teamAbbr
       ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(p.name)}.jpeg`
       : (playerPortraits[p.name] || '');

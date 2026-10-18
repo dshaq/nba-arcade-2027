@@ -1359,6 +1359,8 @@ function applyBdlInjuries(injuries){
   leagueState.bdlInjuries = injuries;
   // Re-render any open screens that show injury badges
   if(document.getElementById('draft-player-list')) renderDraftPlayerList();
+  if(document.getElementById('waiver-player-list')) renderWaiverPlayerList();
+  if(document.getElementById('rosters-content')) renderRostersScreen();
 }
 
 // Returns injury info for a player name, or null
@@ -3093,9 +3095,8 @@ function renderDraftPlayerList(){
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
     if(draftFilter.rookie){
-      // Rookies = no history in PLAYERS_DB *and* no BDL live season stats
-      const inDb = PLAYERS_DB?.find(d=>d.n===p.name);
-      if(inDb || BDL_STATS[p.name]) return false;
+      // Rookies = positive evidence only (PLAYER_INFO yrs <= 1)
+      if((PLAYER_INFO[p.name]?.yrs ?? 999) > 1) return false;
     }
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
@@ -3124,9 +3125,10 @@ function renderDraftPlayerList(){
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
         const projFPVal = getPlayerProjFP(p);
-        const projLabel = dbP?.fpPG ? 'proj FP/G' : '~proj FP/G';
-        // Rookie = no historical data from ANY source (PLAYERS_DB or BDL live season stats)
-        const isRookie = !dbP && !BDL_STATS[p.name];
+        const projLabel = (dbP?.fpPG || BDL_STATS[p.name]?.fpPG) ? 'proj FP/G' : '~proj FP/G';
+        // Rookie = positive evidence only: PLAYER_INFO says yrs <= 1
+        // Never infer from missing async data (BDL_STATS/PLAYERS_DB may not have loaded yet)
+        const isRookie = (PLAYER_INFO[p.name]?.yrs ?? 999) <= 1;
         const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
         const inj = getInjuryStatus(p.name);
         const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';

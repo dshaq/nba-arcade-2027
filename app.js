@@ -44,8 +44,13 @@ let currentRun     = 1;
 let scheduleWeekOffset = 0; // 0 = current week, -1 = prev week, +1 = next, etc.
 let bdlKey         = null;   // BallDontLie API key (fetched from Supabase config)
 
+// Runtime map of BDL season averages: playerName → {fpPG, gp, pts, reb, ast, stl, blk}
+// Populated by applyBdlSeasonAverages(). Single source of truth for live stat-based projections.
+const BDL_STATS = {};
+
 // ── PLAYER DATABASE ─────────────────────────────────────────────────────────
-// 2026-27 NBA rosters — all ~600 players from official PDF
+// Seed roster — used as fallback only if BDL hasn't loaded yet.
+// applyBdlPlayers() replaces/extends this array with live BDL active-player data.
 // Format: {id, name, pos, team, ppg, rpg, apg, spg, bpg}
 const PLAYERS = [
   // Atlanta Hawks
@@ -834,17 +839,19 @@ function showPlayerCard(playerName) {
   openPlayerCardName = playerName;
   document.getElementById('player-card-modal')?.remove();
 
+  // PLAYERS is BDL-driven (current-season teams/positions). Use it as primary source.
+  const pArr  = PLAYERS.find(pl=>pl.name===playerName);
+  const pDb   = PLAYERS_DB.find(pl=>pl.n===playerName);
   const pLeague = (leagueState.players||[]).find(pl=>pl.name===playerName);
-  const pDb = PLAYERS_DB.find(pl=>pl.n===playerName);
-  const pArr = PLAYERS.find(pl=>pl.name===playerName);
-  const p = pLeague || pDb || pArr;
+  const p = pArr || pDb || pLeague;
   const info = PLAYER_INFO[playerName] || {};
-  const fpVal = p ? (typeof p.fpPG !== 'undefined' ? p.fpPG : (playerTotalFP ? playerTotalFP(p.id||p.n) : null)) : null;
+  // FP projection: BDL live stats → PLAYERS_DB curated → fallback
+  const fpVal = BDL_STATS[playerName]?.fpPG ?? pDb?.fpPG
+    ?? (p ? estimateFpPG(p) : null);
 
-  // Team priority: PLAYERS_DB (curated, consistent abbrevs) > PLAYERS array > leagueState
-  const teamAbbr = pDb?.t || pArr?.team || pLeague?.team || '';
+  // Team: PLAYERS (BDL-sourced, always current) → PLAYERS_DB → leagueState
+  const teamAbbr = pArr?.team || pDb?.t || pLeague?.team || '';
   const teamFull = NBA_TEAMS[teamAbbr] || teamAbbr;
-  // Build portrait URL using the authoritative team abbreviation
   const portrait = teamAbbr
     ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(playerName)}.jpeg`
     : (playerPortraits[playerName] || '');
@@ -934,8 +941,9 @@ function estimateFpPG(p){
 }
 
 // Get the best available projected FP/G for a player (PLAYERS entry).
-// Priority: BDL season averages (in PLAYERS_DB) → PLAYERS_DB static → estimated from stats
+// Priority: BDL live season averages (BDL_STATS) → PLAYERS_DB curated fpPG → estimated from stats
 function getPlayerProjFP(player){
+  if(BDL_STATS[player.name]?.fpPG) return BDL_STATS[player.name].fpPG;
   const db = PLAYERS_DB.find(x => x.n === player.name);
   if(db?.fpPG) return db.fpPG;
   return estimateFpPG(player);
@@ -1096,7 +1104,7 @@ async function loadBdlPlayers(){
     const cached = JSON.parse(localStorage.getItem(BDL_CACHE_KEY)||'null');
     if(cached && (Date.now()-cached.ts) < BDL_CACHE_TTL){
       applyBdlPlayers(cached.players);
-      // Season avgs also called from boot(), but IDs now in cache so it can proceed
+      loadBdlSeasonAverages(); // chain season stats load
       return;
     }
   }catch(e){}
@@ -1132,41 +1140,71 @@ async function loadBdlPlayers(){
 function normName(n){ return n.toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
 
 function applyBdlPlayers(bdlPlayers){
-  // Update PLAYER_INFO for every player we have in PLAYERS
-  // Primary: exact name match. Fallback: normalized name match (handles C.J.→CJ, etc.)
-  const byName = {};
-  const byNorm = {};
-  bdlPlayers.forEach(p=>{
-    byName[p.name] = p;
-    const nk = normName(p.name);
-    if(!byNorm[nk]) byNorm[nk] = p; // keep first match on collision
+  // BDL is the single source of truth for the active player pool.
+  // We rebuild PLAYERS from bdlPlayers, preserving existing numeric IDs where possible
+  // so that leagueState.rosters (which store IDs) keep working.
+
+  // Build lookup of current PLAYERS by name → id (to preserve roster-safe IDs)
+  const existingIdByName = {};
+  const existingIdByNorm = {};
+  PLAYERS.forEach(p=>{
+    existingIdByName[p.name] = p.id;
+    existingIdByNorm[normName(p.name)] = p.id;
   });
 
-  PLAYERS.forEach(p=>{
-    const bdl = byName[p.name] || byNorm[normName(p.name)];
-    if(!bdl) return;
-    // Update team abbreviation if changed
-    if(bdl.team && bdl.team !== p.team) p.team = bdl.team;
-    // Build/update PLAYER_INFO entry
+  // Assign an ID: preserve old static ID if name matches, otherwise generate from bdlId
+  let maxId = PLAYERS.reduce((m,p)=>Math.max(m,p.id||0),0);
+  const bdlIdOffset = 900000; // keep BDL-sourced IDs out of static range
+
+  const newPlayers = bdlPlayers.map(bdl=>{
+    const existId = existingIdByName[bdl.name] ?? existingIdByNorm[normName(bdl.name)];
+    const id = existId ?? (bdl.bdlId ? bdl.bdlId + bdlIdOffset : ++maxId);
+
+    // Preserve existing ppg/rpg/apg/spg/bpg — these get updated by applyBdlSeasonAverages
+    const existing = PLAYERS.find(p=>p.id===existId);
+
+    // Update PLAYER_INFO while we're here
     const draft = bdl.draftYear
       ? `${bdl.draftYear} R${bdl.draftRound||'?'} P${bdl.draftNumber||'?'}`
       : 'Undrafted';
-    PLAYER_INFO[p.name] = {
-      pos: bdl.pos || p.pos,
-      ht: bdl.ht || PLAYER_INFO[p.name]?.ht || '',
-      wt: bdl.wt || PLAYER_INFO[p.name]?.wt || null,
-      age: PLAYER_INFO[p.name]?.age || null,  // BDL doesn't return age directly
-      yrs: PLAYER_INFO[p.name]?.yrs || null,
-      college: bdl.college || PLAYER_INFO[p.name]?.college || '',
+    PLAYER_INFO[bdl.name] = {
+      pos: bdl.pos || existing?.pos || 'F',
+      ht: bdl.ht || PLAYER_INFO[bdl.name]?.ht || '',
+      wt: bdl.wt || PLAYER_INFO[bdl.name]?.wt || null,
+      age: PLAYER_INFO[bdl.name]?.age || null,
+      yrs: PLAYER_INFO[bdl.name]?.yrs || null,
+      college: bdl.college || PLAYER_INFO[bdl.name]?.college || '',
       draft,
-      nat: bdl.country || PLAYER_INFO[p.name]?.nat || 'United States',
+      nat: bdl.country || PLAYER_INFO[bdl.name]?.nat || 'United States',
+    };
+
+    return {
+      id,
+      name: bdl.name,
+      pos:  bdl.pos  || existing?.pos  || 'F',
+      team: bdl.team || existing?.team || '',
+      // stats preserved from existing PLAYERS entry; will be updated by season averages
+      ppg: existing?.ppg ?? 0,
+      rpg: existing?.rpg ?? 0,
+      apg: existing?.apg ?? 0,
+      spg: existing?.spg ?? 0,
+      bpg: existing?.bpg ?? 0,
     };
   });
-  console.log(`BDL: updated info for ${PLAYERS.filter(p=>byName[p.name]).length}/${PLAYERS.length} players`);
-  // If a player card is open and we just got their data, refresh it
-  if(openPlayerCardName && byName[openPlayerCardName]){
-    showPlayerCard(openPlayerCardName);
+
+  // Replace the PLAYERS array in-place (splice preserves references held by other code)
+  PLAYERS.splice(0, PLAYERS.length, ...newPlayers);
+
+  console.log(`BDL: rebuilt PLAYERS pool with ${PLAYERS.length} active players`);
+
+  // If a player card is open, refresh it with updated data
+  if(openPlayerCardName){
+    const bdlEntry = bdlPlayers.find(p=>p.name===openPlayerCardName||normName(p.name)===normName(openPlayerCardName));
+    if(bdlEntry) showPlayerCard(openPlayerCardName);
   }
+
+  // Refresh portraits map with the updated team data
+  loadPortraits();
 }
 
 // ── BDL SEASON AVERAGES → projected FP ───────────────────────────────────────
@@ -1237,7 +1275,13 @@ async function loadBdlSeasonAverages(){
         });
         averages[playerName] = {
           fpPG: Math.round(fp * 10) / 10,   // 1 decimal place
-          gp: avg.games_played||0
+          gp:   avg.games_played||0,
+          // raw per-game stats so PLAYERS entries stay current
+          pts:  avg.pts||0,
+          reb:  avg.reb||0,
+          ast:  avg.ast||0,
+          stl:  avg.stl||0,
+          blk:  avg.blk||0,
         };
       }
     }
@@ -1255,17 +1299,26 @@ async function loadBdlSeasonAverages(){
 }
 
 function applyBdlSeasonAverages(averages){
+  // Populate BDL_STATS — the single source of truth for live FP projections.
+  // Also update ppg/rpg/apg/spg/bpg on PLAYERS entries so duel subtitles and
+  // estimateFpPG() work off real numbers.
   let updated = 0;
-  PLAYERS_DB.forEach(p=>{
-    const avg = averages[p.n];
-    if(!avg) return;
-    if(avg.gp >= 3){  // only update if player has played at least 3 games
-      p.fpPG = avg.fpPG;
-      p.gp   = avg.gp;
-      updated++;
+  for(const [name, avg] of Object.entries(averages)){
+    if(avg.gp < 3) continue;  // only trust averages with meaningful sample size
+    BDL_STATS[name] = avg;
+
+    // Update the PLAYERS entry's raw stats so all per-game displays are current
+    const p = PLAYERS.find(x=>x.name===name);
+    if(p){
+      p.ppg = avg.pts  ?? p.ppg;
+      p.rpg = avg.reb  ?? p.rpg;
+      p.apg = avg.ast  ?? p.apg;
+      p.spg = avg.stl  ?? p.spg;
+      p.bpg = avg.blk  ?? p.bpg;
     }
-  });
-  console.log(`BDL season avgs: updated projected FP for ${updated}/${PLAYERS_DB.length} players`);
+    updated++;
+  }
+  console.log(`BDL season avgs: loaded FP projections for ${updated} players (total pool: ${PLAYERS.length})`);
   // Re-render Draft page if it's open so sorting reflects new data
   if(document.getElementById('draft-screen')?.classList.contains('active')){
     renderFantasyDraftPane();
@@ -1273,17 +1326,14 @@ function applyBdlSeasonAverages(averages){
 }
 
 async function loadPortraits(){
-  // Build portrait URLs from Supabase Storage for any player whose team folder exists
-  // URL pattern: /player-portraits/{TEAM}/{Player Name}.jpeg (or .jpg)
-  // We build a lookup eagerly from the PLAYERS array — no round-trip needed for the URL itself.
-  // Images that don't exist in Storage will 404 silently (img onerror falls back to initials).
+  // Build portrait URLs from Supabase Storage.
+  // URL pattern: /player-portraits/{TEAM}/{Player Name}.jpeg
+  // PLAYERS is now BDL-driven so team abbreviations are current-season accurate.
+  // Images that don't exist in Storage 404 silently (img onerror falls back to initials).
   playerPortraits = {};
   for(const p of PLAYERS){
-    // Prefer PLAYERS_DB team (manually curated, current season) over PLAYERS array (may be stale)
-    const dbEntry = PLAYERS_DB.find(d=>d.n===p.name);
-    const team = dbEntry?.t || p.team;
-    // Try .jpeg first (most uploads), fallback handled by onerror in the img tag
-    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(p.name)}.jpeg`;
+    if(!p.team) continue;
+    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${p.team}/${encodeURIComponent(p.name)}.jpeg`;
   }
 }
 
@@ -2293,11 +2343,9 @@ function renderDuelCard(){
   const statType = duel.stat || 'pts';
 
   const portHtml=(p)=>{
-    // PLAYERS_DB has curated current-season teams with consistent abbreviations
-    // PLAYERS array is stale for many players; BDL will update it but not before first render
-    const pDb = PLAYERS_DB.find(pl=>pl.n===p.name);
+    // PLAYERS is BDL-driven so team abbreviations are current-season accurate
     const pArr = PLAYERS.find(pl=>pl.name===p.name);
-    const teamAbbr = pDb?.t || pArr?.team || p.team || '';
+    const teamAbbr = pArr?.team || p.team || '';
     const port = teamAbbr
       ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(p.name)}.jpeg`
       : (playerPortraits[p.name] || '');
@@ -4314,8 +4362,10 @@ function renderTicker(events, todayDate, showYesterday){
 async function boot(){
   // Load BDL key and player data early (no auth needed for config read)
   await loadBdlKey();
-  loadBdlPlayers(); // fire-and-forget; updates PLAYERS/PLAYER_INFO in background
-  loadBdlSeasonAverages(); // fire-and-forget; updates PLAYERS_DB fpPG with real season stats
+  // BDL is the single source of truth for player data.
+  // loadBdlPlayers() rebuilds PLAYERS from /players/active, then chains loadBdlSeasonAverages()
+  // to populate BDL_STATS with live FP projections. Both run fire-and-forget.
+  loadBdlPlayers();
 
   // Auth state listener
   db.auth.onAuthStateChange(async (event,session)=>{

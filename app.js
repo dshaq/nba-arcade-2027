@@ -1044,7 +1044,7 @@ async function saveLeagueState(){
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
 const BDL_BASE = 'https://api.balldontlie.io/v1';
-const BDL_CACHE_KEY = 'bdl_players_cache_v3'; // bumped: added yearsExp field
+const BDL_CACHE_KEY = 'bdl_players_cache_v4'; // bumped: added draftYear to PLAYERS runtime object
 const BDL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlKey(){
@@ -1179,6 +1179,7 @@ function applyBdlPlayers(bdlPlayers){
       pos:  bdl.pos  || existing?.pos  || 'F',
       team: bdl.team || existing?.team || '',
       yearsExp: bdl.yearsExp ?? existing?.yearsExp ?? null,
+      draftYear: bdl.draftYear ?? existing?.draftYear ?? null,
       // stats preserved from existing PLAYERS entry; will be updated by season averages
       ppg: existing?.ppg ?? 0,
       rpg: existing?.rpg ?? 0,
@@ -3100,8 +3101,9 @@ function renderDraftPlayerList(){
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
     if(draftFilter.rookie){
-      // Rookies = BDL years_experience === 0 only
-      if(p.yearsExp !== 0) return false;
+      // Rookies = BDL years_experience === 0, OR draft_year === 2026 if yearsExp unavailable
+      const isRookiePlayer = p.yearsExp === 0 || (p.yearsExp === null && p.draftYear === 2026);
+      if(!isRookiePlayer) return false;
     }
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
@@ -3131,8 +3133,8 @@ function renderDraftPlayerList(){
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
         const projFPVal = getPlayerProjFP(p);
         const projLabel = (dbP?.fpPG || BDL_STATS[p.name]?.fpPG) ? 'proj FP/G' : '~proj FP/G';
-        // Rookie = BDL years_experience === 0 (true first-year player this season)
-        const isRookie = p.yearsExp === 0;
+        // Rookie = BDL years_experience === 0, OR draft_year === 2026 if yearsExp unavailable
+        const isRookie = p.yearsExp === 0 || (p.yearsExp === null && p.draftYear === 2026);
         const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
         const inj = getInjuryStatus(p.name);
         const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';

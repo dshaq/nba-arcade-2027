@@ -164,20 +164,44 @@ const PLAYERS_DB = [
 {n:"Egor Demin",t:"BKN",r:157,fpPG:15.9,gp:72,projFP:1144.8},
 {n:"Zaccharie Risacher",t:"DAL",r:158,fpPG:14.2,gp:72,projFP:1022.4},
 {n:"Liam McNeeley",t:"CHA",r:159,fpPG:10.8,gp:72,projFP:777.6},
-// ── 2026 DRAFT CLASS ROOKIES (projected; entering their first NBA season) ──────
-{n:"A.J. Dybantsa",t:"WAS",r:160,fpPG:26.8,gp:72,projFP:1929.6},
-{n:"Cameron Boozer",t:"MEM",r:161,fpPG:13.8,gp:72,projFP:993.6},
-{n:"Jayden Quaintance",t:"SAS",r:162,fpPG:23.2,gp:72,projFP:1670.4},
-{n:"Tarris Reed Jr.",t:"SAS",r:163,fpPG:20.5,gp:72,projFP:1476},
-{n:"Aday Mara",t:"OKC",r:164,fpPG:13.4,gp:72,projFP:964.8},
-{n:"Yaxel Lendeborg",t:"GSW",r:165,fpPG:14.2,gp:72,projFP:1022.4},
-{n:"Brayden Burries",t:"MIL",r:166,fpPG:11.8,gp:72,projFP:849.6},
-{n:"Alex Karaban",t:"SAC",r:167,fpPG:13.2,gp:72,projFP:950.4},
-{n:"Joshua Jefferson",t:"BKN",r:168,fpPG:11.5,gp:72,projFP:828},
-{n:"Koa Peat",t:"PHX",r:169,fpPG:15.6,gp:72,projFP:1123.2},
-{n:"Bennett Stirtz",t:"OKC",r:170,fpPG:10.1,gp:72,projFP:727.2},
-{n:"Karim Lopez",t:"MEM",r:171,fpPG:9.5,gp:72,projFP:684},
-{n:"Labaron Philon Jr.",t:"PHI",r:172,fpPG:9.2,gp:72,projFP:662.4},
+// ── 2026 DRAFT CLASS ROOKIES ─────────────────────────────────────────────────
+// Projections sourced from Fadeaway World / Yahoo Sports pre-season consensus.
+// FP/G = pts+reb+ast+stl+blk - missedFG(38%) - missedFT(18%) - TO(10% of pts)
+// Note: players already listed above (Darryn Peterson, Darius Acuff Jr., Yaxel Lendeborg,
+// Morez Johnson Jr.) have live ESPN projections earlier in the list; omitted here.
+// R1 picks 1-30 (excluding duplicates)
+{n:"AJ Dybantsa",t:"WAS",r:160,fpPG:24.7,gp:72,projFP:1778.4},
+{n:"Cameron Boozer",t:"MEM",r:162,fpPG:26.4,gp:72,projFP:1900.8},
+{n:"Caleb Wilson",t:"CHI",r:163,fpPG:22.7,gp:72,projFP:1634.4},
+{n:"Keaton Wagner",t:"LAC",r:164,fpPG:17.1,gp:72,projFP:1231.2},
+{n:"Mikel Brown Jr.",t:"BKN",r:165,fpPG:18.7,gp:72,projFP:1346.4},
+{n:"Kingston Flemmings",t:"ATL",r:167,fpPG:12.9,gp:72,projFP:928.8},
+{n:"Brayden Burries",t:"MIL",r:169,fpPG:16.9,gp:72,projFP:1216.8},
+{n:"Aday Mara",t:"OKC",r:171,fpPG:11.9,gp:72,projFP:856.8},
+{n:"Nate Ament",t:"MIL",r:172,fpPG:14.7,gp:72,projFP:1058.4},
+{n:"Hannes Steinbach",t:"CHA",r:173,fpPG:12.7,gp:72,projFP:914.4},
+{n:"Dailyn Swain",t:"CHI",r:174,fpPG:12.7,gp:72,projFP:914.4},
+{n:"Bennett Stirtz",t:"OKC",r:175,fpPG:12.2,gp:72,projFP:878.4},
+{n:"Ebuka Okorie",t:"DET",r:176,fpPG:11.1,gp:72,projFP:799.2},
+{n:"Christian Anderson Jr.",t:"CHA",r:177,fpPG:11.0,gp:72,projFP:792.0},
+{n:"Allen Graves",t:"TOR",r:178,fpPG:12.8,gp:72,projFP:921.6},
+{n:"Jayden Quaintance",t:"SAS",r:179,fpPG:17.4,gp:72,projFP:1252.8},
+{n:"Karim Lopez",t:"MEM",r:180,fpPG:11.6,gp:72,projFP:835.2},
+{n:"Labaron Philon Jr.",t:"PHI",r:181,fpPG:12.4,gp:72,projFP:892.8},
+{n:"Zuby Ejiofor",t:"ATL",r:182,fpPG:12.5,gp:72,projFP:900.0},
+{n:"Cameron Carr",t:"NYK",r:183,fpPG:10.5,gp:72,projFP:756.0},
+{n:"Sergio De Larrea",t:"LAL",r:184,fpPG:9.5,gp:72,projFP:684.0},
+{n:"Tarris Reed Jr.",t:"SAS",r:185,fpPG:15.4,gp:72,projFP:1108.8},
+{n:"Chris Cenac Jr.",t:"BOS",r:186,fpPG:11.1,gp:72,projFP:799.2},
+{n:"Joshua Jefferson",t:"BKN",r:187,fpPG:12.4,gp:72,projFP:892.8},
+{n:"Alex Karaban",t:"SAC",r:188,fpPG:11.1,gp:72,projFP:799.2},
+{n:"Koa Peat",t:"DAL",r:189,fpPG:11.6,gp:72,projFP:835.2},
+// R2 notable rookies
+{n:"Braden Smith",t:"CHI",r:190,fpPG:16.1,gp:72,projFP:1159.2},
+{n:"Ja'Kobi Gillespie",t:"SAS",r:191,fpPG:12.9,gp:72,projFP:928.8},
+{n:"Felix Okpara",t:"WAS",r:192,fpPG:14.6,gp:72,projFP:1051.2},
+{n:"Jaden Bradley",t:"TOR",r:193,fpPG:12.4,gp:72,projFP:892.8},
+{n:"Otega Oweh",t:"MIA",r:194,fpPG:12.5,gp:72,projFP:900.0},
 ];
 
 // Helper: get player by name
@@ -226,7 +250,7 @@ const DRAFT_CLASS = {
   2023: ['Victor Wembanyama','Brandon Miller','Scoot Henderson','Amen Thompson','Ausar Thompson','Anthony Black','Alex Sarr','Bilal Coulibaly','Jaime Jaquez Jr.','Dereck Lively II'],
   2024: ['Zaccharie Risacher','Alex Sarr','Reed Sheppard','Stephon Castle','Ron Holland','Donovan Clingan','Tidjane Salaun','Dalton Knecht','Rob Dillingham','Zach Edey'],
   2025: ['Cooper Flagg','Ace Bailey','Dylan Harper','Kon Knueppel','Matas Buzelis','Darryn Peterson','Darius Acuff Jr.','Derik Queen','Tre Johnson','V.J. Edgecombe','Khaman Maluach','Jeremiah Fears','Noa Essengue','Egor Demin','Zaccharie Risacher','Liam McNeeley'],
-  2026: ['A.J. Dybantsa','Cameron Boozer','Jayden Quaintance','Tarris Reed Jr.','Aday Mara','Yaxel Lendeborg','Brayden Burries','Alex Karaban','Joshua Jefferson','Koa Peat','Bennett Stirtz','Karim Lopez','Labaron Philon Jr.','Darryn Peterson','Darius Acuff Jr.'],
+  2026: ['AJ Dybantsa','Cameron Boozer','Caleb Wilson','Jayden Quaintance','Tarris Reed Jr.','Aday Mara','Yaxel Lendeborg','Brayden Burries','Alex Karaban','Joshua Jefferson','Koa Peat','Bennett Stirtz','Karim Lopez','Labaron Philon Jr.','Darryn Peterson','Darius Acuff Jr.','Mikel Brown Jr.','Kingston Flemmings','Morez Johnson Jr.','Nate Ament','Keaton Wagner','Braden Smith','Felix Okpara','Jayden Quaintance','Otega Oweh'],
 };
 
 // Veteran threshold (years in league, approximate)

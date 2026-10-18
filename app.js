@@ -308,11 +308,9 @@ const PLAYERS = [
   {id:1217,name:"James Johnson",pos:"F",team:"IND",ppg:5.0,rpg:3.0,apg:1.2,spg:0.5,bpg:0.4},
   {id:1218,name:"Jalen Slawson",pos:"F",team:"IND",ppg:4.5,rpg:2.8,apg:0.8,spg:0.4,bpg:0.4},
   {id:1219,name:"Rienk Mast",pos:"C",team:"IND",ppg:4.0,rpg:3.5,apg:0.5,spg:0.2,bpg:0.6},
-  {id:1220,name:"Johnny Furphy",pos:"F",team:"IND",ppg:3.5,rpg:2.0,apg:0.5,spg:0.3,bpg:0.2},
   // LA Clippers
   {id:1301,name:"Bradley Beal",pos:"SG",team:"LAC",ppg:23.5,rpg:4.5,apg:5.5,spg:1.1,bpg:0.3},
   {id:1302,name:"Brandon Ingram",pos:"SF",team:"LAC",ppg:24.0,rpg:6.5,apg:5.5,spg:1.0,bpg:0.6},
-  {id:1303,name:"Darius Garland",pos:"G",team:"LAC",ppg:21.5,rpg:3.0,apg:7.5,spg:1.0,bpg:0.2},
   {id:1304,name:"Brook Lopez",pos:"C",team:"LAC",ppg:14.5,rpg:6.0,apg:2.5,spg:0.5,bpg:2.2},
   {id:1305,name:"Rui Hachimura",pos:"F",team:"LAC",ppg:15.5,rpg:6.0,apg:2.0,spg:0.7,bpg:0.6},
   {id:1306,name:"Gradey Dick",pos:"GF",team:"LAC",ppg:14.5,rpg:4.5,apg:2.5,spg:0.7,bpg:0.3},
@@ -400,7 +398,6 @@ const PLAYERS = [
   {id:1621,name:"Tre Donaldson",pos:"G",team:"MIA",ppg:2.5,rpg:0.8,apg:1.2,spg:0.2,bpg:0.1},
   // Milwaukee Bucks
   {id:1702,name:"Tyler Herro",pos:"SG",team:"MIL",ppg:24.5,rpg:5.5,apg:5.5,spg:1.0,bpg:0.4},
-  {id:1703,name:"Myles Turner",pos:"FC",team:"MIL",ppg:16.5,rpg:8.0,apg:2.0,spg:0.8,bpg:2.5},
   {id:1704,name:"Gary Trent Jr.",pos:"SG",team:"MIL",ppg:17.5,rpg:3.5,apg:2.5,spg:0.8,bpg:0.2},
   {id:1705,name:"Kyle Kuzma",pos:"F",team:"MIL",ppg:17.0,rpg:7.0,apg:3.0,spg:0.7,bpg:0.5},
   {id:1706,name:"Khris Middleton",pos:"SF",team:"MIL",ppg:14.0,rpg:5.0,apg:4.0,spg:1.0,bpg:0.4},
@@ -504,7 +501,6 @@ const PLAYERS = [
   {id:2114,name:"Aday Mara",pos:"F",team:"OKC",ppg:6.5,rpg:4.5,apg:0.8,spg:0.4,bpg:0.8},
   {id:2115,name:"Thomas Sorber",pos:"FC",team:"OKC",ppg:6.0,rpg:4.5,apg:0.8,spg:0.4,bpg:0.8},
   {id:2116,name:"Bennett Stirtz",pos:"G",team:"OKC",ppg:5.5,rpg:2.0,apg:2.5,spg:0.5,bpg:0.1},
-  {id:2117,name:"Brooks Barnhizer",pos:"SF",team:"OKC",ppg:5.0,rpg:2.5,apg:1.2,spg:0.5,bpg:0.3},
   {id:2118,name:"Andrew Holifield",pos:"C",team:"OKC",ppg:4.5,rpg:3.5,apg:0.5,spg:0.3,bpg:0.7},
   {id:2119,name:"Anthony Pritchard",pos:"G",team:"OKC",ppg:3.5,rpg:1.5,apg:2.0,spg:0.4,bpg:0.1},
   {id:2120,name:"Christoph Tilly",pos:"C",team:"OKC",ppg:3.0,rpg:2.5,apg:0.3,spg:0.2,bpg:0.5},
@@ -512,7 +508,6 @@ const PLAYERS = [
   {id:2201,name:"Paolo Banchero",pos:"C",team:"ORL",ppg:26.5,rpg:8.5,apg:5.5,spg:1.0,bpg:0.9},
   {id:2202,name:"Franz Wagner",pos:"SF",team:"ORL",ppg:23.5,rpg:6.0,apg:5.0,spg:1.0,bpg:0.8},
   {id:2203,name:"Jalen Suggs",pos:"SG",team:"ORL",ppg:17.5,rpg:5.0,apg:5.5,spg:1.8,bpg:0.6},
-  {id:2204,name:"Desmond Bane",pos:"SG",team:"ORL",ppg:20.5,rpg:4.5,apg:4.5,spg:1.0,bpg:0.4},
   {id:2205,name:"Wendell Carter Jr.",pos:"PF",team:"ORL",ppg:14.0,rpg:9.5,apg:2.5,spg:0.8,bpg:1.2},
   {id:2206,name:"Tristan Da Silva",pos:"F",team:"ORL",ppg:13.5,rpg:5.5,apg:2.5,spg:0.8,bpg:0.5},
   {id:2207,name:"Anthony Black",pos:"G",team:"ORL",ppg:12.5,rpg:4.5,apg:4.5,spg:1.2,bpg:0.5},
@@ -645,7 +640,6 @@ const PLAYERS = [
   {id:2806,name:"Trayce Jackson-Davis",pos:"F",team:"TOR",ppg:13.5,rpg:8.0,apg:2.0,spg:0.8,bpg:1.5},
   {id:2807,name:"Jamison Battle",pos:"SF",team:"TOR",ppg:12.5,rpg:5.0,apg:2.0,spg:0.7,bpg:0.4},
   {id:2808,name:"Alijah Martin",pos:"PG",team:"TOR",ppg:11.5,rpg:3.5,apg:4.5,spg:0.9,bpg:0.2},
-  {id:2809,name:"Kyle Anderson",pos:"PF",team:"TOR",ppg:9.5,rpg:6.0,apg:3.5,spg:0.8,bpg:0.6},
   {id:2810,name:"Jaden Bradley",pos:"SG",team:"TOR",ppg:10.0,rpg:3.5,apg:3.5,spg:0.9,bpg:0.3},
   {id:2811,name:"Ja'Kobe Walter",pos:"F",team:"TOR",ppg:9.5,rpg:3.5,apg:1.8,spg:0.7,bpg:0.4},
   {id:2812,name:"Collin Murray-Boyles",pos:"F",team:"TOR",ppg:9.0,rpg:5.0,apg:1.5,spg:0.7,bpg:0.5},
@@ -688,12 +682,10 @@ const PLAYERS = [
   {id:3003,name:"Alex Sarr",pos:"FC",team:"WAS",ppg:18.5,rpg:10.5,apg:2.5,spg:1.0,bpg:2.8},
   {id:3004,name:"A.J. Dybantsa",pos:"GF",team:"WAS",ppg:17.5,rpg:6.5,apg:3.5,spg:1.2,bpg:0.7},
   {id:3005,name:"Bilal Coulibaly",pos:"GF",team:"WAS",ppg:15.5,rpg:6.0,apg:3.5,spg:1.8,bpg:0.7},
-  {id:3006,name:"Khris Middleton",pos:"SF",team:"WAS",ppg:14.5,rpg:5.0,apg:4.0,spg:1.0,bpg:0.4},
   {id:3007,name:"Tre Mann",pos:"PG",team:"WAS",ppg:15.0,rpg:3.5,apg:5.5,spg:0.9,bpg:0.2},
   {id:3008,name:"Tre Johnson",pos:"SG",team:"WAS",ppg:14.5,rpg:3.5,apg:3.0,spg:0.8,bpg:0.3},
   {id:3009,name:"Will Riley",pos:"F",team:"WAS",ppg:12.5,rpg:5.0,apg:2.5,spg:0.8,bpg:0.5},
   {id:3010,name:"Kyshawn George",pos:"F",team:"WAS",ppg:12.0,rpg:5.5,apg:3.0,spg:1.0,bpg:0.5},
-  {id:3011,name:"Reece Beekman",pos:"PG",team:"WAS",ppg:11.5,rpg:3.5,apg:5.5,spg:1.5,bpg:0.3},
   {id:3012,name:"Felix Okpara",pos:"C",team:"WAS",ppg:9.5,rpg:8.0,apg:1.0,spg:0.5,bpg:2.0},
   {id:3013,name:"Anthony Gill",pos:"PF",team:"WAS",ppg:9.0,rpg:5.0,apg:1.0,spg:0.5,bpg:0.5},
   {id:3014,name:"Trevor Keels",pos:"PG",team:"WAS",ppg:9.5,rpg:3.0,apg:4.0,spg:0.8,bpg:0.2},
@@ -2933,7 +2925,10 @@ function switchFantasyTab(tab){
   document.querySelectorAll('.fantasy-sub-pane').forEach(p=>{
     p.classList.toggle('active', p.id === 'fantasy-pane-'+tab);
   });
-  if(tab==='standings') renderFantasyRunContent();
+  if(tab==='standings'){
+    renderFantasyRunContent(); // render immediately with cached data
+    syncManagersToState().then(()=>renderFantasyRunContent()); // re-render with fresh data
+  }
   else if(tab==='schedule'){ scheduleWeekOffset=0; renderFantasySchedule(); }
   else if(tab==='roster') renderRostersScreen();
   else if(tab==='waivers'){ resetWaiverFilters(); renderWaiversPane(); }
@@ -2955,7 +2950,10 @@ function switchRun(runId){
   document.querySelectorAll('.run-tab').forEach(t=>{
     t.classList.toggle('active',parseInt(t.dataset.run)===runId);
   });
-  if(currentFantasyTab==='standings') renderFantasyRunContent();
+  if(currentFantasyTab==='standings'){
+    renderFantasyRunContent();
+    syncManagersToState().then(()=>renderFantasyRunContent());
+  }
   else if(currentFantasyTab==='schedule') renderFantasySchedule();
 }
 

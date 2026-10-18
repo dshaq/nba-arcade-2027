@@ -48,6 +48,11 @@ let bdlKey         = null;   // BallDontLie API key (fetched from Supabase confi
 // Populated by applyBdlSeasonAverages(). Single source of truth for live stat-based projections.
 const BDL_STATS = {};
 
+// Runtime injury map: playerName → {status, description}
+// Populated by applyBdlInjuries(). Stored here (not leagueState) so it's available
+// before leagueState loads from Supabase.
+const BDL_INJURIES = {};
+
 // ── PLAYER DATABASE ─────────────────────────────────────────────────────────
 // Seed roster — used as fallback only if BDL hasn't loaded yet.
 // applyBdlPlayers() replaces/extends this array with live BDL active-player data.
@@ -1327,7 +1332,7 @@ function applyBdlSeasonAverages(averages){
 
 // ── BDL INJURY STATUS ────────────────────────────────────────────────────────
 // Fetches current injury report from BDL /player_injuries endpoint.
-// Stores a map in leagueState.bdlInjuries: { playerName → {status, description} }
+// Populates module-level BDL_INJURIES: { playerName → {status, description} }
 // Status values from BDL: "Out", "Day-To-Day", "Questionable", etc.
 // Cached in localStorage for 1 hour (injury status changes throughout the day).
 const BDL_INJURY_CACHE_KEY = 'bdl-injuries-2027-v2'; // bumped to force fresh fetch
@@ -1361,8 +1366,9 @@ async function loadBdlInjuries(){
 }
 
 function applyBdlInjuries(injuries){
-  if(!leagueState) return;
-  leagueState.bdlInjuries = injuries;
+  // Write into module-level BDL_INJURIES (no leagueState dependency — fires before auth)
+  Object.keys(BDL_INJURIES).forEach(k => delete BDL_INJURIES[k]);
+  Object.assign(BDL_INJURIES, injuries);
   // Re-render any open screens that show injury badges
   if(document.getElementById('draft-player-list')) renderDraftPlayerList();
   if(document.getElementById('waiver-player-list')) renderWaiverPlayerList();
@@ -1371,7 +1377,7 @@ function applyBdlInjuries(injuries){
 
 // Returns injury info for a player name, or null
 function getInjuryStatus(playerName){
-  return (leagueState?.bdlInjuries||{})[playerName] || null;
+  return BDL_INJURIES[playerName] || null;
 }
 
 async function loadPortraits(){

@@ -146,6 +146,7 @@ img{display:block;}
 .chat-msg{display:flex;gap:8px;align-items:flex-start;}
 .chat-msg.mine{flex-direction:row-reverse;}
 .chat-msg-bubble{
+  display:inline-block;
   max-width:70%;
   background:var(--card);
   border:1px solid var(--border);
@@ -155,6 +156,8 @@ img{display:block;}
   font-size:6px;
   line-height:1.7;
   color:var(--text1);
+  word-break:break-word;
+  white-space:pre-wrap;
 }
 .chat-msg.mine .chat-msg-bubble{
   background:var(--accent1);

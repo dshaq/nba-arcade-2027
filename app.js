@@ -1319,6 +1319,53 @@ function applyBdlSeasonAverages(averages){
   }
 }
 
+// ── BDL INJURY STATUS ────────────────────────────────────────────────────────
+// Fetches current injury report from BDL /player_injuries endpoint.
+// Stores a map in leagueState.bdlInjuries: { playerName → {status, description} }
+// Status values from BDL: "Out", "Day-To-Day", "Questionable", etc.
+// Cached in localStorage for 1 hour (injury status changes throughout the day).
+const BDL_INJURY_CACHE_KEY = 'bdl-injuries-2027';
+const BDL_INJURY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function loadBdlInjuries(){
+  if(!bdlKey) return;
+  // Check cache
+  try{
+    const cached = JSON.parse(localStorage.getItem(BDL_INJURY_CACHE_KEY)||'null');
+    if(cached && (Date.now()-cached.ts) < BDL_INJURY_CACHE_TTL){
+      applyBdlInjuries(cached.injuries);
+      return;
+    }
+  }catch(e){}
+  try{
+    const raw = await bdlFetchAll('/player_injuries');
+    if(!raw?.length) return;
+    const injuries = {};
+    for(const item of raw){
+      const name = item.player ? bdlName(item.player) : null;
+      if(!name) continue;
+      injuries[name] = {
+        status: item.status || 'Out',
+        description: item.return_date ? `Est. return ${item.return_date}` : (item.description||''),
+      };
+    }
+    try{ localStorage.setItem(BDL_INJURY_CACHE_KEY, JSON.stringify({ts:Date.now(), injuries})); }catch(e){}
+    applyBdlInjuries(injuries);
+  }catch(e){ console.warn('[loadBdlInjuries] failed:', e); }
+}
+
+function applyBdlInjuries(injuries){
+  if(!leagueState) return;
+  leagueState.bdlInjuries = injuries;
+  // Re-render any open screens that show injury badges
+  if(document.getElementById('draft-player-list')) renderDraftPlayerList();
+}
+
+// Returns injury info for a player name, or null
+function getInjuryStatus(playerName){
+  return (leagueState?.bdlInjuries||{})[playerName] || null;
+}
+
 async function loadPortraits(){
   // Build portrait URLs from Supabase Storage.
   // URL pattern: /player-portraits/{TEAM}/{Player Name}.jpeg
@@ -1400,6 +1447,8 @@ function defaultLeagueState(){
 function getMyId(){ return myProfile?.id; }
 function getMyRoster(){ return (leagueState.rosters||{})[getMyId()] || []; }
 function getMyActive(){ return (leagueState.active||{})[getMyId()] || []; }
+function getIrSlot(mid){ return (leagueState.ir||{})[mid] || null; } // single player id or null
+function effectiveRosterSize(mid){ return ROSTER_SIZE + (getIrSlot(mid) ? 1 : 0); } // 11 if IR occupied
 function getMyInactive(){ return (leagueState.inactive||{})[getMyId()] || []; }
 function allManagers(){
   // Returns list of manager rows from leagueState (populated by admin)
@@ -1689,7 +1738,7 @@ async function addPlayer(mid, pid){
   if(!canWaiver(mid)){ toast('No add/drops remaining this week!'); return false; }
   const roster=(leagueState.rosters||{})[mid]||[];
   if(roster.includes(pid)){ toast('Already on roster'); return false; }
-  if(roster.length>=ROSTER_SIZE){ toast('Drop a player first (roster full)'); return false; }
+  if(roster.length>=effectiveRosterSize(mid)){ toast('Drop a player first (roster full)'); return false; }
   // Add
   if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
   leagueState.rosters[mid].push(pid);
@@ -1824,7 +1873,7 @@ function renderDuelScreen(){
   const lbRows = rows.map((m,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);':''}">
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null)}
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
@@ -2509,7 +2558,7 @@ function showDuelLeaderboard(){
   let rowsHtml = rows.map((m,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);margin:0 -16px;padding-left:16px;padding-right:16px;':''}">
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null)}
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
@@ -3025,7 +3074,7 @@ function renderFantasyScreen(){
   switchFantasyTab(currentFantasyTab);
 }
 
-let draftFilter = { availability:'available', team:'all', sort:'fp' };
+let draftFilter = { availability:'available', team:'all', sort:'fp', rookie:false };
 let draftSearchQuery = '';
 
 function renderDraftPlayerList(){
@@ -3043,6 +3092,11 @@ function renderDraftPlayerList(){
   let players=PLAYERS.filter(p=>{
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
+    if(draftFilter.rookie){
+      // Rookies = players with no FP history in PLAYERS_DB
+      const inDb = PLAYERS_DB?.find(d=>d.n===p.name);
+      if(inDb) return false; // has history → not a rookie
+    }
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -3058,12 +3112,12 @@ function renderDraftPlayerList(){
     players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
   }
 
-  const canDraft=mid && getMyRoster().length<ROSTER_SIZE;
+  const canDraft=mid && getMyRoster().length<effectiveRosterSize(mid);
 
   el.innerHTML = !players.length
     ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
     : `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
-      ${players.slice(0,60).map(p=>{
+      ${players.map(p=>{
         const fp=playerTotalFP(p.id);
         const rostered=allRostered.has(p.id);
         const port=playerPortraits[p.name];
@@ -3071,12 +3125,18 @@ function renderDraftPlayerList(){
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
         const projFPVal = getPlayerProjFP(p);
         const projLabel = dbP?.fpPG ? 'proj FP/G' : '~proj FP/G';
+        const isRookie = !dbP;
+        const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
+        const inj = getInjuryStatus(p.name);
+        const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';
+        const injLabel = inj?.status?.toLowerCase().includes('day') ? 'DTD' : inj ? 'OUT' : '';
+        const injBadge = inj ? `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${injColor};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${injLabel}</span>` : '';
         const projLine=`<div class="player-meta" style="color:var(--accent3)">${projFPVal} ${projLabel}</div>`;
         return `
         <div class="player-row" style="padding:8px 14px">
           <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
-            <div class="player-name">${p.name}</div>
+            <div class="player-name">${p.name}${rookieBadge}${injBadge}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
             <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
             ${projLine}
@@ -3087,7 +3147,6 @@ function renderDraftPlayerList(){
           </div>
         </div>`;
       }).join('')}
-      ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
     </div>`;
 }
 
@@ -3119,6 +3178,7 @@ function renderFantasyDraftPane(){
         <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
         ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderDraftPlayerList()")}
         ${filterBtn('All Players',draftFilter.availability==='all',"draftFilter.availability='all';renderDraftPlayerList()")}
+        ${filterBtn('🌟 Rookies',draftFilter.rookie,"draftFilter.rookie=!draftFilter.rookie;renderDraftPlayerList()")}
         <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
         ${filterBtn('⬆ FP',draftFilter.sort==='fp',"draftFilter.sort='fp';renderDraftPlayerList()")}
         ${filterBtn('A–Z',draftFilter.sort==='alpha',"draftFilter.sort='alpha';renderDraftPlayerList()")}
@@ -3139,7 +3199,7 @@ function renderFantasyDraftPane(){
 async function confirmDraftPick(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const roster=getMyRoster();
-  if(roster.length>=ROSTER_SIZE){ toast('Roster full!'); return; }
+  if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   if(allRostered.has(pid)){ toast('Player already drafted'); return; }
   if(!leagueState.rosters) leagueState.rosters={};
@@ -3212,7 +3272,7 @@ function renderFantasySchedule(){
     }
     html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
       <div class="schedule-team-cell">
-        ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null)}
+        ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null,h.photo||null)}
         <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
@@ -3222,7 +3282,7 @@ function renderFantasySchedule(){
       </div>
       <div class="schedule-team-cell right">
         <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
-        ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null)}
+        ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null,a.photo||null)}
       </div>
     </div>`;
   });
@@ -3271,7 +3331,7 @@ function renderFantasyRunContent(){
             <td class="rank">${i+1}</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
-                ${avatarEl(m.display_name,m.color||'#4a9eff',24,8,m.icon||null)}
+                ${avatarEl(m.display_name,m.color||'#4a9eff',24,8,m.icon||null,m.photo||null)}
                 <div>
                   <div class="team-name">${m.team_name||m.display_name}</div>
                   <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${m.display_name}${m.id===myId?' · YOU':''}</div>
@@ -3325,7 +3385,7 @@ function renderFantasyRunContent(){
           <td class="rank">${i===0?'👑':(i+1)}</td>
           <td>
             <div style="display:flex;align-items:center;gap:8px">
-              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.icon||null)}
+              ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.icon||null,s.m.photo||null)}
               <span class="team-name">${s.m.display_name}</span>
               ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
             </div>
@@ -3410,36 +3470,49 @@ function renderRostersScreen(){
     return;
   }
 
+  const irPid = getIrSlot(rostersViewId);
   const rowHtml=(pid)=>{
     const p=getPlayer(pid); if(!p) return '';
     const fp=playerTotalFP(pid);
-    const isActive=active.includes(pid);
-    const isLocked=fp>=topFP && roster.length>1;
+    const isOnIR = pid === irPid;
+    const isActive=!isOnIR && active.includes(pid);
+    const isLocked=fp>=topFP && roster.length>1 && !isOnIR;
+    const inj = getInjuryStatus(p.name);
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${viewManager?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';
+    const injLabel = inj?.status?.toLowerCase().includes('day') ? 'DTD' : inj ? 'OUT' : '';
+    const injBadge = inj ? `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${injColor};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${injLabel}</span>` : '';
+    const irBadge = isOnIR ? `<span style="background:#805ad5;color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">IR</span>` : '';
+    const statusLabel = isOnIR
+      ? '<span style="color:#805ad5">■ INJURY RESERVE</span>'
+      : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● INACTIVE</span>';
     return `
-    <div class="player-row" style="padding:8px 14px">
+    <div class="player-row" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}">
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
-        <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}</div>
+        <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
-        <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● INACTIVE</span>'}</div>
+        <div class="player-meta" style="margin-top:2px">${statusLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
-        ${isMyRoster?`<div style="display:flex;gap:4px">
-          <button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="toggleActiveStatus('${rostersViewId}',${pid})">
-            ${isActive?'BENCH':'START'}
-          </button>
-          ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">DROP</button>`:''}
+        ${isMyRoster?`<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+          ${isOnIR
+            ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
+            : `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'BENCH':'START'}</button>
+               ${inj&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}
+               ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">DROP</button>`:''}`
+          }
         </div>`:''}
       </div>
     </div>`;
   };
 
+  const nonIrCount = roster.filter(id=>id!==irPid).length;
   contentEl.innerHTML=`
     <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3)">
-      ${viewManager.display_name.toUpperCase()} · ${roster.length} PLAYERS · ${active.length} ACTIVE
+      ${viewManager.display_name.toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${roster.map(rowHtml).join('')}
@@ -3503,7 +3576,7 @@ function renderAvailablePlayers(){
   const query=(document.getElementById('player-search')?.value||'').toLowerCase();
   const available=PLAYERS.filter(p=>!allRostered.has(p.id) && (!query || p.name.toLowerCase().includes(query) || p.team.toLowerCase().includes(query) || p.pos.toLowerCase().includes(query)));
   const sorted=[...available].sort((a,b)=>(b.ppg+b.rpg+b.apg+b.spg+b.bpg)-(a.ppg+a.rpg+a.apg+a.spg+a.bpg));
-  const canAdd=mid && canWaiver(mid) && getMyRoster().length<ROSTER_SIZE;
+  const canAdd=mid && canWaiver(mid) && getMyRoster().length<effectiveRosterSize(mid);
 
   if(!sorted.length){
     el.innerHTML=`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`;
@@ -3557,7 +3630,7 @@ function renderWaiverPlayerList(){
   const mid=getMyId();
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   const query=waiverSearchQuery.toLowerCase();
-  const canAdd=mid && canWaiver(mid) && getMyRoster().length<ROSTER_SIZE;
+  const canAdd=mid && canWaiver(mid) && getMyRoster().length<effectiveRosterSize(mid);
 
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -3588,7 +3661,7 @@ function renderWaiverPlayerList(){
         <div class="player-row" style="padding:8px 14px">
           <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
-            <div class="player-name">${p.name}</div>
+            <div class="player-name">${p.name}${(()=>{const inj=getInjuryStatus(p.name);if(!inj)return '';const c=inj.status?.toLowerCase().includes('day')?'#d69e2e':'#e53e3e';const l=inj.status?.toLowerCase().includes('day')?'DTD':'OUT';return `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${c};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${l}</span>`;})()}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
             <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
           </div>
@@ -3643,7 +3716,7 @@ function renderWaiversPane(){
 async function confirmAdd(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const roster=getMyRoster();
-  if(roster.length>=ROSTER_SIZE){
+  if(roster.length>=effectiveRosterSize(mid)){
     toast('Roster full! Drop a player first');
     return;
   }
@@ -3652,6 +3725,33 @@ async function confirmAdd(mid, pid){
     toast(`${p.name} added!`);
     renderWaiversPane();
   }
+}
+
+async function putOnIR(mid, pid){
+  const p=getPlayer(pid); if(!p) return;
+  const inj = getInjuryStatus(p.name);
+  if(!inj){ toast('Player must be OUT or DTD to go on IR'); return; }
+  if(getIrSlot(mid) && getIrSlot(mid)!==pid){ toast('IR slot already used. Remove current IR player first'); return; }
+  if(!leagueState.ir) leagueState.ir={};
+  leagueState.ir[mid]=pid;
+  // Remove from active/inactive lists (IR players don't count in lineup)
+  if(leagueState.active?.[mid]) leagueState.active[mid]=(leagueState.active[mid]||[]).filter(id=>id!==pid);
+  if(leagueState.inactive?.[mid]) leagueState.inactive[mid]=(leagueState.inactive[mid]||[]).filter(id=>id!==pid);
+  await saveLeagueState();
+  renderRostersScreen();
+  toast(`${p.name} placed on IR`);
+}
+
+async function removeFromIR(mid, pid){
+  const p=getPlayer(pid); if(!p) return;
+  const roster=(leagueState.rosters||{})[mid]||[];
+  // Must have room: IR player stays on roster, so max non-IR = ROSTER_SIZE
+  if(roster.filter(id=>id!==pid).length>=ROSTER_SIZE){ toast('Drop a player first before removing from IR'); return; }
+  if(!leagueState.ir) leagueState.ir={};
+  leagueState.ir[mid]=null;
+  await saveLeagueState();
+  renderRostersScreen();
+  toast(`${p.name} removed from IR`);
 }
 
 async function confirmDrop(mid, pid){
@@ -3984,7 +4084,7 @@ async function renderAdminContent(){
   <div class="card" style="padding:0;overflow:hidden;margin:0">
     ${(managers||[]).map(m=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
-      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.icon||null)}
+      ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.icon||null,m.photo||null)}
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${m.display_name}</div>
         <div style="font-size:10px;color:var(--text3)">${m.email}</div>
@@ -4157,7 +4257,7 @@ function renderChatMessages(){
     const color = mgr?.color || '#4a9eff';
     const time = new Date(m.ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
     const dateStr = new Date(m.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    const avatar = `<div style="width:26px;height:26px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:6px;color:#000;flex-shrink:0">${initials(name)}</div>`;
+    const avatar = avatarEl(name, color, 26, 6, mgr?.icon||null, mgr?.photo||null);
     return `
       <div class="chat-msg${mine?' mine':''}">
         ${!mine ? avatar : ''}
@@ -4454,19 +4554,24 @@ async function boot(){
   // loadBdlPlayers() rebuilds PLAYERS from /players/active, then chains loadBdlSeasonAverages()
   // to populate BDL_STATS with live FP projections. Both run fire-and-forget.
   loadBdlPlayers();
+  loadBdlInjuries();
 
   // Auth state listener
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?.user||null;
     if(currentUser){
+      const isFirstLogin = event==='SIGNED_IN' || event==='INITIAL_SESSION';
       await loadManagerProfile();
       await loadLeagueState();
       await loadPortraits();
       await ensureTodaysDuel();
-      showApp();
       updateUserChip();
-      renderHomeScreen();
-      startPolling();
+      if(isFirstLogin){
+        // Only navigate to home on actual login — not on silent token refreshes
+        showApp();
+        renderHomeScreen();
+        startPolling();
+      }
     } else {
       showLogin();
     }
@@ -5058,7 +5163,7 @@ function renderWlcStandings(container){
               <td style="padding:7px 10px;font-family:var(--pixel);font-size:6px;color:var(--text3)">${i+1}</td>
               <td style="padding:7px 10px">
                 <div style="display:flex;align-items:center;gap:7px">
-                  <div style="width:22px;height:22px;border-radius:50%;background:${m.color||'#4a9eff'};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:5.5px;color:var(--bg);flex-shrink:0">${initials(m.display_name)}</div>
+                  ${avatarEl(m.display_name,m.color||'#4a9eff',22,5.5,m.icon||null,m.photo||null)}
                   <span style="font-size:12px;font-weight:600">${m.display_name}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
                 </div>
                 ${m.picks.length?`<div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:3px;padding-left:29px">${m.picks.map(n=>n.split(' ').pop()).join(' · ')}</div>`:'<div style="font-family:var(--pixel);font-size:4.5px;color:var(--accent4);margin-top:3px;padding-left:29px">NO LINEUP</div>'}
@@ -5082,7 +5187,7 @@ function renderWlcStandings(container){
     <div class="wlc-standings-row" style="${isMe?'border-color:var(--accent2);':''}">
       <span class="wlc-standings-rank">${i+1}</span>
       <div style="display:flex;align-items:center;gap:8px;flex:1;">
-        <div style="width:24px;height:24px;border-radius:50%;background:${m.color||'#4a9eff'};display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:6px;color:var(--bg);">${initials(m.display_name)}</div>
+        ${avatarEl(m.display_name,m.color||'#4a9eff',24,6,m.icon||null,m.photo||null)}
         <span class="wlc-standings-name" style="${isMe?'color:var(--accent2)':''}">
           ${m.display_name}${isMe?' ★':''}
         </span>

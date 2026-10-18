@@ -2962,6 +2962,7 @@ function renderFantasyScreen(){
 }
 
 let draftFilter = { availability:'available', team:'all', sort:'fp' };
+let draftSearchQuery = '';
 
 function renderFantasyDraftPane(){
   const el=document.getElementById('fantasy-draft-content');
@@ -2976,7 +2977,7 @@ function renderFantasyDraftPane(){
 
   const mid=getMyId();
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
-  const query=(document.getElementById('draft-search')?.value||'').toLowerCase();
+  const query=draftSearchQuery.toLowerCase();
 
   let players=PLAYERS.filter(p=>{
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -3028,7 +3029,7 @@ function renderFantasyDraftPane(){
         ${teamDropdown}
       </div>
 
-      <input type="text" id="draft-search" placeholder="Search players..." style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="renderFantasyDraftPane()"/>
+      <input type="text" id="draft-search" placeholder="Search players..." value="${draftSearchQuery}" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="draftSearchQuery=this.value;renderFantasyDraftPane()"/>
     </div>
 
     ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`
@@ -3461,9 +3462,11 @@ function renderAvailablePlayers(){
 // NBA_TEAMS_LIST: sorted array of abbreviations derived from NBA_TEAMS object above
 const NBA_TEAMS_LIST = Object.keys(NBA_TEAMS).sort();
 let waiverFilter = { availability:'available', team:'all', sort:'fp' };
+let waiverSearchQuery = '';
 
 function resetWaiverFilters(){
   waiverFilter = { availability:'available', team:'all', sort:'fp' };
+  waiverSearchQuery = '';
 }
 
 function renderWaiversPane(){
@@ -3472,7 +3475,7 @@ function renderWaiversPane(){
   const mid=getMyId();
   const used=mid?waiverUsedThisWeek(mid):0;
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
-  const query=(document.getElementById('waiver-search')?.value||'').toLowerCase();
+  const query=waiverSearchQuery.toLowerCase();
 
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -3522,7 +3525,7 @@ function renderWaiversPane(){
       </div>
 
       <!-- Search -->
-      <input type="text" id="waiver-search" placeholder="Search players..." style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="renderWaiversPane()"/>
+      <input type="text" id="waiver-search" placeholder="Search players..." value="${waiverSearchQuery}" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--pixel);font-size:7px;color:var(--text1);outline:none;margin-bottom:8px;-webkit-appearance:none;appearance:none" oninput="waiverSearchQuery=this.value;renderWaiversPane()"/>
     </div>
 
     ${!players.length?`<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`:`

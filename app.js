@@ -2007,9 +2007,12 @@ const DUEL_TEAM_TEMPLATES = [
 ];
 
 function todayKey(){
-  // Use ET (UTC-4 in EDT, UTC-5 in EST) so duels roll over at midnight ET not midnight UTC
+  // Use ET (UTC-4 in EDT, UTC-5 in EST) and shift back 2 hours so the duel
+  // rolls over at 2:00 AM ET instead of midnight — accommodates West Coast users.
+  // e.g. 1:30 AM ET on Oct 19 → treated as Oct 18 (previous day's duel still active).
   const now = new Date();
-  const et = new Date(now.toLocaleString('en-US', {timeZone:'America/New_York'}));
+  const shifted = new Date(now.getTime() - 2 * 60 * 60 * 1000); // subtract 2 hrs
+  const et = new Date(shifted.toLocaleString('en-US', {timeZone:'America/New_York'}));
   const y = et.getFullYear();
   const m = String(et.getMonth()+1).padStart(2,'0');
   const d = String(et.getDate()).padStart(2,'0');

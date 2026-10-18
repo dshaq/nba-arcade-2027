@@ -3093,9 +3093,9 @@ function renderDraftPlayerList(){
     if(draftFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(draftFilter.team!=='all' && p.team!==draftFilter.team) return false;
     if(draftFilter.rookie){
-      // Rookies = players with no FP history in PLAYERS_DB
+      // Rookies = no history in PLAYERS_DB *and* no BDL live season stats
       const inDb = PLAYERS_DB?.find(d=>d.n===p.name);
-      if(inDb) return false; // has history → not a rookie
+      if(inDb || BDL_STATS[p.name]) return false;
     }
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
@@ -3125,7 +3125,8 @@ function renderDraftPlayerList(){
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
         const projFPVal = getPlayerProjFP(p);
         const projLabel = dbP?.fpPG ? 'proj FP/G' : '~proj FP/G';
-        const isRookie = !dbP;
+        // Rookie = no historical data from ANY source (PLAYERS_DB or BDL live season stats)
+        const isRookie = !dbP && !BDL_STATS[p.name];
         const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
         const inj = getInjuryStatus(p.name);
         const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';

@@ -164,6 +164,19 @@ const PLAYERS_DB = [
 {n:"Egor Demin",t:"BKN",r:157,fpPG:15.9,gp:72,projFP:1144.8},
 {n:"Zaccharie Risacher",t:"DAL",r:158,fpPG:14.2,gp:72,projFP:1022.4},
 {n:"Liam McNeeley",t:"CHA",r:159,fpPG:10.8,gp:72,projFP:777.6},
+// ── 2026 DRAFT CLASS ROOKIES (projected; entering their first NBA season) ──────
+{n:"A.J. Dybantsa",t:"WAS",r:160,fpPG:26.8,gp:72,projFP:1929.6},
+{n:"Will Riley",t:"WAS",r:161,fpPG:19.2,gp:72,projFP:1382.4},
+{n:"Kel'el Ware",t:"MIL",r:162,fpPG:20.1,gp:72,projFP:1447.2},
+{n:"Johni Broome",t:"MIL",r:163,fpPG:19.8,gp:72,projFP:1425.6},
+{n:"Jaylen Wells",t:"MEM",r:164,fpPG:18.5,gp:72,projFP:1332},
+{n:"Walter Clayton Jr.",t:"MEM",r:165,fpPG:14.2,gp:72,projFP:1022.4},
+{n:"Koa Peat",t:"PHX",r:166,fpPG:15.6,gp:72,projFP:1123.2},
+{n:"Collin Murray-Boyles",t:"TOR",r:167,fpPG:15.8,gp:72,projFP:1137.6},
+{n:"Nique Clifford",t:"SAC",r:168,fpPG:11.2,gp:72,projFP:806.4},
+{n:"Thomas Sorber",t:"OKC",r:169,fpPG:11.5,gp:72,projFP:828},
+{n:"Bennett Stirtz",t:"OKC",r:170,fpPG:10.1,gp:72,projFP:727.2},
+{n:"Cedric Coward",t:"MEM",r:171,fpPG:9.2,gp:72,projFP:662.4},
 ];
 
 // Helper: get player by name
@@ -212,7 +225,7 @@ const DRAFT_CLASS = {
   2023: ['Victor Wembanyama','Brandon Miller','Scoot Henderson','Amen Thompson','Ausar Thompson','Anthony Black','Alex Sarr','Bilal Coulibaly','Jaime Jaquez Jr.','Dereck Lively II'],
   2024: ['Zaccharie Risacher','Alex Sarr','Reed Sheppard','Stephon Castle','Ron Holland','Donovan Clingan','Tidjane Salaun','Dalton Knecht','Rob Dillingham','Zach Edey'],
   2025: ['Cooper Flagg','Ace Bailey','Dylan Harper','Kon Knueppel','Matas Buzelis','Darryn Peterson','Darius Acuff Jr.','Derik Queen','Tre Johnson','V.J. Edgecombe','Khaman Maluach','Jeremiah Fears','Noa Essengue','Egor Demin','Zaccharie Risacher','Liam McNeeley'],
-  2026: [], // TBD
+  2026: ['A.J. Dybantsa','Will Riley','Kel\'el Ware','Johni Broome','Jaylen Wells','Walter Clayton Jr.','Koa Peat','Collin Murray-Boyles','Nique Clifford','Thomas Sorber','Bennett Stirtz','Cedric Coward'],
 };
 
 // Veteran threshold (years in league, approximate)

@@ -1502,10 +1502,11 @@ function managerFP(mid){
   return +rosterFP(active).toFixed(1);
 }
 
-// Auto-select top 8 by season FP if user hasn't set lineup
+// Auto-select top 8 by season FP if user hasn't set lineup (excludes IR player)
 function autoActiveFor(mid){
   const roster=(leagueState.rosters||{})[mid]||[];
-  return [...roster].sort((a,b)=>playerTotalFP(b)-playerTotalFP(a)).slice(0,ACTIVE_SIZE);
+  const irPid=getIrSlot(mid);
+  return [...roster].filter(p=>p!==irPid).sort((a,b)=>playerTotalFP(b)-playerTotalFP(a)).slice(0,ACTIVE_SIZE);
 }
 
 // ── LIVE STATS (BallDontLie primary, ESPN fallback) ──────────────────────────
@@ -3132,8 +3133,10 @@ function switchFantasyTab(tab){
 function scheduleNavWeek(delta){
   const schedule=(leagueState.schedule||{})[currentRun]||[];
   const curIdx=getCurrentWeekIndex(currentRun);
+  // If pre-season (curIdx < 0), treat display base as week 0 for nav purposes
+  const baseIdx=curIdx<0?0:curIdx;
   const newOffset=scheduleWeekOffset+delta;
-  const newIdx=curIdx+newOffset;
+  const newIdx=baseIdx+newOffset;
   if(newIdx<0 || newIdx>=schedule.length) return;
   scheduleWeekOffset=newOffset;
   renderFantasySchedule();
@@ -3671,7 +3674,8 @@ function renderRostersScreen(){
     const fp=playerTotalFP(pid);
     const isOnIR = pid === irPid;
     const isActive=!isOnIR && active.includes(pid);
-    const isLocked=fp>=topFP && roster.length>1 && !isOnIR;
+    // Only lock the top scorer if they actually have FP > 0 (prevent everyone being locked at 0)
+    const isLocked=topFP>0 && fp>=topFP && roster.length>1 && !isOnIR;
     const inj = getInjuryStatus(p.name);
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${viewManager?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;

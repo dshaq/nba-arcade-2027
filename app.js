@@ -3172,6 +3172,7 @@ function renderDraftPlayerList(){
       ${players.map(p=>{
         const fp=playerTotalFP(p.id);
         const rostered=allRostered.has(p.id);
+        const draftedBy = rostered ? (leagueState.managers||[]).find(m=>(leagueState.rosters?.[m.id]||[]).includes(p.id)) : null;
         const port=playerPortraits[p.name];
         const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
         const dbP=PLAYERS_DB.find(d=>d.n===p.name);
@@ -3196,7 +3197,11 @@ function renderDraftPlayerList(){
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
-            ${rostered?`<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">DRAFTED</span>`:isDraftLive&&canDraft?`<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick('${mid}',${p.id})">DRAFT</button>`:isDraftLive&&!canDraft?'':''}
+            ${rostered
+              ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3);text-align:right">DRAFTED${draftedBy?`<br/><span style="color:var(--accent2)">${draftedBy.display_name}</span>`:''}</span>`
+              : isDraftLive&&canDraft
+                ? `<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick('${mid}',${p.id})">DRAFT</button>`
+                : ''}
           </div>
         </div>`;
       }).join('')}

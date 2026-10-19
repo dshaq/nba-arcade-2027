@@ -834,7 +834,7 @@ const PLAYER_INFO = {
 // ── PLAYER CARD MODAL ─────────────────────────────────────────────────────────
 let openPlayerCardName = null; // track for BDL refresh
 
-function showPlayerCard(playerName) {
+function showPlayerCard(playerName, initialTab) {
   openPlayerCardName = playerName;
   document.getElementById('player-card-modal')?.remove();
 
@@ -844,7 +844,8 @@ function showPlayerCard(playerName) {
   const pLeague = (leagueState.players||[]).find(pl=>pl.name===playerName);
   const p = pArr || pDb || pLeague;
   const info = PLAYER_INFO[playerName] || {};
-  // FP projection: BDL live stats → PLAYERS_DB curated → fallback
+
+  // Actual FP/game: BDL live season stats → PLAYERS_DB curated → fallback estimate
   const fpVal = BDL_STATS[playerName]?.fpPG ?? pDb?.fpPG
     ?? (p ? estimateFpPG(p) : null);
 
@@ -855,22 +856,77 @@ function showPlayerCard(playerName) {
     ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(playerName)}.jpeg`
     : (playerPortraits[playerName] || '');
 
-  const row = (label, val) => val ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+  // Game log from leagueState.playerStats
+  const pid = p?.id ?? p?.pid;
+  const gameLogs = pid
+    ? Object.values(leagueState.playerStats||{}).filter(s=>s.pid===pid).sort((a,b)=>b.date>a.date?1:-1)
+    : [];
+  const hasGames = gameLogs.length > 0;
+  // Default tab: Stats if games exist, else Profile
+  const activeTab = initialTab || (hasGames ? 'stats' : 'profile');
+
+  const profileRow = (label, val) => val ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
     <span style="font-family:var(--pixel);font-size:7px;color:var(--text1)">${val}</span>
   </div>` : '';
+
+  const statsTabHtml = hasGames ? `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5.5px;min-width:360px">
+        <thead>
+          <tr style="background:var(--bg3)">
+            <th style="text-align:left;padding:6px 8px;color:var(--text3);font-weight:normal;white-space:nowrap">DATE</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">PTS</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">REB</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">AST</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">STL</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">BLK</th>
+            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">TO</th>
+            <th style="padding:6px 8px;color:var(--accent3);font-weight:normal">FP</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${gameLogs.map((g,i)=>`
+          <tr style="background:${i%2===0?'transparent':'rgba(255,255,255,0.02)'}">
+            <td style="padding:6px 8px;color:var(--text2);white-space:nowrap">${g.date||'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.pts??'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.reb??'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.ast??'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.stl??'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.blk??'—'}</td>
+            <td style="padding:6px 4px;text-align:center;color:var(--accent4)">${g.to??'—'}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--accent3);font-size:7px">${typeof g.fp==='number'?g.fp.toFixed(1):'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : `<div style="text-align:center;padding:24px 0 8px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO GAMES PLAYED YET</div>`;
+
+  const profileTabHtml = `
+    ${fpVal ? `<div style="text-align:center;padding:12px 0 8px">
+      <div style="font-family:var(--pixel);font-size:22px;color:var(--accent3)">${typeof fpVal==='number'?fpVal.toFixed(1):fpVal}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">ACTUAL FP/GAME</div>
+    </div>` : ''}
+    ${profileRow('Height', info.ht)}
+    ${profileRow('Weight', info.wt ? info.wt + ' lbs' : null)}
+    ${profileRow('Age', info.age)}
+    ${profileRow('NBA Experience', info.yrs !== undefined ? info.yrs + (info.yrs===1?' year':' years') : null)}
+    ${profileRow('College / Pre-Draft', info.college)}
+    ${profileRow('Draft', info.draft)}
+    ${profileRow('Nationality', info.nat)}
+    ${!info.ht && !info.college && !info.draft && !info.nat && !fpVal ? `<div style="text-align:center;padding:16px 0 4px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO BIO ON FILE</div>` : ''}`;
 
   const modal = document.createElement('div');
   modal.id = 'player-card-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
 
+  const tabBtn = (id, label) => `<button id="pcard-tab-${id}" onclick="showPlayerCard(${JSON.stringify(playerName)},${JSON.stringify(id)})" style="flex:1;padding:8px 0;font-family:var(--pixel);font-size:5.5px;border:none;cursor:pointer;border-bottom:2px solid ${activeTab===id?'var(--accent1)':'transparent'};background:transparent;color:${activeTab===id?'var(--accent1)':'var(--text3)'}">${label}</button>`;
+
   modal.innerHTML = `
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:var(--max-w);max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)">
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0"></div>
     <!-- Portrait header -->
     <div style="position:relative;background:var(--bg3);overflow:hidden;margin:12px 16px 0;border-radius:12px">
-      <!-- CRT scanline overlay -->
       <div style="position:absolute;inset:0;pointer-events:none;z-index:2;border-radius:12px;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.18) 2px,rgba(0,0,0,.18) 4px);mix-blend-mode:multiply"></div>
       <div style="position:absolute;inset:0;pointer-events:none;z-index:3;border-radius:12px;background:radial-gradient(ellipse at 50% 50%,transparent 60%,rgba(0,0,0,.45) 100%)"></div>
       ${portrait
@@ -883,20 +939,14 @@ function showPlayerCard(playerName) {
       </div>
       <button onclick="document.getElementById('player-card-modal').remove()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
     </div>
-    <!-- Stats -->
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:12px 16px 0">
+      ${tabBtn('stats','PLAYER STATISTICS')}
+      ${tabBtn('profile','PLAYER PROFILE')}
+    </div>
+    <!-- Tab content -->
     <div style="padding:4px 16px 16px">
-      ${fpVal ? `<div style="text-align:center;padding:12px 0 8px">
-        <div style="font-family:var(--pixel);font-size:22px;color:var(--accent3)">${typeof fpVal==='number'?fpVal.toFixed(1):fpVal}</div>
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">PROJ FP/GAME</div>
-      </div>` : ''}
-      ${row('Height', info.ht)}
-      ${row('Weight', info.wt ? info.wt + ' lbs' : null)}
-      ${row('Age', info.age)}
-      ${row('NBA Experience', info.yrs !== undefined ? info.yrs + (info.yrs===1?' year':' years') : null)}
-      ${row('College / Pre-Draft', info.college)}
-      ${row('Draft', info.draft)}
-      ${row('Nationality', info.nat)}
-      ${!info.ht && !info.college && !info.draft && !info.nat ? `<div style="text-align:center;padding:16px 0 4px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO BIO ON FILE</div>` : ''}
+      ${activeTab==='stats' ? statsTabHtml : profileTabHtml}
     </div>
   </div>`;
 
@@ -3707,10 +3757,12 @@ function renderRostersScreen(){
         }
       } else {
         // Normal mode: Bench/Activate + IR buttons
+        // Only show → IR button for OUT status (not DTD)
+        const isOut = inj && !inj.status?.toLowerCase().includes('day');
         actionBtns = isOnIR
           ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
           : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
-             ${inj&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
+             ${isOut&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
       }
     }
     return `
@@ -3743,7 +3795,26 @@ function renderRostersScreen(){
     </div>
     ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
-      ${roster.map(rowHtml).join('')}
+      ${(()=>{
+        // Order: Active → Bench → IR
+        const activePids = roster.filter(id => id !== irPid && active.includes(id));
+        const benchPids  = roster.filter(id => id !== irPid && !active.includes(id));
+        const irPids     = irPid && roster.includes(irPid) ? [irPid] : [];
+        const sections = [];
+        if(activePids.length){
+          sections.push(`<div style="padding:4px 14px 2px;font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</div>`);
+          sections.push(...activePids.map(rowHtml));
+        }
+        if(benchPids.length){
+          sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:var(--accent4);letter-spacing:.08em;border-top:1px solid var(--border)">BENCH</div>`);
+          sections.push(...benchPids.map(rowHtml));
+        }
+        if(irPids.length){
+          sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:#805ad5;letter-spacing:.08em;border-top:1px solid var(--border)">INJURY RESERVE</div>`);
+          sections.push(...irPids.map(rowHtml));
+        }
+        return sections.join('');
+      })()}
     </div>`;
 }
 
@@ -3948,6 +4019,8 @@ function renderWaiversPane(){
 
 async function confirmAdd(mid, pid){
   const p=getPlayer(pid); if(!p) return;
+  // Block if IR player's injury has cleared
+  if(checkIrClearedBlock(mid)) return;
   const roster=getMyRoster();
   if(roster.length>=effectiveRosterSize(mid)){
     toast('Roster full! Drop a player first');
@@ -3963,7 +4036,9 @@ async function confirmAdd(mid, pid){
 async function putOnIR(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const inj = getInjuryStatus(p.name);
-  if(!inj){ toast('Player must be OUT or DTD to go on IR'); return; }
+  // Only OUT status qualifies — DTD does not
+  const isOut = inj && !inj.status?.toLowerCase().includes('day');
+  if(!isOut){ toast('Only players with OUT status can be placed on IR'); return; }
   if(getIrSlot(mid) && getIrSlot(mid)!==pid){ toast('IR slot already used. Remove current IR player first'); return; }
   if(!leagueState.ir) leagueState.ir={};
   leagueState.ir[mid]=pid;
@@ -3987,8 +4062,41 @@ async function removeFromIR(mid, pid){
   toast(`${p.name} removed from IR`);
 }
 
+// Check if an IR player's injury has cleared — blocks add/drop until manually moved off IR
+function checkIrClearedBlock(mid){
+  const irPid = getIrSlot(mid);
+  if(!irPid) return false;
+  const p = getPlayer(irPid);
+  if(!p) return false;
+  const inj = getInjuryStatus(p.name);
+  // Injury has cleared when there's no injury status at all, or status is not OUT
+  const stillOut = inj && !inj.status?.toLowerCase().includes('day');
+  if(!stillOut){
+    // Show prompt modal
+    const existing=document.getElementById('ir-cleared-modal');
+    if(existing) existing.remove();
+    const modal=document.createElement('div');
+    modal.id='ir-cleared-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML=`
+      <div style="background:var(--bg2);border:1px solid #805ad5;border-radius:12px;padding:20px 24px;max-width:320px;width:100%;font-family:var(--pixel)">
+        <div style="font-size:6px;color:#805ad5;margin-bottom:10px;letter-spacing:.06em">⚠ IR PLAYER HEALTHY</div>
+        <div style="font-size:7px;color:var(--text1);margin-bottom:12px;line-height:1.6"><span style="color:#805ad5">${p.name}</span>'s injury has cleared.</div>
+        <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px;line-height:1.7">You must manually move ${p.name} off the Injury Reserve before you can add or drop any players.</div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-secondary" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="document.getElementById('ir-cleared-modal').remove()">OK</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    return true; // blocked
+  }
+  return false;
+}
+
 function confirmDrop(mid, pid){
   const p=getPlayer(pid); if(!p) return;
+  // Block if IR player's injury has cleared
+  if(checkIrClearedBlock(mid)) return;
   // Show inline confirmation modal
   const existing=document.getElementById('drop-confirm-modal');
   if(existing) existing.remove();

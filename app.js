@@ -3302,7 +3302,12 @@ async function confirmDraftPick(mid, pid){
   if(!dw) return;
   const runId=dw.run;
 
-  // Ensure draft record + shuffled order exist
+  // Re-fetch fresh state from Supabase to avoid race conditions
+  // (multiple users clicking DRAFT simultaneously would otherwise all read
+  //  the same stale currentPick and each save currentPick+1, causing picks to overlap)
+  await loadLeagueState();
+
+  // Ensure draft record + shuffled order exist (uses freshly loaded state)
   const draft = ensureDraftRecord(runId);
 
   const roster=(leagueState.rosters||{})[mid]||[];

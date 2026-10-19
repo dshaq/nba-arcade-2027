@@ -3201,7 +3201,7 @@ function renderDraftPlayerList(){
             ${rostered
               ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3);text-align:right">DRAFTED${draftedBy?`<br/><span style="color:var(--accent2)">${draftedBy.display_name}</span>`:''}</span>`
               : isDraftLive&&canDraft
-                ? `<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick('${mid}',${p.id})">DRAFT</button>`
+                ? `<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick(${JSON.stringify(mid)},${p.id})">DRAFT</button>`
                 : ''}
           </div>
         </div>`;
@@ -3324,7 +3324,7 @@ async function confirmDraftPick(mid, pid){
     const posInRound = pick % managers.length;
     const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
     const onClockId = managers[idx]?.id;
-    if(onClockId !== mid){
+    if(onClockId != mid){  // loose equality: handles string/number mismatch
       const onClockName = managers[idx]?.display_name || 'someone else';
       toast(`Not your turn! ${onClockName} is on the clock.`);
       return;

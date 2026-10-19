@@ -2997,9 +2997,9 @@ function renderLineupPreview(){
     el.innerHTML=`<div class="card"><div class="empty-state"><div class="icon">📋</div><div class="label">YOUR ROSTER IS EMPTY<br/>WAIT FOR THE DRAFT!</div></div></div>`;
     return;
   }
-  const active=getMyActive().length ? getMyActive() : autoActiveFor(mid);
-  const inactive=getMyInactive().length ? getMyInactive() : roster.filter(p=>!active.includes(p));
   const irPid=getIrSlot(mid);
+  const active=(getMyActive().length ? getMyActive() : autoActiveFor(mid)).filter(p=>p!==irPid);
+  const inactive=(getMyInactive().length ? getMyInactive() : roster.filter(p=>!active.includes(p))).filter(p=>p!==irPid);
 
   const rowHtml=(pid,slotType)=>{
     // slotType: 'active' | 'inactive' | 'ir'
@@ -3395,7 +3395,28 @@ function renderFantasySchedule(){
     if(labelEl) labelEl.textContent='';
     return;
   }
-  const schedule=(leagueState.schedule||{})[currentRun]||[];
+  let schedule=(leagueState.schedule||{})[currentRun]||[];
+  // Auto-generate schedule if draft is complete and schedule is missing
+  if(!schedule.length && managers.length>=2){
+    const dw = DRAFT_WINDOWS.find(d=>d.run===currentRun);
+    const draftDone = dw && (leagueState.drafts||{})[dw.run]?.status==='complete';
+    if(draftDone){
+      // Generate and persist (async, but render immediately after)
+      (async()=>{
+        const sched={};
+        for(const run of RUNS){ sched[run.id]=buildRoundRobinSchedule(managers.map(m=>m.id),run.id); }
+        leagueState.schedule=sched;
+        await saveLeagueState();
+        renderFantasySchedule();
+      })();
+      el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">⏳</div><div class="label">GENERATING SCHEDULE…</div></div>`;
+      if(labelEl) labelEl.textContent='';
+      return;
+    }
+    el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">NO SCHEDULE YET</div></div>`;
+    if(labelEl) labelEl.textContent='';
+    return;
+  }
   if(!schedule.length){
     el.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📅</div><div class="label">NO SCHEDULE YET</div></div>`;
     if(labelEl) labelEl.textContent='';
@@ -3605,6 +3626,7 @@ function renderWeekMatchups(runId){
 
 // ── ROSTER SCREEN ────────────────────────────────────────────────────────────
 let rostersViewId = null; // which manager's roster to show
+let rostersDropMode = false; // true = drop mode active (per-row Drop buttons visible)
 
 function renderRostersScreen(){
   const managers=leagueState.managers||[];
@@ -3627,7 +3649,7 @@ function renderRostersScreen(){
   tabsEl.innerHTML=managers.map(m=>{
     const isActive=m.id===rostersViewId;
     const isMe=m.id===myId;
-    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
+    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};rostersDropMode=false;renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
   }).join('');
 
   const viewManager=managers.find(m=>m.id===rostersViewId);
@@ -3664,8 +3686,28 @@ function renderRostersScreen(){
     const gameLabel = gameInfo
       ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
+    // Determine which action buttons to show
+    let actionBtns = '';
+    if(isMyRoster){
+      if(rostersDropMode){
+        // Drop mode: show Drop button only on eligible (non-IR, non-locked) players
+        if(isOnIR){
+          actionBtns = ''; // can't drop IR player directly
+        } else if(isLocked){
+          actionBtns = '<span style="font-family:var(--pixel);font-size:4.5px;color:var(--text3)">🔒 TOP</span>';
+        } else {
+          actionBtns = `<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`;
+        }
+      } else {
+        // Normal mode: Bench/Activate + IR buttons
+        actionBtns = isOnIR
+          ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
+          : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
+             ${inj&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
+      }
+    }
     return `
-    <div class="player-row" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}">
+    <div class="player-row" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}${rostersDropMode&&isMyRoster&&!isLocked&&!isOnIR?';background:rgba(233,69,96,0.04)':''}">
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
@@ -3675,23 +3717,24 @@ function renderRostersScreen(){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
-        ${isMyRoster?`<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-          ${isOnIR
-            ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
-            : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
-               ${inj&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}
-               ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`:''}`
-          }
-        </div>`:''}
+        ${actionBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actionBtns}</div>` : ''}
       </div>
     </div>`;
   };
 
   const nonIrCount = roster.filter(id=>id!==irPid).length;
+  // Header Drop button: only show on own roster
+  const dropBtn = isMyRoster
+    ? rostersDropMode
+      ? `<button onclick="rostersDropMode=false;renderRostersScreen()" style="margin-left:auto;background:var(--accent4);color:#fff;border:none;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">✕ CANCEL</button>`
+      : `<button onclick="rostersDropMode=true;renderRostersScreen()" style="margin-left:auto;background:transparent;border:1px solid var(--accent4);color:var(--accent4);border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">DROP</button>`
+    : '';
   contentEl.innerHTML=`
-    <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3)">
-      ${viewManager.display_name.toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE
+    <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3);display:flex;align-items:center;gap:8px">
+      <span>${viewManager.display_name.toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE</span>
+      ${dropBtn}
     </div>
+    ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${roster.map(rowHtml).join('')}
     </div>`;
@@ -3963,6 +4006,7 @@ async function executeDrop(mid, pid){
   const p=getPlayer(pid);
   const ok=await dropPlayer(mid,pid);
   if(ok){
+    rostersDropMode=false;
     toast(`${p?.name||'Player'} dropped`);
     renderRostersScreen();
     renderLineupPreview();
@@ -5472,12 +5516,11 @@ async function commGenerateWlcWeek(){
 async function commApproveWlcWeek(weekKey){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   leagueState.wlc.weeks[weekKey].status = 'active';
-  // Default tip-off to Tuesday of that week at 7pm ET (23:00 UTC)
-  // weekKey is a Monday ISO date string; Tuesday = Monday + 1 day
+  // Default tip-off to Monday of that week at 7am ET (11:00 UTC in EST / 12:00 UTC in EDT)
+  // weekKey is a Monday ISO date string
   const mon = new Date(weekKey + 'T00:00:00Z'); // parse as UTC midnight
-  const tue = new Date(mon.getTime() + 24*3600*1000); // +1 day = Tuesday UTC midnight
-  tue.setUTCHours(23, 0, 0, 0); // 7pm ET = 23:00 UTC (EST)
-  leagueState.wlc.weeks[weekKey].tipoffTime = tue.toISOString();
+  mon.setUTCHours(11, 0, 0, 0); // 7am ET = 11:00 UTC (EST) — close enough for EDT off-season
+  leagueState.wlc.weeks[weekKey].tipoffTime = mon.toISOString();
   await saveLeagueState();
   toast('Week is LIVE! Users can now submit lineups.');
   renderWlcScreen();

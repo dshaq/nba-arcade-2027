@@ -3305,10 +3305,6 @@ async function confirmDraftPick(mid, pid){
   // Ensure draft record + shuffled order exist
   const draft = ensureDraftRecord(runId);
 
-  // Self-heal: currentPick should equal total players drafted so far
-  const actualPicks = Object.values(leagueState.rosters||{}).flat().length;
-  if((draft.currentPick||0) < actualPicks) draft.currentPick = actualPicks;
-
   const roster=(leagueState.rosters||{})[mid]||[];
   if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());

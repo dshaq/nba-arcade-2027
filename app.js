@@ -44,6 +44,7 @@ let currentRun     = 1;
 let draftPickInFlight = false; // prevents double-submit while async save is in progress
 let scheduleWeekOffset = 0; // 0 = current week, -1 = prev week, +1 = next, etc.
 let bdlKey         = null;   // BallDontLie API key (fetched from Supabase config)
+let todayGamesCache = {}; // {teamAbbr: {opponent, time, isHome}} — populated by ticker fetch
 
 // Runtime map of BDL season averages: playerName → {fpPG, gp, pts, reb, ast, stl, blk}
 // Populated by applyBdlSeasonAverages(). Single source of truth for live stat-based projections.
@@ -2998,28 +2999,46 @@ function renderLineupPreview(){
   }
   const active=getMyActive().length ? getMyActive() : autoActiveFor(mid);
   const inactive=getMyInactive().length ? getMyInactive() : roster.filter(p=>!active.includes(p));
+  const irPid=getIrSlot(mid);
 
-  const rowHtml=(pid,isActive)=>{
+  const rowHtml=(pid,slotType)=>{
+    // slotType: 'active' | 'inactive' | 'ir'
     const p=getPlayer(pid); if(!p) return '';
     const fp=playerTotalFP(pid);
     const isLive=livePlayerStats[pid]?.live;
+    const isActive=slotType==='active';
+    const isOnIR=slotType==='ir';
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    // Game info for today
+    const gameInfo = getTodayGameInfo(p.team);
+    const gameLabel = gameInfo
+      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
+    // Toggle button
+    const toggleBtn = isOnIR ? '' : isActive
+      ? `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent4);color:var(--accent4)" onclick="toggleActiveStatus('${mid}',${pid})">Bench</button>`
+      : `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent2);color:var(--accent2)" onclick="toggleActiveStatus('${mid}',${pid})">Activate</button>`;
     return `
-    <div class="player-row">
+    <div class="player-row"${isOnIR?` style="background:rgba(128,90,213,0.06)"`:''}>
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
-        <div class="player-name">${p.name}</div>
-        <div class="player-meta">${p.pos} · ${p.team} ${isLive?'<span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
+        <div class="player-name">${p.name}${isLive?' <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
+        <div class="player-meta">${p.pos} · ${p.team}</div>
+        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
-      <div class="player-fp">
-        ${fp.toFixed(1)}<span class="fp-label">FP</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="player-fp">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
+        ${toggleBtn}
       </div>
-      <button class="toggle-btn ${isActive?'to-inactive':'to-active'}" onclick="toggleActiveStatus('${mid}',${pid})" title="${isActive?'Set Inactive':'Set Active'}">
-        ${isActive?'⬇':'⬆'}
-      </button>
     </div>`;
   };
+
+  const irRow = irPid ? `
+    <div class="lineup-section">
+      <div class="lineup-section-label" style="color:#805ad5">🏥 INJURY RESERVE</div>
+      ${rowHtml(irPid,'ir')}
+    </div>` : '';
 
   el.innerHTML=`
   <div class="lineup-card">
@@ -3027,15 +3046,16 @@ function renderLineupPreview(){
       <div class="lineup-section-label active-label">
         ✅ ACTIVE <span class="count">(${active.length}/${ACTIVE_SIZE})</span>
       </div>
-      ${active.map(pid=>rowHtml(pid,true)).join('')}
+      ${active.map(pid=>rowHtml(pid,'active')).join('')}
     </div>
     ${inactive.length ? `
     <div class="lineup-section">
       <div class="lineup-section-label inactive-label">
-        ❌ INACTIVE <span class="count">(${inactive.length}/${INACTIVE_SIZE})</span>
+        ❌ BENCH <span class="count">(${inactive.length}/${INACTIVE_SIZE})</span>
       </div>
-      ${inactive.map(pid=>rowHtml(pid,false)).join('')}
+      ${inactive.map(pid=>rowHtml(pid,'inactive')).join('')}
     </div>` : ''}
+    ${irRow}
   </div>`;
 }
 
@@ -3639,7 +3659,11 @@ function renderRostersScreen(){
     const irBadge = isOnIR ? `<span style="background:#805ad5;color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">IR</span>` : '';
     const statusLabel = isOnIR
       ? '<span style="color:#805ad5">■ INJURY RESERVE</span>'
-      : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● INACTIVE</span>';
+      : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● BENCH</span>';
+    const gameInfo = getTodayGameInfo(p.team);
+    const gameLabel = gameInfo
+      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     return `
     <div class="player-row" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}">
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
@@ -3647,15 +3671,16 @@ function renderRostersScreen(){
         <div class="player-name">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
         <div class="player-meta" style="margin-top:2px">${statusLabel}</div>
+        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
         ${isMyRoster?`<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
           ${isOnIR
             ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
-            : `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'BENCH':'START'}</button>
+            : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
                ${inj&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}
-               ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">DROP</button>`:''}`
+               ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`:''}`
           }
         </div>`:''}
       </div>
@@ -3696,21 +3721,26 @@ function renderMyRosterList(){
     const isLocked=fp>=topFP && roster.length>1;
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
+    const gameInfo = getTodayGameInfo(p.team);
+    const gameLabel = gameInfo
+      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     return `
     <div class="player-row" style="padding:8px 14px">
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name">${p.name} ${isLocked?'🔒':''}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
-        <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● INACTIVE</span>'}</div>
+        <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● BENCH</span>'}</div>
+        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="toggleActiveStatus('${mid}',${pid})">
-            ${isActive?'BENCH':'START'}
+          <button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${mid}',${pid})">
+            ${isActive?'Bench':'Activate'}
           </button>
-          ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${mid}',${pid})">DROP</button>`:''}
+          ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${mid}',${pid})">Drop</button>`:''}
         </div>
       </div>
     </div>`;
@@ -3907,13 +3937,35 @@ async function removeFromIR(mid, pid){
   toast(`${p.name} removed from IR`);
 }
 
-async function confirmDrop(mid, pid){
+function confirmDrop(mid, pid){
   const p=getPlayer(pid); if(!p) return;
-  if(!confirm(`Drop ${p.name}?`)) return;
+  // Show inline confirmation modal
+  const existing=document.getElementById('drop-confirm-modal');
+  if(existing) existing.remove();
+  const modal=document.createElement('div');
+  modal.id='drop-confirm-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;max-width:320px;width:100%;font-family:var(--pixel)">
+      <div style="font-size:7px;color:var(--text1);margin-bottom:12px;line-height:1.6">Are you sure you want to drop <span style="color:var(--accent4)">${p.name}</span>?</div>
+      <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px">They will be returned to the waiver pool.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="document.getElementById('drop-confirm-modal').remove()">No, Cancel</button>
+        <button class="btn btn-danger" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="executeDrop('${mid}',${pid})">Yes, Drop</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function executeDrop(mid, pid){
+  const modal=document.getElementById('drop-confirm-modal');
+  if(modal) modal.remove();
+  const p=getPlayer(pid);
   const ok=await dropPlayer(mid,pid);
   if(ok){
-    toast(`${p.name} dropped`);
+    toast(`${p?.name||'Player'} dropped`);
     renderRostersScreen();
+    renderLineupPreview();
   }
 }
 
@@ -4271,7 +4323,7 @@ function generateSchedule(){
   if(managers.length<2){ toast('Need at least 2 managers'); return; }
   const schedule={};
   for(const run of RUNS){
-    schedule[run.id]=buildRoundRobinSchedule(managers.map(m=>m.id));
+    schedule[run.id]=buildRoundRobinSchedule(managers.map(m=>m.id), run.id);
   }
   leagueState.schedule=schedule;
   saveLeagueState();
@@ -4279,23 +4331,33 @@ function generateSchedule(){
   renderAdminContent();
 }
 
-function buildRoundRobinSchedule(teams){
-  // Round-robin: everyone plays everyone at least once
+function buildRoundRobinSchedule(teams, runId){
+  // Build one full round-robin (9 weeks for 10 teams), then repeat until run ends
+  const run = RUNS.find(r=>r.id===runId);
   const n=teams.length;
-  const rounds=[];
   const list=[...teams];
   const hasBye=n%2!==0;
-  if(hasBye) list.push(null); // null = bye
+  if(hasBye) list.push(null);
   const numRounds=list.length-1;
+  const baseRounds=[];
   for(let r=0;r<numRounds;r++){
     const week=[];
     for(let i=0;i<list.length/2;i++){
       const h=list[i], a=list[list.length-1-i];
       if(h!==null && a!==null) week.push({home:h,away:a});
     }
-    rounds.push(week);
-    // Rotate: keep first fixed, rotate others
+    baseRounds.push(week);
     list.splice(1,0,list.pop());
+  }
+  if(!run) return baseRounds;
+  // Compute how many weeks fit in this run
+  const runStart=new Date(run.start);
+  const runEnd=new Date(run.end);
+  const totalWeeks=Math.ceil((runEnd-runStart)/(7*24*3600*1000));
+  // Tile the base rounds to fill all weeks
+  const rounds=[];
+  for(let w=0;w<totalWeeks;w++){
+    rounds.push(baseRounds[w % baseRounds.length]);
   }
   return rounds;
 }
@@ -4571,12 +4633,34 @@ function renderTickerBdl(games, todayDate, showYesterday){
     }
   }
 
+  // Populate todayGamesCache for lineup schedule display
+  todayGamesCache = {};
+  for(const g of games){
+    const isYesterday = g.date && !g.date.startsWith(todayDate);
+    if(isYesterday || g.status==='Final' || g.status?.startsWith('Final')) continue;
+    const away = g.visitor_team?.abbreviation || '';
+    const home = g.home_team?.abbreviation    || '';
+    const timeStr = g.date ? fmtTime(g.date) : '';
+    if(away) todayGamesCache[away] = { opponent: home, time: timeStr, isHome: false };
+    if(home) todayGamesCache[home] = { opponent: away, time: timeStr, isHome: true  };
+  }
+
   if(!html){ el.style.display='none'; return; }
   track.innerHTML = html + html;
   el.style.display = 'flex';
   const totalW = track.scrollWidth / 2;
   const speed = Math.max(20, totalW / 80);
   track.style.animationDuration = `${speed}s`;
+}
+
+// Helper: get today's game info for an NBA team abbreviation
+// Returns {label} e.g. "@ LAL 7:30 PM ET" or "vs GSW 9:00 PM ET", or null
+function getTodayGameInfo(teamAbbr){
+  if(!teamAbbr) return null;
+  const abbr = teamAbbr.toUpperCase();
+  const g = todayGamesCache[abbr];
+  if(!g) return null;
+  return `${g.isHome ? 'vs' : '@'} ${g.opponent}${g.time ? ', '+g.time : ''}`;
 }
 
 // Extract draft-window ticker items (shared between BDL and ESPN renderers)

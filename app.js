@@ -2017,8 +2017,7 @@ function ensureDraftRecord(runId){
       [managers[i],managers[j]]=[managers[j],managers[i]];
     }
     draft.order = managers.map(m=>m.id);
-    // Persist so all clients see same order (fire-and-forget)
-    saveLeagueState().catch(()=>{});
+    // Order will be persisted by the caller's saveLeagueState
   }
   return draft;
 }
@@ -3300,6 +3299,10 @@ async function confirmDraftPick(mid, pid){
 
   // Ensure draft record + shuffled order exist
   const draft = ensureDraftRecord(runId);
+
+  // Self-heal: currentPick should equal total players drafted so far
+  const actualPicks = Object.values(leagueState.rosters||{}).flat().length;
+  if((draft.currentPick||0) < actualPicks) draft.currentPick = actualPicks;
 
   const roster=(leagueState.rosters||{})[mid]||[];
   if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }

@@ -4852,6 +4852,25 @@ const WLC_TEAM_SIZE  = 5;
 const WLC_TIER_SIZE  = 5; // players per tier
 const WLC_POOL_SIZE  = 25;
 
+// Veterans list for "Veterans Club" theme (10+ year careers as of 2026-27)
+const VETERANS = [
+  'LeBron James','Kevin Durant','Stephen Curry','Chris Paul','Carmelo Anthony',
+  'Russell Westbrook','James Harden','Kawhi Leonard','Kyle Lowry','Paul George',
+  'DeMar DeRozan','Brook Lopez','Tobias Harris','Al Horford','Marcus Smart',
+  'Khris Middleton','Nikola Vucevic','Draymond Green','Klay Thompson',
+  'Julius Randle','Goran Dragic','Mike Conley','Damian Lillard',
+];
+
+// Assign tiers $1-$5 to a sorted pool of 25 players (top 5 = $5, next 5 = $4, etc.)
+function assignTiers(pool){
+  // pool already sorted best→worst by fpPG; split into 5 buckets of 5
+  return pool.map((p, i) => ({
+    ...p,
+    tier: 5 - Math.floor(i / WLC_TIER_SIZE),   // 0-4 → tier5,4,3,2,1
+    salary: 5 - Math.floor(i / WLC_TIER_SIZE),  // salary == tier value ($1–$5)
+  }));
+}
+
 // Get or create current week key (Mon–Sun, starts Monday)
 function wlcWeekKey(date){
   const d = date ? new Date(date) : new Date();
@@ -4992,16 +5011,16 @@ function generateWlcProposal(forDate){
   const weekNum = Math.floor((new Date(wk) - new Date('2026-10-19')) / (7*24*3600*1000));
   const themes = [
     {name:'All-Stars',    filter: p => p.r <= 50},
-    {name:'Atlantic Division', filter: p => ['BOS','BKN','NY','PHI','TOR'].includes(p.t)},
+    {name:'Atlantic Division', filter: p => ['BOS','BKN','NYK','PHI','TOR'].includes(p.t)},
     {name:'Central Division',  filter: p => ['CHI','CLE','DET','IND','MIL'].includes(p.t)},
-    {name:'Southeast Division',filter: p => ['ATL','CHA','MIA','ORL','WSH'].includes(p.t)},
-    {name:'Northwest Division',filter: p => ['DEN','MIN','OKC','POR','UTAH'].includes(p.t)},
-    {name:'Pacific Division',  filter: p => ['GS','LAC','LAL','PHX','SAC'].includes(p.t)},
-    {name:'Southwest Division',filter: p => ['DAL','HOU','MEM','NO','SA'].includes(p.t)},
+    {name:'Southeast Division',filter: p => ['ATL','CHA','MIA','ORL','WAS'].includes(p.t)},
+    {name:'Northwest Division',filter: p => ['DEN','MIN','OKC','POR','UTA'].includes(p.t)},
+    {name:'Pacific Division',  filter: p => ['GSW','LAC','LAL','PHX','SAC'].includes(p.t)},
+    {name:'Southwest Division',filter: p => ['DAL','HOU','MEM','NOP','SAS'].includes(p.t)},
     {name:'Rising Stars',      filter: p => p.r >= 30 && p.r <= 100},
     {name:'Top 25',            filter: p => p.r <= 25},
-    {name:'East Conference',   filter: p => ['BOS','BKN','NY','PHI','TOR','CHI','CLE','DET','IND','MIL','ATL','CHA','MIA','ORL','WSH'].includes(p.t)},
-    {name:'West Conference',   filter: p => ['DEN','MIN','OKC','POR','UTAH','GS','LAC','LAL','PHX','SAC','DAL','HOU','MEM','NO','SA'].includes(p.t)},
+    {name:'East Conference',   filter: p => ['BOS','BKN','NYK','PHI','TOR','CHI','CLE','DET','IND','MIL','ATL','CHA','MIA','ORL','WAS'].includes(p.t)},
+    {name:'West Conference',   filter: p => ['DEN','MIN','OKC','POR','UTA','GSW','LAC','LAL','PHX','SAC','DAL','HOU','MEM','NOP','SAS'].includes(p.t)},
     {name:'Class of 2025',     filter: p => ['Cooper Flagg','Dylan Harper','Kon Knueppel','Matas Buzelis','Darryn Peterson','Darius Acuff Jr.','Derik Queen'].includes(p.n)},
     {name:'Veterans Club',     filter: p => VETERANS.includes(p.n)},
     {name:'Centers & Bigs',    filter: p => ['C','PF'].some(pos=>{ const dbP = PLAYERS.find(pl=>pl.name===p.n); return dbP && dbP.pos && dbP.pos.includes(pos); })},
@@ -5462,10 +5481,12 @@ async function commGenerateWlcWeek(){
 async function commApproveWlcWeek(weekKey){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   leagueState.wlc.weeks[weekKey].status = 'active';
-  // Default tip-off to Monday of the week at 1pm ET (week starts Monday)
-  const mon = new Date(weekKey);
-  mon.setHours(18, 0, 0, 0); // 1pm ET = 18:00 UTC
-  leagueState.wlc.weeks[weekKey].tipoffTime = mon.toISOString();
+  // Default tip-off to Tuesday of that week at 7pm ET (23:00 UTC)
+  // weekKey is a Monday ISO date string; Tuesday = Monday + 1 day
+  const mon = new Date(weekKey + 'T00:00:00Z'); // parse as UTC midnight
+  const tue = new Date(mon.getTime() + 24*3600*1000); // +1 day = Tuesday UTC midnight
+  tue.setUTCHours(23, 0, 0, 0); // 7pm ET = 23:00 UTC (EST)
+  leagueState.wlc.weeks[weekKey].tipoffTime = tue.toISOString();
   await saveLeagueState();
   toast('Week is LIVE! Users can now submit lineups.');
   renderWlcScreen();

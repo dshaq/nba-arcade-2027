@@ -4852,15 +4852,6 @@ const WLC_TEAM_SIZE  = 5;
 const WLC_TIER_SIZE  = 5; // players per tier
 const WLC_POOL_SIZE  = 25;
 
-// Veterans list for "Veterans Club" theme (10+ year careers as of 2026-27)
-const VETERANS = [
-  'LeBron James','Kevin Durant','Stephen Curry','Chris Paul','Carmelo Anthony',
-  'Russell Westbrook','James Harden','Kawhi Leonard','Kyle Lowry','Paul George',
-  'DeMar DeRozan','Brook Lopez','Tobias Harris','Al Horford','Marcus Smart',
-  'Khris Middleton','Nikola Vucevic','Draymond Green','Klay Thompson',
-  'Julius Randle','Goran Dragic','Mike Conley','Damian Lillard',
-];
-
 // Assign tiers $1-$5 to a sorted pool of 25 players (top 5 = $5, next 5 = $4, etc.)
 function assignTiers(pool){
   // pool already sorted best→worst by fpPG; split into 5 buckets of 5

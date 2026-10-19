@@ -1954,7 +1954,14 @@ function renderNewsBanner(){
       const fmtDT = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'}) + ' · ' +
         d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'}).replace('EDT','EST');
 
-      if(isLive){
+      const draft = (leagueState?.drafts||{})[dw.run];
+      const isDraftComplete = draft?.status === 'complete';
+      if(isDraftComplete){
+        rows.push({
+          label:'live', labelText:'✓ DONE',
+          text: `${dw.label} is complete — all rosters set!`
+        });
+      } else if(isLive){
         // Who's on the clock?
         const onClock = getDraftOnClock(dw.run);
         rows.push({
@@ -2045,6 +2052,7 @@ function getDraftOnClock(runId){
   const now = new Date();
   if(!dw || now < new Date(dw.start) || now > new Date(dw.end)) return null;
   const draft = (leagueState.drafts||{})[runId];
+  if(draft?.status === 'complete') return null; // draft is done
   const pick = draft?.currentPick || 0;
   const managers = getDraftOrder(runId);
   if(!managers.length) return null;
@@ -3228,7 +3236,14 @@ function renderFantasyDraftPane(){
 
   // Build draft order panel
   let draftOrderPanel = '';
-  if(isDraftLive || !isDraftPast){
+  const draftRecord = dw ? (leagueState.drafts||{})[dw.run] : null;
+  const isDraftComplete = draftRecord?.status === 'complete';
+  if(isDraftComplete){
+    draftOrderPanel = `<div style="background:rgba(0,255,136,.10);border:1px solid var(--accent1);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;text-align:center">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1);margin-bottom:4px">✓ DRAFT COMPLETE</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2)">All 10 rosters are set — good luck this season!</div>
+    </div>`;
+  } else if(isDraftLive || !isDraftPast){
     const runId = dw?.run;
     const managers = leagueState.managers||[];
     if(managers.length && runId){
@@ -3267,7 +3282,7 @@ function renderFantasyDraftPane(){
     }
   }
 
-  const draftBanner = !isDraftLive && !isDraftPast
+  const draftBanner = !isDraftComplete && !isDraftLive && !isDraftPast
     ? `<div style="background:rgba(245,166,35,.12);border:1px solid var(--accent3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-family:var(--pixel);font-size:6px;color:var(--accent3)">📋 DRAFT STARTS OCT 18 AT 8:30PM ET — Browse the player pool below</div>`
     : '';
 

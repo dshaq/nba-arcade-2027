@@ -41,6 +41,7 @@ let livePolling    = null;
 let liveActive     = false;
 let currentScreen  = 'home';
 let currentRun     = 1;
+let draftPickInFlight = false; // prevents double-submit while async save is in progress
 let scheduleWeekOffset = 0; // 0 = current week, -1 = prev week, +1 = next, etc.
 let bdlKey         = null;   // BallDontLie API key (fetched from Supabase config)
 
@@ -3297,32 +3298,54 @@ function renderFantasyDraftPane(){
 }
 
 async function confirmDraftPick(mid, pid){
-  const p=getPlayer(pid); if(!p) return;
-  const dw=DRAFT_WINDOWS.find(d=>d.run===currentRun);
-  if(!dw) return;
-  const runId=dw.run;
+  // Client-side lock: prevent double-submit if button is clicked multiple times
+  // while the async save is in flight
+  if(draftPickInFlight){ toast('Pick in progress...'); return; }
+  draftPickInFlight = true;
 
-  // Re-fetch fresh state from Supabase to avoid race conditions
-  // (multiple users clicking DRAFT simultaneously would otherwise all read
-  //  the same stale currentPick and each save currentPick+1, causing picks to overlap)
-  await loadLeagueState();
+  try {
+    const p=getPlayer(pid); if(!p){ draftPickInFlight=false; return; }
+    const dw=DRAFT_WINDOWS.find(d=>d.run===currentRun);
+    if(!dw){ draftPickInFlight=false; return; }
+    const runId=dw.run;
 
-  // Ensure draft record + shuffled order exist (uses freshly loaded state)
-  const draft = ensureDraftRecord(runId);
+    // Re-fetch fresh state from Supabase to avoid race conditions
+    // (multiple users clicking DRAFT simultaneously would otherwise all read
+    //  the same stale currentPick and each save currentPick+1, causing picks to overlap)
+    await loadLeagueState();
 
-  const roster=(leagueState.rosters||{})[mid]||[];
-  if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }
-  const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
-  if(allRostered.has(pid)){ toast('Player already drafted'); return; }
+    // Ensure draft record + shuffled order exist (uses freshly loaded state)
+    const draft = ensureDraftRecord(runId);
 
-  if(!leagueState.rosters) leagueState.rosters={};
-  if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
-  leagueState.rosters[mid].push(pid);
-  draft.currentPick=(draft.currentPick||0)+1;
+    // Turn enforcement: verify it's actually this manager's turn
+    const managers = getDraftOrder(runId);
+    const pick = draft.currentPick || 0;
+    const round = Math.floor(pick / managers.length);
+    const posInRound = pick % managers.length;
+    const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
+    const onClockId = managers[idx]?.id;
+    if(onClockId !== mid){
+      const onClockName = managers[idx]?.display_name || 'someone else';
+      toast(`Not your turn! ${onClockName} is on the clock.`);
+      return;
+    }
 
-  await saveLeagueState();
-  toast(`${p.name} DRAFTED! ✓`);
-  renderFantasyDraftPane();
+    const roster=(leagueState.rosters||{})[mid]||[];
+    if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }
+    const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
+    if(allRostered.has(pid)){ toast('Player already drafted'); return; }
+
+    if(!leagueState.rosters) leagueState.rosters={};
+    if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
+    leagueState.rosters[mid].push(pid);
+    draft.currentPick=(draft.currentPick||0)+1;
+
+    await saveLeagueState();
+    toast(`${p.name} DRAFTED! ✓`);
+    renderFantasyDraftPane();
+  } finally {
+    draftPickInFlight = false;
+  }
 }
 
 function renderFantasySchedule(){

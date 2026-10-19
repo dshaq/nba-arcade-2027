@@ -2003,29 +2003,51 @@ function renderNewsBanner(){
 
 // Returns the randomized manager order for a draft run, generating+storing it if needed.
 // order is an array of manager IDs shuffled once when the draft starts, then frozen.
-function getDraftOrder(runId){
-  const draft = (leagueState.drafts||{})[runId];
-  if(!draft) return leagueState.managers||[];
-  if(draft.order?.length) return draft.order.map(id=>(leagueState.managers||[]).find(m=>m.id===id)).filter(Boolean);
-  // Not yet set — generate now (first pick triggers this)
-  const managers = [...(leagueState.managers||[])];
-  // Fisher-Yates shuffle
-  for(let i=managers.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [managers[i],managers[j]]=[managers[j],managers[i]];
+function ensureDraftRecord(runId){
+  // Creates and saves a draft record the first time a live draft needs one.
+  // Also generates the shuffled order if not yet set.
+  if(!leagueState.drafts) leagueState.drafts={};
+  if(!leagueState.drafts[runId]) leagueState.drafts[runId]={status:'active',currentPick:0};
+  const draft = leagueState.drafts[runId];
+  if(!draft.status) draft.status='active';
+  if(!draft.order?.length){
+    const managers = [...(leagueState.managers||[])];
+    for(let i=managers.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [managers[i],managers[j]]=[managers[j],managers[i]];
+    }
+    draft.order = managers.map(m=>m.id);
+    // Persist so all clients see same order (fire-and-forget)
+    saveLeagueState().catch(()=>{});
   }
-  draft.order = managers.map(m=>m.id);
-  return managers;
+  return draft;
+}
+
+function getDraftOrder(runId){
+  const dw = DRAFT_WINDOWS.find(d=>d.run===runId);
+  const now = new Date();
+  const isLive = dw && now >= new Date(dw.start) && now <= new Date(dw.end);
+  if(!leagueState?.managers?.length) return [];
+  const existing = (leagueState.drafts||{})[runId];
+  // If order already stored, return it
+  if(existing?.order?.length) return existing.order.map(id=>(leagueState.managers||[]).find(m=>m.id===id)).filter(Boolean);
+  // If draft is live and no order yet, create it now
+  if(isLive){
+    const draft = ensureDraftRecord(runId);
+    return draft.order.map(id=>(leagueState.managers||[]).find(m=>m.id===id)).filter(Boolean);
+  }
+  // Pre-draft: just show signup order as preview
+  return leagueState.managers||[];
 }
 
 function getDraftOnClock(runId){
-  // Returns name of manager currently on the clock in an active draft, or null
+  const dw = DRAFT_WINDOWS.find(d=>d.run===runId);
+  const now = new Date();
+  if(!dw || now < new Date(dw.start) || now > new Date(dw.end)) return null;
   const draft = (leagueState.drafts||{})[runId];
-  if(!draft || draft.status !== 'active') return null;
-  const pick = draft.currentPick || 0;
+  const pick = draft?.currentPick || 0;
   const managers = getDraftOrder(runId);
   if(!managers.length) return null;
-  // Snake draft order
   const round = Math.floor(pick / managers.length);
   const posInRound = pick % managers.length;
   const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
@@ -3203,12 +3225,10 @@ function renderFantasyDraftPane(){
   let draftOrderPanel = '';
   if(isDraftLive || !isDraftPast){
     const runId = dw?.run;
-    const draft = runId ? (leagueState.drafts||{})[runId] : null;
     const managers = leagueState.managers||[];
     if(managers.length && runId){
-      const orderedMgrs = draft?.order?.length
-        ? draft.order.map(id=>managers.find(m=>m.id===id)).filter(Boolean)
-        : managers; // fallback to signup order until first pick locks the shuffle
+      const orderedMgrs = getDraftOrder(runId); // uses shuffled order if live, signup order otherwise
+      const draft = (leagueState.drafts||{})[runId];
       const currentPick = draft?.currentPick || 0;
       const n = orderedMgrs.length;
       // Show current round + a couple picks ahead
@@ -3278,26 +3298,8 @@ async function confirmDraftPick(mid, pid){
   if(!dw) return;
   const runId=dw.run;
 
-  // Ensure draft state exists
-  if(!leagueState.drafts) leagueState.drafts={};
-  if(!leagueState.drafts[runId]) leagueState.drafts[runId]={status:'active',currentPick:0};
-  const draft=leagueState.drafts[runId];
-
-  // Ensure randomized order is set (first pick triggers the shuffle, saved for all clients)
-  const orderedManagers=getDraftOrder(runId);
-  const n=orderedManagers.length;
-  if(!n) return;
-
-  // Verify it's this manager's turn
-  const pick=draft.currentPick||0;
-  const round=Math.floor(pick/n);
-  const posInRound=pick%n;
-  const idx=round%2===0 ? posInRound : (n-1-posInRound);
-  const onClockManager=orderedManagers[idx];
-  if(onClockManager?.id !== mid){
-    toast(`Not your pick! ${onClockManager?.display_name||'?'} is on the clock`);
-    return;
-  }
+  // Ensure draft record + shuffled order exist
+  const draft = ensureDraftRecord(runId);
 
   const roster=(leagueState.rosters||{})[mid]||[];
   if(roster.length>=effectiveRosterSize(mid)){ toast('Roster full!'); return; }
@@ -3307,7 +3309,7 @@ async function confirmDraftPick(mid, pid){
   if(!leagueState.rosters) leagueState.rosters={};
   if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
   leagueState.rosters[mid].push(pid);
-  draft.currentPick=(pick+1);
+  draft.currentPick=(draft.currentPick||0)+1;
 
   await saveLeagueState();
   toast(`${p.name} DRAFTED! ✓`);

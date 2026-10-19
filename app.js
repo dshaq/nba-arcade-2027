@@ -3564,7 +3564,7 @@ function renderRostersScreen(){
   tabsEl.innerHTML=managers.map(m=>{
     const isActive=m.id===rostersViewId;
     const isMe=m.id===myId;
-    return `<button onclick="rostersViewId='${m.id}';renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
+    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
   }).join('');
 
   const viewManager=managers.find(m=>m.id===rostersViewId);

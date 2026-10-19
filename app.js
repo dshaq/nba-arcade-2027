@@ -3251,7 +3251,7 @@ function renderFantasyDraftPane(){
           <span style="font-family:var(--pixel);font-size:6px;color:${color};flex:1">${mgr?.display_name||'?'}</span>
           ${label?`<span style="font-family:var(--pixel);font-size:5px;color:#000">${label}</span>`:''}
         </div>`);
-        if(rows.length>=8) break; // cap visible rows
+        if(rows.length>=n+2) break; // show full current round + 2 picks into next
       }
       if(rows.length){
         draftOrderPanel=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:8px;margin-bottom:10px">

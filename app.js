@@ -3000,7 +3000,10 @@ function renderLineupPreview(){
   }
   const irPid=getIrSlot(mid);
   const active=(getMyActive().length ? getMyActive() : autoActiveFor(mid)).filter(p=>p!==irPid);
-  const inactive=(getMyInactive().length ? getMyInactive() : roster.filter(p=>!active.includes(p))).filter(p=>p!==irPid);
+  // Always derive bench from roster minus active minus IR — never rely solely on
+  // leagueState.inactive, which only stores explicitly-benched players and misses
+  // anyone who was never explicitly set (e.g. default bench players).
+  const inactive=roster.filter(p=>!active.includes(p) && p!==irPid);
 
   const rowHtml=(pid,slotType)=>{
     // slotType: 'active' | 'inactive' | 'ir'

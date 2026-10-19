@@ -3199,13 +3199,57 @@ function renderFantasyDraftPane(){
     ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${draftFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
   </select>`;
 
+  // Build draft order panel
+  let draftOrderPanel = '';
+  if(isDraftLive || !isDraftPast){
+    const runId = dw?.run;
+    const draft = runId ? (leagueState.drafts||{})[runId] : null;
+    const managers = leagueState.managers||[];
+    if(managers.length && runId){
+      const orderedMgrs = draft?.order?.length
+        ? draft.order.map(id=>managers.find(m=>m.id===id)).filter(Boolean)
+        : managers; // fallback to signup order until first pick locks the shuffle
+      const currentPick = draft?.currentPick || 0;
+      const n = orderedMgrs.length;
+      // Show current round + a couple picks ahead
+      const totalRounds = 15; // or use effectiveRosterSize
+      const rows = [];
+      for(let i=0;i<Math.min(totalRounds*n, currentPick+n+2);i++){
+        const round=Math.floor(i/n);
+        const posInRound=i%n;
+        const idx=round%2===0?posInRound:(n-1-posInRound);
+        const mgr=orderedMgrs[idx];
+        const isPast=i<currentPick;
+        const isCurrent=i===currentPick;
+        const isNext=i===currentPick+1;
+        if(isPast) continue; // skip already-made picks
+        const bg=isCurrent?'var(--accent2)':isNext?'rgba(255,255,255,.07)':'transparent';
+        const color=isCurrent?'#000':'var(--text1)';
+        const label=isCurrent?'🎯 ON CLOCK':'';
+        rows.push(`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:${bg}">
+          <span style="font-family:var(--pixel);font-size:5px;color:${isCurrent?'#000':'var(--text3)'};min-width:28px">R${round+1}P${posInRound+1}</span>
+          <span style="font-family:var(--pixel);font-size:6px;color:${color};flex:1">${mgr?.display_name||'?'}</span>
+          ${label?`<span style="font-family:var(--pixel);font-size:5px;color:#000">${label}</span>`:''}
+        </div>`);
+        if(rows.length>=8) break; // cap visible rows
+      }
+      if(rows.length){
+        draftOrderPanel=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:8px;margin-bottom:10px">
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:6px;letter-spacing:.05em">${isDraftLive?'🔴 DRAFT LIVE — ':'📋 '}PICK ORDER</div>
+          ${rows.join('')}
+        </div>`;
+      }
+    }
+  }
+
   const draftBanner = !isDraftLive && !isDraftPast
     ? `<div style="background:rgba(245,166,35,.12);border:1px solid var(--accent3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-family:var(--pixel);font-size:6px;color:var(--accent3)">📋 DRAFT STARTS OCT 18 AT 8:30PM ET — Browse the player pool below</div>`
-    : isDraftLive ? `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px">🔴 DRAFT IS LIVE</div>` : '';
+    : '';
 
   el.innerHTML=`
     <div style="padding:10px 14px 0">
       ${draftBanner}
+      ${draftOrderPanel}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
         <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
         ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderDraftPlayerList()")}

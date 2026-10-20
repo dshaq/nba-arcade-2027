@@ -721,7 +721,7 @@ const ESPN_TEAM_IDS = {
   HOU:10, IND:11, LAC:12, LAL:13, MEM:29, MIA:14, MIL:15, MIN:16, NOP:3, NYK:18,
   OKC:25, ORL:19, PHI:20, PHX:21, POR:22, SAC:23, SAS:24, TOR:28, UTA:26, WAS:27,
 };
-const PIXEL_LOGOS = { NYK:'/logos/NYK.png', PHI:'/logos/PHI.png' };
+const PIXEL_LOGOS = {}; // logos/NYK.png and PHI.png are actually JPEGs mislabeled as PNG — use ESPN CDN for all teams
 function getTeamLogoUrl(abbr){
   if(PIXEL_LOGOS[abbr]) return PIXEL_LOGOS[abbr];
   const id = ESPN_TEAM_IDS[abbr];

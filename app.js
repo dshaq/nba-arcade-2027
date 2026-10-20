@@ -4765,39 +4765,52 @@ async function fetchAndRenderTicker(){
   const todayET     = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
   const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 
-  // Ticker logic:
-  //   Before 9:00 AM ET  → show yesterday's final scores only (until window closes at 8:59)
-  //   9:00 AM ET onward  → show today's upcoming games with start times, then live games,
-  //                         then any finals once complete; yesterday's finals no longer shown
-  const showYesterday = etHour < 9;   // true = before 9 AM ET
+  const showYesterday = etHour < 9;
   const datesToFetch  = showYesterday ? [yesterdayET] : [todayET, yesterdayET];
+  const fmt = d => d.slice(0,10).replace(/-/g,'');
 
-  // ── Try BallDontLie first ──
+  // Always fetch ESPN for accurate ISO game times (BDL /games has no time field)
+  let espnEvents = [];
+  try{
+    for(const d of datesToFetch){
+      try{
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(d)}`);
+        if(res.ok){ const data=await res.json(); espnEvents=espnEvents.concat(data.events||[]); }
+      }catch(e){}
+    }
+  }catch(e){}
+
+  // Build teamTimeMap: abbr → "7:30 PM ET" from ESPN ISO datetimes
+  const teamTimeMap = {};
+  for(const ev of espnEvents){
+    const comp = ev.competitions?.[0];
+    if(!comp) continue;
+    const isoDate = ev.date || comp.date;
+    if(!isoDate) continue;
+    // Convert UTC ISO to ET time string
+    const timeStr = new Date(isoDate).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
+    for(const t of (comp.competitors||[])){
+      const abbr = t.team?.abbreviation?.toUpperCase();
+      if(abbr) teamTimeMap[abbr] = timeStr;
+    }
+  }
+
+  // ── Try BallDontLie first (for scores) ──
   if(bdlKey){
     try{
       const gamesRes = await bdlFetch('/games', {'dates[]': datesToFetch, per_page: 30});
       const combined = gamesRes?.data || [];
-      if(combined.length){ renderTickerBdl(combined, todayET, showYesterday); return; }
+      if(combined.length){ renderTickerBdl(combined, todayET, showYesterday, teamTimeMap); return; }
     }catch(e){ console.warn('BDL ticker fetch failed, trying ESPN:', e); }
   }
 
-  // ── ESPN fallback ──
-  try{
-    const fmt = d => d.slice(0,10).replace(/-/g,'');
-    let allEvents = [];
-    for(const d of datesToFetch){
-      try{
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(d)}`);
-        if(res.ok){ const data=await res.json(); allEvents=allEvents.concat(data.events||[]); }
-      }catch(e){}
-    }
-    renderTicker(allEvents, todayET, showYesterday);
-  }catch(e){ console.warn('Ticker fetch failed:', e); }
+  // ── ESPN fallback (already fetched) ──
+  renderTicker(espnEvents, todayET, showYesterday);
 }
 
 // Render ticker from BDL /games response
 // showYesterday: when true (before 9 AM ET) only show yesterday's finals, no upcoming times
-function renderTickerBdl(games, todayDate, showYesterday){
+function renderTickerBdl(games, todayDate, showYesterday, teamTimeMap={}){
   const el    = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;
@@ -4808,16 +4821,11 @@ function renderTickerBdl(games, todayDate, showYesterday){
 
   let html = buildTickerDraftHtml(); // draft window items
 
-  // BDL: g.date is "YYYY-MM-DD" (date only), game time is in g.time e.g. "7:30 pm"
-  // Parse the combined date+time string in ET, falling back to date-only
-  const fmtTime = (dateStr, timeStr) => {
-    if(timeStr){
-      // BDL time is like "7:30 pm" — just normalize and append ET
-      return timeStr.replace(/\s*(am|pm)/i, m => ' ' + m.trim().toUpperCase()) + ' ET';
-    }
-    // ESPN/ISO fallback: full ISO datetime
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
+  // Get game time: prefer ESPN teamTimeMap (has full ISO datetime), BDL g.date is date-only
+  const getTime = g => {
+    const away = g.visitor_team?.abbreviation?.toUpperCase();
+    const home = g.home_team?.abbreviation?.toUpperCase();
+    return teamTimeMap[away] || teamTimeMap[home] || '';
   };
 
   for(const g of games){
@@ -4855,7 +4863,7 @@ function renderTickerBdl(games, todayDate, showYesterday){
       // Upcoming game — only show from 9 AM ET, and only for today
       if(showYesterday || isYesterday) continue;
       html += `<div class="ticker-game">
-        <span class="upcoming">${fmtTime(g.date, g.time)}</span>
+        <span class="upcoming">${getTime(g)}</span>
         <span>${away} vs ${home}</span>
       </div>`;
     }
@@ -4868,8 +4876,7 @@ function renderTickerBdl(games, todayDate, showYesterday){
     if(isYesterday || g.status==='Final' || g.status?.startsWith('Final')) continue;
     const away = g.visitor_team?.abbreviation || '';
     const home = g.home_team?.abbreviation    || '';
-    const isUpcomingG = g.status && !['Final','In Progress'].includes(g.status) && !/^\d/.test(g.status);
-    const timeStr = fmtTime(g.date, g.time);
+    const timeStr = getTime(g);
     const isLive = g.status === 'In Progress';
     const period = g.period || '';
     // Only use scores when live — upcoming games have score=0 which is misleading

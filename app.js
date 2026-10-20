@@ -4906,11 +4906,10 @@ function buildTickerDraftHtml(){
     const isActive  = now >= s && now <= e;
     const isPreview = !isActive && now >= oneDayBefore && now < s;
     if(isPreview){
-      const fmtDT = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+
-        d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+      const fmtT = d => d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
       html += `<div class="ticker-game">
         <span class="upcoming" style="background:var(--accent2)">DRAFT</span>
-        <span>${dw.label} starts ${fmtDT(s)}</span>
+        <span>${dw.label} starts ${fmtT(s)}</span>
       </div>`;
     }
     if(isActive){

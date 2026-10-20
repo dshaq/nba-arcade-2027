@@ -2566,9 +2566,9 @@ function renderDuelCard(){
       const full = NBA_TEAMS?.[abbr] || abbr;
       const logoUrl = getTeamLogoUrl(abbr);
       const logoEl = logoUrl
-        ? `<img src="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
-          + `<div style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>`
-        : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>`;
+        ? `<img src="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;display:block;margin:0 auto 6px" onerror="this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'">`
+          + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
+        : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
       return `<div class="duel-player ${myPick===side&&!settled?'duel-picked':''}" style="${pickedStyle(side)}">
         ${logoEl}
         <div class="dname">${abbr}</div>

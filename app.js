@@ -1089,10 +1089,16 @@ async function loadLeagueState(){
 }
 
 async function syncManagersToState(){
+  // Preserve photos from leagueState (they're stored in the leagues JSON blob, not in the managers table)
+  const prevPhotoMap={};
+  (leagueState.managers||[]).forEach(m=>{ if(m.photo) prevPhotoMap[m.id]=m.photo; });
   const {data, error} = await db.from('managers').select('id,user_id,display_name,color,icon,team_name,is_commissioner').order('created_at');
   if(error) console.error('[syncManagers] error:', error.message, error.code);
-  if(data) { console.log('[syncManagers] got', data.length, 'managers'); leagueState.managers = data; }
-  else console.warn('[syncManagers] data is null/undefined');
+  if(data){
+    console.log('[syncManagers] got', data.length, 'managers');
+    // Merge photos back in from the JSON blob
+    leagueState.managers = data.map(m=>prevPhotoMap[m.id]?{...m,photo:prevPhotoMap[m.id]}:m);
+  } else console.warn('[syncManagers] data is null/undefined');
 }
 
 async function saveLeagueState(){
@@ -3140,8 +3146,7 @@ function renderQuickStats(){
   mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
   const rank=mgrStats.findIndex(m=>m.id===mid)+1;
   const total=allMgrs.length;
-  const ordinal=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
-  const rankStr=rank>0?`${ordinal(rank)} / ${total}`:'—';
+  const rankStr=rank>0?`${rank}/${total}`:'—';
   const myRecord=mgrStats.find(m=>m.id===mid);
   const record=myRecord?`${myRecord.wins}-${myRecord.losses}`:'0-0';
 
@@ -3701,12 +3706,22 @@ function renderRostersScreen(){
     contentEl.innerHTML=`<div class="empty-state" style="padding:48px 24px"><div class="icon">📋</div><div class="label">DRAFT HASN'T HAPPENED YET</div></div>`;
     return;
   }
-  // Show team names once managers exist, even if draft hasn't happened
-  tabsEl.innerHTML=managers.map(m=>{
+  // Show team names — own team pinned first, then others; with left/right scroll arrows
+  const tabsContainerId='rosters-tabs-scroll-'+Math.random().toString(36).slice(2,7);
+  const myMgr=managers.find(m=>m.id===myId);
+  const otherMgrs=managers.filter(m=>m.id!==myId);
+  const orderedMgrs=myMgr?[myMgr,...otherMgrs]:managers;
+  const tabsHtml=orderedMgrs.map(m=>{
     const isActive=m.id===rostersViewId;
     const isMe=m.id===myId;
-    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};rostersDropMode=false;renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${m.display_name}${isMe?' (YOU)':''}</button>`;
+    const label=(m.team_name||m.display_name)+(isMe?' ★':'');
+    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};rostersDropMode=false;renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
   }).join('');
+  tabsEl.innerHTML=`
+    <button onclick="(function(){var s=document.getElementById('${tabsContainerId}');s.scrollBy({left:-120,behavior:'smooth'})})()" style="flex-shrink:0;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2)">‹</button>
+    <div id="${tabsContainerId}" style="display:flex;gap:6px;overflow-x:auto;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex:1">${tabsHtml}</div>
+    <button onclick="(function(){var s=document.getElementById('${tabsContainerId}');s.scrollBy({left:120,behavior:'smooth'})})()" style="flex-shrink:0;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2)">›</button>
+  `;
 
   const viewManager=managers.find(m=>m.id===rostersViewId);
   if(!viewManager){ contentEl.innerHTML=''; return; }
@@ -3753,7 +3768,7 @@ function renderRostersScreen(){
         } else if(isLocked){
           actionBtns = '<span style="font-family:var(--pixel);font-size:4.5px;color:var(--text3)">🔒 TOP</span>';
         } else {
-          actionBtns = `<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`;
+          actionBtns = `<button class="btn btn-sm" style="font-size:5px;padding:4px 8px;min-height:24px;background:rgba(255,105,180,0.15);border:1px solid #ff69b4;color:#ff69b4;border-radius:8px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`;
         }
       } else {
         // Normal mode: Bench/Activate + IR buttons
@@ -4205,8 +4220,7 @@ function renderProfileScreen(){
       mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
       const rank=mgrStats.findIndex(m=>m.id===myId)+1;
       const total=allMgrs.length;
-      const ordinal=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
-      standEl.textContent=rank>0?`${ordinal(rank)} of ${total}`:'—';
+      standEl.textContent=rank>0?`${rank}/${total}`:'—';
     }
   }
 
@@ -5023,19 +5037,34 @@ function assignTiers(pool){
 
 // Get or create current week key (Mon–Sun, starts Monday)
 function wlcWeekKey(date){
-  const d = date ? new Date(date) : new Date();
+  // Use local date to avoid UTC midnight boundary issues
+  let d;
+  if(!date){
+    d = new Date();
+  } else if(typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)){
+    // Parse YYYY-MM-DD as local noon to avoid UTC/local day boundary bugs
+    const [y,m,day] = date.split('-').map(Number);
+    d = new Date(y, m-1, day, 12, 0, 0);
+  } else {
+    d = new Date(date);
+  }
   const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
   // Days since Monday: Sun=6, Mon=0, Tue=1...Sat=5
   const daysSinceMonday = day === 0 ? 6 : day - 1;
   const monday = new Date(d);
   monday.setDate(d.getDate() - daysSinceMonday);
-  return monday.toISOString().split('T')[0];
+  // Return YYYY-MM-DD in local time
+  const yr = monday.getFullYear();
+  const mo = String(monday.getMonth()+1).padStart(2,'0');
+  const dy = String(monday.getDate()).padStart(2,'0');
+  return `${yr}-${mo}-${dy}`;
 }
 
 function wlcWeekLabel(weekKey){
-  const mon = new Date(weekKey);
+  const [y,m,d] = weekKey.split('-').map(Number);
+  const mon = new Date(y, m-1, d, 12); // local noon to avoid UTC boundary
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   return `${fmt(mon)} – ${fmt(sun)}`;
 }
 
@@ -5158,7 +5187,9 @@ async function doWlcSwap(fromName, toName){
 function generateWlcProposal(forDate){
   const wk = wlcWeekKey(forDate);
   // Suggest a theme based on week number (cycle through themes)
-  const weekNum = Math.floor((new Date(wk) - new Date('2026-10-19')) / (7*24*3600*1000));
+  // Parse week keys as local noon to avoid UTC boundary issues
+  const parseWkDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d,12); };
+  const weekNum = Math.max(0, Math.floor((parseWkDate(wk) - parseWkDate('2026-10-19')) / (7*24*3600*1000)));
   const themes = [
     {name:'All-Stars',    filter: p => p.r <= 50},
     {name:'Atlantic Division', filter: p => ['BOS','BKN','NYK','PHI','TOR'].includes(p.t)},

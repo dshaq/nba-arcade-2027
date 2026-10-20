@@ -4808,7 +4808,14 @@ function renderTickerBdl(games, todayDate, showYesterday){
 
   let html = buildTickerDraftHtml(); // draft window items
 
-  const fmtTime = dateStr => {
+  // BDL: g.date is "YYYY-MM-DD" (date only), game time is in g.time e.g. "7:30 pm"
+  // Parse the combined date+time string in ET, falling back to date-only
+  const fmtTime = (dateStr, timeStr) => {
+    if(timeStr){
+      // BDL time is like "7:30 pm" — just normalize and append ET
+      return timeStr.replace(/\s*(am|pm)/i, m => ' ' + m.trim().toUpperCase()) + ' ET';
+    }
+    // ESPN/ISO fallback: full ISO datetime
     const d = new Date(dateStr);
     return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
   };
@@ -4816,9 +4823,11 @@ function renderTickerBdl(games, todayDate, showYesterday){
   for(const g of games){
     const away = g.visitor_team?.abbreviation || '???';
     const home = g.home_team?.abbreviation    || '???';
-    const awayScore = g.visitor_team_score ?? '';
-    const homeScore = g.home_team_score    ?? '';
-    const st = g.status; // 'Final', 'In Progress', '1st Qtr', etc.
+    const st = g.status; // 'Final', 'In Progress', '7:30 pm' (upcoming), etc.
+    const isUpcoming = st && !['Final','In Progress'].includes(st) && !/^\d/.test(st);
+    // For upcoming games, scores are 0 (not null) — only use scores when actually live/final
+    const awayScore = (!isUpcoming) ? (g.visitor_team_score ?? '') : '';
+    const homeScore = (!isUpcoming) ? (g.home_team_score    ?? '') : '';
     const isYesterday = g.date && !g.date.startsWith(todayDate);
 
     if(st==='Final' || st?.startsWith('Final')){
@@ -4846,7 +4855,7 @@ function renderTickerBdl(games, todayDate, showYesterday){
       // Upcoming game — only show from 9 AM ET, and only for today
       if(showYesterday || isYesterday) continue;
       html += `<div class="ticker-game">
-        <span class="upcoming">${fmtTime(g.date)}</span>
+        <span class="upcoming">${fmtTime(g.date, g.time)}</span>
         <span>${away} vs ${home}</span>
       </div>`;
     }
@@ -4859,11 +4868,13 @@ function renderTickerBdl(games, todayDate, showYesterday){
     if(isYesterday || g.status==='Final' || g.status?.startsWith('Final')) continue;
     const away = g.visitor_team?.abbreviation || '';
     const home = g.home_team?.abbreviation    || '';
-    const timeStr = g.date ? fmtTime(g.date) : '';
+    const isUpcomingG = g.status && !['Final','In Progress'].includes(g.status) && !/^\d/.test(g.status);
+    const timeStr = fmtTime(g.date, g.time);
     const isLive = g.status === 'In Progress';
     const period = g.period || '';
-    const awayScore = g.visitor_team_score ?? null;
-    const homeScore = g.home_team_score    ?? null;
+    // Only use scores when live — upcoming games have score=0 which is misleading
+    const awayScore = isLive ? (g.visitor_team_score ?? null) : null;
+    const homeScore = isLive ? (g.home_team_score    ?? null) : null;
     if(away) todayGamesCache[away] = { opponent: home, time: timeStr, isHome: false, isLive, period, myScore: awayScore, oppScore: homeScore };
     if(home) todayGamesCache[home] = { opponent: away, time: timeStr, isHome: true,  isLive, period, myScore: homeScore, oppScore: awayScore };
   }
@@ -4970,7 +4981,7 @@ function renderTicker(events, todayDate, showYesterday){
     const a2 = ts.find(t=>t.homeAway==='away') || ts[1];
     const hAbbr2 = h2?.team?.abbreviation?.toUpperCase();
     const aAbbr2 = a2?.team?.abbreviation?.toUpperCase();
-    const evDateStr2 = ev.date ? ev.date.slice(0,10) : '';
+    const evDateStr2 = ev.date ? new Date(ev.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}) : '';
     const isYday2 = todayDate && evDateStr2 !== todayDate;
     const state2 = comp2.status?.type?.state;
     if(!isYday2 && state2 !== 'post' && hAbbr2 && aAbbr2){
@@ -4995,9 +5006,10 @@ function renderTicker(events, todayDate, showYesterday){
     const awayAbbr = away?.team?.abbreviation || '???';
     const homeScore = home?.score || '';
     const awayScore = away?.score || '';
-    // ESPN date comes as YYYYMMDD format in URL but ISO in the event
-    const evDateStr = ev.date ? ev.date.slice(0,10) : '';
-    const isYesterday = todayDate && evDateStr !== todayDate;
+    // ESPN stores game dates in UTC — convert to ET date for day comparison
+    // e.g. OKC vs SAS at 9:30 PM ET = 01:30 UTC next day, so UTC slice would be wrong
+    const evDateET = ev.date ? new Date(ev.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}) : '';
+    const isYesterday = todayDate && evDateET !== todayDate;
 
     if(stateVal==='in'){
       if(isYesterday) return; // stale live score — skip

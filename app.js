@@ -3098,7 +3098,7 @@ function renderLineupPreview(){
     // Game info for today
     const gameInfo = getTodayGameInfo(p.team);
     const gameLabel = gameInfo
-      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     // Toggle button
     const toggleBtn = isOnIR ? '' : isActive
@@ -3781,7 +3781,7 @@ function renderRostersScreen(){
       : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● BENCH</span>';
     const gameInfo = getTodayGameInfo(p.team);
     const gameLabel = gameInfo
-      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     // Determine which action buttons to show
     let actionBtns = '';
@@ -3884,7 +3884,7 @@ function renderMyRosterList(){
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     const gameInfo = getTodayGameInfo(p.team);
     const gameLabel = gameInfo
-      ? `<span style="color:var(--accent2);font-size:5px">${gameInfo}</span>`
+      ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     return `
     <div class="player-row" style="padding:8px 14px">
@@ -4839,8 +4839,12 @@ function renderTickerBdl(games, todayDate, showYesterday){
     const away = g.visitor_team?.abbreviation || '';
     const home = g.home_team?.abbreviation    || '';
     const timeStr = g.date ? fmtTime(g.date) : '';
-    if(away) todayGamesCache[away] = { opponent: home, time: timeStr, isHome: false };
-    if(home) todayGamesCache[home] = { opponent: away, time: timeStr, isHome: true  };
+    const isLive = g.status === 'In Progress';
+    const period = g.period || '';
+    const awayScore = g.visitor_team_score ?? null;
+    const homeScore = g.home_team_score    ?? null;
+    if(away) todayGamesCache[away] = { opponent: home, time: timeStr, isHome: false, isLive, period, myScore: awayScore, oppScore: homeScore };
+    if(home) todayGamesCache[home] = { opponent: away, time: timeStr, isHome: true,  isLive, period, myScore: homeScore, oppScore: awayScore };
   }
 
   if(!html){ el.style.display='none'; return; }
@@ -4852,13 +4856,23 @@ function renderTickerBdl(games, todayDate, showYesterday){
 }
 
 // Helper: get today's game info for an NBA team abbreviation
-// Returns {label} e.g. "@ LAL 7:30 PM ET" or "vs GSW 9:00 PM ET", or null
+// Returns an HTML string for display, or null if no game today.
+// e.g. "@ DET, 3 PM ET"  or  "vs GSW · Q3 · 88-91" (live)
 function getTodayGameInfo(teamAbbr){
   if(!teamAbbr) return null;
   const abbr = teamAbbr.toUpperCase();
   const g = todayGamesCache[abbr];
   if(!g) return null;
-  return `${g.isHome ? 'vs' : '@'} ${g.opponent}${g.time ? ', '+g.time : ''}`;
+  const matchup = `${g.isHome ? 'vs' : '@'} ${g.opponent}`;
+  if(g.isLive && g.myScore !== null && g.oppScore !== null){
+    const pLabel = g.period ? `Q${g.period}` : 'LIVE';
+    const leading = parseFloat(g.myScore) > parseFloat(g.oppScore);
+    const trailing = parseFloat(g.myScore) < parseFloat(g.oppScore);
+    const scoreColor = leading ? '#4ade80' : trailing ? 'var(--accent4)' : 'var(--text1)';
+    return `<span style="color:#f6ad55">${matchup} · ${pLabel}</span> <span style="color:${scoreColor};font-weight:700">${g.myScore}–${g.oppScore}</span>`;
+  }
+  // Upcoming: show in teal
+  return `<span style="color:var(--accent2)">${matchup}${g.time ? ', '+g.time : ''}</span>`;
 }
 
 // Extract draft-window ticker items (shared between BDL and ESPN renderers)
@@ -4924,6 +4938,30 @@ function renderTicker(events, todayDate, showYesterday){
     const stA = a.competitions?.[0]?.status?.type?.state;
     const stB = b.competitions?.[0]?.status?.type?.state;
     return (stA==='in'?0:stA==='pre'?1:2) - (stB==='in'?0:stB==='pre'?1:2);
+  });
+
+  // Populate todayGamesCache for player schedule display (pre/live games today only)
+  todayGamesCache = {};
+  sorted.forEach(ev => {
+    const comp2 = ev.competitions?.[0];
+    if(!comp2) return;
+    const ts = comp2.competitors || [];
+    const h2 = ts.find(t=>t.homeAway==='home') || ts[0];
+    const a2 = ts.find(t=>t.homeAway==='away') || ts[1];
+    const hAbbr2 = h2?.team?.abbreviation?.toUpperCase();
+    const aAbbr2 = a2?.team?.abbreviation?.toUpperCase();
+    const evDateStr2 = ev.date ? ev.date.slice(0,10) : '';
+    const isYday2 = todayDate && evDateStr2 !== todayDate;
+    const state2 = comp2.status?.type?.state;
+    if(!isYday2 && state2 !== 'post' && hAbbr2 && aAbbr2){
+      const timeStr = comp2.date ? fmtTime(comp2.date) : '';
+      const isLive2 = state2 === 'in';
+      const hScore2 = isLive2 ? (h2?.score ?? null) : null;
+      const aScore2 = isLive2 ? (a2?.score ?? null) : null;
+      const period2 = isLive2 ? (comp2.status?.period || '') : '';
+      todayGamesCache[aAbbr2] = { opponent: hAbbr2, time: timeStr, isHome: false, isLive: isLive2, period: period2, myScore: aScore2, oppScore: hScore2 };
+      todayGamesCache[hAbbr2] = { opponent: aAbbr2, time: timeStr, isHome: true,  isLive: isLive2, period: period2, myScore: hScore2, oppScore: aScore2 };
+    }
   });
 
   sorted.forEach(ev => {

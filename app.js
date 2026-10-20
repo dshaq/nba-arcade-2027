@@ -4985,8 +4985,12 @@ function renderTicker(events, todayDate, showYesterday){
     const isYday2 = todayDate && evDateStr2 !== todayDate;
     const state2 = comp2.status?.type?.state;
     if(!isYday2 && state2 !== 'post' && hAbbr2 && aAbbr2){
-      const timeStr = comp2.date ? fmtTime(comp2.date) : '';
-      const isLive2 = state2 === 'in';
+      const timeStr = fmtTime(comp2.date || ev.date || '');
+      const period2 = comp2.status?.period || 0;
+      const clock2  = comp2.status?.displayClock || '';
+      const clockIsIso2 = /^\d{4}-\d{2}-\d{2}T/.test(clock2);
+      // Only truly live if period > 0 and clock isn't an ISO timestamp
+      const isLive2 = state2 === 'in' && period2 > 0 && !clockIsIso2;
       const hScore2 = isLive2 ? (h2?.score ?? null) : null;
       const aScore2 = isLive2 ? (a2?.score ?? null) : null;
       const period2 = isLive2 ? (comp2.status?.period || '') : '';
@@ -5013,17 +5017,29 @@ function renderTicker(events, todayDate, showYesterday){
 
     if(stateVal==='in'){
       if(isYesterday) return; // stale live score — skip
-      const period = comp.status?.period || '';
+      const period = comp.status?.period || 0;
       const clock  = comp.status?.displayClock || '';
-      const pLabel = period===5 ? 'OT' : `Q${period}`;
-      const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
-      const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
-      html += `<div class="ticker-game">
-        <span class="live-dot"></span>
-        <span>${awayAbbr} <span class="score" ${awayLead?'style="color:#4ade80"':''}>${awayScore}</span></span>
-        <span class="period">${pLabel} ${clock}</span>
-        <span>${homeAbbr} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
-      </div>`;
+      // ESPN sometimes marks pre-game events as 'in' with period=0 and clock=ISO timestamp
+      // Treat period=0 (or clock looks like ISO date) as upcoming, not live
+      const clockIsIso = /^\d{4}-\d{2}-\d{2}T/.test(clock);
+      if(period === 0 || clockIsIso){
+        // Treat as upcoming
+        if(showYesterday || isYesterday) return;
+        html += `<div class="ticker-game">
+          <span class="upcoming">${fmtTime(comp.date || ev.date)}</span>
+          <span>${awayAbbr} vs ${homeAbbr}</span>
+        </div>`;
+      } else {
+        const pLabel = period===5 ? 'OT' : `Q${period}`;
+        const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
+        const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
+        html += `<div class="ticker-game">
+          <span class="live-dot"></span>
+          <span>${awayAbbr} <span class="score" ${awayLead?'style="color:#4ade80"':''}>${awayScore}</span></span>
+          <span class="period">${pLabel} ${clock}</span>
+          <span>${homeAbbr} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
+        </div>`;
+      }
     } else if(stateVal==='post'){
       if(isYesterday && !showYesterday) return; // past yesterday window
       const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
@@ -5037,7 +5053,7 @@ function renderTicker(events, todayDate, showYesterday){
     } else {
       if(showYesterday || isYesterday) return; // no upcoming before 9 AM
       html += `<div class="ticker-game">
-        <span class="upcoming">${fmtTime(comp.date)}</span>
+        <span class="upcoming">${fmtTime(comp.date || ev.date)}</span>
         <span>${awayAbbr} vs ${homeAbbr}</span>
       </div>`;
     }

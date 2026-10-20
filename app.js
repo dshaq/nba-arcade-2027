@@ -714,6 +714,21 @@ const NBA_TEAMS = {
   SAC:'Kings', SAS:'Spurs', TOR:'Raptors', UTA:'Jazz', WAS:'Wizards',
 };
 
+// Team logos: pixel art uploads for NYK/PHI; ESPN CDN for all others.
+// ESPN team IDs for all 30 franchises.
+const ESPN_TEAM_IDS = {
+  ATL:1, BOS:2, BKN:17, CHA:30, CHI:4, CLE:5, DAL:6, DEN:7, DET:8, GSW:9,
+  HOU:10, IND:11, LAC:12, LAL:13, MEM:29, MIA:14, MIL:15, MIN:16, NOP:3, NYK:18,
+  OKC:25, ORL:19, PHI:20, PHX:21, POR:22, SAC:23, SAS:24, TOR:28, UTA:26, WAS:27,
+};
+const PIXEL_LOGOS = { NYK:'/logos/NYK.png', PHI:'/logos/PHI.png' };
+function getTeamLogoUrl(abbr){
+  if(PIXEL_LOGOS[abbr]) return PIXEL_LOGOS[abbr];
+  const id = ESPN_TEAM_IDS[abbr];
+  if(id) return `https://a.espncdn.com/i/teamlogos/nba/500/${abbr.toLowerCase()}.png`;
+  return null;
+}
+
 // ── PLAYER BIO LOOKUP (from 2026-27 Rosters PDF) ─────────────────────────────
 const PLAYER_INFO = {
 "Nickeil Alexander-Walker":{pos:"SG",ht:"6-5",wt:205,age:28,yrs:7,college:"Virginia Tech",draft:"2019 R1 P17",nat:"Canada"},
@@ -2549,8 +2564,13 @@ function renderDuelCard(){
     };
     const teamBox=(abbr,side)=>{
       const full = NBA_TEAMS?.[abbr] || abbr;
+      const logoUrl = getTeamLogoUrl(abbr);
+      const logoEl = logoUrl
+        ? `<img src="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+          + `<div style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>`
+        : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>`;
       return `<div class="duel-player ${myPick===side&&!settled?'duel-picked':''}" style="${pickedStyle(side)}">
-        <div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1)">${abbr}</div>
+        ${logoEl}
         <div class="dname">${abbr}</div>
         <div class="dstat" style="font-size:9px">${full}</div>
         ${myPick===side?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}

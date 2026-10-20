@@ -2244,8 +2244,9 @@ async function fetchTeamsPlayingOn(dateKey){
         // ESPN: homeAway field distinguishes home vs away
         let home = null, away = null;
         for(const c of competitors){
-          const abbr = c.team?.abbreviation?.toUpperCase();
-          if(!abbr) continue;
+          const raw = c.team?.abbreviation?.toUpperCase();
+          if(!raw) continue;
+          const abbr = espnToAbbr(raw); // normalize ESPN abbrs (e.g. NY → NYK)
           teams.add(abbr);
           if(c.homeAway === 'home') home = abbr;
           else away = abbr;

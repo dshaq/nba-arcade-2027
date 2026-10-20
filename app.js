@@ -2408,12 +2408,12 @@ async function ensureTodaysDuel(){
 
 // Submit a pick (1 or 2)
 async function makeDuelPick(side){
-  const mid = getMyId();
-  if(!mid){ toast('Sign in to play!'); return; }
+  const mid = String(getMyId());
+  if(!mid || mid==='undefined'){ toast('Sign in to play!'); return; }
   const today = todayKey();
   const duel = (leagueState.duels||{})[today];
   if(!duel){ toast('No duel today'); return; }
-  if(duel.picks[mid] !== undefined){ toast('Already picked today!'); return; }
+  if(duel.picks[mid] !== undefined || duel.picks[Number(mid)] !== undefined){ toast('Already picked today!'); return; }
   if(duel.result !== null){ toast('Duel already settled'); return; }
   duel.picks[mid] = side;
   await saveLeagueState();
@@ -2466,9 +2466,9 @@ function getPrevDateKey(dateKey){
 
 // Get my current streak (handles miss-a-day reset)
 function getMyDuelStreak(){
-  const mid = getMyId();
-  if(!mid) return 0;
-  const s = (leagueState.duelStreaks||{})[mid];
+  const mid = String(getMyId());
+  if(!mid || mid==='undefined') return 0;
+  const s = (leagueState.duelStreaks||{})[mid] || (leagueState.duelStreaks||{})[Number(mid)];
   if(!s) return 0;
   const today = todayKey();
   const yesterday = getPrevDateKey(today);
@@ -2478,11 +2478,12 @@ function getMyDuelStreak(){
 }
 
 function getMyDuelPick(){
-  const mid = getMyId();
-  if(!mid) return null;
+  const mid = String(getMyId());
+  if(!mid || mid==='undefined') return null;
   const duel = getTodaysDuel();
   if(!duel) return null;
-  return duel.picks[mid] ?? null;
+  // Support both string and number keys (JSON round-trip always produces string keys)
+  return duel.picks[mid] ?? duel.picks[Number(mid)] ?? null;
 }
 
 // Get the relevant stat display string for a player based on the duel stat type

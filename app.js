@@ -871,11 +871,20 @@ function showPlayerCard(playerName, initialTab) {
     ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(playerName)}.jpeg`
     : (playerPortraits[playerName] || '');
 
-  // Game log from leagueState.playerStats
+  // Game log from leagueState.playerStats + today's live stats
   const pid = p?.id ?? p?.pid;
-  const gameLogs = pid
+  const savedLogs = pid
     ? Object.values(leagueState.playerStats||{}).filter(s=>s.pid===pid).sort((a,b)=>b.date>a.date?1:-1)
     : [];
+  // Prepend today's live/in-progress stats if not already saved
+  const liveStat = pid ? livePlayerStats[pid] : null;
+  const todayKey2 = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  const todaySaved = savedLogs.some(s=>s.date===todayKey2);
+  const gameLogs = (liveStat && !todaySaved)
+    ? [{date:'TODAY (LIVE)', pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
+        stl:liveStat.stl||0, blk:liveStat.blk||0, to:liveStat.to||0, fp:liveStat.fp||0, _live:true},
+       ...savedLogs]
+    : savedLogs;
   const hasGames = gameLogs.length > 0;
   // Default tab: Stats if games exist, else Profile
   const activeTab = initialTab || (hasGames ? 'stats' : 'profile');
@@ -902,8 +911,8 @@ function showPlayerCard(playerName, initialTab) {
         </thead>
         <tbody>
           ${gameLogs.map((g,i)=>`
-          <tr style="background:${i%2===0?'transparent':'rgba(255,255,255,0.02)'}">
-            <td style="padding:6px 8px;color:var(--text2);white-space:nowrap">${g.date||'—'}</td>
+          <tr style="background:${g._live?'rgba(246,173,85,0.08)':i%2===0?'transparent':'rgba(255,255,255,0.02)'}">
+            <td style="padding:6px 8px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${g.date||'—'}</td>
             <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.pts??'—'}</td>
             <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.reb??'—'}</td>
             <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.ast??'—'}</td>
@@ -1681,34 +1690,41 @@ async function refreshLiveStats(){
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
 
-  // ── Try BallDontLie first ──
+  // ── BDL: fetch completed game stats (for persistence) ──
+  let bdlHandledLive = false;
   if(bdlKey){
     try{
-      const todayET = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}); // YYYY-MM-DD
+      const todayET = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
       const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 
-      // Fetch live games
-      const liveData = await bdlFetch('/box_scores/live');
-      const liveGames = liveData?.data || [];
+      // Fetch yesterday's final games and today's completed games (to persist)
+      const [finalData, todayFinalData, liveData] = await Promise.all([
+        bdlFetch('/box_scores', {date: yesterdayET}),
+        bdlFetch('/box_scores', {date: todayET}),
+        bdlFetch('/box_scores/live'),
+      ]);
+      const finalGames     = finalData?.data     || [];
+      const todayFinalGames= (todayFinalData?.data||[]).filter(g=>g.status==='Final');
+      const liveGames      = liveData?.data      || [];
 
-      // Fetch yesterday's final games (to save completed stats)
-      const finalData = await bdlFetch('/box_scores', {date: yesterdayET});
-      const finalGames = finalData?.data || [];
-      // Also today's completed games
-      const todayFinalData = await bdlFetch('/box_scores', {date: todayET});
-      const todayFinalGames = (todayFinalData?.data||[]).filter(g=>g.status==='Final');
-
-      const newLive = parseBdlBoxScore(liveGames, true);
-      const hasLive = liveGames.length > 0;
-
-      // Merge today completed into live view
-      const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
-      for(const [pid, stat] of Object.entries(completedStats)){
-        if(!newLive[pid]) newLive[pid] = stat;
+      // If BDL has live box scores, use them for livePlayerStats
+      if(liveGames.length > 0){
+        const newLive = parseBdlBoxScore(liveGames, true);
+        // Merge today completed into live view
+        const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
+        for(const [pid, stat] of Object.entries(completedStats)){
+          if(!newLive[pid]) newLive[pid] = stat;
+        }
+        livePlayerStats = newLive;
+        liveGamesActive = true;
+        bdlHandledLive = true;
+      } else {
+        // No live BDL data — merge completed stats only, leave live to ESPN below
+        const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
+        for(const [pid, stat] of Object.entries(completedStats)){
+          if(!livePlayerStats[pid]) livePlayerStats[pid] = stat;
+        }
       }
-
-      livePlayerStats = newLive;
-      liveGamesActive = hasLive;
 
       // Persist completed game stats
       const toSave = [...finalGames, ...todayFinalGames];
@@ -1717,7 +1733,6 @@ async function refreshLiveStats(){
         let changed=false;
         const allDoneStats = parseBdlBoxScore(toSave, false);
         for(const [pid,stat] of Object.entries(allDoneStats)){
-          // Each stat now carries its own dateStr and gameId from parseBdlBoxScore
           const key=`${pid}_${stat.dateStr}_${stat.gameId}`;
           if(!leagueState.playerStats[key]){
             leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:stat.dateStr};
@@ -1726,83 +1741,87 @@ async function refreshLiveStats(){
         }
         if(changed) await saveLeagueState();
       }
-
-      // Speed up polling when games are live (30s), slow down otherwise (60s)
-      const targetInterval = hasLive ? 30000 : 60000;
-      if(livePolling && ((hasLive && livePolling._interval!==30000) || (!hasLive && livePolling._interval!==60000))){
-        clearInterval(livePolling);
-        livePolling = setInterval(refreshLiveStats, targetInterval);
-        livePolling._interval = targetInterval;
-      }
-
-      render();
-      return; // BDL succeeded — skip ESPN
-    }catch(e){ console.warn('BDL live stats error, falling back to ESPN:', e); }
+    }catch(e){ console.warn('BDL live stats error:', e); }
   }
 
-  // ── ESPN fallback ──
-  try{
-    const fmt=d=>d.toISOString().split('T')[0].replace(/-/g,'');
-    const today=new Date(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
-    let allEvents=[];
-    for(const dateStr of [fmt(today),fmt(yesterday)]){
-      try{
-        const res=await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?seasontype=2&dates=${dateStr}`);
-        const data=await res.json();
-        allEvents=allEvents.concat((data?.events||[]).map(e=>({...e,_dateStr:dateStr})));
-      }catch(e){}
-    }
+  // ── ESPN: always fetch for live box scores if BDL didn't cover them ──
+  // Also used as the sole source when bdlKey is absent.
+  if(!bdlHandledLive){
     try{
-      const res=await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
-      const data=await res.json();
-      const todayStr2=fmt(today);
-      const live=(data?.events||[]).map(e=>({...e,_dateStr:todayStr2}));
-      const existIds=new Set(allEvents.map(e=>e.id));
-      live.forEach(e=>{ if(!existIds.has(e.id)) allEvents.push(e); });
-    }catch(e){}
-
-    const newLive={};
-    let hasLive=false;
-    const toSave=[];
-    for(const event of allEvents){
-      const st=event.status?.type;
-      const isLive=!st?.completed && st?.state==='in';
-      const isDone=st?.completed;
-      if(!isLive && !isDone) continue;
-      const alreadySaved=isDone && leagueState.playerStats &&
-        Object.keys(leagueState.playerStats).some(k=>k.endsWith('_'+event._dateStr) && leagueState.playerStats[k].gameId===event.id);
+      const fmt=d=>d.toISOString().split('T')[0].replace(/-/g,'');
+      const today=new Date(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+      let allEvents=[];
+      for(const dateStr of [fmt(today),fmt(yesterday)]){
+        try{
+          const res=await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?seasontype=2&dates=${dateStr}`);
+          const data=await res.json();
+          allEvents=allEvents.concat((data?.events||[]).map(e=>({...e,_dateStr:dateStr})));
+        }catch(e){}
+      }
       try{
-        const gs=await fetchBoxScoreESPN(event.id);
-        for(const [pid,stat] of Object.entries(gs)){
-          if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id};
-          newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
-          newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
-          newLive[pid].to  +=stat.to;
-          if(isLive) newLive[pid].live=true;
-        }
-        if(isLive) hasLive=true;
-        if(isDone && !alreadySaved) toSave.push({event,stats:gs,dateStr:event._dateStr});
+        const res=await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+        const data=await res.json();
+        const todayStr2=fmt(today);
+        const live=(data?.events||[]).map(e=>({...e,_dateStr:todayStr2}));
+        const existIds=new Set(allEvents.map(e=>e.id));
+        live.forEach(e=>{ if(!existIds.has(e.id)) allEvents.push(e); });
       }catch(e){}
-    }
-    livePlayerStats=newLive;
-    liveGamesActive=hasLive;
 
-    if(toSave.length>0){
-      if(!leagueState.playerStats) leagueState.playerStats={};
-      let changed=false;
-      for(const {event,stats,dateStr} of toSave){
-        for(const [pid,stat] of Object.entries(stats)){
-          const key=pid+'_'+dateStr+'_'+event.id;
-          if(!leagueState.playerStats[key]){
-            leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id};
-            changed=true;
+      const newLive={};
+      let hasLive=false;
+      const toSave=[];
+      for(const event of allEvents){
+        const st=event.status?.type;
+        // ESPN pre-game false-live: period=0 or displayClock is ISO string → skip
+        const period = event.competitions?.[0]?.status?.period || 0;
+        const clock  = event.competitions?.[0]?.status?.displayClock || '';
+        const clockIsIso = /^\d{4}-\d{2}-\d{2}T/.test(clock);
+        const isLive=!st?.completed && st?.state==='in' && period > 0 && !clockIsIso;
+        const isDone=st?.completed;
+        if(!isLive && !isDone) continue;
+        const alreadySaved=isDone && leagueState.playerStats &&
+          Object.keys(leagueState.playerStats).some(k=>k.endsWith('_'+event._dateStr) && leagueState.playerStats[k].gameId===event.id);
+        try{
+          const gs=await fetchBoxScoreESPN(event.id);
+          for(const [pid,stat] of Object.entries(gs)){
+            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id};
+            newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
+            newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
+            newLive[pid].to  +=stat.to;
+            if(isLive) newLive[pid].live=true;
+          }
+          if(isLive) hasLive=true;
+          if(isDone && !alreadySaved) toSave.push({event,stats:gs,dateStr:event._dateStr});
+        }catch(e){}
+      }
+      livePlayerStats=newLive;
+      liveGamesActive=hasLive;
+
+      if(toSave.length>0){
+        if(!leagueState.playerStats) leagueState.playerStats={};
+        let changed=false;
+        for(const {event,stats,dateStr} of toSave){
+          for(const [pid,stat] of Object.entries(stats)){
+            const key=pid+'_'+dateStr+'_'+event.id;
+            if(!leagueState.playerStats[key]){
+              leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id};
+              changed=true;
+            }
           }
         }
+        if(changed) await saveLeagueState();
       }
-      if(changed) await saveLeagueState();
-    }
-    render();
-  }catch(e){ console.warn('refreshLiveStats error:',e); }
+    }catch(e){ console.warn('refreshLiveStats ESPN error:',e); }
+  }
+
+  // Adjust polling speed based on live game activity
+  const targetInterval = liveGamesActive ? 30000 : 60000;
+  if(livePolling && ((liveGamesActive && livePolling._interval!==30000) || (!liveGamesActive && livePolling._interval!==60000))){
+    clearInterval(livePolling);
+    livePolling = setInterval(refreshLiveStats, targetInterval);
+    livePolling._interval = targetInterval;
+  }
+  render();
 }
 
 function startPolling(){
@@ -4795,16 +4814,8 @@ async function fetchAndRenderTicker(){
     }
   }
 
-  // ── Try BallDontLie first (for scores) ──
-  if(bdlKey){
-    try{
-      const gamesRes = await bdlFetch('/games', {'dates[]': datesToFetch, per_page: 30});
-      const combined = gamesRes?.data || [];
-      if(combined.length){ renderTickerBdl(combined, todayET, showYesterday, teamTimeMap); return; }
-    }catch(e){ console.warn('BDL ticker fetch failed, trying ESPN:', e); }
-  }
-
-  // ── ESPN fallback (already fetched) ──
+  // Use ESPN for rendering — it has live scores, final scores, and accurate game times.
+  // BDL /games doesn't update live scores fast enough for the ticker.
   renderTicker(espnEvents, todayET, showYesterday);
 }
 

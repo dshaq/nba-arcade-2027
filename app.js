@@ -4831,16 +4831,17 @@ function renderTickerBdl(games, todayDate, showYesterday, teamTimeMap={}){
   for(const g of games){
     const away = g.visitor_team?.abbreviation || '???';
     const home = g.home_team?.abbreviation    || '???';
-    const st = g.status; // 'Final', 'In Progress', '7:30 pm' (upcoming), etc.
-    const isUpcoming = st && !['Final','In Progress'].includes(st) && !/^\d/.test(st);
-    // For upcoming games, scores are 0 (not null) — only use scores when actually live/final
-    const awayScore = (!isUpcoming) ? (g.visitor_team_score ?? '') : '';
-    const homeScore = (!isUpcoming) ? (g.home_team_score    ?? '') : '';
+    const st = g.status || '';
+    const isFinal    = st === 'Final' || st.startsWith('Final');
+    const isLiveBdl  = st === 'In Progress';
+    // BDL upcoming status is a time string like "7:00 pm" or "" — anything that isn't Final/In Progress
+    const isUpcoming = !isFinal && !isLiveBdl;
+    const awayScore = isLiveBdl || isFinal ? (g.visitor_team_score ?? '') : '';
+    const homeScore = isLiveBdl || isFinal ? (g.home_team_score    ?? '') : '';
     const isYesterday = g.date && !g.date.startsWith(todayDate);
 
-    if(st==='Final' || st?.startsWith('Final')){
-      // Before 9 AM: show yesterday's finals. After 9 AM: show today's finals too.
-      if(isYesterday && !showYesterday) continue; // past yesterday window
+    if(isFinal){
+      if(isYesterday && !showYesterday) continue;
       const awayWin = parseFloat(awayScore) > parseFloat(homeScore);
       const homeWin = parseFloat(homeScore) > parseFloat(awayScore);
       html += `<div class="ticker-game">
@@ -4849,18 +4850,19 @@ function renderTickerBdl(games, todayDate, showYesterday, teamTimeMap={}){
         <span style="color:var(--border)">·</span>
         <span>${home} <span class="score" ${homeWin?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
-    } else if(st==='In Progress' || /^\d/.test(st||'')){
-      if(isYesterday) continue; // stale live score from yesterday — skip
+    } else if(isLiveBdl){
+      if(isYesterday) continue;
       const awayLead = parseFloat(awayScore) > parseFloat(homeScore);
       const homeLead = parseFloat(homeScore) > parseFloat(awayScore);
+      const period = g.period ? `Q${g.period}` : 'LIVE';
       html += `<div class="ticker-game">
         <span class="live-dot"></span>
         <span>${away} <span class="score" ${awayLead?'style="color:#4ade80"':''}>${awayScore}</span></span>
-        <span class="period">${st||'LIVE'}</span>
+        <span class="period">${period}</span>
         <span>${home} <span class="score" ${homeLead?'style="color:#4ade80"':''}>${homeScore}</span></span>
       </div>`;
     } else {
-      // Upcoming game — only show from 9 AM ET, and only for today
+      // Upcoming — only show from 9 AM ET, today's games only
       if(showYesterday || isYesterday) continue;
       html += `<div class="ticker-game">
         <span class="upcoming">${getTime(g)}</span>

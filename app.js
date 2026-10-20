@@ -1853,15 +1853,14 @@ async function toggleActiveStatus(mid, pid){
   const isInactive=inactive.includes(pid);
 
   if(isActive){
-    // Move to inactive (only if we'd still have at least 1 active, and inactive<2)
+    // Move to bench — only restriction is keeping at least 1 active player
     if(active.length<=1){ toast('Need at least 1 active player'); return; }
-    if(inactive.length>=INACTIVE_SIZE){ toast('Already have 2 inactive players. Activate one first.'); return; }
     leagueState.active[mid]=active.filter(id=>id!==pid);
     leagueState.inactive[mid]=[...(leagueState.inactive[mid]||[]),pid];
   } else {
-    // Move to active
+    // Move to active — can't exceed ACTIVE_SIZE
     if(active.length>=ACTIVE_SIZE){
-      toast(`Active roster full (${ACTIVE_SIZE} max). Set someone to inactive first.`);
+      toast(`Active roster full (${ACTIVE_SIZE} max). Bench someone first.`);
       return;
     }
     leagueState.active[mid]=[...active,pid];
@@ -1869,8 +1868,9 @@ async function toggleActiveStatus(mid, pid){
   }
   await saveLeagueState();
   renderRostersScreen();
+  renderLineupPreview();
   renderHomeScreen();
-  toast(isActive ? 'Moved to Inactive' : 'Moved to Active');
+  toast(isActive ? 'Moved to Bench' : 'Moved to Active');
 }
 
 // ── CURRENT RUN LOGIC ────────────────────────────────────────────────────────
@@ -3111,7 +3111,7 @@ function renderLineupPreview(){
     ${inactive.length ? `
     <div class="lineup-section">
       <div class="lineup-section-label inactive-label">
-        ❌ BENCH <span class="count">(${inactive.length}/${INACTIVE_SIZE})</span>
+        ❌ BENCH <span class="count">(${inactive.length})</span>
       </div>
       ${inactive.map(pid=>rowHtml(pid,'inactive')).join('')}
     </div>` : ''}

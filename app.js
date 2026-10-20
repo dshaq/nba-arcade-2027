@@ -4986,14 +4986,14 @@ function renderTicker(events, todayDate, showYesterday){
     const state2 = comp2.status?.type?.state;
     if(!isYday2 && state2 !== 'post' && hAbbr2 && aAbbr2){
       const timeStr = fmtTime(comp2.date || ev.date || '');
-      const period2 = comp2.status?.period || 0;
-      const clock2  = comp2.status?.displayClock || '';
+      const clock2     = comp2.status?.displayClock || '';
       const clockIsIso2 = /^\d{4}-\d{2}-\d{2}T/.test(clock2);
+      const periodNum2  = comp2.status?.period || 0;
       // Only truly live if period > 0 and clock isn't an ISO timestamp
-      const isLive2 = state2 === 'in' && period2 > 0 && !clockIsIso2;
+      const isLive2 = state2 === 'in' && periodNum2 > 0 && !clockIsIso2;
       const hScore2 = isLive2 ? (h2?.score ?? null) : null;
       const aScore2 = isLive2 ? (a2?.score ?? null) : null;
-      const period2 = isLive2 ? (comp2.status?.period || '') : '';
+      const period2 = isLive2 ? periodNum2 : '';
       todayGamesCache[aAbbr2] = { opponent: hAbbr2, time: timeStr, isHome: false, isLive: isLive2, period: period2, myScore: aScore2, oppScore: hScore2 };
       todayGamesCache[hAbbr2] = { opponent: aAbbr2, time: timeStr, isHome: true,  isLive: isLive2, period: period2, myScore: hScore2, oppScore: aScore2 };
     }

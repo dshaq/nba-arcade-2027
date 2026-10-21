@@ -1221,6 +1221,18 @@ async function loadBdlPlayers(){
 // Normalize a name for fuzzy matching: lowercase, remove punctuation, collapse spaces
 function normName(n){ return n.toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
 
+// Returns a short display name for a player — last name, stripping name suffixes (Jr., Sr., II, III, IV)
+// e.g. "Michael Porter Jr." → "PORTER", "Jaren Jackson Jr." → "JACKSON"
+const NAME_SUFFIXES = new Set(['jr','sr','ii','iii','iv','v']);
+function playerShortName(fullName){
+  const parts = (fullName||'').trim().split(/\s+/);
+  // Strip trailing suffixes
+  while(parts.length > 1 && NAME_SUFFIXES.has(parts[parts.length-1].replace(/\./g,'').toLowerCase())){
+    parts.pop();
+  }
+  return (parts[parts.length-1]||fullName).toUpperCase();
+}
+
 function applyBdlPlayers(bdlPlayers){
   // BDL is the single source of truth for the active player pool.
   // We rebuild PLAYERS from bdlPlayers, preserving existing numeric IDs where possible
@@ -1982,7 +1994,7 @@ function renderDuelScreen(){
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
       ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
+        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.team_name||m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
@@ -2719,8 +2731,8 @@ function renderDuelCard(){
     </div>
     ${!myPick && !settled ? `
     <div class="duel-btns">
-      <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${p1.name.split(' ').pop().toUpperCase()}</button>
-      <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${p2.name.split(' ').pop().toUpperCase()}</button>
+      <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${playerShortName(p1.name)}</button>
+      <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${playerShortName(p2.name)}</button>
     </div>` : ''}
     ${resultBanner}
   </div>`;
@@ -2745,7 +2757,7 @@ function showDuelLeaderboard(){
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
       ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.display_name}${m.id===myId?' ★':''}</div>
+        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.team_name||m.display_name}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
@@ -2788,8 +2800,8 @@ function renderAdminDuelSection(){
         <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:10px">PICKS: ${Object.keys(duel.picks||{}).length} · STATUS: ${settled?'SETTLED ✓':'OPEN'}</div>
         ${!settled ? `
           <div style="display:flex;gap:6px;margin-bottom:8px">
-            <input id="duel-score1" placeholder="${p1?.name?.split(' ').pop()} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
-            <input id="duel-score2" placeholder="${p2?.name?.split(' ').pop()} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-score1" placeholder="${playerShortName(p1?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-score2" placeholder="${playerShortName(p2?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
           <button class="btn btn-full btn-primary" onclick="adminSettleDuel('${today}')">🏁 SETTLE TODAY'S DUEL</button>
         ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">WINNER: PLAYER ${duel.result} · ${duel.score1} vs ${duel.score2}</div>`}
@@ -2798,6 +2810,25 @@ function renderAdminDuelSection(){
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:8px">NO DUEL YET TODAY</div>
         <button class="btn btn-full btn-primary" onclick="adminRegenerateDuel()">⚡ GENERATE TODAY'S DUEL</button>
       `}
+      ${(()=>{
+        // Show yesterday's duel if it exists and is unsettled
+        const yesterday = getPrevDateKey(today);
+        const yDuel = (leagueState.duels||{})[yesterday];
+        if(!yDuel || yDuel.result !== null && yDuel.result !== undefined) return '';
+        const yp1 = getPlayer(yDuel.pid1);
+        const yp2 = getPlayer(yDuel.pid2);
+        return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-family:var(--pixel);font-size:7px;color:var(--accent4);margin-bottom:6px">⚠ YESTERDAY'S DUEL UNSETTLED</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:6px">${yp1?.name||'?'} vs ${yp2?.name||'?'} · ${yDuel.stat?.toUpperCase()}</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:8px">"${yDuel.prompt}"</div>
+          <button class="btn btn-full btn-primary" style="margin-bottom:6px" onclick="adminAutoSettleDuel('${yesterday}')">⚡ AUTO-SETTLE FROM SAVED STATS</button>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input id="duel-yscore1" placeholder="${playerShortName(yp1?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-yscore2" placeholder="${playerShortName(yp2?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+          </div>
+          <button class="btn btn-full btn-secondary" onclick="adminSettleYesterdayDuel('${yesterday}')">🏁 SETTLE MANUALLY</button>
+        </div>`;
+      })()}
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:6px">🚑 INJURED / INACTIVE (excluded from Duel pool)</div>
         <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:8px;line-height:1.8">
@@ -2819,6 +2850,45 @@ async function adminSettleDuel(dateKey){
   if(isNaN(s1)||isNaN(s2)){ toast('Enter both scores'); return; }
   const result = s1>s2 ? 1 : s2>s1 ? 2 : 'tie';
   await settleDuel(dateKey, result, s1, s2);
+  renderAdminContent();
+}
+
+async function adminSettleYesterdayDuel(dateKey){
+  const s1 = parseFloat(document.getElementById('duel-yscore1')?.value);
+  const s2 = parseFloat(document.getElementById('duel-yscore2')?.value);
+  if(isNaN(s1)||isNaN(s2)){ toast('Enter both scores'); return; }
+  const result = s1>s2 ? 1 : s2>s1 ? 2 : 'tie';
+  await settleDuel(dateKey, result, s1, s2);
+  renderAdminContent();
+}
+
+// Auto-settle a past duel using saved player stats from leagueState.playerStats
+async function adminAutoSettleDuel(dateKey){
+  const duel = (leagueState.duels||{})[dateKey];
+  if(!duel){ toast('No duel for that date'); return; }
+  if(duel.result !== null && duel.result !== undefined){ toast('Already settled'); return; }
+  const stat = duel.stat || 'pts';
+  // Look up saved stats for each player on that date
+  const statKey1 = `${duel.pid1}_${dateKey.replace(/-/g,'')}`;
+  const statKey2 = `${duel.pid2}_${dateKey.replace(/-/g,'')}`;
+  const saved = leagueState.playerStats || {};
+  const st1 = saved[statKey1];
+  const st2 = saved[statKey2];
+  if(!st1 && !st2){ toast('No saved stats for that date — enter scores manually'); return; }
+  const getVal = (st) => {
+    if(!st) return null;
+    if(stat==='stl+blk') return (st.stl||0)+(st.blk||0);
+    return st[stat] ?? null;
+  };
+  const v1 = getVal(st1);
+  const v2 = getVal(st2);
+  if(v1===null || v2===null){
+    const missing = v1===null ? getPlayer(duel.pid1)?.name : getPlayer(duel.pid2)?.name;
+    toast(`No ${stat} stat found for ${missing} — enter manually`);
+    return;
+  }
+  const result = v1>v2 ? 1 : v2>v1 ? 2 : 'tie';
+  await settleDuel(dateKey, result, v1, v2);
   renderAdminContent();
 }
 

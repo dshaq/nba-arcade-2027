@@ -945,9 +945,10 @@ function showPlayerCard(playerName, initialTab) {
   // Prepend today's live/in-progress stats if not already saved
   const liveStat = pid ? livePlayerStats[pid] : null;
   const todayKey2 = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
-  const todaySaved = savedLogs.some(s=>s.date===todayKey2);
-  const gameLogs = (liveStat && !todaySaved)
-    ? [{date:'TODAY (LIVE)', pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
+  const liveIsToday = liveStat && (liveStat.live || !liveStat.dateStr || String(liveStat.dateStr)===todayKey2);
+  const showLive = liveIsToday && !liveAlreadySaved(pid, liveStat);
+  const gameLogs = showLive
+    ? [{date: liveStat.live ? 'TODAY (LIVE)' : 'TODAY', pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
         stl:liveStat.stl||0, blk:liveStat.blk||0, to:liveStat.to||0, fp:liveStat.fp||0,
         fgm:liveStat.fgm, fga:liveStat.fga, ftm:liveStat.ftm, fta:liveStat.fta,
         flagrant:liveStat.flagrant, technical:liveStat.technical, _live:true},
@@ -1020,7 +1021,8 @@ function showPlayerCard(playerName, initialTab) {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
 
-  const tabBtn = (id, label) => `<button id="pcard-tab-${id}" onclick="showPlayerCard(${JSON.stringify(playerName)},${JSON.stringify(id)})" style="flex:1;padding:8px 0;font-family:var(--pixel);font-size:5.5px;border:none;cursor:pointer;border-bottom:2px solid ${activeTab===id?'var(--accent1)':'transparent'};background:transparent;color:${activeTab===id?'var(--accent1)':'var(--text3)'}">${label}</button>`;
+  const jsName = playerName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const tabBtn = (id, label) => `<button id="pcard-tab-${id}" onclick="showPlayerCard('${jsName}','${id}')" style="flex:1;padding:8px 0;font-family:var(--pixel);font-size:5.5px;border:none;cursor:pointer;border-bottom:2px solid ${activeTab===id?'var(--accent1)':'transparent'};background:transparent;color:${activeTab===id?'var(--accent1)':'var(--text3)'}">${label}</button>`;
 
   modal.innerHTML = `
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:var(--max-w);max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)">

@@ -2486,6 +2486,8 @@ async function makeDuelPick(side){
 async function settleDuel(dateKey, result, score1, score2){
   const duel = (leagueState.duels||{})[dateKey];
   if(!duel){ toast('No duel for that date'); return; }
+  // Guard: never settle twice — streaks would be double-counted
+  if(duel.result !== null && duel.result !== undefined){ return; }
   duel.result = result; // 1, 2, or 'tie'
   duel.score1 = score1;
   duel.score2 = score2;

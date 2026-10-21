@@ -1141,14 +1141,24 @@ async function loadBdlKey(){
   }catch(e){ console.warn('BDL key fetch failed',e); }
 }
 
+// Endpoints our BDL plan isn't authorized for (401/403). Once refused, we stop
+// calling them for the rest of the session — callers fall back to ESPN.
+const bdlDeniedPaths = new Set();
+
 async function bdlFetch(path, params={}){
   if(!bdlKey) return null;
+  if(bdlDeniedPaths.has(path)) return null;
   const url = new URL(`${BDL_BASE}${path}`);
   Object.entries(params).forEach(([k,v])=>{
     if(Array.isArray(v)) v.forEach(i=>url.searchParams.append(k,i));
     else url.searchParams.set(k,v);
   });
   const res = await fetch(url, { headers:{ Authorization: bdlKey } });
+  if(res.status === 401 || res.status === 403){
+    bdlDeniedPaths.add(path);
+    console.info(`[BDL] ${path} not included in current plan — using ESPN instead`);
+    return null;
+  }
   if(!res.ok){ console.warn('BDL error', res.status, path); return null; }
   return res.json();
 }

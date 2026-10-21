@@ -5121,7 +5121,7 @@ async function fetchAndRenderTicker(){
     // Convert UTC ISO to ET time string
     const timeStr = new Date(isoDate).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET';
     for(const t of (comp.competitors||[])){
-      const abbr = t.team?.abbreviation?.toUpperCase();
+      const abbr = espnToAbbr(t.team?.abbreviation?.toUpperCase());
       if(abbr) teamTimeMap[abbr] = timeStr;
     }
   }
@@ -5356,8 +5356,8 @@ function renderTicker(events, todayDate, showYesterday){
     const home = teams.find(t=>t.homeAway==='home') || teams[0];
     const away = teams.find(t=>t.homeAway==='away') || teams[1];
     const stateVal = comp.status?.type?.state;
-    const homeAbbr = home?.team?.abbreviation || '???';
-    const awayAbbr = away?.team?.abbreviation || '???';
+    const homeAbbr = espnToAbbr(home?.team?.abbreviation?.toUpperCase() || '???');
+    const awayAbbr = espnToAbbr(away?.team?.abbreviation?.toUpperCase() || '???');
     const homeScore = home?.score || '';
     const awayScore = away?.score || '';
     // ESPN stores game dates in UTC — convert to ET date for day comparison

@@ -2807,19 +2807,26 @@ function renderAdminDuelSection(){
   return `
     <div style="margin-top:16px">
       <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:10px">⚡ DAILY DUEL</div>
-      ${duel ? `
-        <div style="font-family:var(--pixel);font-size:6px;color:var(--text2);margin-bottom:6px">${p1?.name||'?'} vs ${p2?.name||'?'}</div>
-        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">"${duel.prompt}"</div>
+      ${duel ? (()=>{
+        const isTeam = duel.stat === 'team';
+        const label1 = isTeam ? (duel.team1||'?') : (p1?.name||'?');
+        const label2 = isTeam ? (duel.team2||'?') : (p2?.name||'?');
+        const short1 = isTeam ? label1 : playerShortName(label1);
+        const short2 = isTeam ? label2 : playerShortName(label2);
+        return `
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--text2);margin-bottom:6px">${label1} vs ${label2}</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">"${duel.prompt||''}"</div>
         <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:10px">PICKS: ${Object.keys(duel.picks||{}).length} · STATUS: ${settled?'SETTLED ✓':'OPEN'}</div>
         ${!settled ? `
           <div style="display:flex;gap:6px;margin-bottom:8px">
-            <input id="duel-score1" placeholder="${playerShortName(p1?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
-            <input id="duel-score2" placeholder="${playerShortName(p2?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-score1" placeholder="${short1} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-score2" placeholder="${short2} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
           <button class="btn btn-full btn-primary" onclick="adminSettleDuel('${today}')">🏁 SETTLE TODAY'S DUEL</button>
-        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">WINNER: PLAYER ${duel.result} · ${duel.score1} vs ${duel.score2}</div>`}
-        <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>
-      ` : `
+        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">WINNER: ${duel.result==='tie'?'TIE':label1} · ${duel.score1} vs ${duel.score2}</div>`}
+        <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>`;
+      })()
+      : `
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:8px">NO DUEL YET TODAY</div>
         <button class="btn btn-full btn-primary" onclick="adminRegenerateDuel()">⚡ GENERATE TODAY'S DUEL</button>
       `}
@@ -2828,16 +2835,19 @@ function renderAdminDuelSection(){
         const yesterday = getPrevDateKey(today);
         const yDuel = (leagueState.duels||{})[yesterday];
         if(!yDuel || yDuel.result !== null && yDuel.result !== undefined) return '';
-        const yp1 = getPlayer(yDuel.pid1);
-        const yp2 = getPlayer(yDuel.pid2);
+        const isTeamDuel = yDuel.stat === 'team';
+        const yLabel1 = isTeamDuel ? (yDuel.team1||'?') : (getPlayer(yDuel.pid1)?.name||'?');
+        const yLabel2 = isTeamDuel ? (yDuel.team2||'?') : (getPlayer(yDuel.pid2)?.name||'?');
+        const yShort1 = isTeamDuel ? yLabel1 : playerShortName(yLabel1);
+        const yShort2 = isTeamDuel ? yLabel2 : playerShortName(yLabel2);
         return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
           <div style="font-family:var(--pixel);font-size:7px;color:var(--accent4);margin-bottom:6px">⚠ YESTERDAY'S DUEL UNSETTLED</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:6px">${yp1?.name||'?'} vs ${yp2?.name||'?'} · ${yDuel.stat?.toUpperCase()}</div>
-          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:8px">"${yDuel.prompt}"</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:6px">${yLabel1} vs ${yLabel2} · ${(yDuel.stat||'').toUpperCase()}</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:8px">"${yDuel.prompt||''}"</div>
           <button class="btn btn-full btn-primary" style="margin-bottom:6px" onclick="adminAutoSettleDuel('${yesterday}')">⚡ AUTO-SETTLE FROM SAVED STATS</button>
           <div style="display:flex;gap:6px;margin-bottom:6px">
-            <input id="duel-yscore1" placeholder="${playerShortName(yp1?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
-            <input id="duel-yscore2" placeholder="${playerShortName(yp2?.name)} stat" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-yscore1" placeholder="${yShort1} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
+            <input id="duel-yscore2" placeholder="${yShort2} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
           <button class="btn btn-full btn-secondary" onclick="adminSettleYesterdayDuel('${yesterday}')">🏁 SETTLE MANUALLY</button>
         </div>`;

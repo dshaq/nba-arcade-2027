@@ -5341,8 +5341,11 @@ function renderTicker(events, todayDate, showYesterday){
       const hScore2 = (isLive2 || isFinal2) ? (h2?.score ?? null) : null;
       const aScore2 = (isLive2 || isFinal2) ? (a2?.score ?? null) : null;
       const period2 = isLive2 ? periodNum2 : '';
-      todayGamesCache[aAbbr2] = { opponent: hAbbr2, time: timeStr, isHome: false, isLive: isLive2, isFinal: isFinal2, period: period2, myScore: aScore2, oppScore: hScore2 };
-      todayGamesCache[hAbbr2] = { opponent: aAbbr2, time: timeStr, isHome: true,  isLive: isLive2, isFinal: isFinal2, period: period2, myScore: hScore2, oppScore: aScore2 };
+      // Normalize ESPN abbreviations (e.g. GS→GSW, NY→NYK, SA→SAS, NO→NOP) before caching
+      const normH2 = espnToAbbr(hAbbr2);
+      const normA2 = espnToAbbr(aAbbr2);
+      todayGamesCache[normA2] = { opponent: normH2, time: timeStr, isHome: false, isLive: isLive2, isFinal: isFinal2, period: period2, myScore: aScore2, oppScore: hScore2 };
+      todayGamesCache[normH2] = { opponent: normA2, time: timeStr, isHome: true,  isLive: isLive2, isFinal: isFinal2, period: period2, myScore: hScore2, oppScore: aScore2 };
     }
   });
 

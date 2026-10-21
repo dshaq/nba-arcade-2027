@@ -1872,6 +1872,7 @@ async function fetchBoxScoreESPN(eventId){
   const box=data?.boxscore;
   if(!box) return {};
   const stats={};
+  const espnIdToPid={}; // ESPN athlete id → our pid, for play-by-play foul attribution
   for(const teamData of (box.players||[])){
     const teamAbbr=espnToAbbr(teamData?.team?.abbreviation||'');
     for(const grp of (teamData.statistics||[])){
@@ -1906,11 +1907,48 @@ async function fetchBoxScoreESPN(eventId){
             const sameTeamLast=PLAYERS.filter(x=>x.team===teamAbbr&&x.name.split(' ').pop().toLowerCase()===pL);
             return pL===eL && sameTeamLast.length===1;
           });
-        if(matched) stats[matched.id]={fp,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical,tpm,tpa,name:matched.name};
+        if(matched){
+          stats[matched.id]={fp,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical,tpm,tpa,name:matched.name};
+          if(a?.athlete?.id) espnIdToPid[String(a.athlete.id)]=matched.id;
+        }
       }
     }
   }
+  // Box scores don't include flagrant/technical fouls — count them from play-by-play
+  const fouls = countFoulsFromPlays(data?.plays||[], espnIdToPid);
+  for(const [pid,f] of Object.entries(fouls)){
+    if(!stats[pid]) continue;
+    stats[pid].flagrant = f.flagrant;
+    stats[pid].technical = f.technical;
+    stats[pid].fp = calcFP(stats[pid]);
+  }
   return stats;
+}
+
+// Count player flagrant and technical fouls from ESPN play-by-play.
+// Excludes free-throw plays ("Free Throw - Flagrant 1 of 2") and team/admin
+// technicals (defensive 3 seconds, delay of game, excess timeout, too many players).
+// The player committing the foul is the first participant; a double technical
+// charges every participant.
+function countFoulsFromPlays(plays, espnIdToPid){
+  const out={};
+  for(const play of plays){
+    const t=((play?.type?.text||'')+' | '+(play?.text||'')).toLowerCase();
+    if(t.includes('free throw')) continue;
+    const isFlagrant = t.includes('flagrant');
+    const isTech = !isFlagrant && t.includes('technical') &&
+      !/defensive 3|3[- ]?sec|delay|excess timeout|too many players|team technical/.test(t);
+    if(!isFlagrant && !isTech) continue;
+    const parts = (play.participants||[]).map(x=>String(x?.athlete?.id||'')).filter(Boolean);
+    const charged = (isTech && t.includes('double')) ? parts : parts.slice(0,1);
+    for(const id of charged){
+      const pid = espnIdToPid[id];
+      if(!pid) continue;
+      if(!out[pid]) out[pid]={flagrant:0, technical:0};
+      if(isFlagrant) out[pid].flagrant++; else out[pid].technical++;
+    }
+  }
+  return out;
 }
 
 let _lastBdlStatsFetch = 0;
@@ -1979,8 +2017,6 @@ async function refreshLiveStats(){
         const isLive=!st?.completed && st?.state==='in' && period > 0 && !clockIsIso;
         const isDone=st?.completed;
         if(!isLive && !isDone) continue;
-        const alreadySaved=isDone && leagueState.playerStats &&
-          Object.keys(leagueState.playerStats).some(k=>k.endsWith('_'+event._dateStr) && leagueState.playerStats[k].gameId===event.id);
         try{
           const gs=await fetchBoxScoreESPN(event.id);
           for(const [pid,stat] of Object.entries(gs)){
@@ -1994,7 +2030,9 @@ async function refreshLiveStats(){
             if(isLive) newLive[pid].live=true;
           }
           if(isLive) hasLive=true;
-          if(isDone && !alreadySaved) toSave.push({event,stats:gs,dateStr:event._dateStr});
+          // Finished games always go through the save step: new lines get saved, and lines
+          // saved earlier (by BDL or ESPN) get ESPN's flagrant/technical counts merged in
+          if(isDone) toSave.push({event,stats:gs,dateStr:event._dateStr});
         }catch(e){}
       }
       livePlayerStats=newLive;
@@ -2004,11 +2042,22 @@ async function refreshLiveStats(){
         if(!leagueState.playerStats) leagueState.playerStats={};
         let changed=false;
         const have = savedPidDateSet();
+        const byPidDate = {};
+        for(const v of Object.values(leagueState.playerStats)) byPidDate[`${v.pid}_${v.date}`] = v;
         for(const {event,stats,dateStr} of toSave){
           snapshotActiveLineups(dateStr); // lock in who was active this date
           for(const [pid,stat] of Object.entries(stats)){
             const key=pid+'_'+dateStr+'_'+event.id;
-            if(have.has(`${pid}_${dateStr}`)) continue; // already saved by BDL
+            if(have.has(`${pid}_${dateStr}`)){
+              // Already saved (usually by BDL, which has no foul data): merge ESPN's fouls in
+              const ex = byPidDate[`${pid}_${dateStr}`];
+              if(ex && ((ex.flagrant||0)!==(stat.flagrant||0) || (ex.technical||0)!==(stat.technical||0))){
+                ex.flagrant = stat.flagrant||0; ex.technical = stat.technical||0;
+                ex.fp = calcFP(ex);
+                changed = true;
+              }
+              continue;
+            }
             if(!leagueState.playerStats[key]){
               have.add(`${pid}_${dateStr}`);
               leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id};
@@ -3462,8 +3511,7 @@ function showMatchupDetail(){
       let liveFPBadge='';
       const live=livePlayerStats[pid];
       if(live&&currentActive.includes(pid)){
-        const alreadySaved=Object.values(leagueState.playerStats||{}).some(s=>s.pid===pid&&s.gameId&&s.gameId===live.gameId);
-        if(!alreadySaved){ fp+=live.fp||0; liveFPBadge=`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`; }
+        if(!liveAlreadySaved(pid, live)){ fp+=live.fp||0; if(live.live) liveFPBadge=`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`; }
       }
       const isCurrentlyActive=currentActive.includes(pid)||currentActive.map(Number).includes(pid);
       const benchLabel=!isCurrentlyActive?`<span style="color:var(--text3);font-size:4.5px"> BENCH</span>`:'';

@@ -2485,20 +2485,26 @@ async function makeDuelPick(side){
 // Recalculate all duel streaks from scratch by replaying every settled duel in order.
 // Fixes any double-counted streaks from duplicate settlements.
 async function recalcDuelStreaks(){
+  // Always reload fresh from Supabase first so we work on the real saved state
+  await loadLeagueState();
   const duels = leagueState.duels || {};
-  const sortedDates = Object.keys(duels).filter(dk => {
+  const settledDates = Object.keys(duels).filter(dk => {
     const d = duels[dk];
     return d.result !== null && d.result !== undefined;
   }).sort();
+  console.log('[recalcDuelStreaks] settled duels:', settledDates);
+  console.log('[recalcDuelStreaks] raw duels object:', JSON.stringify(duels));
   // Reset all streaks
   leagueState.duelStreaks = {};
-  for(const dateKey of sortedDates){
+  for(const dateKey of settledDates){
     const duel = duels[dateKey];
     const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
+    console.log(`[recalcDuelStreaks] ${dateKey}: result=${duel.result}, picks=`, duel.picks, 'counts=', countsForStreak);
     if(!countsForStreak) continue;
     const prevDate = getPrevDateKey(dateKey);
     for(const [mid, pick] of Object.entries(duel.picks||{})){
-      const correct = duel.result === 'tie' ? true : (pick === duel.result);
+      // pick and result may be stored as number or string; coerce for comparison
+      const correct = duel.result === 'tie' ? true : (String(pick) === String(duel.result));
       if(!leagueState.duelStreaks[mid]) leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0};
       const s = leagueState.duelStreaks[mid];
       if(correct){
@@ -2511,8 +2517,10 @@ async function recalcDuelStreaks(){
       s.lastDate = dateKey;
     }
   }
+  console.log('[recalcDuelStreaks] computed duelStreaks:', JSON.stringify(leagueState.duelStreaks));
   await saveLeagueState();
-  toast('Streaks recalculated from scratch ✓');
+  console.log('[recalcDuelStreaks] saved successfully');
+  toast(`Streaks recalculated — ${settledDates.length} duel(s) replayed ✓`);
   renderDuelCard();
   if(currentScreen==='duel') renderDuelScreen();
   renderAdminContent();

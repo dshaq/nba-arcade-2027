@@ -1826,6 +1826,19 @@ async function refreshLiveStats(){
     }catch(e){ console.warn('refreshLiveStats ESPN error:',e); }
   }
 
+  // ── Auto-settle any unsettled duels once final stats are in ──
+  try {
+    const todayK = todayKey();
+    const yesterdayK = getPrevDateKey(todayK);
+    for(const dk of [todayK, yesterdayK]){
+      const d = (leagueState.duels||{})[dk];
+      if(d && (d.result===null || d.result===undefined)){
+        const settled = await autoSettleDuelFromStats(dk, false);
+        if(settled) renderAdminContent(); // refresh admin panel if open
+      }
+    }
+  } catch(e){ console.warn('Auto-settle duel error:', e); }
+
   // Adjust polling speed based on live game activity
   const targetInterval = liveGamesActive ? 30000 : 60000;
   if(livePolling && ((liveGamesActive && livePolling._interval!==30000) || (!liveGamesActive && livePolling._interval!==60000))){
@@ -2862,33 +2875,53 @@ async function adminSettleYesterdayDuel(dateKey){
   renderAdminContent();
 }
 
-// Auto-settle a past duel using saved player stats from leagueState.playerStats
-async function adminAutoSettleDuel(dateKey){
-  const duel = (leagueState.duels||{})[dateKey];
-  if(!duel){ toast('No duel for that date'); return; }
-  if(duel.result !== null && duel.result !== undefined){ toast('Already settled'); return; }
-  const stat = duel.stat || 'pts';
-  // Look up saved stats for each player on that date
-  const statKey1 = `${duel.pid1}_${dateKey.replace(/-/g,'')}`;
-  const statKey2 = `${duel.pid2}_${dateKey.replace(/-/g,'')}`;
+// Find the best saved stat entry for a player on a given date (dateStr = YYYYMMDD)
+function findSavedStat(pid, dateStr){
   const saved = leagueState.playerStats || {};
-  const st1 = saved[statKey1];
-  const st2 = saved[statKey2];
-  if(!st1 && !st2){ toast('No saved stats for that date — enter scores manually'); return; }
-  const getVal = (st) => {
-    if(!st) return null;
-    if(stat==='stl+blk') return (st.stl||0)+(st.blk||0);
-    return st[stat] ?? null;
-  };
-  const v1 = getVal(st1);
-  const v2 = getVal(st2);
-  if(v1===null || v2===null){
-    const missing = v1===null ? getPlayer(duel.pid1)?.name : getPlayer(duel.pid2)?.name;
-    toast(`No ${stat} stat found for ${missing} — enter manually`);
-    return;
+  // Keys are pid_dateStr_gameId — find any entry matching this pid + date
+  const prefix = `${pid}_${dateStr}_`;
+  for(const [k,v] of Object.entries(saved)){
+    if(k.startsWith(prefix) || (v.pid===parseInt(pid) && v.date===dateStr)) return v;
   }
+  return null;
+}
+
+// Extract the relevant stat value from a saved stat entry
+function getDuelStatValue(statEntry, statType){
+  if(!statEntry) return null;
+  if(statType==='stl+blk') return (statEntry.stl||0)+(statEntry.blk||0);
+  const val = statEntry[statType];
+  return val !== undefined && val !== null ? val : null;
+}
+
+// Auto-settle a duel using saved playerStats. Returns true if settled.
+async function autoSettleDuelFromStats(dateKey, silent=false){
+  const duel = (leagueState.duels||{})[dateKey];
+  if(!duel) return false;
+  if(duel.result !== null && duel.result !== undefined) return true; // already done
+  const stat = duel.stat || 'pts';
+  const dateStr = dateKey.replace(/-/g,'');
+  const st1 = findSavedStat(duel.pid1, dateStr);
+  const st2 = findSavedStat(duel.pid2, dateStr);
+  if(!st1 || !st2) return false; // not enough data yet
+  const v1 = getDuelStatValue(st1, stat);
+  const v2 = getDuelStatValue(st2, stat);
+  if(v1===null || v2===null) return false;
   const result = v1>v2 ? 1 : v2>v1 ? 2 : 'tie';
   await settleDuel(dateKey, result, v1, v2);
+  if(!silent){
+    const p1 = getPlayer(duel.pid1);
+    const p2 = getPlayer(duel.pid2);
+    const winName = result==='tie' ? 'TIE' : (result===1 ? p1?.name : p2?.name);
+    toast(`🏁 Duel auto-settled: ${winName} wins (${v1} vs ${v2} ${stat.toUpperCase()})`);
+  }
+  return true;
+}
+
+// Admin manual auto-settle button handler
+async function adminAutoSettleDuel(dateKey){
+  const settled = await autoSettleDuelFromStats(dateKey, false);
+  if(!settled) toast('No saved stats yet for one or both players — enter manually');
   renderAdminContent();
 }
 

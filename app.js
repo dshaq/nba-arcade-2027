@@ -871,9 +871,38 @@ function fantasyStandings(runId){
   }).sort((a,b)=> b.wins!==a.wins ? b.wins-a.wins : b.fp-a.fp);
 }
 
+// Every player relevant to a team this week, with the FP he's contributed to it.
+// Same rules as managerFP: saved games count only if he was Active that day;
+// live points count only while he's Active now. Sum of fp === managerFP(mid).
+function teamWeekRows(mid){
+  const weekStart = currentWeekStart();
+  const roster = ((leagueState.rosters||{})[mid]||[]).map(String);
+  const active = ((leagueState.active||{})[mid] || autoActiveFor(mid)).map(String);
+  const ir = String(getIrSlot(mid) ?? '');
+  const fpBy = new Map();
+  for(const e of Object.values(leagueState.playerStats||{})){
+    const d = e.date ? String(e.date) : '';
+    if(d.length!==8 || statDateObj(d) < weekStart) continue;
+    if(!activeLineupOnDate(mid, d).map(String).includes(String(e.pid))) continue;
+    fpBy.set(String(e.pid), (fpBy.get(String(e.pid))||0) + (e.fp||0));
+  }
+  const pids = new Set([...roster, ...fpBy.keys()]);
+  const rows = [...pids].map(pid=>{
+    const p = getPlayer(Number(pid)) || getPlayer(pid);
+    if(!p) return null;
+    let fp = fpBy.get(pid)||0, isLive = false;
+    const live = livePlayerStats[p.id];
+    if(live && active.includes(pid) && !liveAlreadySaved(p.id, live)){ fp += live.fp||0; isLive = !!live.live; }
+    const status = !roster.includes(pid) ? 'dropped' : pid===ir ? 'ir' : active.includes(pid) ? 'active' : 'bench';
+    return {p, fp:+fp.toFixed(1), status, isLive};
+  }).filter(Boolean);
+  const order = {active:0, bench:1, ir:2, dropped:3};
+  return rows.sort((a,b)=> order[a.status]-order[b.status] || b.fp-a.fp);
+}
+
 function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
-function showUserProfile(mid){
+function showUserProfile(mid, tab='profile'){
   const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid));
   if(!m) return;
   document.getElementById('user-profile-modal')?.remove();
@@ -886,6 +915,35 @@ function showUserProfile(mid){
   const wlc = (leagueState.wlc?.standings||{})[m.id] || {wins:0};
   const ds = (leagueState.duelStreaks||{})[m.id] || (leagueState.duelStreaks||{})[String(m.id)] || {};
   const longest = ds.longest || ds.streak || 0;
+
+  const tabBtn = (id, label) => `<button onclick="showUserProfile('${m.id}','${id}')" style="flex:1;padding:8px 0;font-family:var(--pixel);font-size:5.5px;border:none;cursor:pointer;border-bottom:2px solid ${tab===id?'var(--accent1)':'transparent'};background:transparent;color:${tab===id?'var(--accent1)':'var(--text3)'}">${label}</button>`;
+
+  const statusTag = {
+    active:'<span style="color:var(--accent2)">ACTIVE</span>',
+    bench:'<span style="color:var(--accent4)">BENCH</span>',
+    ir:'<span style="color:#805ad5">IR</span>',
+    dropped:'<span style="color:var(--text3)">DROPPED</span>',
+  };
+  const rosterTabHtml = () => {
+    const rows = teamWeekRows(m.id);
+    const ws = currentWeekStart();
+    const we = new Date(ws); we.setDate(we.getDate()+6);
+    const f = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 8px">
+      <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">WEEK OF ${f(ws).toUpperCase()} – ${f(we).toUpperCase()}</span>
+      <span style="font-family:var(--pixel);font-size:10px;color:var(--accent3)">${managerFP(m.id).toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span></span>
+    </div>
+    ${rows.length ? rows.map(r=>`
+    <div onclick="showPlayerCard(${JSON.stringify(r.p.name).replace(/"/g,'&quot;')})" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="min-width:0">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${r.p.name}${injuryBadgeHtml(r.p.name)}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${r.p.pos} · ${r.p.team} · ${statusTag[r.status]}</div>
+      </div>
+      <div style="font-family:var(--pixel);font-size:8px;color:${r.fp>0?'var(--accent3)':'var(--text3)'};white-space:nowrap">${r.fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span>${r.isLive?'<span class="live-badge" style="font-size:4px;padding:1px 4px;margin-left:4px">LIVE</span>':''}</div>
+    </div>`).join('') : '<div style="text-align:center;padding:24px 0;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ROSTER YET</div>'}
+    <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);line-height:1.8;margin-top:10px">FP shown is what each player has earned for this team this week while Active.</div>`;
+  };
 
   const row = (label, val) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
@@ -903,13 +961,18 @@ function showUserProfile(mid){
       ${avatarEl(m.display_name, m.color||'#4a9eff', 140, 36, m.icon||null, m.photo||null)}
       <button onclick="document.getElementById('user-profile-modal').remove()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
     </div>
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:12px 16px 0">
+      ${tabBtn('profile','USER PROFILE')}
+      ${tabBtn('roster','FANTASY ROSTER')}
+    </div>
     <div style="padding:4px 16px 16px">
+    ${tab==='roster' ? rosterTabHtml() : `
       ${row('Display Name', m.display_name||'—')}
       ${row('Fantasy Team', m.team_name||'—')}
       ${row(`Fantasy Standing${run?' · '+run.name+' Run':''}`, idx>=0 ? `${ordinal(idx+1)} of ${st.length} · ${record}` : '—')}
       ${row('Fantasy FP · This Week', me.fp.toFixed(1)+' FP')}
       ${row('Weekly Challenge Wins', (wlc.wins||0)+(wlc.wins===1?' win':' wins'))}
-      ${row('Daily Duel Longest Streak', longest+(longest===1?' day':' days'))}
+      ${row('Daily Duel Longest Streak', longest+(longest===1?' day':' days'))}`}
     </div>
   </div>`;
   document.body.appendChild(modal);
@@ -2251,7 +2314,7 @@ function renderDuelScreen(){
   // Build leaderboard table
   const rows = managers.map(m=>{
     const s = streaks[m.id] || {streak:0, totalCorrect:0, lastDate:null};
-    const live = (s.lastDate===today||s.lastDate===yesterday) ? s.streak : 0;
+    const live = liveDuelStreak(s);
     return {...m, streak:live, totalCorrect:s.totalCorrect||0};
   }).sort((a,b)=>b.streak!==a.streak?b.streak-a.streak:b.totalCorrect-a.totalCorrect);
   const myId = getMyId();
@@ -2480,6 +2543,24 @@ function getTopScorerHeadlines(){
 //   }
 // }
 // leagueState.duelStreaks: { [managerId]: { streak, lastDate, totalCorrect } }
+// STREAK RULE: you must vote in every Daily Duel. Skipping one breaks the streak.
+// Days with no Duel (no NBA games) don't count either way, so "previous day"
+// always means the previous day that HAD a Duel.
+function prevDuelDateKey(dk){
+  const keys = Object.keys(leagueState.duels||{}).filter(k=>k<dk).sort();
+  return keys.length ? keys[keys.length-1] : getPrevDateKey(dk);
+}
+
+// Streak as it stands right now, for display.
+function liveDuelStreak(s){
+  if(!s) return 0;
+  const today = todayKey();
+  if(s.lastDate === today) return s.streak || 0;
+  // Today's Duel already settled and this person wasn't in it -> they skipped
+  const td = (leagueState.duels||{})[today];
+  if(td && td.result !== null && td.result !== undefined) return 0;
+  return s.lastDate === prevDuelDateKey(today) ? (s.streak || 0) : 0;
+}
 
 const DUEL_STAT_TEMPLATES = [
   // maxDiff = max allowed difference in the featured stat
@@ -2813,9 +2894,13 @@ async function recalcDuelStreaks(){
     const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
     console.log(`[recalcDuelStreaks] ${dateKey}: result=${duel.result}, picks=`, duel.picks, 'counts=', countsForStreak);
     if(!countsForStreak) continue;
-    const prevDate = getPrevDateKey(dateKey);
+    const prevDate = prevDuelDateKey(dateKey);
     if(duel.result === 'void'){
-      for(const s of Object.values(leagueState.duelStreaks)){ if(s.lastDate === prevDate) s.lastDate = dateKey; }
+      for(const mid of Object.keys(duel.picks||{})){
+        const s = leagueState.duelStreaks[mid] || (leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0});
+        if(s.lastDate !== prevDate) s.streak = 0;
+        s.lastDate = dateKey;
+      }
       continue;
     }
     for(const [mid, pick] of Object.entries(duel.picks||{})){
@@ -2854,9 +2939,12 @@ async function settleDuel(dateKey, result, score1, score2){
   if(result === 'void'){
     // Voided duel doesn't count: no wins, no losses, and it doesn't break anyone's streak
     if(!leagueState.duelStreaks) leagueState.duelStreaks = {};
-    const prev = getPrevDateKey(dateKey);
-    for(const s of Object.values(leagueState.duelStreaks)){
-      if(s.lastDate === prev) s.lastDate = dateKey;
+    // Only people who voted keep their streak; skipping still breaks it
+    const prev = prevDuelDateKey(dateKey);
+    for(const mid of Object.keys(duel.picks||{})){
+      const s = leagueState.duelStreaks[mid] || (leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0});
+      if(s.lastDate !== prev) s.streak = 0;
+      s.lastDate = dateKey;
     }
     await saveLeagueState();
     renderDuelCard();
@@ -2868,7 +2956,7 @@ async function settleDuel(dateKey, result, score1, score2){
   const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
   // Update streaks for all managers who picked
   if(!leagueState.duelStreaks) leagueState.duelStreaks = {};
-  const prevDate = getPrevDateKey(dateKey);
+  const prevDate = prevDuelDateKey(dateKey);
   for(const [mid, pick] of Object.entries(duel.picks)){
     const correct = result === 'tie' ? true : (pick === result);
     if(!leagueState.duelStreaks[mid]) leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0};
@@ -2905,11 +2993,7 @@ function getMyDuelStreak(){
   if(!mid || mid==='undefined') return 0;
   const s = (leagueState.duelStreaks||{})[mid] || (leagueState.duelStreaks||{})[Number(mid)];
   if(!s) return 0;
-  const today = todayKey();
-  const yesterday = getPrevDateKey(today);
-  // If lastDate is neither today nor yesterday, streak is dead
-  if(s.lastDate !== today && s.lastDate !== yesterday) return 0;
-  return s.streak || 0;
+  return liveDuelStreak(s);
 }
 
 function getMyDuelPick(){
@@ -3139,7 +3223,7 @@ function showDuelLeaderboard(){
 
   const rows = managers.map(m=>{
     const s = streaks[m.id] || {streak:0, totalCorrect:0, lastDate:null};
-    const live = (s.lastDate===today||s.lastDate===yesterday) ? s.streak : 0;
+    const live = liveDuelStreak(s);
     return {...m, streak:live, totalCorrect:s.totalCorrect||0};
   }).sort((a,b)=>b.streak!==a.streak?b.streak-a.streak:b.totalCorrect-a.totalCorrect);
 

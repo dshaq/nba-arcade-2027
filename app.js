@@ -5240,6 +5240,7 @@ function getTodayGameInfo(teamAbbr){
   if(!teamAbbr) return null;
   const abbr = teamAbbr.toUpperCase();
   const g = todayGamesCache[abbr];
+  if(!g) console.log(`[getTodayGameInfo] MISS for ${abbr} — cache keys:`, Object.keys(todayGamesCache).join(', '));
   if(!g) return null;
   const matchup = `${g.isHome ? 'vs' : '@'} ${g.opponent}`;
   if(g.isLive && g.myScore !== null && g.oppScore !== null){
@@ -5344,6 +5345,7 @@ function renderTicker(events, todayDate, showYesterday){
       // Normalize ESPN abbreviations (e.g. GS→GSW, NY→NYK, SA→SAS, NO→NOP) before caching
       const normH2 = espnToAbbr(hAbbr2);
       const normA2 = espnToAbbr(aAbbr2);
+      console.log(`[todayGamesCache] ESPN raw: ${aAbbr2} vs ${hAbbr2} → normalized: ${normA2} vs ${normH2}`);
       todayGamesCache[normA2] = { opponent: normH2, time: timeStr, isHome: false, isLive: isLive2, isFinal: isFinal2, period: period2, myScore: aScore2, oppScore: hScore2 };
       todayGamesCache[normH2] = { opponent: normA2, time: timeStr, isHome: true,  isLive: isLive2, isFinal: isFinal2, period: period2, myScore: hScore2, oppScore: aScore2 };
     }

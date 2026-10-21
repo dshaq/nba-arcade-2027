@@ -2728,7 +2728,7 @@ function renderDuelCard(){
     <div class="duel-body">
       <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
         <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p1.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
-        <div class="dname">${p1.name.split(' ').pop()}</div>
+        <div class="dname">${playerShortName(p1.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
         ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
         ${pct1}
@@ -2736,7 +2736,7 @@ function renderDuelCard(){
       <div class="duel-vs">VS</div>
       <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
         <div class="portrait-wrap" onclick="event.stopPropagation();showPlayerCard('${p2.name}')" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
-        <div class="dname">${p2.name.split(' ').pop()}</div>
+        <div class="dname">${playerShortName(p2.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
         ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
         ${pct2}

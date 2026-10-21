@@ -1284,6 +1284,7 @@ function applyBdlPlayers(bdlPlayers){
 
     return {
       id,
+      bdlId: bdl.bdlId ?? existing?.bdlId ?? null,
       name: bdl.name,
       pos:  bdl.pos  || existing?.pos  || 'F',
       team: bdl.team || existing?.team || '',
@@ -1620,14 +1621,25 @@ function playerSavedFP(pid){
     .reduce((sum,s)=>sum+(s.fp||0),0);
 }
 
+// Rule: at most ONE saved stat line per player per date, whichever source
+// (BDL or ESPN) saved it first. Game IDs differ between sources, so we key on pid+date.
+function savedPidDateSet(){
+  const set = new Set();
+  for(const v of Object.values(leagueState.playerStats||{})) set.add(`${v.pid}_${v.date}`);
+  return set;
+}
+
+// Is this live/finished game line already counted in saved stats?
+function liveAlreadySaved(pid, live){
+  return Object.values(leagueState.playerStats||{}).some(s =>
+    String(s.pid)===String(pid) &&
+    ((s.gameId && String(s.gameId)===String(live.gameId)) || (live.dateStr && String(s.date)===String(live.dateStr))));
+}
+
 function playerTotalFP(pid){
   const saved = playerSavedFP(pid);
   const live  = livePlayerStats[pid];
-  if(live){
-    const alreadySaved = Object.values(leagueState.playerStats||{})
-      .some(s=>s.pid===pid && s.gameId && s.gameId===live.gameId);
-    if(!alreadySaved) return +(saved + (live.fp||0)).toFixed(1);
-  }
+  if(live && !liveAlreadySaved(pid, live)) return +(saved + (live.fp||0)).toFixed(1);
   return +saved.toFixed(1);
 }
 
@@ -1706,8 +1718,7 @@ function managerFP(mid){
   for(const pid of currentActive){
     const live = livePlayerStats[pid];
     if(!live) continue;
-    const alreadySaved = Object.values(stats).some(s=>s.pid===pid && s.gameId && s.gameId===live.gameId);
-    if(!alreadySaved) total += live.fp || 0;
+    if(!liveAlreadySaved(pid, live)) total += live.fp || 0;
   }
 
   return +total.toFixed(1);
@@ -1734,37 +1745,25 @@ function matchBdlPlayer(firstName, lastName, teamAbbr){
       PLAYERS.filter(x=>x.team===teamAbbr&&x.name.split(' ').pop().toLowerCase()===last).length===1);
 }
 
-// Parse BDL live box score into our stats format.
-// Returns { [pid]: { fp, pts, reb, ast, stl, blk, to, tpm, fgm, fga, ftm, fta,
-//                    live, gameId, dateStr } }
-function parseBdlBoxScore(bdlGames, isLive){
+// Parse BDL /stats rows (one row per player per game) for FINAL games only.
+// Returns { [pid]: {fp, pts, reb, ..., gameId, dateStr} }. Matches by BDL player ID.
+function parseBdlStatRows(rows){
+  const byBdlId = {};
+  for(const p of PLAYERS) if(p.bdlId) byBdlId[p.bdlId] = p;
   const stats = {};
-  for(const game of bdlGames){
-    const gameId  = String(game.id);
-    const dateStr = (game.date||'').split('T')[0].replace(/-/g,'');
-    // BDL box scores: players nested under home_team_box_score / visitor_team_box_score
-    const sides = [game.home_team_box_score, game.visitor_team_box_score].filter(Boolean);
-    for(const side of sides){
-      const teamAbbr = side.team?.abbreviation || '';
-      for(const p of (side.players||[])){
-        if(!p.min || p.min==='00:00') continue;
-        const pts=p.pts||0, reb=p.reb||0, ast=p.ast||0, stl=p.stl||0, blk=p.blk||0;
-        const to=p.turnover||0, fgm=p.fgm||0, fga=p.fga||0;
-        const ftm=p.ftm||0, fta=p.fta||0, tpm=p.fg3m||0, tpa=p.fg3a||0;
-        const flagrant=0, technical=0;
-        const fp = calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
-        const matched = matchBdlPlayer(p.player?.first_name||'', p.player?.last_name||'', teamAbbr);
-        if(matched){
-          const pid = String(matched.id);
-          if(!stats[pid]) stats[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,tpm:0,fgm:0,fga:0,ftm:0,fta:0,live:isLive,gameId,dateStr};
-          stats[pid].fp  +=fp;  stats[pid].pts +=pts; stats[pid].reb +=reb;
-          stats[pid].ast +=ast; stats[pid].stl +=stl; stats[pid].blk +=blk;
-          stats[pid].to  +=to;  stats[pid].tpm +=tpm; stats[pid].fgm +=fgm;
-          stats[pid].fga +=fga; stats[pid].ftm +=ftm; stats[pid].fta +=fta;
-          if(isLive) stats[pid].live = true;
-        }
-      }
-    }
+  for(const r of rows){
+    if(r.game?.status !== 'Final') continue;
+    const min = String(r.min ?? '');
+    if(!min || /^0+(:0+)?$/.test(min)) continue; // DNP
+    const bp = r.player || {};
+    const matched = byBdlId[bp.id] || matchBdlPlayer(bp.first_name||'', bp.last_name||'', r.team?.abbreviation||'');
+    if(!matched) continue;
+    const pts=r.pts||0, reb=r.reb||0, ast=r.ast||0, stl=r.stl||0, blk=r.blk||0;
+    const to=r.turnover||0, fgm=r.fgm||0, fga=r.fga||0, ftm=r.ftm||0, fta=r.fta||0;
+    const tpm=r.fg3m||0, tpa=r.fg3a||0, flagrant=0, technical=0;
+    const fp = calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
+    stats[matched.id] = {fp,pts,reb,ast,stl,blk,to,tpm,tpa,fgm,fga,ftm,fta,flagrant,technical,
+      name: matched.name, gameId: String(r.game.id), dateStr: String(r.game.date||'').split('T')[0].replace(/-/g,''), source:'bdl'};
   }
   return stats;
 }
@@ -1817,64 +1816,36 @@ async function fetchBoxScoreESPN(eventId){
   return stats;
 }
 
+let _lastBdlStatsFetch = 0;
 async function refreshLiveStats(){
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
 
-  // ── BDL: fetch completed game stats (for persistence) ──
-  let bdlHandledLive = false;
-  if(bdlKey){
+  // ── BDL /stats: authoritative FINAL stats, matched by player ID (All-Star plan) ──
+  // Throttled to every 3 min; ESPN below handles live in-game scoring every poll.
+  if(bdlKey && Date.now() - _lastBdlStatsFetch > 3*60*1000){
+    _lastBdlStatsFetch = Date.now();
     try{
       const todayET = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
       const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
-
-      // Fetch yesterday's final games and today's completed games (to persist)
-      const [finalData, todayFinalData, liveData] = await Promise.all([
-        bdlFetch('/box_scores', {date: yesterdayET}),
-        bdlFetch('/box_scores', {date: todayET}),
-        bdlFetch('/box_scores/live'),
-      ]);
-      const finalGames     = finalData?.data     || [];
-      const todayFinalGames= (todayFinalData?.data||[]).filter(g=>g.status==='Final');
-      const liveGames      = liveData?.data      || [];
-
-      // If BDL has live box scores, use them for livePlayerStats
-      if(liveGames.length > 0){
-        const newLive = parseBdlBoxScore(liveGames, true);
-        // Merge today completed into live view
-        const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
-        for(const [pid, stat] of Object.entries(completedStats)){
-          if(!newLive[pid]) newLive[pid] = stat;
-        }
-        livePlayerStats = newLive;
-        liveGamesActive = true;
-        bdlHandledLive = true;
-      } else {
-        // No live BDL data — merge completed stats only, leave live to ESPN below
-        const completedStats = parseBdlBoxScore([...finalGames, ...todayFinalGames], false);
-        for(const [pid, stat] of Object.entries(completedStats)){
-          if(!livePlayerStats[pid]) livePlayerStats[pid] = stat;
-        }
-      }
-
-      // Persist completed game stats
-      const toSave = [...finalGames, ...todayFinalGames];
-      if(toSave.length){
+      const rows = await bdlFetchAll('/stats', {'dates[]':[yesterdayET, todayET]});
+      const finals = parseBdlStatRows(rows||[]);
+      if(Object.keys(finals).length){
         if(!leagueState.playerStats) leagueState.playerStats={};
+        const have = savedPidDateSet();
         let changed=false;
-        const allDoneStats = parseBdlBoxScore(toSave, false);
-        for(const [pid,stat] of Object.entries(allDoneStats)){
-          const key=`${pid}_${stat.dateStr}_${stat.gameId}`;
-          if(!leagueState.playerStats[key]){
-            snapshotActiveLineups(stat.dateStr); // lock in who was active this date
-            leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:stat.dateStr};
-            changed=true;
-          }
+        for(const [pid,stat] of Object.entries(finals)){
+          if(have.has(`${pid}_${stat.dateStr}`)) continue; // already saved (by ESPN or earlier)
+          snapshotActiveLineups(stat.dateStr); // lock in who was active this date
+          leagueState.playerStats[`${pid}_${stat.dateStr}_${stat.gameId}`]={...stat,pid:parseInt(pid),date:stat.dateStr};
+          have.add(`${pid}_${stat.dateStr}`);
+          changed=true;
         }
         if(changed) await saveLeagueState();
       }
-    }catch(e){ console.warn('BDL live stats error:', e); }
+    }catch(e){ console.warn('BDL stats error:', e); }
   }
+  const bdlHandledLive = false; // live scoring always comes from ESPN
 
   // ── ESPN: always fetch for live box scores if BDL didn't cover them ──
   // Also used as the sole source when bdlKey is absent.
@@ -1916,7 +1887,7 @@ async function refreshLiveStats(){
         try{
           const gs=await fetchBoxScoreESPN(event.id);
           for(const [pid,stat] of Object.entries(gs)){
-            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id};
+            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id,dateStr:event._dateStr};
             newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
             newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
             newLive[pid].to  +=stat.to;
@@ -1932,11 +1903,14 @@ async function refreshLiveStats(){
       if(toSave.length>0){
         if(!leagueState.playerStats) leagueState.playerStats={};
         let changed=false;
+        const have = savedPidDateSet();
         for(const {event,stats,dateStr} of toSave){
           snapshotActiveLineups(dateStr); // lock in who was active this date
           for(const [pid,stat] of Object.entries(stats)){
             const key=pid+'_'+dateStr+'_'+event.id;
+            if(have.has(`${pid}_${dateStr}`)) continue; // already saved by BDL
             if(!leagueState.playerStats[key]){
+              have.add(`${pid}_${dateStr}`);
               leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id};
               changed=true;
             }

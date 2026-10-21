@@ -2878,25 +2878,28 @@ function renderAdminDuelSection(){
         <button class="btn btn-full btn-primary" onclick="adminRegenerateDuel()">⚡ GENERATE TODAY'S DUEL</button>
       `}
       ${(()=>{
-        // Show yesterday's duel if it exists and is unsettled
+        // Show yesterday's duel section always (settled or not)
         const yesterday = getPrevDateKey(today);
         const yDuel = (leagueState.duels||{})[yesterday];
-        if(!yDuel || yDuel.result !== null && yDuel.result !== undefined) return '';
+        if(!yDuel) return '';
+        const ySettled = yDuel.result !== null && yDuel.result !== undefined;
         const isTeamDuel = yDuel.stat === 'team';
         const yLabel1 = isTeamDuel ? (yDuel.team1||'?') : (getPlayer(yDuel.pid1)?.name||'?');
         const yLabel2 = isTeamDuel ? (yDuel.team2||'?') : (getPlayer(yDuel.pid2)?.name||'?');
         const yShort1 = isTeamDuel ? yLabel1 : playerShortName(yLabel1);
         const yShort2 = isTeamDuel ? yLabel2 : playerShortName(yLabel2);
+        const yPickCount = Object.keys(yDuel.picks||{}).length;
         return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="font-family:var(--pixel);font-size:7px;color:var(--accent4);margin-bottom:6px">⚠ YESTERDAY'S DUEL UNSETTLED</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:6px">${yLabel1} vs ${yLabel2} · ${(yDuel.stat||'').toUpperCase()}</div>
-          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:8px">"${yDuel.prompt||''}"</div>
-          <button class="btn btn-full btn-primary" style="margin-bottom:6px" onclick="adminAutoSettleDuel('${yesterday}')">⚡ AUTO-SETTLE FROM SAVED STATS</button>
+          <div style="font-family:var(--pixel);font-size:7px;color:${ySettled?'var(--accent2)':'var(--accent4)'};margin-bottom:6px">${ySettled?'✓ YESTERDAY SETTLED':'⚠ YESTERDAY UNSETTLED'}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-bottom:4px">${yLabel1} vs ${yLabel2} · ${(yDuel.stat||'').toUpperCase()}</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:4px">"${yDuel.prompt||''}"</div>
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-bottom:8px">PICKS: ${yPickCount} · RESULT: ${ySettled?`${yDuel.result} (${yDuel.score1} vs ${yDuel.score2})`:'NONE'}</div>
+          ${!ySettled ? `<button class="btn btn-full btn-primary" style="margin-bottom:6px" onclick="adminAutoSettleDuel('${yesterday}')">⚡ AUTO-SETTLE FROM SAVED STATS</button>` : ''}
           <div style="display:flex;gap:6px;margin-bottom:6px">
             <input id="duel-yscore1" placeholder="${yShort1} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
             <input id="duel-yscore2" placeholder="${yShort2} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
-          <button class="btn btn-full btn-secondary" onclick="adminSettleYesterdayDuel('${yesterday}')">🏁 SETTLE MANUALLY</button>
+          <button class="btn btn-full btn-secondary" onclick="adminForceSettleYesterdayDuel('${yesterday}')">${ySettled?'🔄 RE-SETTLE (OVERRIDE)':'🏁 SETTLE MANUALLY'}</button>
         </div>`;
       })()}
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
@@ -2927,6 +2930,28 @@ async function adminSettleYesterdayDuel(dateKey){
   const s1 = parseFloat(document.getElementById('duel-yscore1')?.value);
   const s2 = parseFloat(document.getElementById('duel-yscore2')?.value);
   if(isNaN(s1)||isNaN(s2)){ toast('Enter both scores'); return; }
+  const result = s1>s2 ? 1 : s2>s1 ? 2 : 'tie';
+  await settleDuel(dateKey, result, s1, s2);
+  renderAdminContent();
+}
+
+// Force re-settle a duel even if already settled — clears old result first,
+// rebuilds duelStreaks from scratch, then settles with the given scores.
+async function adminForceSettleYesterdayDuel(dateKey){
+  const s1 = parseFloat(document.getElementById('duel-yscore1')?.value);
+  const s2 = parseFloat(document.getElementById('duel-yscore2')?.value);
+  if(isNaN(s1)||isNaN(s2)){ toast('Enter both scores for ' + dateKey); return; }
+  // Reload fresh from Supabase
+  await loadLeagueState();
+  const duel = (leagueState.duels||{})[dateKey];
+  if(!duel){ toast('No duel found for ' + dateKey); return; }
+  // Clear the old result so the guard in settleDuel allows re-settlement
+  duel.result = null;
+  duel.score1 = null;
+  duel.score2 = null;
+  // Also wipe duelStreaks so we start fresh — recalcDuelStreaks will rebuild after
+  leagueState.duelStreaks = {};
+  // Now settle normally (guard will pass since result is null)
   const result = s1>s2 ? 1 : s2>s1 ? 2 : 'tie';
   await settleDuel(dateKey, result, s1, s2);
   renderAdminContent();

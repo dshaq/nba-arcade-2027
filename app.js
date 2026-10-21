@@ -1430,7 +1430,7 @@ function applyBdlSeasonAverages(averages){
 // Status values from BDL: "Out", "Day-To-Day", "Questionable", etc.
 // Cached in localStorage for 1 hour (injury status changes throughout the day).
 const BDL_INJURY_CACHE_KEY = 'bdl-injuries-2027-v2'; // bumped to force fresh fetch
-const BDL_INJURY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const BDL_INJURY_CACHE_TTL = 15 * 60 * 1000; // 15 min — game-day OUT calls come late
 
 async function loadBdlInjuries(){
   if(!bdlKey) return;
@@ -1467,11 +1467,36 @@ function applyBdlInjuries(injuries){
   if(document.getElementById('draft-player-list')) renderDraftPlayerList();
   if(document.getElementById('waiver-player-list')) renderWaiverPlayerList();
   if(document.getElementById('rosters-content')) renderRostersScreen();
+  renderLineupPreview();
+  renderMyRosterList();
 }
 
 // Returns injury info for a player name, or null
 function getInjuryStatus(playerName){
   return BDL_INJURIES[playerName] || null;
+}
+
+// Single source of truth for interpreting a BDL injury status.
+// BDL statuses seen: "Out", "Doubtful", "Questionable", "Probable", "Day-To-Day".
+function injuryInfo(playerName){
+  const inj = getInjuryStatus(playerName);
+  if(!inj) return null;
+  const s = (inj.status||'').toLowerCase();
+  let label, color;
+  if(s.includes('out'))            { label='OUT';  color='#e53e3e'; }
+  else if(s.includes('doubt'))     { label='DOUBT';color='#dd6b20'; }
+  else if(s.includes('question'))  { label='Q';    color='#d69e2e'; }
+  else if(s.includes('probable'))  { label='PROB'; color='#38a169'; }
+  else if(s.includes('day'))       { label='DTD';  color='#d69e2e'; }
+  else                             { label=(inj.status||'INJ').toUpperCase().slice(0,5); color='#d69e2e'; }
+  return { label, color, isOut: label==='OUT', title: (inj.description||inj.status||'').replace(/"/g,"'") };
+}
+
+// Small colored badge for player rows. Empty string if healthy.
+function injuryBadgeHtml(playerName){
+  const i = injuryInfo(playerName);
+  if(!i) return '';
+  return `<span title="${i.title}" style="background:${i.color};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${i.label}</span>`;
 }
 
 async function loadPortraits(){
@@ -3460,7 +3485,7 @@ function renderLineupPreview(){
     <div class="player-row"${isOnIR?` style="background:rgba(128,90,213,0.06)"`:''}>
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
-        <div class="player-name">${p.name}${isLive?' <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
+        <div class="player-name">${p.name}${injuryBadgeHtml(p.name)}${isLive?' <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
         <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
@@ -3649,9 +3674,7 @@ function renderDraftPlayerList(){
         const isRookie = p.yearsExp === 0 || (p.yearsExp === null && p.draftYear === 2026);
         const rookieBadge = isRookie ? `<span style="background:var(--accent3);color:#000;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">ROOKIE</span>` : '';
         const inj = getInjuryStatus(p.name);
-        const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';
-        const injLabel = inj?.status?.toLowerCase().includes('day') ? 'DTD' : inj ? 'OUT' : '';
-        const injBadge = inj ? `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${injColor};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${injLabel}</span>` : '';
+        const injBadge = injuryBadgeHtml(p.name);
         const projLine=`<div class="player-meta" style="color:var(--accent3)">${projFPVal} ${projLabel}</div>`;
         return `
         <div class="player-row" style="padding:8px 14px">
@@ -4124,9 +4147,7 @@ function renderRostersScreen(){
     const inj = getInjuryStatus(p.name);
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${viewManager?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
-    const injColor = inj?.status?.toLowerCase().includes('day') ? '#d69e2e' : '#e53e3e';
-    const injLabel = inj?.status?.toLowerCase().includes('day') ? 'DTD' : inj ? 'OUT' : '';
-    const injBadge = inj ? `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${injColor};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${injLabel}</span>` : '';
+    const injBadge = injuryBadgeHtml(p.name);
     const irBadge = isOnIR ? `<span style="background:#805ad5;color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px">IR</span>` : '';
     const statusLabel = isOnIR
       ? '<span style="color:#805ad5">■ INJURY RESERVE</span>'
@@ -4150,7 +4171,7 @@ function renderRostersScreen(){
       } else {
         // Normal mode: Bench/Activate + IR buttons
         // Only show → IR button for OUT status (not DTD)
-        const isOut = inj && !inj.status?.toLowerCase().includes('day');
+        const isOut = !!injuryInfo(p.name)?.isOut;
         actionBtns = isOnIR
           ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
           : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
@@ -4242,7 +4263,7 @@ function renderMyRosterList(){
     <div class="player-row" style="padding:8px 14px">
       <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
-        <div class="player-name">${p.name} ${isLocked?'🔒':''}</div>
+        <div class="player-name">${p.name}${injuryBadgeHtml(p.name)} ${isLocked?'🔒':''}</div>
         <div class="player-meta">${p.pos} · ${p.team}</div>
         <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● BENCH</span>'}</div>
         <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
@@ -4357,7 +4378,7 @@ function renderWaiverPlayerList(){
         <div class="player-row" style="padding:8px 14px">
           <div class="player-portrait" onclick="showPlayerCard('${p.name}')" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
-            <div class="player-name">${p.name}${(()=>{const inj=getInjuryStatus(p.name);if(!inj)return '';const c=inj.status?.toLowerCase().includes('day')?'#d69e2e':'#e53e3e';const l=inj.status?.toLowerCase().includes('day')?'DTD':'OUT';return `<span title="${(inj.description||inj.status).replace(/"/g,"'")}" style="background:${c};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:1px 4px;border-radius:3px;margin-left:4px;cursor:help">${l}</span>`;})()}</div>
+            <div class="player-name">${p.name}${injuryBadgeHtml(p.name)}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
             <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
           </div>
@@ -4429,7 +4450,7 @@ async function putOnIR(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const inj = getInjuryStatus(p.name);
   // Only OUT status qualifies — DTD does not
-  const isOut = inj && !inj.status?.toLowerCase().includes('day');
+  const isOut = !!injuryInfo(p.name)?.isOut;
   if(!isOut){ toast('Only players with OUT status can be placed on IR'); return; }
   if(getIrSlot(mid) && getIrSlot(mid)!==pid){ toast('IR slot already used. Remove current IR player first'); return; }
   if(!leagueState.ir) leagueState.ir={};
@@ -4462,7 +4483,7 @@ function checkIrClearedBlock(mid){
   if(!p) return false;
   const inj = getInjuryStatus(p.name);
   // Injury has cleared when there's no injury status at all, or status is not OUT
-  const stillOut = inj && !inj.status?.toLowerCase().includes('day');
+  const stillOut = !!injuryInfo(p.name)?.isOut;
   if(!stillOut){
     // Show prompt modal
     const existing=document.getElementById('ir-cleared-modal');
@@ -5129,6 +5150,9 @@ async function fetchAndRenderTicker(){
   // Use ESPN for rendering — it has live scores, final scores, and accurate game times.
   // BDL /games doesn't update live scores fast enough for the ticker.
   renderTicker(espnEvents, todayET, showYesterday);
+  // todayGamesCache is now populated — redraw lineup views so game info/scores are current
+  renderLineupPreview();
+  renderMyRosterList();
 
   // Auto-settle team-win duels now that todayGamesCache is populated with final scores
   try {
@@ -5428,6 +5452,7 @@ async function boot(){
   // to populate BDL_STATS with live FP projections. Both run fire-and-forget.
   loadBdlPlayers();
   loadBdlInjuries();
+  setInterval(loadBdlInjuries, BDL_INJURY_CACHE_TTL); // keep injury report fresh while app is open
 
   // Auth state listener
   db.auth.onAuthStateChange(async (event,session)=>{

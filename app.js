@@ -1534,6 +1534,7 @@ function defaultLeagueState(){
     active:{},          // {managerId: [pid,...]}  — 8 active players
     inactive:{},        // {managerId: [pid,...]}  — 2 inactive
     playerStats:{},     // {key: {pid,date,gameId,fp,...}}
+    activeSnapshots:{}, // {dateStr: {managerId: [pids]}} — who was active on each date (for FP scoring)
     waiverLog:{},       // {managerId: [{pid,date,type:'add'|'drop'},...]}
     waiverWeekCount:{}, // {managerId_weekStart: count}
     matchups:{},        // {runId: [{week,home,away,homeFP,awayFP,winner},...]}
@@ -1588,10 +1589,63 @@ function rosterFP(pids){
   return pids.reduce((s,pid)=>s+playerTotalFP(pid),0);
 }
 
-// Active 8 FP total for a manager
+// Snapshot the active lineup for every manager on a given dateStr (YYYYMMDD).
+// Called once per date the first time stats for that date are saved.
+// This locks in who was active on each day so benchings later don't strip FP.
+function snapshotActiveLineups(dateStr){
+  if(!leagueState.activeSnapshots) leagueState.activeSnapshots = {};
+  if(leagueState.activeSnapshots[dateStr]) return; // already snapshotted
+  const snap = {};
+  for(const m of (leagueState.managers||[])){
+    const mid = m.id;
+    snap[mid] = (leagueState.active||{})[mid] || autoActiveFor(mid);
+  }
+  leagueState.activeSnapshots[dateStr] = snap;
+}
+
+// Total FP a manager has earned this week — uses active snapshots for past
+// dates so players earn points for the day they played, not based on today's lineup.
 function managerFP(mid){
-  const active = (leagueState.active||{})[mid] || autoActiveFor(mid);
-  return +rosterFP(active).toFixed(1);
+  const weekStart = currentWeekStart();
+  const today = todayKey().replace(/-/g,''); // YYYYMMDD
+  const stats = leagueState.playerStats || {};
+  const snapshots = leagueState.activeSnapshots || {};
+  const currentActive = (leagueState.active||{})[mid] || autoActiveFor(mid);
+
+  let total = 0;
+  // Sum saved stats from this week for players who were active on the day they played
+  for(const entry of Object.values(stats)){
+    // entry.date is YYYYMMDD
+    const entryDate = entry.date ? String(entry.date) : null;
+    if(!entryDate) continue;
+    // Convert YYYYMMDD to Date for week-range check
+    const y = parseInt(entryDate.slice(0,4)), mo = parseInt(entryDate.slice(4,6))-1, dy = parseInt(entryDate.slice(6,8));
+    const entryDateObj = new Date(y, mo, dy);
+    if(entryDateObj < weekStart) continue; // before this week
+    // Determine active lineup for that date
+    const activeThatDay = entryDate === today
+      ? currentActive
+      : (snapshots[entryDate]?.[mid] || null);
+    if(!activeThatDay){
+      // No snapshot for this date (stats saved before this feature).
+      // Fall back to checking if player is on the manager's current roster.
+      const roster = (leagueState.rosters||{})[mid] || [];
+      if(!roster.includes(entry.pid) && !roster.map(Number).includes(entry.pid)) continue;
+    } else {
+      if(!activeThatDay.includes(entry.pid) && !activeThatDay.map(Number).includes(entry.pid)) continue;
+    }
+    total += entry.fp || 0;
+  }
+
+  // Add live stats for players active right now (today, game in progress)
+  for(const pid of currentActive){
+    const live = livePlayerStats[pid];
+    if(!live) continue;
+    const alreadySaved = Object.values(stats).some(s=>s.pid===pid && s.gameId && s.gameId===live.gameId);
+    if(!alreadySaved) total += live.fp || 0;
+  }
+
+  return +total.toFixed(1);
 }
 
 // Auto-select top 8 by season FP if user hasn't set lineup (excludes IR player)
@@ -1747,6 +1801,7 @@ async function refreshLiveStats(){
         for(const [pid,stat] of Object.entries(allDoneStats)){
           const key=`${pid}_${stat.dateStr}_${stat.gameId}`;
           if(!leagueState.playerStats[key]){
+            snapshotActiveLineups(stat.dateStr); // lock in who was active this date
             leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:stat.dateStr};
             changed=true;
           }
@@ -1813,6 +1868,7 @@ async function refreshLiveStats(){
         if(!leagueState.playerStats) leagueState.playerStats={};
         let changed=false;
         for(const {event,stats,dateStr} of toSave){
+          snapshotActiveLineups(dateStr); // lock in who was active this date
           for(const [pid,stat] of Object.entries(stats)){
             const key=pid+'_'+dateStr+'_'+event.id;
             if(!leagueState.playerStats[key]){
@@ -3122,18 +3178,64 @@ function showMatchupDetail(){
   const oppColor=opp?.color||'#4a9eff';
 
   const buildRosterRows=(managerId)=>{
-    const active=(leagueState.active||{})[managerId]||autoActiveFor(managerId);
-    return active.map(pid=>{
+    // Collect all players who contributed FP this week for this manager
+    const weekStart = currentWeekStart();
+    const today = todayKey().replace(/-/g,'');
+    const snapshots = leagueState.activeSnapshots || {};
+    const currentActive = (leagueState.active||{})[managerId] || autoActiveFor(managerId);
+    const contributorSet = new Set();
+    // From saved stats this week
+    for(const entry of Object.values(leagueState.playerStats||{})){
+      const entryDate = entry.date ? String(entry.date) : null;
+      if(!entryDate) continue;
+      const y=parseInt(entryDate.slice(0,4)), mo=parseInt(entryDate.slice(4,6))-1, dy=parseInt(entryDate.slice(6,8));
+      if(new Date(y,mo,dy) < weekStart) continue;
+      const activeThatDay = entryDate===today ? currentActive : (snapshots[entryDate]?.[managerId]||null);
+      const roster=(leagueState.rosters||{})[managerId]||[];
+      const onRoster=roster.includes(entry.pid)||roster.map(Number).includes(entry.pid);
+      const wasActive=activeThatDay
+        ? (activeThatDay.includes(entry.pid)||activeThatDay.map(Number).includes(entry.pid))
+        : onRoster; // fallback: count if on roster (pre-snapshot data)
+      if(wasActive) contributorSet.add(entry.pid);
+    }
+    // Always include today's active players (even if no stats yet)
+    for(const pid of currentActive) contributorSet.add(pid);
+
+    const pids = [...contributorSet];
+    return pids.map(pid=>{
       const p=getPlayer(pid); if(!p) return '';
-      const fp=playerTotalFP(pid);
-      const live=(leagueState.playerStats||{})[`${pid}_${todayKey()}`];
-      const liveFP=live?`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`:'';
+      // FP for this manager this week for this player
+      let fp=0;
+      for(const entry of Object.values(leagueState.playerStats||{})){
+        if(entry.pid!==pid && entry.pid!==parseInt(pid)) continue;
+        const entryDate=entry.date?String(entry.date):null;
+        if(!entryDate) continue;
+        const y=parseInt(entryDate.slice(0,4)),mo=parseInt(entryDate.slice(4,6))-1,dy=parseInt(entryDate.slice(6,8));
+        if(new Date(y,mo,dy)<weekStart) continue;
+        const activeThatDay=entryDate===today?currentActive:(snapshots[entryDate]?.[managerId]||null);
+        const roster2=(leagueState.rosters||{})[managerId]||[];
+        const wasActive2=activeThatDay
+          ?(activeThatDay.includes(entry.pid)||activeThatDay.map(Number).includes(entry.pid))
+          :(roster2.includes(entry.pid)||roster2.map(Number).includes(entry.pid));
+        if(wasActive2) fp+=entry.fp||0;
+      }
+      const live=livePlayerStats[pid];
+      let liveFPBadge='';
+      if(live){
+        const alreadySaved=Object.values(leagueState.playerStats||{}).some(s=>s.pid===pid&&s.gameId&&s.gameId===live.gameId);
+        if(!alreadySaved&&currentActive.includes(pid)){
+          fp+=live.fp||0;
+          liveFPBadge=`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`;
+        }
+      }
+      const isCurrentlyActive=currentActive.includes(pid)||currentActive.map(Number).includes(pid);
+      const benchLabel=!isCurrentlyActive?`<span style="color:var(--text3);font-size:4.5px"> BENCH</span>`:'';
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
         <div>
-          <div style="font-family:var(--pixel);font-size:6px;color:var(--text1)">${p.name.split(' ').pop()}</div>
+          <div style="font-family:var(--pixel);font-size:6px;color:var(--text1)">${p.name.split(' ').pop()}${benchLabel}</div>
           <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${p.pos} · ${p.team}</div>
         </div>
-        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3);text-align:right">${fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span>${liveFP}</div>
+        <div style="font-family:var(--pixel);font-size:7px;color:${fp>0?'var(--accent3)':'var(--text3)'};text-align:right">${fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span>${liveFPBadge}</div>
       </div>`;
     }).join('');
   };

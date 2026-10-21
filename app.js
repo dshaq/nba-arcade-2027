@@ -2019,12 +2019,16 @@ async function dropPlayer(mid, pid){
 }
 
 // Toggle active/inactive
+// A player is locked (can't be benched/activated) once his game has tipped off today.
+function isPlayerLocked(p){
+  const g = p && todayGamesCache[(p.team||'').toUpperCase()];
+  return !!(g && (g.isLive || g.isFinal));
+}
+
 async function toggleActiveStatus(mid, pid){
-  // Lock: a player can't be benched or activated once his game has tipped off today.
-  // Prevents both losing earned FP and activating a player after a big night.
+  // Lock: prevents both losing earned FP and activating a player after a big night.
   const lp = getPlayer(pid);
-  const lg = lp && todayGamesCache[(lp.team||'').toUpperCase()];
-  if(lg && (lg.isLive || lg.isFinal)){
+  if(isPlayerLocked(lp)){
     toast(`🔒 ${lp.name}'s game has started — locked until tomorrow`);
     return;
   }
@@ -3524,9 +3528,16 @@ function showFantasyRulesModal(){
 
       ${section('LINEUP CHANGES','var(--accent1)',`
         ${row('Setting','Daily')}
-        ${row('Locks','Before the first game of each day')}
+        ${row('Locks','Each player locks at his own tip-off')}
+        ${row('Unlocks','Next day')}
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
-          Lineups must be set before the first tip-off each day. This means daily attention to the schedule — swap in hot players, bench injured ones, and pick up free agents throughout the week. The more involved, the better your team.
+          Each player locks when his game tips off. Once locked, he can't be moved between Active and Bench until the next day. Players whose games haven't started stay movable, so you can still adjust for late games.
+        </div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Only Active players earn FP. FP a player earns while Active stays with your team for the matchup, even if you bench or drop him later. A player who plays while on your Bench earns nothing.
+        </div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          This takes daily attention to the schedule: swap in hot players, bench injured ones, and pick up free agents throughout the week. The more involved, the better your team.
         </div>
       `)}
 
@@ -3604,7 +3615,7 @@ function renderLineupPreview(){
       ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
     // Toggle button
-    const toggleBtn = isOnIR ? '' : isActive
+    const toggleBtn = isOnIR ? '' : isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : isActive
       ? `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent4);color:var(--accent4)" onclick="toggleActiveStatus('${mid}',${pid})">Bench</button>`
       : `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent2);color:var(--accent2)" onclick="toggleActiveStatus('${mid}',${pid})">Activate</button>`;
     return `
@@ -4300,7 +4311,7 @@ function renderRostersScreen(){
         const isOut = !!injuryInfo(p.name)?.isOut;
         actionBtns = isOnIR
           ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
-          : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>
+          : `${isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>`}
              ${isOut&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
       }
     }
@@ -4397,9 +4408,9 @@ function renderMyRosterList(){
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${mid}',${pid})">
+          ${isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${mid}',${pid})">
             ${isActive?'Bench':'Activate'}
-          </button>
+          </button>`}
           ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${mid}',${pid})">Drop</button>`:''}
         </div>
       </div>

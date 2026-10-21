@@ -1125,7 +1125,23 @@ async function syncManagersToState(){
   } else console.warn('[syncManagers] data is null/undefined');
 }
 
+// Append to activeLog whenever a manager's active list differs from their last
+// logged entry. Runs on every save, so no lineup-changing path can skip history.
+function logActiveChanges(){
+  if(!leagueState) return;
+  if(!leagueState.activeLog) leagueState.activeLog = {};
+  const now = new Date().toISOString();
+  for(const [mid, act] of Object.entries(leagueState.active||{})){
+    if(!Array.isArray(act)) continue;
+    const log = leagueState.activeLog[mid] || (leagueState.activeLog[mid] = []);
+    const last = log[log.length-1]?.active || null;
+    const same = last && last.length===act.length && [...last].map(String).sort().join()===[...act].map(String).sort().join();
+    if(!same) log.push({ts: now, active: [...act]});
+  }
+}
+
 async function saveLeagueState(){
+  logActiveChanges();
   await db.from('leagues').upsert({id:LEAGUE_KEY, state:JSON.stringify(leagueState)});
 }
 
@@ -1664,6 +1680,9 @@ function snapshotActiveLineups(dateStr){
 // Uses activeLog (most accurate), falls back to activeSnapshots, then
 // falls back to current active/inactive (for pre-log data).
 function activeLineupOnDate(mid, dateStr){
+  // Commissioner-confirmed lineup for this date always wins (used to repair history)
+  const ov = (leagueState.lineupOverrides||{})[dateStr]?.[mid];
+  if(ov) return ov;
   // Try the append-only log first — find last entry on or before game date
   const log = (leagueState.activeLog||{})[mid];
   if(log && log.length > 0){
@@ -2001,6 +2020,14 @@ async function dropPlayer(mid, pid){
 
 // Toggle active/inactive
 async function toggleActiveStatus(mid, pid){
+  // Lock: a player can't be benched or activated once his game has tipped off today.
+  // Prevents both losing earned FP and activating a player after a big night.
+  const lp = getPlayer(pid);
+  const lg = lp && todayGamesCache[(lp.team||'').toUpperCase()];
+  if(lg && (lg.isLive || lg.isFinal)){
+    toast(`🔒 ${lp.name}'s game has started — locked until tomorrow`);
+    return;
+  }
   const active=(leagueState.active||{})[mid]||autoActiveFor(mid);
   const inactive=(leagueState.inactive||{})[mid]||[];
   const isActive=active.includes(pid);
@@ -4981,9 +5008,77 @@ async function renderAdminContent(){
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
   </div>
 
+  ${renderAdminLineupFixSection()}
   ${renderAdminDuelSection()}
   ${renderAdminWlcSection()}
   `;
+}
+
+// ── COMMISSIONER: FIX PAST LINEUPS ──────────────────────────────────────────
+// Lists every player with saved stats on a date, per team, with a checkbox for
+// "was active that day". Saving writes leagueState.lineupOverrides[date][mid].
+let adminLineupFixDate = '2026-10-20';
+function renderAdminLineupFixSection(){
+  const dateStr = adminLineupFixDate.replace(/-/g,'');
+  const stats = Object.values(leagueState.playerStats||{}).filter(v=>String(v.date)===dateStr);
+  const fpByPid = {};
+  for(const v of stats) fpByPid[v.pid] = (fpByPid[v.pid]||0) + (v.fp||0);
+  const teams = allManagers().map(m=>{
+    const mid = m.id;
+    const counted = new Set(activeLineupOnDate(mid, dateStr).map(String));
+    const pool = new Set([...((leagueState.rosters||{})[mid]||[]), ...activeLineupOnDate(mid, dateStr)].map(String));
+    const rows = [...pool].filter(pid=>fpByPid[pid]!==undefined).map(pid=>{
+      const p = getPlayer(Number(pid)) || getPlayer(pid);
+      return {pid, name:p?.name||pid, fp:fpByPid[pid], on:counted.has(pid)};
+    }).sort((a,b)=>b.fp-a.fp);
+    return {m, rows};
+  });
+  const fixed = !!(leagueState.lineupOverrides||{})[dateStr];
+  return `
+  <div class="section-label" style="padding:12px 0 8px">📋 FIX PAST LINEUPS</div>
+  <div class="card" style="margin:0">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">
+      Check every player who was <b>ACTIVE</b> on this date. Checked players' FP count toward their team; unchecked don't.
+      ${fixed?'<br><span style="color:var(--accent2)">✓ This date has been reviewed before.</span>':''}
+    </div>
+    <input type="date" value="${adminLineupFixDate}" onchange="adminLineupFixDate=this.value;renderAdminContent()"
+      style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:6px;margin-bottom:8px"/>
+    ${stats.length ? teams.map(({m,rows})=>`
+      <div style="margin-top:10px">
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--accent3);margin-bottom:4px">${m.team_name||m.display_name}</div>
+        ${rows.length ? rows.map(r=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;cursor:pointer">
+            <input type="checkbox" class="lineup-fix-cb" data-mid="${m.id}" data-pid="${r.pid}" ${r.on?'checked':''}/>
+            <span style="flex:1">${r.name}</span>
+            <span style="font-family:var(--pixel);font-size:6px;color:var(--accent3)">${r.fp.toFixed(1)} FP</span>
+            ${r.on?'':'<span style="font-family:var(--pixel);font-size:5px;color:#e53e3e">NOT COUNTED</span>'}
+          </label>`).join('') : '<div style="font-size:11px;color:var(--text3)">No rostered players with stats</div>'}
+      </div>`).join('')
+    : '<div style="font-size:11px;color:var(--text3)">No saved stats for this date.</div>'}
+    ${stats.length?`<button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adminSaveLineupFix()">💾 SAVE LINEUPS FOR ${adminLineupFixDate}</button>`:''}
+  </div>`;
+}
+
+async function adminSaveLineupFix(){
+  const dateStr = adminLineupFixDate.replace(/-/g,'');
+  // Read checkbox state before reloading (reload re-renders nothing, but be safe)
+  const boxes = [...document.querySelectorAll('.lineup-fix-cb')].map(cb=>({mid:cb.dataset.mid, pid:cb.dataset.pid, on:cb.checked}));
+  await loadLeagueState(); // work on fresh saved state
+  const ov = {};
+  for(const m of allManagers()){
+    // Start from current best guess, then apply the commissioner's checkboxes
+    const set = new Set(activeLineupOnDate(m.id, dateStr).map(String));
+    for(const b of boxes.filter(b=>String(b.mid)===String(m.id))){
+      if(b.on) set.add(b.pid); else set.delete(b.pid);
+    }
+    ov[m.id] = [...set].map(x=>isNaN(x)?x:Number(x));
+  }
+  if(!leagueState.lineupOverrides) leagueState.lineupOverrides = {};
+  leagueState.lineupOverrides[dateStr] = ov;
+  await saveLeagueState();
+  toast(`Lineups for ${adminLineupFixDate} saved — team totals updated ✓`);
+  renderAdminContent();
+  renderHomeScreen();
 }
 
 

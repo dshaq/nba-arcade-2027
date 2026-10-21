@@ -1480,6 +1480,7 @@ function applyBdlInjuries(injuries){
   if(document.getElementById('rosters-content')) renderRostersScreen();
   renderLineupPreview();
   renderMyRosterList();
+  renderNewsBanner();
   maybeSwapInjuredDuel();
 }
 
@@ -2226,6 +2227,10 @@ function renderNewsBanner(){
     top.forEach(h => rows.push({ label:'top', labelText:'TOP', text: h }));
   }
 
+  // ── Voided Daily Duel notice (always first) ─────────────────────────────
+  const voidNotice = getDuelVoidNotice();
+  if(voidNotice) rows.unshift({ label:'duel', labelText:'DUEL', text: voidNotice });
+
   if(!rows.length){ el.style.display='none'; return; }
 
   const fmtDateEST = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'});
@@ -2674,6 +2679,10 @@ async function recalcDuelStreaks(){
     console.log(`[recalcDuelStreaks] ${dateKey}: result=${duel.result}, picks=`, duel.picks, 'counts=', countsForStreak);
     if(!countsForStreak) continue;
     const prevDate = getPrevDateKey(dateKey);
+    if(duel.result === 'void'){
+      for(const s of Object.values(leagueState.duelStreaks)){ if(s.lastDate === prevDate) s.lastDate = dateKey; }
+      continue;
+    }
     for(const [mid, pick] of Object.entries(duel.picks||{})){
       // pick and result may be stored as number or string; coerce for comparison
       const correct = duel.result === 'tie' ? true : (String(pick) === String(duel.result));
@@ -2704,9 +2713,22 @@ async function settleDuel(dateKey, result, score1, score2){
   if(!duel){ toast('No duel for that date'); return; }
   // Guard: never settle twice — streaks would be double-counted
   if(duel.result !== null && duel.result !== undefined){ return; }
-  duel.result = result; // 1, 2, or 'tie'
+  duel.result = result; // 1, 2, 'tie', or 'void'
   duel.score1 = score1;
   duel.score2 = score2;
+  if(result === 'void'){
+    // Voided duel doesn't count: no wins, no losses, and it doesn't break anyone's streak
+    if(!leagueState.duelStreaks) leagueState.duelStreaks = {};
+    const prev = getPrevDateKey(dateKey);
+    for(const s of Object.values(leagueState.duelStreaks)){
+      if(s.lastDate === prev) s.lastDate = dateKey;
+    }
+    await saveLeagueState();
+    renderDuelCard();
+    if(currentScreen==='duel') renderDuelScreen();
+    renderNewsBanner();
+    return;
+  }
   // Streaks and leaderboard only count once the regular season begins (Oct 20)
   const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
   // Update streaks for all managers who picked
@@ -2911,7 +2933,10 @@ function renderDuelCard(){
     const stat1txt = duel.score1 !== null ? duel.score1 : '—';
     const stat2txt = duel.score2 !== null ? duel.score2 : '—';
     statLine = `<div class="duel-scores"><span>${stat1txt}</span><span style="font-size:6px;color:var(--text3)">${statType.toUpperCase()}</span><span>${stat2txt}</span></div>`;
-    if(duel.result === 'tie'){
+    if(duel.result === 'void'){
+      statLine = '';
+      resultBanner = `<div class="duel-result-banner" style="color:var(--text3)">NO CONTEST — ${(duel.voidReason||'PLAYER DID NOT PLAY').toUpperCase()} · STREAKS HOLD</div>`;
+    } else if(duel.result === 'tie'){
       resultBanner = `<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
     } else {
       const myCorrect = myPick !== null && myPick === duel.result;
@@ -2925,6 +2950,7 @@ function renderDuelCard(){
 
   const pickedStyle = (side) => {
     if(!settled && myPick===side) return `box-shadow:0 0 0 2px var(--accent2);`;
+    if(settled && duel.result==='void') return myPick===side ? `box-shadow:0 0 0 2px var(--text3);` : '';
     if(settled){
       const won = duel.result===side || duel.result==='tie';
       return myPick===side ? `box-shadow:0 0 0 2px ${won?winColor:loseColor};` : '';
@@ -3041,7 +3067,7 @@ function renderAdminDuelSection(){
             <input id="duel-score2" placeholder="${short2} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
           <button class="btn btn-full btn-primary" onclick="adminSettleDuel('${today}')">🏁 SETTLE TODAY'S DUEL</button>
-        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">WINNER: ${duel.result==='tie'?'TIE':label1} · ${duel.score1} vs ${duel.score2}</div>`}
+        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">${duel.result==='void' ? `VOID · ${duel.voidReason||'player did not play'}` : `WINNER: ${duel.result==='tie'?'TIE':label1} · ${duel.score1} vs ${duel.score2}`}</div>`}
         <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>
         <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="recalcDuelStreaks()">🔁 RECALC ALL STREAKS</button>`;
       })()
@@ -3150,6 +3176,30 @@ function getDuelStatValue(statEntry, statType){
 
 // Auto-settle a duel. Handles both team-win duels and player-stat duels.
 // Returns true if settled, false if data not yet available.
+// A player "sat out" a date if his team's completed game has persisted stats
+// (teammates saved) but he has none. Stats are only saved for final games.
+function playerSatOut(pid, dateStr){
+  const p = getPlayer(pid); if(!p) return false;
+  if(findSavedStat(pid, dateStr)) return false;
+  const team = (p.team||'').toUpperCase();
+  for(const v of Object.values(leagueState.playerStats||{})){
+    if(String(v.date) !== dateStr || String(v.pid) === String(p.id)) continue;
+    if((getPlayer(v.pid)?.team||'').toUpperCase() === team) return true;
+  }
+  return false;
+}
+
+// Banner text when today's duel is (or is about to be) voided, else null.
+function getDuelVoidNotice(){
+  const duel = getTodaysDuel();
+  if(!duel || duel.type === 'team' || duel.stat === 'team') return null;
+  if(duel.result === 'void') return `Due to ${duel.voidReason || 'a player not playing'}, today's Daily Duel will not count.`;
+  if(duel.result !== null && duel.result !== undefined) return null;
+  const out = [duel.pid1, duel.pid2].map(getPlayer).filter(p => p && injuryInfo(p.name)?.isOut);
+  if(!out.length) return null;
+  return `Due to ${out.map(p=>`${p.name}'s status (OUT)`).join(' and ')}, today's Daily Duel will not count.`;
+}
+
 async function autoSettleDuelFromStats(dateKey, silent=false){
   const duel = (leagueState.duels||{})[dateKey];
   if(!duel) return false;
@@ -3178,6 +3228,14 @@ async function autoSettleDuelFromStats(dateKey, silent=false){
 
   // ── Player stat duel ──
   const dateStr = dateKey.replace(/-/g,'');
+  // Void if either player's game finished without him (DNP) — doesn't count for streaks
+  const satOut = [duel.pid1, duel.pid2].filter(pid => playerSatOut(pid, dateStr)).map(getPlayer).filter(Boolean);
+  if(satOut.length){
+    duel.voidReason = satOut.map(p => `${p.name} not playing`).join(' and ');
+    await settleDuel(dateKey, 'void', null, null);
+    if(!silent) toast(`Daily Duel voided: ${duel.voidReason}`);
+    return true;
+  }
   const st1 = findSavedStat(duel.pid1, dateStr);
   const st2 = findSavedStat(duel.pid2, dateStr);
   if(!st1 || !st2) return false; // not enough data yet

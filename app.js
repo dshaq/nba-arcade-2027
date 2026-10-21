@@ -2894,12 +2894,35 @@ function getDuelStatValue(statEntry, statType){
   return val !== undefined && val !== null ? val : null;
 }
 
-// Auto-settle a duel using saved playerStats. Returns true if settled.
+// Auto-settle a duel. Handles both team-win duels and player-stat duels.
+// Returns true if settled, false if data not yet available.
 async function autoSettleDuelFromStats(dateKey, silent=false){
   const duel = (leagueState.duels||{})[dateKey];
   if(!duel) return false;
   if(duel.result !== null && duel.result !== undefined) return true; // already done
   const stat = duel.stat || 'pts';
+
+  // ── Team win duel ──
+  if(stat === 'team'){
+    const t1 = duel.team1; // e.g. 'PHI'
+    const t2 = duel.team2; // e.g. 'NYK'
+    const g1 = todayGamesCache[t1];
+    const g2 = todayGamesCache[t2];
+    // Need a final game between these two teams
+    if(!g1 || !g1.isFinal) return false;
+    const score1 = parseFloat(g1.myScore);
+    const score2 = parseFloat(g1.oppScore);
+    if(isNaN(score1) || isNaN(score2)) return false;
+    const result = score1 > score2 ? 1 : score2 > score1 ? 2 : 'tie';
+    await settleDuel(dateKey, result, score1, score2);
+    if(!silent){
+      const winName = result==='tie' ? 'TIE' : (result===1 ? t1 : t2);
+      toast(`🏁 Duel auto-settled: ${winName} wins (${score1}–${score2})`);
+    }
+    return true;
+  }
+
+  // ── Player stat duel ──
   const dateStr = dateKey.replace(/-/g,'');
   const st1 = findSavedStat(duel.pid1, dateStr);
   const st2 = findSavedStat(duel.pid2, dateStr);
@@ -2921,7 +2944,7 @@ async function autoSettleDuelFromStats(dateKey, silent=false){
 // Admin manual auto-settle button handler
 async function adminAutoSettleDuel(dateKey){
   const settled = await autoSettleDuelFromStats(dateKey, false);
-  if(!settled) toast('No saved stats yet for one or both players — enter manually');
+  if(!settled) toast('No saved stats yet — enter scores manually');
   renderAdminContent();
 }
 
@@ -4921,6 +4944,20 @@ async function fetchAndRenderTicker(){
   // Use ESPN for rendering — it has live scores, final scores, and accurate game times.
   // BDL /games doesn't update live scores fast enough for the ticker.
   renderTicker(espnEvents, todayET, showYesterday);
+
+  // Auto-settle team-win duels now that todayGamesCache is populated with final scores
+  try {
+    const todayK = todayKey();
+    const yesterdayK = getPrevDateKey(todayK);
+    for(const dk of [todayK, yesterdayK]){
+      const d = (leagueState.duels||{})[dk];
+      if(d && d.stat === 'team' && (d.result===null || d.result===undefined)){
+        autoSettleDuelFromStats(dk, false).then(settled => {
+          if(settled) { renderDuelCard(); if(currentScreen==='duel') renderDuelScreen(); }
+        });
+      }
+    }
+  } catch(e){ console.warn('Auto-settle team duel error:', e); }
 }
 
 // Render ticker from BDL /games response
@@ -5108,18 +5145,19 @@ function renderTicker(events, todayDate, showYesterday){
     const evDateStr2 = ev.date ? new Date(ev.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}) : '';
     const isYday2 = todayDate && evDateStr2 !== todayDate;
     const state2 = comp2.status?.type?.state;
-    if(!isYday2 && state2 !== 'post' && hAbbr2 && aAbbr2){
+    if(!isYday2 && hAbbr2 && aAbbr2){
       const timeStr = fmtTime(comp2.date || ev.date || '');
       const clock2     = comp2.status?.displayClock || '';
       const clockIsIso2 = /^\d{4}-\d{2}-\d{2}T/.test(clock2);
       const periodNum2  = comp2.status?.period || 0;
       // Only truly live if period > 0 and clock isn't an ISO timestamp
       const isLive2 = state2 === 'in' && periodNum2 > 0 && !clockIsIso2;
-      const hScore2 = isLive2 ? (h2?.score ?? null) : null;
-      const aScore2 = isLive2 ? (a2?.score ?? null) : null;
+      const isFinal2 = state2 === 'post';
+      const hScore2 = (isLive2 || isFinal2) ? (h2?.score ?? null) : null;
+      const aScore2 = (isLive2 || isFinal2) ? (a2?.score ?? null) : null;
       const period2 = isLive2 ? periodNum2 : '';
-      todayGamesCache[aAbbr2] = { opponent: hAbbr2, time: timeStr, isHome: false, isLive: isLive2, period: period2, myScore: aScore2, oppScore: hScore2 };
-      todayGamesCache[hAbbr2] = { opponent: aAbbr2, time: timeStr, isHome: true,  isLive: isLive2, period: period2, myScore: hScore2, oppScore: aScore2 };
+      todayGamesCache[aAbbr2] = { opponent: hAbbr2, time: timeStr, isHome: false, isLive: isLive2, isFinal: isFinal2, period: period2, myScore: aScore2, oppScore: hScore2 };
+      todayGamesCache[hAbbr2] = { opponent: aAbbr2, time: timeStr, isHome: true,  isLive: isLive2, isFinal: isFinal2, period: period2, myScore: hScore2, oppScore: aScore2 };
     }
   });
 

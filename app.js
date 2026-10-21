@@ -2482,6 +2482,42 @@ async function makeDuelPick(side){
   if(currentScreen==='duel') renderDuelScreen();
 }
 
+// Recalculate all duel streaks from scratch by replaying every settled duel in order.
+// Fixes any double-counted streaks from duplicate settlements.
+async function recalcDuelStreaks(){
+  const duels = leagueState.duels || {};
+  const sortedDates = Object.keys(duels).filter(dk => {
+    const d = duels[dk];
+    return d.result !== null && d.result !== undefined;
+  }).sort();
+  // Reset all streaks
+  leagueState.duelStreaks = {};
+  for(const dateKey of sortedDates){
+    const duel = duels[dateKey];
+    const countsForStreak = new Date(dateKey) >= NBA_SEASON_START;
+    if(!countsForStreak) continue;
+    const prevDate = getPrevDateKey(dateKey);
+    for(const [mid, pick] of Object.entries(duel.picks||{})){
+      const correct = duel.result === 'tie' ? true : (pick === duel.result);
+      if(!leagueState.duelStreaks[mid]) leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0};
+      const s = leagueState.duelStreaks[mid];
+      if(correct){
+        s.streak = (s.lastDate === prevDate ? s.streak : 0) + 1;
+        s.totalCorrect = (s.totalCorrect||0) + 1;
+        if(s.streak > (s.longest||0)) s.longest = s.streak;
+      } else {
+        s.streak = 0;
+      }
+      s.lastDate = dateKey;
+    }
+  }
+  await saveLeagueState();
+  toast('Streaks recalculated from scratch ✓');
+  renderDuelCard();
+  if(currentScreen==='duel') renderDuelScreen();
+  renderAdminContent();
+}
+
 // Commissioner: set the result and update streaks
 async function settleDuel(dateKey, result, score1, score2){
   const duel = (leagueState.duels||{})[dateKey];
@@ -2826,7 +2862,8 @@ function renderAdminDuelSection(){
           </div>
           <button class="btn btn-full btn-primary" onclick="adminSettleDuel('${today}')">🏁 SETTLE TODAY'S DUEL</button>
         ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">WINNER: ${duel.result==='tie'?'TIE':label1} · ${duel.score1} vs ${duel.score2}</div>`}
-        <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>`;
+        <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>
+        <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="recalcDuelStreaks()">🔁 RECALC ALL STREAKS</button>`;
       })()
       : `
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:8px">NO DUEL YET TODAY</div>

@@ -849,6 +849,72 @@ const PLAYER_INFO = {
 // ── PLAYER CARD MODAL ─────────────────────────────────────────────────────────
 let openPlayerCardName = null; // track for BDL refresh
 
+// ── USER PROFILE ─────────────────────────────────────────────────────────────
+function teamLabel(m){ return m ? (m.team_name || m.display_name || '') : ''; }
+
+// Wrap a name so tapping it opens that manager's User Profile.
+// stopPropagation: many rows (e.g. matchup cards) have their own click handlers.
+function userLink(mid, text){
+  if(mid===undefined || mid===null) return text;
+  return `<span class="user-link" onclick="event.stopPropagation();showUserProfile('${mid}')" style="cursor:pointer">${text}</span>`;
+}
+
+function fantasyStandings(runId){
+  const schedule = (leagueState.schedule||{})[runId] || [];
+  return (leagueState.managers||[]).map(m=>{
+    let wins=0, losses=0, ties=0;
+    schedule.forEach(week=>week.forEach(mu=>{
+      if(!mu.winner || (mu.home!==m.id && mu.away!==m.id)) return;
+      if(mu.winner===m.id) wins++; else if(mu.winner==='tie') ties++; else losses++;
+    }));
+    return {id:m.id, wins, losses, ties, fp:managerFP(m.id)};
+  }).sort((a,b)=> b.wins!==a.wins ? b.wins-a.wins : b.fp-a.fp);
+}
+
+function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+function showUserProfile(mid){
+  const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid));
+  if(!m) return;
+  document.getElementById('user-profile-modal')?.remove();
+
+  const st = fantasyStandings(currentRun);
+  const idx = st.findIndex(x=>String(x.id)===String(m.id));
+  const me = st[idx] || {wins:0, losses:0, ties:0, fp:managerFP(m.id)};
+  const record = `${me.wins}-${me.losses}${me.ties?'-'+me.ties:''}`;
+  const run = RUNS.find(r=>r.id===currentRun);
+  const wlc = (leagueState.wlc?.standings||{})[m.id] || {wins:0};
+  const ds = (leagueState.duelStreaks||{})[m.id] || (leagueState.duelStreaks||{})[String(m.id)] || {};
+  const longest = ds.longest || ds.streak || 0;
+
+  const row = (label, val) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
+    <span style="font-family:var(--pixel);font-size:7px;color:var(--text1);text-align:right">${val}</span>
+  </div>`;
+
+  const modal = document.createElement('div');
+  modal.id = 'user-profile-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  modal.innerHTML = `
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:var(--max-w);max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0"></div>
+    <div style="position:relative;background:var(--bg3);margin:12px 16px 0;border-radius:12px;padding:24px 0;display:flex;justify-content:center">
+      ${avatarEl(m.display_name, m.color||'#4a9eff', 140, 36, m.icon||null, m.photo||null)}
+      <button onclick="document.getElementById('user-profile-modal').remove()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:4px 16px 16px">
+      ${row('Display Name', m.display_name||'—')}
+      ${row('Fantasy Team', m.team_name||'—')}
+      ${row(`Fantasy Standing${run?' · '+run.name+' Run':''}`, idx>=0 ? `${ordinal(idx+1)} of ${st.length} · ${record}` : '—')}
+      ${row('Fantasy FP · This Week', me.fp.toFixed(1)+' FP')}
+      ${row('Weekly Challenge Wins', (wlc.wins||0)+(wlc.wins===1?' win':' wins'))}
+      ${row('Daily Duel Longest Streak', longest+(longest===1?' day':' days'))}
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
 function showPlayerCard(playerName, initialTab) {
   openPlayerCardName = playerName;
   document.getElementById('player-card-modal')?.remove();
@@ -882,7 +948,9 @@ function showPlayerCard(playerName, initialTab) {
   const todaySaved = savedLogs.some(s=>s.date===todayKey2);
   const gameLogs = (liveStat && !todaySaved)
     ? [{date:'TODAY (LIVE)', pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
-        stl:liveStat.stl||0, blk:liveStat.blk||0, to:liveStat.to||0, fp:liveStat.fp||0, _live:true},
+        stl:liveStat.stl||0, blk:liveStat.blk||0, to:liveStat.to||0, fp:liveStat.fp||0,
+        fgm:liveStat.fgm, fga:liveStat.fga, ftm:liveStat.ftm, fta:liveStat.fta,
+        flagrant:liveStat.flagrant, technical:liveStat.technical, _live:true},
        ...savedLogs]
     : savedLogs;
   const hasGames = gameLogs.length > 0;
@@ -896,30 +964,38 @@ function showPlayerCard(playerName, initialTab) {
 
   const statsTabHtml = hasGames ? `
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5.5px;min-width:360px">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5.5px;min-width:380px">
         <thead>
           <tr style="background:var(--bg3)">
-            <th style="text-align:left;padding:6px 8px;color:var(--text3);font-weight:normal;white-space:nowrap">DATE</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">PTS</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">REB</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">AST</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">STL</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">BLK</th>
-            <th style="padding:6px 4px;color:var(--text3);font-weight:normal">TO</th>
-            <th style="padding:6px 8px;color:var(--accent3);font-weight:normal">FP</th>
+            <th style="text-align:left;padding:6px 4px;color:var(--text3);font-weight:normal;white-space:nowrap">DATE</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">PTS</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">REB</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">AST</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">STL</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">BLK</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal" title="Missed field goals">MFG</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal" title="Missed free throws">MFT</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal">TO</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal" title="Flagrant fouls">FLG</th>
+            <th style="padding:6px 2px;color:var(--text3);font-weight:normal" title="Technical fouls">TECH</th>
+            <th style="padding:6px 4px;color:var(--accent3);font-weight:normal">FP</th>
           </tr>
         </thead>
         <tbody>
           ${gameLogs.map((g,i)=>`
           <tr style="background:${g._live?'rgba(246,173,85,0.08)':i%2===0?'transparent':'rgba(255,255,255,0.02)'}">
-            <td style="padding:6px 8px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${g.date||'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.pts??'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.reb??'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.ast??'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.stl??'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--text1)">${g.blk??'—'}</td>
-            <td style="padding:6px 4px;text-align:center;color:var(--accent4)">${g.to??'—'}</td>
-            <td style="padding:6px 8px;text-align:right;color:var(--accent3);font-size:7px">${typeof g.fp==='number'?g.fp.toFixed(1):'—'}</td>
+            <td style="padding:6px 4px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${/^\d{8}$/.test(String(g.date)) ? statDateObj(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : (g.date||'—')}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.pts??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.reb??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.ast??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.stl??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.blk??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--accent4)">${(g.fga!=null&&g.fgm!=null)?g.fga-g.fgm:'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--accent4)">${(g.fta!=null&&g.ftm!=null)?g.fta-g.ftm:'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--accent4)">${g.to??'—'}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--accent4)">${g.flagrant??0}</td>
+            <td style="padding:6px 2px;text-align:center;color:var(--accent4)">${g.technical??0}</td>
+            <td style="padding:6px 4px;text-align:right;color:var(--accent3);font-size:7px">${typeof g.fp==='number'?g.fp.toFixed(1):'—'}</td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -1906,10 +1982,13 @@ async function refreshLiveStats(){
         try{
           const gs=await fetchBoxScoreESPN(event.id);
           for(const [pid,stat] of Object.entries(gs)){
-            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,live:isLive,gameId:event.id,dateStr:event._dateStr};
+            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,fgm:0,fga:0,ftm:0,fta:0,flagrant:0,technical:0,live:isLive,gameId:event.id,dateStr:event._dateStr};
             newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
             newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
             newLive[pid].to  +=stat.to;
+            newLive[pid].fgm +=stat.fgm||0; newLive[pid].fga +=stat.fga||0;
+            newLive[pid].ftm +=stat.ftm||0; newLive[pid].fta +=stat.fta||0;
+            newLive[pid].flagrant +=stat.flagrant||0; newLive[pid].technical +=stat.technical||0;
             if(isLive) newLive[pid].live=true;
           }
           if(isLive) hasLive=true;
@@ -2137,7 +2216,7 @@ function renderDuelScreen(){
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
       ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.team_name||m.display_name}${m.id===myId?' ★':''}</div>
+        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
@@ -2310,7 +2389,7 @@ function getDraftOnClock(runId){
   const round = Math.floor(pick / managers.length);
   const posInRound = pick % managers.length;
   const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
-  return managers[idx]?.display_name || null;
+  return teamLabel(managers[idx]) || null;
 }
 
 function getTopScorerHeadlines(){
@@ -2321,7 +2400,7 @@ function getTopScorerHeadlines(){
   const lines = [];
   const allRosters = managers.flatMap(m => {
     const roster = (m.rosters || {})[currentRun] || [];
-    return roster.map(pid => ({ mid: m.id, mname: m.display_name, pid }));
+    return roster.map(pid => ({ mid: m.id, mname: teamLabel(m), pid }));
   });
 
   // Score each by projected PPG as proxy (no live stats yet)
@@ -3019,7 +3098,7 @@ function showDuelLeaderboard(){
       <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
       ${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}
       <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${m.team_name||m.display_name}${m.id===myId?' ★':''}</div>
+        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
         <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
@@ -3315,8 +3394,8 @@ function renderMatchupCard(){
   const myFP=managerFP(mid);
   const oppFP=managerFP(oppId);
   const myLeading=myFP>oppFP;
-  const myName=myProfile?.display_name||'Me';
-  const oppName=opp?.display_name||'Opponent';
+  const myName=teamLabel(myProfile)||'Me';
+  const oppName=teamLabel(opp)||'Opponent';
   const oppColor=opp?.color||'#4a9eff';
   el.innerHTML=`
   <div class="matchup-card" onclick="showMatchupDetail()" style="cursor:pointer">
@@ -3327,12 +3406,12 @@ function renderMatchupCard(){
     <div class="matchup-body">
       <div class="matchup-team">
         <span class="fp${myLeading?' leading':''}">${myFP.toFixed(1)}</span>
-        <div class="name">${myName}</div>
+        <div class="name">${userLink(mid,myName)}</div>
       </div>
       <div class="matchup-vs">VS</div>
       <div class="matchup-team">
         <span class="fp${!myLeading?' leading':''}">${oppFP.toFixed(1)}</span>
-        <div class="name" style="color:${oppColor}">${oppName}</div>
+        <div class="name" style="color:${oppColor}">${userLink(oppId,oppName)}</div>
       </div>
     </div>
     <div class="matchup-footer">
@@ -3351,9 +3430,9 @@ function showMatchupDetail(){
   const isHome=weekMatchup.home===mid;
   const oppId=isHome?weekMatchup.away:weekMatchup.home;
   const opp=leagueState.managers?.find(m=>m.id===oppId);
-  const myName=myProfile?.display_name||'Me';
+  const myName=teamLabel(myProfile)||'Me';
   const myColor=myProfile?.color||'#4a9eff';
-  const oppName=opp?.display_name||'Opponent';
+  const oppName=teamLabel(opp)||'Opponent';
   const oppColor=opp?.color||'#4a9eff';
 
   const buildRosterRows=(managerId)=>{
@@ -3417,12 +3496,12 @@ function showMatchupDetail(){
       <div style="display:flex;align-items:center;justify-content:space-around;padding:12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:14px">
         <div style="text-align:center">
           <div style="font-family:var(--pixel);font-size:16px;color:${myLeading?'var(--accent2)':'var(--text2)'}">${myFP.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${myName}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${userLink(mid,myName)}</div>
         </div>
         <div style="font-family:var(--pixel);font-size:8px;color:var(--text3)">VS</div>
         <div style="text-align:center">
           <div style="font-family:var(--pixel);font-size:16px;color:${!myLeading?'var(--accent2)':'var(--text2)'}">${oppFP.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-top:4px">${oppName}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-top:4px">${userLink(oppId,oppName)}</div>
         </div>
       </div>
       <div style="font-family:var(--pixel);font-size:5.5px;color:${myLeading?'var(--accent2)':'var(--accent4)'};text-align:center;margin-bottom:14px">
@@ -3825,7 +3904,7 @@ function renderDraftPlayerList(){
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
             ${rostered
-              ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3);text-align:right">DRAFTED${draftedBy?`<br/><span style="color:var(--accent2)">${draftedBy.display_name}</span>`:''}</span>`
+              ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3);text-align:right">DRAFTED${draftedBy?`<br/><span style="color:var(--accent2)">${teamLabel(draftedBy)}</span>`:''}</span>`
               : isDraftLive&&canDraft
                 ? `<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmDraftPick(${JSON.stringify(mid)},${p.id})">DRAFT</button>`
                 : ''}
@@ -3886,7 +3965,7 @@ function renderFantasyDraftPane(){
         const label=isCurrent?'🎯 ON CLOCK':'';
         rows.push(`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:${bg}">
           <span style="font-family:var(--pixel);font-size:5px;color:${isCurrent?'#000':'var(--text3)'};min-width:28px">R${round+1}P${posInRound+1}</span>
-          <span style="font-family:var(--pixel);font-size:6px;color:${color};flex:1">${mgr?.display_name||'?'}</span>
+          <span style="font-family:var(--pixel);font-size:6px;color:${color};flex:1">${mgr?teamLabel(mgr):'?'}</span>
           ${label?`<span style="font-family:var(--pixel);font-size:5px;color:#000">${label}</span>`:''}
         </div>`);
         if(rows.length>=n+2) break; // show full current round + 2 picks into next
@@ -3958,7 +4037,7 @@ async function confirmDraftPick(mid, pid){
     const idx = round % 2 === 0 ? posInRound : (managers.length - 1 - posInRound);
     const onClockId = managers[idx]?.id;
     if(onClockId != mid){  // loose equality: handles string/number mismatch
-      const onClockName = managers[idx]?.display_name || 'someone else';
+      const onClockName = teamLabel(managers[idx]) || 'someone else';
       toast(`Not your turn! ${onClockName} is on the clock.`);
       return;
     }
@@ -4065,7 +4144,7 @@ function renderFantasySchedule(){
     html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
       <div class="schedule-team-cell">
         ${avatarEl(h.display_name,h.color||'#4a9eff',22,7,h.icon||null,h.photo||null)}
-        <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${h.display_name}</span>
+        <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${userLink(h.id,teamLabel(h))}</span>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
         <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
@@ -4073,7 +4152,7 @@ function renderFantasySchedule(){
         <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
       </div>
       <div class="schedule-team-cell right">
-        <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${a.display_name}</span>
+        <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${userLink(a.id,teamLabel(a))}</span>
         ${avatarEl(a.display_name,a.color||'#4a9eff',22,7,a.icon||null,a.photo||null)}
       </div>
     </div>`;
@@ -4125,8 +4204,8 @@ function renderFantasyRunContent(){
               <div style="display:flex;align-items:center;gap:8px">
                 ${avatarEl(m.display_name,m.color||'#4a9eff',24,8,m.icon||null,m.photo||null)}
                 <div>
-                  <div class="team-name">${m.team_name||m.display_name}</div>
-                  <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${m.display_name}${m.id===myId?' · YOU':''}</div>
+                  <div class="team-name">${userLink(m.id,teamLabel(m))}</div>
+                  ${m.id===myId?'<div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">YOU</div>':''}
                 </div>
               </div>
             </td>
@@ -4178,7 +4257,7 @@ function renderFantasyRunContent(){
           <td>
             <div style="display:flex;align-items:center;gap:8px">
               ${avatarEl(s.m.display_name,s.m.color||'#4a9eff',24,8,s.m.icon||null,s.m.photo||null)}
-              <span class="team-name">${s.m.display_name}</span>
+              <span class="team-name">${userLink(s.m.id,teamLabel(s.m))}</span>
               ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
             </div>
           </td>
@@ -4210,12 +4289,12 @@ function renderWeekMatchups(runId){
       <div class="matchup-body" style="padding:10px">
         <div class="matchup-team">
           <span class="fp" style="font-size:14px;${hFP>aFP?'color:var(--accent2)':''}">${hFP.toFixed(1)}</span>
-          <div class="name" style="color:${h.color}">${h.display_name}</div>
+          <div class="name" style="color:${h.color}">${userLink(h.id,teamLabel(h))}</div>
         </div>
         <div class="matchup-vs" style="font-size:7px">VS</div>
         <div class="matchup-team">
           <span class="fp" style="font-size:14px;${aFP>hFP?'color:var(--accent2)':''}">${aFP.toFixed(1)}</span>
-          <div class="name" style="color:${a.color}">${a.display_name}</div>
+          <div class="name" style="color:${a.color}">${userLink(a.id,teamLabel(a))}</div>
         </div>
       </div>
     </div>`;
@@ -4340,7 +4419,7 @@ function renderRostersScreen(){
     : '';
   contentEl.innerHTML=`
     <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3);display:flex;align-items:center;gap:8px">
-      <span>${viewManager.display_name.toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE</span>
+      <span>${teamLabel(viewManager).toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE</span>
       ${dropBtn}
     </div>
     ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
@@ -5510,7 +5589,7 @@ function buildTickerDraftHtml(){
             const round = Math.floor(pick/managers.length);
             const posInRound = pick%managers.length;
             const idx = round%2===0 ? posInRound : (managers.length-1-posInRound);
-            nextUp = managers[idx]?.display_name||null;
+            nextUp = teamLabel(managers[idx])||null;
           }
         }
       }
@@ -5788,6 +5867,14 @@ function getWlcPlayer(name, pool){
 }
 
 // Compute FP earned for a WLC lineup this week (from playerStats)
+// Saved stat dates are 'YYYYMMDD' strings, which new Date() can't parse.
+// Returns that day at noon local time (noon avoids timezone edge flips).
+function statDateObj(d){
+  const x = String(d||'');
+  if(/^\d{8}$/.test(x)) return new Date(+x.slice(0,4), +x.slice(4,6)-1, +x.slice(6,8), 12);
+  return new Date(x);
+}
+
 function computeWlcFP(picks, swaps, weekKey){
   const wk = weekKey || wlcWeekKey();
   const week = (leagueState.wlc?.weeks||{})[wk];
@@ -5806,7 +5893,7 @@ function computeWlcFP(picks, swaps, weekKey){
     const fp = Object.values(leagueState.playerStats||{})
       .filter(s => s.pid===p.id)
       .filter(s => {
-        const d = new Date(s.date);
+        const d = statDateObj(s.date);
         return d >= weekStart && d < cutoff;
       })
       .reduce((sum,s)=>sum+(s.fp||0),0);
@@ -5820,7 +5907,7 @@ function computeWlcFP(picks, swaps, weekKey){
     const fp = Object.values(leagueState.playerStats||{})
       .filter(s => s.pid===p.id)
       .filter(s => {
-        const d = new Date(s.date);
+        const d = statDateObj(s.date);
         return d >= swapTime && d < weekEnd;
       })
       .reduce((sum,s)=>sum+(s.fp||0),0);
@@ -5938,7 +6025,7 @@ function computeWlcResults(weekKey){
     const weekStart = new Date(wk);
     const weekEnd = new Date(wk); weekEnd.setDate(weekEnd.getDate()+7);
     const fp = pl ? Object.values(leagueState.playerStats||{})
-      .filter(s=>s.pid===pl.id && new Date(s.date)>=weekStart && new Date(s.date)<weekEnd)
+      .filter(s=>s.pid===pl.id && statDateObj(s.date)>=weekStart && statDateObj(s.date)<weekEnd)
       .reduce((sum,s)=>sum+(s.fp||0),0) : 0;
     return {name:p.n, fp:+fp.toFixed(1)};
   });
@@ -6293,7 +6380,7 @@ function renderWlcStandings(container){
               <td style="padding:7px 10px">
                 <div style="display:flex;align-items:center;gap:7px">
                   ${avatarEl(m.display_name,m.color||'#4a9eff',22,5.5,m.icon||null,m.photo||null)}
-                  <span style="font-size:12px;font-weight:600">${m.display_name}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
+                  <span style="font-size:12px;font-weight:600">${userLink(m.id,m.display_name)}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
                 </div>
                 ${m.picks.length?`<div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:3px;padding-left:29px">${m.picks.map(n=>n.split(' ').pop()).join(' · ')}</div>`:'<div style="font-family:var(--pixel);font-size:4.5px;color:var(--accent4);margin-top:3px;padding-left:29px">NO LINEUP</div>'}
               </td>
@@ -6318,7 +6405,7 @@ function renderWlcStandings(container){
       <div style="display:flex;align-items:center;gap:8px;flex:1;">
         ${avatarEl(m.display_name,m.color||'#4a9eff',24,6,m.icon||null,m.photo||null)}
         <span class="wlc-standings-name" style="${isMe?'color:var(--accent2)':''}">
-          ${m.display_name}${isMe?' ★':''}
+          ${userLink(m.id,m.display_name)}${isMe?' ★':''}
         </span>
       </div>
       <span class="wlc-standings-wins">${m.wins}W</span>
@@ -6442,7 +6529,7 @@ function showWlcRules(){
       <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:16px">
         <p style="margin-bottom:10px">Goal: Spend $15 or less and build the best 5-man team from the week's player pool.</p>
         <p style="margin-bottom:10px">Each week, the Commissioner selects a themed pool of 25 NBA players split into 5 tiers by salary — $1 through $5. Your job is to pick one player from any combination of tiers, as long as your total salary doesn't exceed $15.</p>
-        <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1.2 per rebound, +1.5 per assist, +3 per steal, +3 per block, −1 per missed FG, −1 per missed FT, −1 per turnover, −1 per flagrant foul, −1 per technical foul.</strong></p>
+        <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1 per rebound, +1 per assist, +1 per steal, +1 per block, −1 per missed FG, −1 per missed FT, −1 per turnover, −1 per flagrant foul, −1 per technical foul.</strong></p>
         <p style="margin-bottom:10px">Lineups lock when the first game tips off. After that, you can swap an injured player once per week — same tier only.</p>
         <p>The manager with the most FP at the end of the week wins. Wins and total FP are tracked all season.</p>
       </div>

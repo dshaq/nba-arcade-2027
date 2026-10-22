@@ -6262,6 +6262,16 @@ async function saveWlcLineup(picks){
   renderWlcScreen();
 }
 
+// SWAP RULE: the Weekly Challenge is a commit-for-the-week game. After lock, the
+// only allowed change is ONE swap per week, of a player listed OUT on the injury
+// report, for a same-tier player from the pool.
+function wlcSwapBlockReason(lineup, fromName){
+  if((lineup.swaps||[]).length >= 1) return 'You already used your swap this week';
+  const p = wlcFindPlayer(fromName);
+  if(!injuryInfo(p?.name || fromName)?.isOut) return 'Only players listed OUT can be swapped';
+  return null;
+}
+
 // Mid-week swap: replace 'fromName' with 'toName' (same tier, from original pool)
 async function doWlcSwap(fromName, toName){
   const wk = wlcWeekKey();
@@ -6272,6 +6282,8 @@ async function doWlcSwap(fromName, toName){
   if(!week){ toast('No active week'); return; }
   const lineup = getMyWlcLineup(wk);
   if(!lineup.picks.includes(fromName)){ toast('Player not in your lineup'); return; }
+  const blocked = wlcSwapBlockReason(lineup, fromName);
+  if(blocked){ toast(blocked); return; }
   if(lineup.picks.includes(toName)){ toast('Already in your lineup'); return; }
   // Check same tier
   const pool = week.pool || [];
@@ -6479,7 +6491,7 @@ function renderWlcScreen(){
   if(locked){
     const lockDiv = document.createElement('div');
     lockDiv.className = 'wlc-locked-banner';
-    lockDiv.innerHTML = `🔒 LOCKED — GAME HAS TIPPED OFF<br><span style="font-size:5px;color:var(--text3)">You can still swap injured players (same tier)</span>`;
+    lockDiv.innerHTML = `🔒 LINEUPS LOCKED FOR THE WEEK<br><span style="font-size:5px;color:var(--text3)">${(lineup.swaps||[]).length ? 'Your swap for this week has been used' : 'One swap allowed this week: a player listed OUT, for a same-tier player'}</span>`;
     pickPane.appendChild(lockDiv);
   }
 
@@ -6496,10 +6508,10 @@ function renderWlcScreen(){
       row.className = 'wlc-pick-row';
       row.style.opacity = isSwappedOut ? '0.45' : '1';
       row.innerHTML = `
-        <span class="wlc-pick-name">${name.toUpperCase()}${isSwappedOut?'<br><span style="color:var(--accent4);font-size:4px">▶ SWAPPED OUT</span>':''}</span>
+        <span class="wlc-pick-name">${name.toUpperCase()}${injuryBadgeHtml(wlcFindPlayer(name)?.name||name)}${isSwappedOut?'<br><span style="color:var(--accent4);font-size:4px">▶ SWAPPED OUT</span>':''}</span>
         <span class="wlc-pick-tier tier-${p?p.tier:1}" style="border-radius:10px;padding:2px 5px">$${p?p.salary:'?'}</span>
         <span class="wlc-pick-fp">${p?p.fpPG+'/g':''}</span>
-        ${locked && !isSwappedOut ? `<button onclick="openWlcSwapModal('${name}')" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--accent3);font-family:var(--pixel);font-size:4.5px;padding:3px 6px;cursor:pointer;margin-left:6px">SWAP</button>` : ''}`;
+        ${locked && !isSwappedOut && !wlcSwapBlockReason(lineup, name) ? `<button onclick="openWlcSwapModal(${JSON.stringify(name).replace(/"/g,'&quot;')})" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--accent3);font-family:var(--pixel);font-size:4.5px;padding:3px 6px;cursor:pointer;margin-left:6px">SWAP</button>` : ''}`;
       summDiv.appendChild(row);
     }
     // Show any swapped-in players
@@ -6520,7 +6532,7 @@ function renderWlcScreen(){
   // Pool grid (grouped by tier)
   const tierLabel = document.createElement('div');
   tierLabel.style.cssText = 'padding:0 14px 8px;font-family:var(--pixel);font-size:6px;color:var(--text3);';
-  tierLabel.textContent = locked ? 'PLAYER POOL (TAP LOCKED PICKS TO SWAP)' : 'SELECT 5 PLAYERS — $15 CAP';
+  tierLabel.textContent = locked ? 'PLAYER POOL (LOCKED)' : 'SELECT 5 PLAYERS — $15 CAP';
   pickPane.appendChild(tierLabel);
 
   for(let tier=5; tier>=1; tier--){
@@ -6606,6 +6618,8 @@ function openWlcSwapModal(fromName){
   const fromP = pool.find(p=>p.n===fromName);
   if(!fromP){ toast('Player not found'); return; }
   const lineup = getMyWlcLineup(wk);
+  const blocked = wlcSwapBlockReason(lineup, fromName);
+  if(blocked){ toast(blocked); return; }
 
   // Find same-tier players not already in lineup or swapped
   const alreadyUsed = new Set([...lineup.picks, ...(lineup.swaps||[]).map(s=>s.to)]);
@@ -6957,7 +6971,7 @@ function showWlcRules(){
         <p style="margin-bottom:10px">Goal: Spend $15 or less and build the best 5-man team from the week's player pool.</p>
         <p style="margin-bottom:10px">Each week, the Commissioner selects a themed pool of 25 NBA players split into 5 tiers by salary — $1 through $5. Your job is to pick one player from any combination of tiers, as long as your total salary doesn't exceed $15.</p>
         <p style="margin-bottom:10px">Your team earns Fantasy Points (FP) based on how your players actually perform during the week. FP scoring: <strong>+1 per point, +1 per rebound, +1 per assist, +1 per steal, +1 per block, −1 per missed FG, −1 per missed FT, −1 per turnover, −1 per flagrant foul, −1 per technical foul.</strong></p>
-        <p style="margin-bottom:10px">Lineups lock when the first game tips off. After that, you can swap an injured player once per week — same tier only.</p>
+        <p style="margin-bottom:10px">Lineups lock Monday at 7 AM ET and are meant to stay set all week. The only exception: once per week, you can swap out a player listed <strong>OUT</strong> on the injury report for a same-tier player from the pool whose game hasn't started yet. The swapped-out player keeps the FP he earned before the swap.</p>
         <p>The manager with the most FP at the end of the week wins. Wins and total FP are tracked all season.</p>
       </div>
     </div>`;

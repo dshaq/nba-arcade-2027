@@ -1477,7 +1477,7 @@ async function loadBdlPlayers(){
 }
 
 // Normalize a name for fuzzy matching: lowercase, remove punctuation, collapse spaces
-function normName(n){ return n.toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
+function normName(n){ return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
 
 // Returns a short display name for a player — last name, stripping name suffixes (Jr., Sr., II, III, IV)
 // e.g. "Michael Porter Jr." → "PORTER", "Jaren Jackson Jr." → "JACKSON"
@@ -6186,44 +6186,54 @@ function statDateObj(d){
   return new Date(x);
 }
 
+// Pool names come from the projections file and may differ from BDL names
+// (accents, punctuation), so match exactly first, then by normalized name.
+function wlcFindPlayer(name){
+  return PLAYERS.find(p=>p.name===name) || PLAYERS.find(p=>normName(p.name)===normName(name)) || null;
+}
+function etDateStr(d){ return (d||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,''); }
+// [first, last] game dates of a WLC week as YYYYMMDD (Mon..Sun)
+function wlcWeekRange(wk){
+  const [y,m,d]=wk.split('-').map(Number);
+  const a=new Date(y,m-1,d,12), b=new Date(a); b.setDate(a.getDate()+6);
+  const f=x=>`${x.getFullYear()}${String(x.getMonth()+1).padStart(2,'0')}${String(x.getDate()).padStart(2,'0')}`;
+  return [f(a), f(b)];
+}
+// {YYYYMMDD: fp} for a player's games in [from,to]: saved lines plus today's
+// live game if not saved yet (one line per date)
+function wlcGameLines(p, from, to){
+  const lines={};
+  for(const st of Object.values(leagueState.playerStats||{})){
+    if(String(st.pid)!==String(p.id)) continue;
+    const d=String(st.date);
+    if(d>=from && d<=to && !(d in lines)) lines[d]=st.fp||0;
+  }
+  const live=livePlayerStats[p.id];
+  if(live && live.dateStr && !(live.dateStr in lines) && live.dateStr>=from && live.dateStr<=to) lines[live.dateStr]=live.fp||0;
+  return lines;
+}
+
+// Week FP for a lineup. Swaps split by game date:
+//  • swapped-out player keeps games before the swap date, plus the swap date
+//    only if his game had already started when the swap was made
+//  • swapped-in player gets games from the swap date on (swaps are blocked
+//    once his game has started that day, so the swap-day game is after the swap)
 function computeWlcFP(picks, swaps, weekKey){
   const wk = weekKey || wlcWeekKey();
   const week = (leagueState.wlc?.weeks||{})[wk];
   if(!week) return 0;
-  const weekStart = new Date(wk);
-  const weekEnd = new Date(wk); weekEnd.setDate(weekEnd.getDate()+7);
+  const [ws, we] = wlcWeekRange(wk);
+  const sum = (name, keep) => {
+    const p = wlcFindPlayer(name); if(!p) return 0;
+    return Object.entries(wlcGameLines(p, ws, we)).filter(([d])=>keep(d)).reduce((a,[,fp])=>a+fp, 0);
+  };
+  const swapDate = sw => sw.date || etDateStr(new Date(sw.time));
   let total = 0;
-  for(const name of picks){
-    // Check if this pick was swapped out
-    const swapOut = (swaps||[]).find(s=>s.from===name);
-    const cutoff = swapOut ? new Date(swapOut.time) : weekEnd;
-    // Find matching player in PLAYERS array for live stats
-    const p = PLAYERS.find(pl=>pl.name===name);
-    if(!p) continue;
-    // Sum stats from saved playerStats in the week date range, up to cutoff
-    const fp = Object.values(leagueState.playerStats||{})
-      .filter(s => s.pid===p.id)
-      .filter(s => {
-        const d = statDateObj(s.date);
-        return d >= weekStart && d < cutoff;
-      })
-      .reduce((sum,s)=>sum+(s.fp||0),0);
-    total += fp;
+  for(const name of (picks||[])){
+    const sw = (swaps||[]).find(x=>x.from===name);
+    total += sw ? sum(name, d => d < swapDate(sw) || (d===swapDate(sw) && sw.fromStarted)) : sum(name, ()=>true);
   }
-  // Add swapped-in players (only FP from swap point forward)
-  for(const sw of (swaps||[])){
-    const p = PLAYERS.find(pl=>pl.name===sw.to);
-    if(!p) continue;
-    const swapTime = new Date(sw.time);
-    const fp = Object.values(leagueState.playerStats||{})
-      .filter(s => s.pid===p.id)
-      .filter(s => {
-        const d = statDateObj(s.date);
-        return d >= swapTime && d < weekEnd;
-      })
-      .reduce((sum,s)=>sum+(s.fp||0),0);
-    total += fp;
-  }
+  for(const sw of (swaps||[])) total += sum(sw.to, d => d >= swapDate(sw));
   return +total.toFixed(1);
 }
 
@@ -6264,7 +6274,10 @@ async function doWlcSwap(fromName, toName){
   if((lineup.swaps||[]).some(s=>s.to===toName)){ toast('Player already used as swap'); return; }
   // Check fromName not already swapped out
   if((lineup.swaps||[]).some(s=>s.from===fromName)){ toast('Player already swapped out'); return; }
-  const swap = {from:fromName, to:toName, time:new Date().toISOString()};
+  // Can't swap in a player whose game today has already tipped off
+  if(isPlayerLocked(wlcFindPlayer(toName))){ toast(`${toName}'s game has started — pick someone else`); return; }
+  const swap = {from:fromName, to:toName, time:new Date().toISOString(), date:etDateStr(),
+                fromStarted: isPlayerLocked(wlcFindPlayer(fromName))};
   lineup.swaps = [...(lineup.swaps||[]), swap];
   leagueState.wlc.lineups[wk][mid] = lineup;
   await saveLeagueState();
@@ -6298,12 +6311,15 @@ function generateWlcProposal(forDate){
     {name:'Point Guards',      filter: p => { const dbP = PLAYERS.find(pl=>pl.name===p.n); return dbP && dbP.pos && dbP.pos.includes('PG'); }},
   ];
   const theme = themes[weekNum % themes.length];
-  let eligible = PLAYERS_DB.filter(theme.filter);
+  // Projections file teams can be stale; use each player's current team, and
+  // skip anyone not on an active roster
+  const db = PLAYERS_DB.map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {...p, t:cur.team||p.t} : null; }).filter(Boolean);
+  let eligible = db.filter(theme.filter);
   // Need at least 25; if not enough, broaden to top ranked
   if(eligible.length < WLC_POOL_SIZE){
     // Supplement with overall top players not already included
     const names = new Set(eligible.map(p=>p.n));
-    const extra = PLAYERS_DB.filter(p=>!names.has(p.n)).slice(0, WLC_POOL_SIZE - eligible.length);
+    const extra = db.filter(p=>!names.has(p.n)).sort((a,b)=>b.fpPG-a.fpPG).slice(0, WLC_POOL_SIZE - eligible.length);
     eligible = [...eligible, ...extra];
   }
   // Sort by fpPG, take top 25
@@ -6327,17 +6343,15 @@ function computeWlcResults(weekKey){
   }
 
   // Find winner(s)
-  const maxFP = Math.max(...Object.values(scores));
-  const winners = Object.keys(scores).filter(id=>scores[id]===maxFP);
+  const maxFP = Math.max(0, ...Object.values(scores));
+  // Nobody wins a week where no one scored (e.g. finalized before any games)
+  const winners = maxFP > 0 ? Object.keys(scores).filter(id=>scores[id]===maxFP) : [];
 
   // Best possible 5 from pool (by actual week FP)
+  const [ws, we] = wlcWeekRange(wk);
   const poolFPs = pool.map(p=>{
-    const pl = PLAYERS.find(pl=>pl.name===p.n);
-    const weekStart = new Date(wk);
-    const weekEnd = new Date(wk); weekEnd.setDate(weekEnd.getDate()+7);
-    const fp = pl ? Object.values(leagueState.playerStats||{})
-      .filter(s=>s.pid===pl.id && statDateObj(s.date)>=weekStart && statDateObj(s.date)<weekEnd)
-      .reduce((sum,s)=>sum+(s.fp||0),0) : 0;
+    const pl = wlcFindPlayer(p.n);
+    const fp = pl ? Object.values(wlcGameLines(pl, ws, we)).reduce((a,b)=>a+b,0) : 0;
     return {name:p.n, fp:+fp.toFixed(1)};
   });
   const best5 = poolFPs.sort((a,b)=>b.fp-a.fp).slice(0,5);
@@ -6347,7 +6361,7 @@ function computeWlcResults(weekKey){
   for(const [mid,fp] of Object.entries(scores)){
     if(fp>bestUserFP){ bestUserFP=fp; bestUserId=mid; }
   }
-  const bestUserMgr = managers.find(m=>m.id===parseInt(bestUserId));
+  const bestUserMgr = managers.find(m=>String(m.id)===String(bestUserId));
 
   return { scores, winners, best5, bestUser:{ id:bestUserId, name:bestUserMgr?.display_name||'—', fp:bestUserFP } };
 }
@@ -6358,6 +6372,7 @@ async function finalizeWlcWeek(weekKey){
   if(!results) return;
   if(!leagueState.wlc.results) leagueState.wlc.results = {};
   if(!leagueState.wlc.standings) leagueState.wlc.standings = {};
+  if(leagueState.wlc.weeks[weekKey]?.status === 'final') return; // never count a week twice
   leagueState.wlc.results[weekKey] = results;
   leagueState.wlc.weeks[weekKey].status = 'final';
   // Update standings
@@ -6406,7 +6421,9 @@ function renderWlcScreen(){
   // Week label
   const weekLabel = document.createElement('div');
   weekLabel.style.cssText = 'padding:4px 14px 10px;font-family:var(--pixel);font-size:5.5px;color:var(--text3);';
-  weekLabel.textContent = wlcWeekLabel(wk);
+  weekLabel.textContent = wlcWeekLabel(wk) + (isWlcLocked(wk) ? ' · 🔒 PICKS LOCKED'
+    : week.tipoffTime ? ' · PICKS LOCK ' + new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}).toUpperCase()
+    : ' · PICKS OPEN');
   el.appendChild(weekLabel);
 
   // Tabs: PICK | STANDINGS
@@ -6599,7 +6616,7 @@ function openWlcSwapModal(fromName){
         <div style="font-family:var(--pixel);font-size:6.5px">${p.n}</div>
         <div style="font-size:10px;color:var(--text3)">${p.t} · ${p.fpPG} FP/G</div>
       </div>
-      <button onclick="doWlcSwap('${fromName}','${p.n}')" style="background:var(--accent2);border:none;border-radius:4px;color:var(--bg);font-family:var(--pixel);font-size:5.5px;padding:6px 10px;cursor:pointer">SELECT</button>
+      <button onclick="doWlcSwap(${JSON.stringify(fromName).replace(/"/g,'&quot;')},${JSON.stringify(p.n).replace(/"/g,'&quot;')})" style="background:var(--accent2);border:none;border-radius:4px;color:var(--bg);font-family:var(--pixel);font-size:5.5px;padding:6px 10px;cursor:pointer">SELECT</button>
     </div>`).join('');
   modal.innerHTML = `
     <div class="modal-box" style="max-width:360px;width:calc(100% - 32px);">
@@ -6756,9 +6773,13 @@ async function commApproveWlcWeek(weekKey){
   // weekKey is a Monday ISO date string
   const mon = new Date(weekKey + 'T00:00:00Z'); // parse as UTC midnight
   mon.setUTCHours(11, 0, 0, 0); // 7am ET = 11:00 UTC (EST) — close enough for EDT off-season
-  leagueState.wlc.weeks[weekKey].tipoffTime = mon.toISOString();
+  // Approved midweek (e.g. for testing)? Monday 7am already passed, so leave picks
+  // open until the commissioner sets a lock time instead of locking instantly.
+  const late = mon <= new Date();
+  leagueState.wlc.weeks[weekKey].tipoffTime = late ? null : mon.toISOString();
   await saveLeagueState();
-  toast('Week is LIVE! Users can now submit lineups.');
+  toast(late ? 'Week is LIVE — picks open until you set a lock time.' : 'Week is LIVE! Users can now submit lineups.');
+  renderAdminContent();
   renderWlcScreen();
 }
 
@@ -6774,7 +6795,37 @@ async function commSetTipoff(weekKey, isoDateTime){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   leagueState.wlc.weeks[weekKey].tipoffTime = isoDateTime;
   await saveLeagueState();
-  toast('Tip-off time set.');
+  toast(isoDateTime ? 'Lock time set.' : 'Picks reopened.');
+  renderAdminContent();
+  renderWlcScreen();
+}
+// From the admin datetime input (viewer's local time) → ISO
+function commSetTipoffFromInput(weekKey){
+  const v = document.getElementById('wlc-lock-input')?.value;
+  if(!v){ toast('Pick a date and time'); return; }
+  commSetTipoff(weekKey, new Date(v).toISOString());
+}
+
+// Wipe a week completely (for test weeks): pool, lineups, results, and any
+// standings it added when finalized.
+async function commResetWlcWeek(weekKey){
+  if(!confirm(`Delete the ${wlcWeekLabel(weekKey)} Weekly Challenge and everyone's lineups for it? This can't be undone.`)) return;
+  await loadLeagueState();
+  const w = leagueState.wlc || {};
+  const res = (w.results||{})[weekKey];
+  if(res && w.standings){
+    for(const [mid,fp] of Object.entries(res.scores||{})){
+      const st = w.standings[mid]; if(!st) continue;
+      st.totalFP = +((st.totalFP||0) - fp).toFixed(1);
+      if((res.winners||[]).map(String).includes(String(mid))) st.wins = Math.max(0,(st.wins||0)-1);
+      if(!st.wins && !st.totalFP) delete w.standings[mid];
+    }
+  }
+  for(const k of ['weeks','lineups','results']) if(w[k]) delete w[k][weekKey];
+  await saveLeagueState();
+  toast('Week reset.');
+  renderAdminContent();
+  renderWlcScreen();
 }
 
 async function commFinalizeWeek(weekKey){
@@ -6801,12 +6852,21 @@ function renderAdminWlcSection(){
       <button class="btn btn-full btn-primary" onclick="commApproveWlcWeek('${wk}')" style="margin-bottom:8px">✓ APPROVE</button>
       <button class="btn btn-full btn-secondary" onclick="commRejectWlcWeek('${wk}')">✕ REJECT</button>`;
   } else if(week.status==='active'){
+    const locked = isWlcLocked(wk);
     html += `
       <div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:8px">STATUS: LIVE — ${week.theme}</div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">TIP-OFF: ${week.tipoffTime?new Date(week.tipoffTime).toLocaleString():'NOT SET'}</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICKS: ${locked?'🔒 LOCKED':'OPEN'}${week.tipoffTime?` · LOCK ${locked?'WAS':'AT'} ${new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`:' · NO LOCK TIME SET'}</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="wlc-lock-input" type="datetime-local" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:6px"/>
+        <button class="btn btn-sm btn-secondary" onclick="commSetTipoffFromInput('${wk}')">SET LOCK</button>
+      </div>
+      ${locked?`<button class="btn btn-full btn-secondary" style="margin-bottom:8px" onclick="commSetTipoff('${wk}',null)">🔓 REOPEN PICKS</button>`:''}
       <button class="btn btn-full btn-danger" onclick="commFinalizeWeek('${wk}')">🏁 FINALIZE WEEK</button>`;
   } else if(week.status==='final'){
     html += `<div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WEEK FINALIZED ✓</div>`;
+  }
+  if(week){
+    html += `<button class="btn btn-full btn-secondary" style="margin-top:8px;border-color:#ffd93d;color:#ffd93d" onclick="commResetWlcWeek('${wk}')">🗑 RESET THIS WEEK (TEST)</button>`;
   }
 
   if(prevWks.length){

@@ -1253,7 +1253,7 @@ function fmtFP(v){ return v===0 ? '0' : (v>0?'+':'')+v.toFixed(1).replace('.0','
 // Parse a YYYY-MM-DD date string as local (not UTC) to avoid off-by-one in US timezones
 function parseLocalDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtRunDate(s){ return parseLocalDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
-function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
+function todayStr(){ return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,''); } // ET date, YYYYMMDD
 // ── MATCHUP WEEKS: Monday–Sunday ─────────────────────────────────────────────
 // One definition used everywhere: FP totals, the schedule, records, profiles.
 function mondayOf(d){
@@ -2389,13 +2389,54 @@ function startPolling(){
 }
 
 // ── ROSTER HELPERS ───────────────────────────────────────────────────────────
+// Add/drops used in the current Mon–Sun match-up week, counted from the
+// transaction log itself (each add and each drop counts once)
 function waiverUsedThisWeek(mid){
-  const ws=currentWeekStart().getTime().toString();
-  return (leagueState.waiverWeekCount||{})[mid+'_'+ws] || 0;
+  const ws=currentWeekStart(), we=new Date(ws); we.setDate(ws.getDate()+6);
+  const from=ymd(ws), to=ymd(we);
+  return ((leagueState.waiverLog||{})[mid]||[]).filter(e=>String(e.date)>=from && String(e.date)<=to).length;
 }
 
 function canWaiver(mid){
   return waiverUsedThisWeek(mid) < WAIVER_WEEKLY;
+}
+
+// Full-screen list of every add and drop in the league, newest first
+function showTransactionLog(){
+  const rows=[];
+  for(const [mid,log] of Object.entries(leagueState.waiverLog||{})){
+    const m=(leagueState.managers||[]).find(x=>String(x.id)===String(mid));
+    for(const e of log||[]) rows.push({...e, team: m?teamLabel(m):'?'});
+  }
+  rows.sort((a,b)=> String(b.ts||b.date).localeCompare(String(a.ts||a.date)) || String(b.date).localeCompare(String(a.date)));
+  const fmt = e => e.ts ? new Date(e.ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})
+                        : statDateObj(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('txlog-modal')?.remove();
+  const m=document.createElement('div');
+  m.id='txlog-modal'; m.className='top-sheet-overlay';
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  m.innerHTML=`<div class="top-sheet" style="max-height:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1)">TRANSACTION LOG</div>
+      <button onclick="document.getElementById('txlog-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+    </div>
+    <div class="top-sheet-body" style="padding-top:0">
+      ${rows.length ? `<table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5.5px">
+        <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+          <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">DATE</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">TEAM</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">MOVE</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">PLAYER</th>
+        </tr></thead>
+        <tbody>${rows.map((e,i)=>{ const p=getPlayer(e.pid); return `<tr style="background:${i%2?'rgba(255,255,255,0.02)':'transparent'}">
+          <td style="padding:8px 4px;color:var(--text3);white-space:nowrap">${fmt(e)}</td>
+          <td style="padding:8px 4px;color:var(--text1)">${e.team}</td>
+          <td style="padding:8px 4px;color:${e.type==='add'?'var(--accent2)':'#ffd93d'}">${e.type==='add'?'ADDED':'DROPPED'}</td>
+          <td style="padding:8px 4px;color:var(--text1);cursor:pointer" onclick="${p?pcardOnclick(p.name):''}">${p?p.name:'Player #'+e.pid}</td>
+        </tr>`; }).join('')}</tbody></table>`
+      : '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO TRANSACTIONS YET</div>'}
+    </div></div>`;
+  document.body.appendChild(m);
 }
 
 async function addPlayer(mid, pid){
@@ -2411,7 +2452,7 @@ async function addPlayer(mid, pid){
   const key=mid+'_'+ws;
   leagueState.waiverWeekCount[key]=(leagueState.waiverWeekCount[key]||0)+1;
   if(!leagueState.waiverLog[mid]) leagueState.waiverLog[mid]=[];
-  leagueState.waiverLog[mid].push({pid,date:todayStr(),type:'add'});
+  leagueState.waiverLog[mid].push({pid,date:todayStr(),type:'add',ts:new Date().toISOString()});
   await saveLeagueState();
   return true;
 }
@@ -2431,7 +2472,7 @@ async function dropPlayer(mid, pid){
   const key=mid+'_'+ws;
   leagueState.waiverWeekCount[key]=(leagueState.waiverWeekCount[key]||0)+1;
   if(!leagueState.waiverLog[mid]) leagueState.waiverLog[mid]=[];
-  leagueState.waiverLog[mid].push({pid,date:todayStr(),type:'drop'});
+  leagueState.waiverLog[mid].push({pid,date:todayStr(),type:'drop',ts:new Date().toISOString()});
   await saveLeagueState();
   return true;
 }
@@ -3294,12 +3335,13 @@ function getMyDuelPick(){
 function getDuelStatDisplay(p, statType){
   if(!p) return '—';
   switch(statType){
+    // Uppercase, with a space between every number and its label: "1 STL 0.2 BLK · SAC"
     case 'pts':     return `${p.ppg} PPG · ${p.team}`;
     case 'reb':     return `${p.rpg} RPG · ${p.team}`;
     case 'ast':     return `${p.apg} APG · ${p.team}`;
-    case 'reb+ast': return `${p.rpg}r ${p.apg}a · ${p.team}`;
-    case 'stl+blk': return `${p.spg}stl ${p.bpg}blk · ${p.team}`;
-    case 'fp':      return `${(p.ppg+p.rpg*1.2+p.apg*1.5+p.spg*3+p.bpg*3).toFixed(1)} FP/G · ${p.team}`;
+    case 'reb+ast': return `${p.rpg} REB ${p.apg} AST · ${p.team}`;
+    case 'stl+blk': return `${p.spg} STL ${p.bpg} BLK · ${p.team}`;
+    case 'fp':      return `${(+getPlayerProjFP(p)).toFixed(1)} FP/G · ${p.team}`;
     default:        return `${p.ppg} PPG · ${p.team}`;
   }
 }
@@ -3998,9 +4040,24 @@ function showFantasyRulesModal(){
 
       ${section('INJURY RESERVE (IR)','var(--accent4)',`
         ${row('IR slots','1 per team')}
-        ${row('Eligible','Players labeled as injured')}
+        ${row('Eligible','Players listed OUT only')}
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
           Each team may place one injured player on the IR. While a player is on IR, you may carry an extra player on your roster beyond the 10-player limit. To remove a player from IR, you must first have no more than 9 other players on your roster.
+        </div>
+        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin:12px 0 6px">PLAYER STATUS BADGES</div>
+        ${[
+          ['OUT','#e53e3e','Out','Will not play.','YES'],
+          ['DOUBT','#dd6b20','Doubtful','Unlikely to play.','NO'],
+          ['Q','#d69e2e','Questionable','Uncertain; decided close to tip-off.','NO'],
+          ['DTD','#d69e2e','Day-To-Day','Minor injury; may play any given day.','NO'],
+          ['PROB','#38a169','Probable','Expected to play.','NO'],
+        ].map(([lbl,c,name,desc,ok])=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="background:${c};color:#fff;font-family:var(--pixel);font-size:4.5px;padding:2px 5px;border-radius:3px;min-width:34px;text-align:center">${lbl}</span>
+          <span style="flex:1;font-family:var(--pixel);font-size:5px;color:var(--text2);line-height:1.6">${name.toUpperCase()} — ${desc}</span>
+          <span style="font-family:var(--pixel);font-size:4.5px;color:${ok==='YES'?'var(--accent2)':'var(--text3)'};white-space:nowrap">IR: ${ok}</span>
+        </div>`).join('')}
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
+          Statuses come from the official injury report and refresh every 15 minutes. Players without a badge are healthy. The same OUT rule applies to the Weekly Challenge's one injury swap.
         </div>
       `)}
 
@@ -4087,11 +4144,12 @@ function renderLineupPreview(){
     </div>`;
   };
 
-  const irRow = irPid ? `
+  // IR section always shows, with a placeholder when empty
+  const irRow = `
     <div class="lineup-section">
-      <div class="lineup-section-label" style="color:#805ad5">🏥 INJURY RESERVE</div>
-      ${rowHtml(irPid,'ir')}
-    </div>` : '';
+      <div class="lineup-section-label" style="color:#805ad5">🏥 INJURY RESERVE (${irPid?1:0}/1)</div>
+      ${irPid ? rowHtml(irPid,'ir') : `<div style="padding:8px 14px 12px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">NO PLAYER ON IR · ONLY PLAYERS LISTED <span style="color:#e53e3e">OUT</span> CAN BE PLACED HERE</div>`}
+    </div>`;
 
   el.innerHTML=`
   <div class="lineup-card">
@@ -4849,10 +4907,10 @@ function renderRostersScreen(){
           sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:var(--accent4);letter-spacing:.08em;border-top:1px solid var(--border)">BENCH</div>`);
           sections.push(...benchPids.map(rowHtml));
         }
-        if(irPids.length){
-          sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:#805ad5;letter-spacing:.08em;border-top:1px solid var(--border)">INJURY RESERVE</div>`);
-          sections.push(...irPids.map(rowHtml));
-        }
+        // IR section always shows, with a placeholder when empty
+        sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:#805ad5;letter-spacing:.08em;border-top:1px solid var(--border)">INJURY RESERVE (${irPids.length}/1)</div>`);
+        if(irPids.length) sections.push(...irPids.map(rowHtml));
+        else sections.push(`<div style="padding:8px 14px 12px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">NO PLAYER ON IR · ONLY PLAYERS LISTED <span style="color:#e53e3e">OUT</span> CAN BE PLACED HERE</div>`);
         return sections.join('');
       })()}
     </div>`;
@@ -5034,7 +5092,8 @@ function renderWaiversPane(){
   el.innerHTML=`
     <div style="padding:10px 14px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WAIVER WIRE · ADD/DROPS LEFT: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
+        <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);line-height:1.6">ADD/DROPS LEFT FOR CURRENT MATCH-UP: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
+        <button onclick="showTransactionLog()" style="flex-shrink:0;margin-left:8px;background:var(--bg3);border:1px solid var(--border);color:var(--accent1);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">TRANSACTION LOG</button>
       </div>
       <div id="waiver-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('waiver')}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
@@ -6016,6 +6075,11 @@ function getTodayGameInfo(teamAbbr){
     const trailing = parseFloat(g.myScore) < parseFloat(g.oppScore);
     const scoreColor = leading ? '#4ade80' : trailing ? 'var(--accent4)' : 'var(--text1)';
     return `<span style="color:#f6ad55">${matchup} · ${pLabel}</span> <span style="color:${scoreColor};font-weight:700">${g.myScore}–${g.oppScore}</span>`;
+  }
+  // Finished: keep opponent + final score, "F" where the quarter goes
+  if(g.isFinal && g.myScore !== null && g.myScore !== undefined){
+    const won = parseFloat(g.myScore) > parseFloat(g.oppScore);
+    return `<span style="color:var(--text2)">${matchup} · F</span> <span style="color:${won?'#4ade80':'var(--accent4)'};font-weight:700">${g.myScore}–${g.oppScore}</span>`;
   }
   // Upcoming: show in teal
   return `<span style="color:var(--accent2)">${matchup}${g.time ? ', '+g.time : ''}</span>`;

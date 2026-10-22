@@ -5086,7 +5086,7 @@ function renderProfileScreen(){
     if(wlcTFP) wlcTFP.textContent=ws.totalFP.toFixed(1)+' FP';
     // Current week FP
     const wk=wlcWeekKey();
-    const week=(leagueState.wlc?.weeks||{})[wk];
+    const week=wlcVisibleWeek(wk);
     const lineup=getMyWlcLineup(wk);
     const curFP=week?computeWlcFP(lineup.picks,lineup.swaps,wk):0;
     const wlcCur=document.getElementById('profile-wlc-current-fp');
@@ -6150,6 +6150,15 @@ function wlcWeekLabel(weekKey){
   return `${fmt(mon)} – ${fmt(sun)}`;
 }
 
+// TEST MODE: a week with a `testers` list is visible only to those managers and
+// never touches the real standings. Weeks without `testers` are live for everyone.
+function wlcVisibleWeek(wk){
+  const week = (leagueState.wlc?.weeks||{})[wk];
+  if(!week) return null;
+  if(Array.isArray(week.testers) && !week.testers.map(String).includes(String(getMyId()))) return null;
+  return week;
+}
+
 function getCurrentWlcWeek(){
   const wk = wlcWeekKey();
   return (leagueState.wlc?.weeks||{})[wk] || null;
@@ -6375,6 +6384,7 @@ async function finalizeWlcWeek(weekKey){
   if(leagueState.wlc.weeks[weekKey]?.status === 'final') return; // never count a week twice
   leagueState.wlc.results[weekKey] = results;
   leagueState.wlc.weeks[weekKey].status = 'final';
+  if(leagueState.wlc.weeks[weekKey].testers){ await saveLeagueState(); return; } // test week: real standings untouched
   // Update standings
   for(const [mid,fp] of Object.entries(results.scores)){
     if(!leagueState.wlc.standings[mid]) leagueState.wlc.standings[mid] = {wins:0, totalFP:0};
@@ -6395,7 +6405,7 @@ function renderWlcScreen(){
   if(!leagueState || !myProfile){ el.innerHTML='<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:7px;color:var(--text3)">LOADING...</div>'; return; }
 
   const wk = wlcWeekKey();
-  const week = (leagueState.wlc?.weeks||{})[wk];
+  const week = wlcVisibleWeek(wk);
 
   if(!week){
     renderWlcNoWeek(el, wk);
@@ -6415,7 +6425,7 @@ function renderWlcScreen(){
   const headerDiv = document.createElement('div');
   headerDiv.className = 'wlc-header';
   headerDiv.innerHTML = `
-    <span class="wlc-theme-badge">${week.theme||'Week'}</span>`;
+    <span class="wlc-theme-badge">${week.theme||'Week'}</span>${week.testers?'<span class="wlc-theme-badge" style="margin-left:6px;background:#ffd93d;color:#000">🧪 TEST — ONLY TESTERS SEE THIS</span>':''}`;
   el.appendChild(headerDiv);
 
   // Week label
@@ -6680,13 +6690,14 @@ function renderWlcStandings(container){
 
   // Current week scoreboard
   const wk = wlcWeekKey();
-  const week = (leagueState.wlc?.weeks||{})[wk];
+  const week = wlcVisibleWeek(wk);
   const myId = getMyId();
 
   let currentHtml = '';
   if(week && (week.status==='active'||week.status==='locked'||week.status==='final')){
     const lineups = (leagueState.wlc?.lineups||{})[wk] || {};
-    const curRows = managers.map(m=>{
+    const shown = week.testers ? managers.filter(m=>week.testers.map(String).includes(String(m.id))) : managers;
+    const curRows = shown.map(m=>{
       const lineup = lineups[m.id] || {picks:[],swaps:[]};
       const fp = computeWlcFP(lineup.picks, lineup.swaps, wk);
       return {...m, fp, picks: lineup.picks};
@@ -6751,18 +6762,25 @@ function renderWlcStandings(container){
 
 // ── WLC ADMIN (Commissioner) ──────────────────────────────────────────────────
 
-async function commGenerateWlcWeek(){
+async function commGenerateWlcWeek(testMode){
   const proposal = generateWlcProposal();
   if(!leagueState.wlc) leagueState.wlc = {weeks:{},lineups:{},results:{},standings:{}};
+  let testers = null;
+  if(testMode){
+    testers = [...document.querySelectorAll('.wlc-tester-cb:checked')].map(cb=>cb.value);
+    if(!testers.map(String).includes(String(getMyId()))) testers.push(String(getMyId()));
+  }
   leagueState.wlc.weeks[proposal.weekKey] = {
     theme: proposal.theme,
     pool: proposal.pool,
     status: 'pending',
     tipoffTime: null,
     createdAt: new Date().toISOString(),
+    ...(testers ? {testers} : {}),
   };
   await saveLeagueState();
-  toast(`Generated: ${proposal.theme}`);
+  toast(testers ? `Test week generated: ${proposal.theme}` : `Generated: ${proposal.theme}`);
+  renderAdminContent();
   renderWlcScreen();
 }
 
@@ -6781,6 +6799,16 @@ async function commApproveWlcWeek(weekKey){
   toast(late ? 'Week is LIVE — picks open until you set a lock time.' : 'Week is LIVE! Users can now submit lineups.');
   renderAdminContent();
   renderWlcScreen();
+}
+
+// Turn a test week into a normal week everyone can see
+async function commMakeWlcPublic(weekKey){
+  const w = leagueState.wlc?.weeks?.[weekKey]; if(!w) return;
+  if(!confirm('Make this week visible to the whole league?')) return;
+  delete w.testers;
+  await saveLeagueState();
+  toast('Week is now visible to everyone.');
+  renderAdminContent(); renderWlcScreen();
 }
 
 async function commRejectWlcWeek(weekKey){
@@ -6813,7 +6841,8 @@ async function commResetWlcWeek(weekKey){
   await loadLeagueState();
   const w = leagueState.wlc || {};
   const res = (w.results||{})[weekKey];
-  if(res && w.standings){
+  const wasTest = !!(w.weeks||{})[weekKey]?.testers; // test weeks never touched standings
+  if(res && w.standings && !wasTest){
     for(const [mid,fp] of Object.entries(res.scores||{})){
       const st = w.standings[mid]; if(!st) continue;
       st.totalFP = +((st.totalFP||0) - fp).toFixed(1);
@@ -6829,8 +6858,12 @@ async function commResetWlcWeek(weekKey){
 }
 
 async function commFinalizeWeek(weekKey){
+  const test = !!leagueState.wlc?.weeks?.[weekKey]?.testers;
   await finalizeWlcWeek(weekKey);
-  toast('Week finalized! Standings updated.');
+  const r = leagueState.wlc?.results?.[weekKey];
+  const names = (r?.winners||[]).map(id=>(leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name||id).join(' & ');
+  toast(test ? `Test week finalized — winner: ${names||'none'} (real standings unchanged)` : 'Week finalized! Standings updated.');
+  renderAdminContent();
   renderWlcScreen();
 }
 
@@ -6845,7 +6878,18 @@ function renderAdminWlcSection(){
       <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:8px">CURRENT WEEK: ${wlcWeekLabel(wk)}</div>`;
 
   if(!week){
-    html += `<button class="btn btn-full btn-primary" onclick="commGenerateWlcWeek()">⚡ GENERATE THIS WEEK</button>`;
+    const myId = String(getMyId());
+    html += `
+      <button class="btn btn-full btn-primary" onclick="commGenerateWlcWeek(false)">⚡ GENERATE THIS WEEK (WHOLE LEAGUE)</button>
+      <div style="margin-top:12px;padding:10px;border:1px dashed #ffd93d;border-radius:var(--radius)">
+        <div style="font-family:var(--pixel);font-size:6px;color:#ffd93d;margin-bottom:6px">🧪 TEST WEEK — ONLY THESE PEOPLE SEE IT</div>
+        ${(leagueState.managers||[]).map(m=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
+            <input type="checkbox" class="wlc-tester-cb" value="${m.id}" ${String(m.id)===myId?'checked disabled':''}/> ${m.display_name}
+          </label>`).join('')}
+        <div style="font-size:11px;color:var(--text3);margin:6px 0;line-height:1.5">Everyone else keeps seeing "No active week." Finalizing a test week shows the winner but never changes the real standings.</div>
+        <button class="btn btn-full btn-secondary" style="border-color:#ffd93d;color:#ffd93d" onclick="commGenerateWlcWeek(true)">🧪 GENERATE TEST WEEK</button>
+      </div>`;
   } else if(week.status==='pending'){
     html += `
       <div style="font-family:var(--pixel);font-size:6px;color:var(--accent3);margin-bottom:8px">STATUS: PENDING — Theme: ${week.theme}</div>
@@ -6864,6 +6908,18 @@ function renderAdminWlcSection(){
       <button class="btn btn-full btn-danger" onclick="commFinalizeWeek('${wk}')">🏁 FINALIZE WEEK</button>`;
   } else if(week.status==='final'){
     html += `<div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WEEK FINALIZED ✓</div>`;
+  }
+  if(week?.testers){
+    const names = week.testers.map(id=>(leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name||'?').join(', ');
+    html = html.replace('🎯 LINE-UP CHALLENGE</div>', `🎯 LINE-UP CHALLENGE</div><div style="font-family:var(--pixel);font-size:5.5px;color:#ffd93d;margin-bottom:8px">🧪 TEST MODE — VISIBLE ONLY TO: ${names.toUpperCase()}</div>`);
+    if(week.status!=='final') html += `<button class="btn btn-full btn-secondary" style="margin-top:8px" onclick="commMakeWlcPublic('${wk}')">📣 MAKE VISIBLE TO EVERYONE</button>`;
+  }
+  if(week?.status==='final' && leagueState.wlc?.results?.[wk]){
+    const r = leagueState.wlc.results[wk];
+    const nm = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name || id;
+    html += `<div style="margin-top:8px;font-size:12px;color:var(--text2);line-height:1.7">
+      ${Object.entries(r.scores||{}).sort((a,b)=>b[1]-a[1]).map(([id,fp])=>`${(r.winners||[]).map(String).includes(String(id))?'🏆 ':''}${nm(id)}: ${fp.toFixed(1)} FP`).join('<br>')||'No lineups'}
+    </div>`;
   }
   if(week){
     html += `<button class="btn btn-full btn-secondary" style="margin-top:8px;border-color:#ffd93d;color:#ffd93d" onclick="commResetWlcWeek('${wk}')">🗑 RESET THIS WEEK (TEST)</button>`;

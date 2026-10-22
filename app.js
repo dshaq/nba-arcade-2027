@@ -2510,7 +2510,67 @@ function showScreen(screen){
 }
 
 // ── HOME SCREEN ──────────────────────────────────────────────────────────────
+// ── HOMEPAGE SCOREBOARD: one game at a time, arrows (or swipe) to browse ─────
+let SB_EVENTS = [], sbIndex = 0, sbEventId = null;
+function setScoreboardEvents(evs){
+  const order = ev => { const st=ev.competitions?.[0]?.status?.type?.state; return st==='in'?0:st==='pre'?1:2; };
+  const seen=new Set(); evs=evs.filter(e=>!seen.has(e.id)&&seen.add(e.id));
+  SB_EVENTS = [...evs].sort((a,b)=> order(a)-order(b) || String(a.date).localeCompare(String(b.date)));
+  const keep = SB_EVENTS.findIndex(e=>e.id===sbEventId);
+  sbIndex = keep>=0 ? keep : 0;
+  renderScoreboard();
+}
+function scoreboardStep(d){
+  if(!SB_EVENTS.length) return;
+  sbIndex = (sbIndex + d + SB_EVENTS.length) % SB_EVENTS.length;
+  sbEventId = SB_EVENTS[sbIndex].id;
+  renderScoreboard();
+}
+function renderScoreboard(){
+  const el = document.getElementById('scoreboard-container'); if(!el) return;
+  if(!SB_EVENTS.length){
+    el.innerHTML = `<div class="scoreboard"><div class="sb-main"><div class="sb-status">NO NBA GAMES TODAY</div></div></div>`;
+    return;
+  }
+  const ev = SB_EVENTS[sbIndex], comp = ev.competitions?.[0]||{}, st = comp.status||ev.status||{};
+  const state = st.type?.state;
+  const cs = comp.competitors||[];
+  const home = cs.find(c=>c.homeAway==='home')||cs[0]||{}, away = cs.find(c=>c.homeAway==='away')||cs[1]||{};
+  const ab = c => espnToAbbr((c.team?.abbreviation||'').toUpperCase());
+  const live = state==='in' && (st.period||0)>0 && !/^\d{4}-\d{2}-\d{2}T/.test(st.displayClock||'');
+  const final = state==='post';
+  const showScore = live || final;
+  const hs = +home.score||0, as = +away.score||0;
+  const status = live ? `<span class="live-dot"></span>Q${st.period>4?'OT':st.period} ${st.displayClock||''}`
+    : final ? 'FINAL'
+    : new Date(comp.date||ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+' ET';
+  // Stat leaders across both teams
+  const lead = cat => { let best=null; for(const c of [away,home]) for(const L of (c.leaders||[])) if(L.name===cat) for(const x of (L.leaders||[])) if(!best || (x.value??+x.displayValue)>(best.value??+best.displayValue)) best=x; return best; };
+  const leaders = showScore ? [['PTS','points'],['REB','rebounds'],['AST','assists']].map(([lbl,cat])=>{ const x=lead(cat); return x?`<span><b>${lbl}</b> ${x.athlete?.shortName||''} ${x.displayValue}</span>`:''; }).filter(Boolean).join('') : '';
+  const teamCell = c => `<div class="sb-team">${getTeamLogoUrl(ab(c))?`<img src="${getTeamLogoUrl(ab(c))}" onerror="this.style.visibility='hidden'">`:''}<div class="sb-abbr">${ab(c)}</div></div>`;
+  const scoreCell = (v, win) => `<div class="sb-score${win?' win':''}">${showScore?v:''}</div>`;
+  el.innerHTML = `<div class="scoreboard" id="sb-swipe">
+    <button class="sb-arrow" onclick="scoreboardStep(-1)" aria-label="Previous game">‹</button>
+    <div class="sb-main">
+      <div class="sb-status${live?' live':''}">${status}</div>
+      <div class="sb-teams">
+        ${teamCell(away)}${scoreCell(as, final&&as>hs)}
+        <div class="sb-dash">${showScore?'–':'@'}</div>
+        ${scoreCell(hs, final&&hs>as)}${teamCell(home)}
+      </div>
+      ${leaders?`<div class="sb-leaders">${leaders}</div>`:''}
+      <div class="sb-dots">${SB_EVENTS.length>1?`${sbIndex+1} / ${SB_EVENTS.length}`:''}</div>
+    </div>
+    <button class="sb-arrow" onclick="scoreboardStep(1)" aria-label="Next game">›</button>
+  </div>`;
+  // Swipe left/right on phones
+  const box = document.getElementById('sb-swipe'); let x0=null;
+  box.addEventListener('touchstart', e=>{ x0=e.touches[0].clientX; }, {passive:true});
+  box.addEventListener('touchend', e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>40) scoreboardStep(dx<0?1:-1); });
+}
+
 function renderHomeScreen(){
+  renderScoreboard();
   renderNewsBanner();
   renderDuelCard();
   renderMatchupCard();
@@ -3754,7 +3814,7 @@ function renderMatchupCard(){
   <div class="matchup-card" onclick="showMatchupDetail()" style="cursor:pointer">
     <div class="matchup-header">
       <span>${run.name.toUpperCase()} RUN · ${getWeekLabel()}</span>
-      ${liveGamesActive?'<span class="live-badge">LIVE</span>':''}
+      <span style="display:flex;align-items:center;gap:6px">${liveGamesActive?'<span class="live-badge">LIVE</span>':''}<span style="color:var(--accent1)">DETAILS ›</span></span>
     </div>
     <div class="matchup-body">
       <div class="matchup-team">
@@ -3766,10 +3826,6 @@ function renderMatchupCard(){
         <span class="fp${!myLeading?' leading':''}">${oppFP.toFixed(1)}</span>
         <div class="name" style="color:${oppColor}">${userLink(oppId,oppName)}</div>
       </div>
-    </div>
-    <div class="matchup-footer">
-      <span>${myLeading?'▲ LEADING':'▼ TRAILING'} BY ${Math.abs(myFP-oppFP).toFixed(1)} FP</span>
-      <span style="color:var(--accent1)">TAP FOR DETAILS ›</span>
     </div>
   </div>`;
 }
@@ -6022,6 +6078,11 @@ function buildTickerDraftHtml(){
 // ESPN fallback ticker renderer
 // showYesterday: when true (before 9 AM ET) only show yesterday finals, no upcoming
 function renderTicker(events, todayDate, showYesterday){
+  // Homepage scoreboard: today's games (or yesterday's finals before any today)
+  const etDay = ev => ev.date ? new Date(ev.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}) : '';
+  const todays = events.filter(ev=>etDay(ev)===todayDate);
+  setScoreboardEvents(todays.length && !showYesterday ? todays : events.filter(ev=>etDay(ev)!==todayDate));
+
   const el = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
   if(!el || !track) return;

@@ -809,6 +809,33 @@ img{display:block;}
 .waiver-counter .label{font-family:var(--pixel);font-size:6px;color:var(--text3);}
 .waiver-counter .count{font-family:var(--pixel);font-size:11px;color:var(--accent2);}
 
+/* ── HOMEPAGE SCOREBOARD + compact cards ── */
+#game-ticker{display:none!important;}  /* replaced by the scoreboard */
+.scoreboard{display:flex;align-items:stretch;margin:0 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.sb-arrow{width:34px;flex-shrink:0;background:var(--bg3);border:none;color:var(--accent1);font-size:22px;cursor:pointer;}
+.sb-arrow:active{filter:brightness(1.6);}
+.sb-main{flex:1;min-width:0;padding:8px 6px 6px;text-align:center;}
+.sb-status{font-family:var(--pixel);font-size:6px;color:var(--text3);display:flex;align-items:center;justify-content:center;gap:5px;}
+.sb-status.live{color:var(--accent4);}
+.sb-teams{display:grid;grid-template-columns:1fr auto auto auto 1fr;align-items:center;gap:8px;margin:6px 0 4px;}
+.sb-team{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.sb-team img{width:34px;height:34px;object-fit:contain;}
+.sb-abbr{font-family:var(--pixel);font-size:7px;color:var(--text1);}
+.sb-score{font-family:var(--pixel);font-size:16px;color:var(--text2);min-width:44px;}
+.sb-score.win{color:var(--accent2);}
+.sb-dash{font-family:var(--pixel);font-size:9px;color:var(--text3);}
+.sb-leaders{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;font-family:var(--pixel);font-size:5px;color:var(--text2);margin-top:2px;}
+.sb-leaders b{color:var(--accent3);font-weight:normal;}
+.sb-dots{font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:4px;min-height:6px;}
+#duel-card-container .duel-card{padding:8px 10px;}
+#duel-card-container .duel-prompt{margin:4px 0 6px;}
+#duel-card-container .duel-body{margin-bottom:6px;}
+#duel-card-container .duel-player .portrait-wrap{width:44px;height:44px;}
+#duel-card-container .duel-pick-btn{min-height:30px;padding:6px 8px;}
+#duel-card-container .duel-card img[style*="64px"]{width:44px!important;height:44px!important;}
+#matchup-card-container .matchup-body{padding:8px 14px 10px;}
+#matchup-card-container .matchup-team .fp{font-size:18px;}
+
 /* ── TOP SHEET (player + user profile pop-ups) ──
    Anchored to the top of the screen, fixed size so switching tabs never resizes it;
    only the body scrolls. */
@@ -1249,21 +1276,22 @@ img{display:block;}
     <!-- Contextual news banner -->
     <div id="news-banner" style="display:none"></div>
 
-    <!-- Home header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 2px">
-      <div style="font-family:var(--pixel);font-size:7px;color:var(--accent1)">🕹️ NBA ARCADE</div>
-      <button onclick="showSiteOverview()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer">📖 HOW TO PLAY</button>
+    <!-- Scoreboard (replaces the old ticker) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px">
+      <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">🏀 TODAY'S GAMES</div>
+      <button onclick="showSiteOverview()" style="font-family:var(--pixel);font-size:5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:4px 8px;cursor:pointer">📖 HOW TO PLAY</button>
     </div>
+    <div id="scoreboard-container"></div>
 
     <!-- Daily Duel -->
     <div id="duel-card-container"></div>
 
     <!-- Active matchup -->
-    <div class="section-label">🏀 CURRENT MATCH-UPS</div>
+    <div class="section-label" style="padding-top:8px;padding-bottom:6px">⚔️ CURRENT MATCH-UP</div>
     <div id="matchup-card-container"></div>
 
     <!-- My Lineup -->
-    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;padding-top:10px;padding-bottom:6px">
       <span>📋 MY LINEUP</span>
       <button class="btn btn-sm btn-secondary" onclick="showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE</button>
     </div>

@@ -18,8 +18,8 @@ const WAIVER_WEEKLY = 3;
 
 // Runs / mini-seasons
 const RUNS = [
-  { id:1, name:'Fall',   start:'2026-10-20', end:'2026-12-26', color:'#ff6600' },
-  { id:2, name:'Winter', start:'2026-12-27', end:'2027-02-18', color:'#4a9eff' },
+  { id:1, name:'Fall',   start:'2026-10-20', end:'2026-12-27', color:'#ff6600' },
+  { id:2, name:'Winter', start:'2026-12-28', end:'2027-02-18', color:'#4a9eff' },
   { id:3, name:'Spring', start:'2027-02-25', end:'2027-04-11', color:'#00d4aa' },
   { id:4, name:'Summer', start:'2027-04-13', end:'2027-06-30', color:'#fec419' },
 ];
@@ -860,6 +860,7 @@ function userLink(mid, text){
 }
 
 function fantasyStandings(runId){
+  fillMatchupResults();
   const schedule = (leagueState.schedule||{})[runId] || [];
   return (leagueState.managers||[]).map(m=>{
     let wins=0, losses=0, ties=0;
@@ -1178,11 +1179,60 @@ function fmtFP(v){ return v===0 ? '0' : (v>0?'+':'')+v.toFixed(1).replace('.0','
 function parseLocalDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtRunDate(s){ return parseLocalDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
 function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
-function currentWeekStart(){
-  const d=new Date(); const day=d.getDay(); // 0=Sun
-  d.setDate(d.getDate()-day);
-  d.setHours(0,0,0,0);
-  return d;
+// ── MATCHUP WEEKS: Monday–Sunday ─────────────────────────────────────────────
+// One definition used everywhere: FP totals, the schedule, records, profiles.
+function mondayOf(d){
+  const x=new Date(d); x.setHours(0,0,0,0);
+  const dow=x.getDay(); x.setDate(x.getDate()-(dow===0?6:dow-1));
+  return x;
+}
+function ymd(d){ return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
+function runStartDate(run){ const [y,m,d]=run.start.split('-').map(Number); return new Date(y,m-1,d,12); }
+function runEndDate(run){ const [y,m,d]=run.end.split('-').map(Number); return new Date(y,m-1,d,23,59,59); }
+// Week idx of a run (0 = the week containing the run's first day)
+function runWeekRange(runId, idx){
+  const run=RUNS.find(r=>r.id===runId);
+  const mon=mondayOf(runStartDate(run)); mon.setDate(mon.getDate()+idx*7);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  return {mon, sun, from:ymd(mon), to:ymd(sun)};
+}
+function runWeekCount(runId){
+  const run=RUNS.find(r=>r.id===runId);
+  return Math.round((mondayOf(runEndDate(run))-mondayOf(runStartDate(run)))/(7*864e5))+1;
+}
+function currentWeekStart(){ return mondayOf(new Date()); }
+
+// A team's FP over a date range from saved stats (only games he was Active for)
+function teamFPForDates(mid, from, to, byDate){
+  let total=0;
+  for(const [d, entries] of Object.entries(byDate)){
+    if(d<from || d>to) continue;
+    const act=activeLineupOnDate(mid, d).map(String);
+    for(const e of entries) if(act.includes(String(e.pid))) total+=e.fp||0;
+  }
+  return +total.toFixed(1);
+}
+// Fill homeFP/awayFP/winner on every finished matchup week. Recomputed from saved
+// stats each time, so late stat corrections and lineup fixes flow into records.
+function fillMatchupResults(){
+  const byDate={}, seen=new Set();
+  for(const e of Object.values(leagueState?.playerStats||{})){
+    const k=`${e.pid}_${e.date}`; if(seen.has(k)) continue; seen.add(k);
+    (byDate[String(e.date)] ||= []).push(e);
+  }
+  const today=ymd(new Date());
+  for(const run of RUNS){
+    const sched=(leagueState?.schedule||{})[run.id]||[];
+    sched.forEach((week,idx)=>{
+      const r=runWeekRange(run.id, idx);
+      if(r.to >= today) return; // week not over yet
+      for(const mu of week){
+        mu.homeFP=teamFPForDates(mu.home, r.from, r.to, byDate);
+        mu.awayFP=teamFPForDates(mu.away, r.from, r.to, byDate);
+        mu.winner = mu.homeFP>mu.awayFP ? mu.home : mu.awayFP>mu.homeFP ? mu.away : 'tie';
+      }
+    });
+  }
 }
 function avatarColor(idx){ return AVATAR_COLORS[idx % AVATAR_COLORS.length]; }
 function avatarEl(name,color,size=22,fontSize=7,icon=null,photo=null){
@@ -2352,7 +2402,7 @@ async function toggleActiveStatus(mid, pid){
 function getCurrentRun(){
   const today=new Date();
   for(const run of RUNS){
-    if(today>=new Date(run.start) && today<=new Date(run.end)) return run;
+    if(today>=runStartDate(run) && today<=runEndDate(run)) return run;
   }
   // Return nearest upcoming run
   const upcoming=RUNS.find(r=>new Date(r.start)>today);
@@ -3883,10 +3933,9 @@ function findMyMatchup(mid, runId){
 
 function getCurrentWeekIndex(runId){
   const run=RUNS.find(r=>r.id===runId); if(!run) return -1;
-  const start=new Date(run.start);
   const now=new Date();
-  if(now<start) return -1;
-  return Math.floor((now-start)/(7*24*3600*1000));
+  if(now<mondayOf(runStartDate(run))) return -1;
+  return Math.round((mondayOf(now)-mondayOf(runStartDate(run)))/(7*864e5));
 }
 
 function renderLineupPreview(){
@@ -3965,6 +4014,7 @@ function renderLineupPreview(){
 }
 
 function renderQuickStats(){
+  fillMatchupResults();
   const el=document.getElementById('quick-stats-container');
   if(!el) return;
   const mid=getMyId();
@@ -4352,17 +4402,12 @@ function renderFantasySchedule(){
   const clampedIdx=Math.max(0,Math.min(displayIdx,schedule.length-1));
   if(clampedIdx!==displayIdx) scheduleWeekOffset=clampedIdx-(curWeekIdx<0?0:curWeekIdx);
 
-  // Build week date ranges from run start (Mon–Sun)
-  const runStart=new Date(run.start);
-  const firstMon=new Date(runStart);
-  const dow=runStart.getDay();
-  if(dow!==1) firstMon.setDate(runStart.getDate()+((1-dow+7)%7));
+  fillMatchupResults();
 
   const fmtDate=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
   const wi=clampedIdx;
-  const monDate=new Date(firstMon); monDate.setDate(firstMon.getDate()+wi*7);
-  const sunDate=new Date(monDate); sunDate.setDate(monDate.getDate()+6);
+  const {mon:monDate, sun:sunDate}=runWeekRange(currentRun, wi);
   const isCurrent=wi===curWeekIdx;
   const isPast=wi<curWeekIdx;
   const week=schedule[wi]||[];
@@ -4381,7 +4426,7 @@ function renderFantasySchedule(){
     const isMine=matchup.home===myId||matchup.away===myId;
     let hFPStr='—', aFPStr='—', hWin=false, aWin=false;
     if(isPast||isCurrent){
-      const hFP=managerFP(matchup.home), aFP=managerFP(matchup.away);
+      const hFP=isPast?(matchup.homeFP||0):managerFP(matchup.home), aFP=isPast?(matchup.awayFP||0):managerFP(matchup.away);
       hFPStr=hFP.toFixed(1); aFPStr=aFP.toFixed(1);
       if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
       else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
@@ -4466,6 +4511,7 @@ function renderFantasyRunContent(){
   }
 
   // Build standings for this run
+  fillMatchupResults();
   const standings=managers.map(m=>{
     const schedule=(leagueState.schedule||{})[currentRun]||[];
     let wins=0,losses=0,ties=0;
@@ -4997,6 +5043,7 @@ async function executeDrop(mid, pid){
 
 // ── PROFILE SCREEN ───────────────────────────────────────────────────────────
 function renderProfileScreen(){
+  fillMatchupResults();
   if(!myProfile) return;
   const color=myProfile.color||'#4a9eff';
   const name=myProfile.display_name||'Player';
@@ -5501,9 +5548,7 @@ function buildRoundRobinSchedule(teams, runId){
   }
   if(!run) return baseRounds;
   // Compute how many weeks fit in this run
-  const runStart=new Date(run.start);
-  const runEnd=new Date(run.end);
-  const totalWeeks=Math.ceil((runEnd-runStart)/(7*24*3600*1000));
+  const totalWeeks=runWeekCount(runId); // Mon–Sun weeks touching the run
   // Tile the base rounds to fill all weeks
   const rounds=[];
   for(let w=0;w<totalWeeks;w++){

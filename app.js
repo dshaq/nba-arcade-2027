@@ -1265,13 +1265,67 @@ function dedupePlayerStats(){
   for(const k of removed){ console.warn('[dedupePlayerStats] removing duplicate', k, ps[k]?.name, ps[k]?.fp); delete ps[k]; }
 }
 
-async function loadLeagueState(){
-  const {data} = await db.from('leagues').select('state').eq('id',LEAGUE_KEY).maybeSingle();
-  if(data?.state){
-    try{ leagueState = JSON.parse(data.state); }
-    catch(e){ leagueState = data.state; }
+// ── SAFE SAVING ──────────────────────────────────────────────────────────────
+// The whole league lives in one JSON blob. Every open copy of the app holds its
+// own copy, so a plain "write my copy" save would overwrite everything other
+// people changed since this copy loaded (e.g. undo a lineup swap made hours ago).
+// Instead, every save is a 3-way merge:
+//   base   = the blob as this copy last loaded/saved it
+//   local  = this copy now (base + my changes)
+//   remote = the blob in the database right now (base + everyone else's changes)
+// Keys only I changed take my value; keys only others changed take theirs; if both
+// changed the same key, mine wins. Arrays (e.g. an active lineup) are one value.
+let _leagueBaseJson = null;
+let _leagueStateQueue = Promise.resolve(); // serializes saves and pulls
+
+function _isPlainObj(x){ return x!==null && typeof x==='object' && !Array.isArray(x); }
+function _jsonEq(a,b){ return a===b || JSON.stringify(a)===JSON.stringify(b); }
+function merge3(base, local, remote){
+  if(_jsonEq(local, base)) return remote;   // I didn't touch it
+  if(_jsonEq(remote, base)) return local;   // nobody else touched it
+  if(_isPlainObj(local) && _isPlainObj(remote)){
+    const b = _isPlainObj(base) ? base : {};
+    const out = {};
+    for(const k of new Set([...Object.keys(b), ...Object.keys(local), ...Object.keys(remote)])){
+      const v = merge3(b[k], local[k], remote[k]);
+      if(v !== undefined) out[k] = v;       // undefined = deleted
+    }
+    return out;
   }
+  return local;                             // both changed the same value: mine wins
+}
+function _replaceLeagueState(next){
+  if(!leagueState){ leagueState = next; return; }
+  for(const k of Object.keys(leagueState)) if(!(k in next)) delete leagueState[k];
+  Object.assign(leagueState, next);
+}
+async function fetchRemoteLeagueState(){
+  const {data, error} = await db.from('leagues').select('state').eq('id',LEAGUE_KEY).maybeSingle();
+  if(error || !data?.state) return null;
+  try{ return typeof data.state==='string' ? JSON.parse(data.state) : data.state; }catch(e){ return null; }
+}
+
+// Bring in everyone else's saved changes without losing my unsaved ones.
+function pullLeagueState(){
+  _leagueStateQueue = _leagueStateQueue.then(async ()=>{
+    if(!leagueState || !_leagueBaseJson) return;
+    const startJson = JSON.stringify(leagueState);
+    const remote = await fetchRemoteLeagueState();
+    if(!remote) return;
+    const merged = merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote);
+    // Keep anything changed locally while the fetch was in flight
+    _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, merged));
+    _leagueBaseJson = JSON.stringify(remote);
+  }).catch(e=>console.warn('[pullLeagueState]', e));
+  return _leagueStateQueue;
+}
+
+async function loadLeagueState(){
+  await _leagueStateQueue; // let any in-flight save finish first
+  const remote = await fetchRemoteLeagueState();
+  if(remote) leagueState = remote;
   if(!leagueState){ leagueState = defaultLeagueState(); }
+  _leagueBaseJson = JSON.stringify(leagueState);
   dedupePlayerStats();
   // Always sync live manager profiles so names/colors are never stale
   await syncManagersToState();
@@ -1305,9 +1359,22 @@ function logActiveChanges(){
   }
 }
 
-async function saveLeagueState(){
-  logActiveChanges();
-  await db.from('leagues').upsert({id:LEAGUE_KEY, state:JSON.stringify(leagueState)});
+function saveLeagueState(){
+  _leagueStateQueue = _leagueStateQueue.then(async ()=>{
+    logActiveChanges();
+    const startJson = JSON.stringify(leagueState);
+    const remote = await fetchRemoteLeagueState();
+    const toWrite = (remote && _leagueBaseJson)
+      ? merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote)
+      : JSON.parse(startJson);
+    const json = JSON.stringify(toWrite);
+    const {error} = await db.from('leagues').upsert({id:LEAGUE_KEY, state:json});
+    if(error){ console.warn('[saveLeagueState] failed', error); return; }
+    // Adopt the merged result, keeping anything changed locally during the save
+    _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
+    _leagueBaseJson = json;
+  }).catch(e=>console.warn('[saveLeagueState]', e));
+  return _leagueStateQueue;
 }
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
@@ -1677,6 +1744,7 @@ function injuryInfo(playerName){
   const inj = getInjuryStatus(playerName);
   if(!inj) return null;
   const s = (inj.status||'').toLowerCase();
+  if(/^available/.test(s)) return null; // "Available" = cleared to play, not an injury
   let label, color;
   if(s.includes('out'))            { label='OUT';  color='#e53e3e'; }
   else if(s.includes('doubt'))     { label='DOUBT';color='#dd6b20'; }
@@ -2040,6 +2108,7 @@ function countFoulsFromPlays(plays, espnIdToPid){
 
 let _lastBdlStatsFetch = 0;
 async function refreshLiveStats(){
+  await pullLeagueState(); // see other managers' changes; keeps mine
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
 
@@ -5267,10 +5336,67 @@ async function renderAdminContent(){
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
   </div>
 
+  ${renderAdminLineupOverrideSection()}
   ${renderAdminLineupFixSection()}
   ${renderAdminDuelSection()}
   ${renderAdminWlcSection()}
   `;
+}
+
+// ── COMMISSIONER: LINEUP OVERRIDE ───────────────────────────────────────────
+// Swap a bench player into a team's active lineup right now, ignoring the
+// tip-off lock (for disputes like a swap that didn't save). Counts for all of
+// today: the activated player's whole game today counts (live now, and via the
+// lineup history once his final stats save); the benched player earns nothing today.
+let adminOvTeam = null;
+function renderAdminLineupOverrideSection(){
+  const mgrs = allManagers();
+  if(!mgrs.length) return '';
+  if(!adminOvTeam || !mgrs.some(m=>String(m.id)===String(adminOvTeam))) adminOvTeam = mgrs[0].id;
+  const mid = adminOvTeam;
+  const roster = (leagueState.rosters||{})[mid]||[];
+  const ir = getIrSlot(mid);
+  const active = (leagueState.active||{})[mid] || autoActiveFor(mid);
+  const bench = roster.filter(pid=>!active.map(String).includes(String(pid)) && String(pid)!==String(ir));
+  const opt = pid => { const p=getPlayer(pid); return p?`<option value="${pid}">${p.name} (${p.team})</option>`:''; };
+  const sel = 'background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:6px;width:100%;margin-bottom:6px';
+  return `
+  <div class="section-label" style="padding:12px 0 8px">🔧 LINEUP OVERRIDE</div>
+  <div class="card" style="margin:0">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Move a player into a team's active lineup now, even if his game has already tipped off. His full game today counts for the team. The player moved to the bench earns nothing today.</div>
+    <select style="${sel}" onchange="adminOvTeam=this.value;renderAdminContent()">
+      ${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(mid)?'selected':''}>${teamLabel(m)}</option>`).join('')}
+    </select>
+    <div style="font-size:11px;color:var(--text3);margin:4px 0">Move to BENCH ${active.length<ACTIVE_SIZE?'(optional — lineup has an open spot)':''}</div>
+    <select id="ov-out" style="${sel}">${active.length<ACTIVE_SIZE?'<option value="">— nobody —</option>':''}${active.map(opt).join('')}</select>
+    <div style="font-size:11px;color:var(--text3);margin:4px 0">Move to ACTIVE</div>
+    <select id="ov-in" style="${sel}">${bench.length?bench.map(opt).join(''):'<option value="">No bench players</option>'}</select>
+    <button class="btn btn-primary btn-full" style="margin-top:6px" onclick="adminLineupOverride()">✅ APPLY SWAP</button>
+  </div>`;
+}
+
+async function adminLineupOverride(){
+  const mid = adminOvTeam;
+  const outPid = document.getElementById('ov-out')?.value || '';
+  const inPid = document.getElementById('ov-in')?.value || '';
+  if(!inPid){ toast('Pick a player to activate'); return; }
+  await loadLeagueState(); // apply to the freshest saved lineup
+  const num = x => isNaN(x) ? x : Number(x);
+  let active = [...((leagueState.active||{})[mid] || autoActiveFor(mid))];
+  if(outPid) active = active.filter(id=>String(id)!==String(outPid));
+  if(active.length >= ACTIVE_SIZE){ toast(`Lineup full — choose someone to bench`); return; }
+  if(!active.map(String).includes(String(inPid))) active.push(num(inPid));
+  if(!leagueState.active) leagueState.active = {};
+  if(!leagueState.inactive) leagueState.inactive = {};
+  leagueState.active[mid] = active;
+  const inactive = ((leagueState.inactive||{})[mid]||[]).filter(id=>String(id)!==String(inPid));
+  if(outPid && !inactive.map(String).includes(String(outPid))) inactive.push(num(outPid));
+  leagueState.inactive[mid] = inactive;
+  await saveLeagueState(); // also records the change in the lineup history
+  const pin = getPlayer(num(inPid)), pout = outPid ? getPlayer(num(outPid)) : null;
+  toast(`${pin?.name||'Player'} activated${pout?`, ${pout.name} benched`:''} ✓`);
+  renderAdminContent(); renderLineupPreview(); renderMyRosterList();
+  if(document.getElementById('rosters-content')) renderRostersScreen();
 }
 
 // ── COMMISSIONER: FIX PAST LINEUPS ──────────────────────────────────────────

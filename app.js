@@ -2558,64 +2558,113 @@ function showScreen(screen){
 }
 
 // ── HOME SCREEN ──────────────────────────────────────────────────────────────
-// ── HOMEPAGE SCOREBOARD: one game at a time, arrows (or swipe) to browse ─────
-let SB_EVENTS = [], sbIndex = 0, sbEventId = null;
+// ── HOMEPAGE SCOREBOARD: 16-bit gym-style LED board, one game, dropdown ──────
+let SB_EVENTS = [], sbEventId = null;
 function setScoreboardEvents(evs){
-  const order = ev => { const st=ev.competitions?.[0]?.status?.type?.state; return st==='in'?0:st==='pre'?1:2; };
   const seen=new Set(); evs=evs.filter(e=>!seen.has(e.id)&&seen.add(e.id));
+  const order = ev => { const st=ev.competitions?.[0]?.status?.type?.state; return st==='in'?0:st==='pre'?1:2; };
   SB_EVENTS = [...evs].sort((a,b)=> order(a)-order(b) || String(a.date).localeCompare(String(b.date)));
-  const keep = SB_EVENTS.findIndex(e=>e.id===sbEventId);
-  sbIndex = keep>=0 ? keep : 0;
+  if(!SB_EVENTS.some(e=>e.id===sbEventId)) sbEventId = SB_EVENTS[0]?.id || null;
   renderScoreboard();
 }
-function scoreboardStep(d){
-  if(!SB_EVENTS.length) return;
-  sbIndex = (sbIndex + d + SB_EVENTS.length) % SB_EVENTS.length;
-  sbEventId = SB_EVENTS[sbIndex].id;
-  renderScoreboard();
+function selectScoreboardGame(id){ sbEventId = id; renderScoreboard(); }
+
+// Seven-segment LED digit as inline SVG. Unlit segments stay faintly visible,
+// like a real gym scoreboard. Supports 0-9, '-', ' ' (blank) and ':'.
+const SEG_MAP = {'0':'abcdef','1':'bc','2':'abdeg','3':'abcdg','4':'bcfg','5':'acdfg','6':'acdefg','7':'abc','8':'abcdefg','9':'abcdfg','-':'g',' ':''};
+const SEG_PTS = {
+  a:'12,4 48,4 54,10 48,16 12,16 6,10',   b:'44,16 50,10 56,16 56,42 50,48 44,42',
+  c:'44,58 50,52 56,58 56,84 50,90 44,84', d:'12,84 48,84 54,90 48,96 12,96 6,90',
+  e:'4,58 10,52 16,58 16,84 10,90 4,84',   f:'4,16 10,10 16,16 16,42 10,48 4,42',
+  g:'12,44 48,44 54,50 48,56 12,56 6,50' };
+function ledText(str, color, h){
+  return `<span class="led" style="--led:${color};height:${h}px">${[...String(str)].map(ch=>{
+    if(ch===':') return `<svg viewBox="0 0 20 100" style="height:${h}px;width:${h*.2}px"><rect x="6" y="28" width="9" height="9" class="on"/><rect x="6" y="64" width="9" height="9" class="on"/></svg>`;
+    const lit = SEG_MAP[ch] ?? '';
+    return `<svg viewBox="0 0 60 100" style="height:${h}px;width:${h*.6}px">${Object.entries(SEG_PTS).map(([k,pts])=>`<polygon points="${pts}" class="${lit.includes(k)?'on':'off'}"/>`).join('')}</svg>`;
+  }).join('')}</span>`;
 }
+
 function renderScoreboard(){
   const el = document.getElementById('scoreboard-container'); if(!el) return;
+  const sel = document.getElementById('sb-select-wrap');
   if(!SB_EVENTS.length){
-    el.innerHTML = `<div class="scoreboard"><div class="sb-main"><div class="sb-status">NO NBA GAMES TODAY</div></div></div>`;
+    if(sel) sel.innerHTML = `<span style="font-family:var(--pixel);font-size:6px;color:var(--text3)">🏀 NO NBA GAMES TODAY</span>`;
+    el.innerHTML = '';
     return;
   }
-  const ev = SB_EVENTS[sbIndex], comp = ev.competitions?.[0]||{}, st = comp.status||ev.status||{};
-  const state = st.type?.state;
-  const cs = comp.competitors||[];
-  const home = cs.find(c=>c.homeAway==='home')||cs[0]||{}, away = cs.find(c=>c.homeAway==='away')||cs[1]||{};
-  const ab = c => espnToAbbr((c.team?.abbreviation||'').toUpperCase());
-  const live = state==='in' && (st.period||0)>0 && !/^\d{4}-\d{2}-\d{2}T/.test(st.displayClock||'');
-  const final = state==='post';
-  const showScore = live || final;
-  const hs = +home.score||0, as = +away.score||0;
-  const status = live ? `<span class="live-dot"></span>Q${st.period>4?'OT':st.period} ${st.displayClock||''}`
-    : final ? 'FINAL'
-    : new Date(comp.date||ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+' ET';
-  // Stat leaders across both teams
-  const lead = cat => { let best=null; for(const c of [away,home]) for(const L of (c.leaders||[])) if(L.name===cat) for(const x of (L.leaders||[])) if(!best || (x.value??+x.displayValue)>(best.value??+best.displayValue)) best=x; return best; };
-  const leaders = showScore ? [['PTS','points'],['REB','rebounds'],['AST','assists']].map(([lbl,cat])=>{ const x=lead(cat); return x?`<span><b>${lbl}</b> ${x.athlete?.shortName||''} ${x.displayValue}</span>`:''; }).filter(Boolean).join('') : '';
-  const teamCell = c => `<div class="sb-team">${getTeamLogoUrl(ab(c))?`<img src="${getTeamLogoUrl(ab(c))}" onerror="this.style.visibility='hidden'">`:''}<div class="sb-abbr">${ab(c)}</div></div>`;
-  const scoreCell = (v, win) => `<div class="sb-score${win?' win':''}">${showScore?v:''}</div>`;
-  el.innerHTML = `<div class="scoreboard" id="sb-swipe">
-    <button class="sb-arrow" onclick="scoreboardStep(-1)" aria-label="Previous game">‹</button>
-    <div class="sb-main">
-      <div class="sb-status${live?' live':''}">${status}</div>
-      <div class="sb-teams">
-        ${teamCell(away)}${scoreCell(as, final&&as>hs)}
-        <div class="sb-dash">${showScore?'–':'@'}</div>
-        ${scoreCell(hs, final&&hs>as)}${teamCell(home)}
+  const ab = c => espnToAbbr((c?.team?.abbreviation||'').toUpperCase());
+  const info = ev => {
+    const comp = ev.competitions?.[0]||{}, st = comp.status||ev.status||{};
+    const cs = comp.competitors||[];
+    const home = cs.find(c=>c.homeAway==='home')||cs[0]||{}, away = cs.find(c=>c.homeAway==='away')||cs[1]||{};
+    const state = st.type?.state;
+    const live = state==='in' && (st.period||0)>0 && !/^\d{4}-\d{2}-\d{2}T/.test(st.displayClock||'');
+    const final = state==='post';
+    const tip = new Date(comp.date||ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+    const per = st.period>4 ? 'OT' : String(st.period||'');
+    const half = live && /half/i.test(st.type?.shortDetail||st.type?.detail||'');
+    return {comp, st, home, away, live, final, tip, per, half};
+  };
+  // Game picker
+  if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Choose a game" onchange="selectScoreboardGame(this.value)">
+    ${SB_EVENTS.map(ev=>{ const g=info(ev);
+      const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${g.st.displayClock}`) : g.final ? 'FINAL' : g.tip;
+      return `<option value="${ev.id}" ${ev.id===sbEventId?'selected':''}>${g.live?'🔴 ':''}${ab(g.away)} @ ${ab(g.home)} · ${status}</option>`; }).join('')}
+  </select>`;
+
+  const ev = SB_EVENTS.find(e=>e.id===sbEventId) || SB_EVENTS[0];
+  const g = info(ev);
+  const showScore = g.live || g.final;
+  const pad3 = n => String(n).padStart(3,' ').slice(-3);
+  const RED = '#ff3b30', AMBER = '#ffb000';
+  // Clock: game clock live, tip-off time before, 0:00 at the final
+  let clock = g.live ? (g.half ? '0:00' : (g.st.displayClock||'0:00')) : g.final ? '0:00' : g.tip.replace(/\s?[AP]M/,'');
+  if(!/^\d{1,2}:\d{2}$/.test(clock)) clock = clock.replace(/[^\d:]/g,'') || '0:00';
+  clock = clock.padStart(5,' ');
+  const statusTag = g.live ? (g.half ? '<span class="gym-tag">HALFTIME</span>' : '<span class="gym-tag live"><span class="live-dot"></span>LIVE</span>')
+    : g.final ? '<span class="gym-tag final">FINAL</span>' : `<span class="gym-tag">TIP-OFF ${g.tip} ET</span>`;
+  // Top scorer per team (from ESPN leaders)
+  const top = c => { let best=null; for(const L of (c.leaders||[])) if(L.name==='points') for(const x of (L.leaders||[])) if(!best || (x.value??+x.displayValue) > (best.value??+best.displayValue)) best=x; return best; };
+  const leaderCell = (c, side) => { const t = showScore ? top(c) : null;
+    const nm = t ? (t.athlete?.shortName||'').split(' ').pop().toUpperCase().slice(0,9) : '';
+    return `<div class="gym-player ${side}"><div class="gym-pname">${nm || '&nbsp;'}</div><div class="gym-win small">${ledText(t ? String(Math.round(+t.displayValue||0)).padStart(2,' ') : '  ', AMBER, 26)}</div></div>`; };
+  const homeWin = g.final && +g.home.score > +g.away.score, awayWin = g.final && +g.away.score > +g.home.score;
+
+  el.innerHTML = `
+  <div class="gym">
+    <div class="gym-row">
+      <div class="gym-team">
+        <div class="gym-label${awayWin?' win':''}">${ab(g.away)}</div>
+        <div class="gym-win">${ledText(showScore ? pad3(+g.away.score||0) : '   ', RED, 46)}</div>
       </div>
-      ${leaders?`<div class="sb-leaders">${leaders}</div>`:''}
-      <div class="sb-dots">${SB_EVENTS.length>1?`${sbIndex+1} / ${SB_EVENTS.length}`:''}</div>
+      <div class="gym-center">
+        <div class="gym-win clock${g.live&&!g.half?' ticking':''}">${ledText(clock, AMBER, 34)}</div>
+        <div class="gym-label sm">PERIOD</div>
+        <div class="gym-win small">${g.per==='OT' ? '<span class="gym-ot">OT</span>' : ledText(showScore?g.per:'-', AMBER, 30)}</div>
+      </div>
+      <div class="gym-team">
+        <div class="gym-label${homeWin?' win':''}">${ab(g.home)}</div>
+        <div class="gym-win">${ledText(showScore ? pad3(+g.home.score||0) : '   ', RED, 46)}</div>
+      </div>
     </div>
-    <button class="sb-arrow" onclick="scoreboardStep(1)" aria-label="Next game">›</button>
+    <div class="gym-row bottom">
+      ${leaderCell(g.away,'l')}
+      <div class="gym-mid"><div class="gym-label sm">TOP<br>SCORER</div>${statusTag}</div>
+      ${leaderCell(g.home,'r')}
+    </div>
   </div>`;
-  // Swipe left/right on phones
-  const box = document.getElementById('sb-swipe'); let x0=null;
-  box.addEventListener('touchstart', e=>{ x0=e.touches[0].clientX; }, {passive:true});
-  box.addEventListener('touchend', e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>40) scoreboardStep(dx<0?1:-1); });
 }
+
+// Faster refresh for the scoreboard while a game is live and Home is open
+setInterval(async ()=>{
+  if(currentScreen!=='home' || !SB_EVENTS.some(e=>e.competitions?.[0]?.status?.type?.state==='in')) return;
+  try{
+    const d = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${d.replace(/-/g,'')}`);
+    if(res.ok){ const data = await res.json(); if(data.events?.length) setScoreboardEvents(data.events); }
+  }catch(e){}
+}, 20000);
 
 function renderHomeScreen(){
   renderScoreboard();

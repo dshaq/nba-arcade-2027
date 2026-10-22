@@ -875,15 +875,18 @@ function fantasyStandings(runId){
 // Every player relevant to a team this week, with the FP he's contributed to it.
 // Same rules as managerFP: saved games count only if he was Active that day;
 // live points count only while he's Active now. Sum of fp === managerFP(mid).
-function teamWeekRows(mid){
-  const weekStart = currentWeekStart();
+// Every player relevant to a team for a date range [from,to] (YYYYMMDD), with the
+// FP he contributed: saved games count only if he was Active that day; live points
+// count only for the current week while he's Active now. Sum of fp === team total.
+function teamRowsForRange(mid, from, to, includeLive){
   const roster = ((leagueState.rosters||{})[mid]||[]).map(String);
   const active = ((leagueState.active||{})[mid] || autoActiveFor(mid)).map(String);
   const ir = String(getIrSlot(mid) ?? '');
-  const fpBy = new Map();
+  const fpBy = new Map(), seen = new Set();
   for(const e of Object.values(leagueState.playerStats||{})){
     const d = e.date ? String(e.date) : '';
-    if(d.length!==8 || statDateObj(d) < weekStart) continue;
+    if(d.length!==8 || d<from || d>to) continue;
+    const k=`${e.pid}_${d}`; if(seen.has(k)) continue; seen.add(k);
     if(!activeLineupOnDate(mid, d).map(String).includes(String(e.pid))) continue;
     fpBy.set(String(e.pid), (fpBy.get(String(e.pid))||0) + (e.fp||0));
   }
@@ -893,12 +896,16 @@ function teamWeekRows(mid){
     if(!p) return null;
     let fp = fpBy.get(pid)||0, isLive = false;
     const live = livePlayerStats[p.id];
-    if(live && active.includes(pid) && !liveAlreadySaved(p.id, live)){ fp += live.fp||0; isLive = !!live.live; }
+    if(includeLive && live && active.includes(pid) && !liveAlreadySaved(p.id, live)){ fp += live.fp||0; isLive = !!live.live; }
     const status = !roster.includes(pid) ? 'dropped' : pid===ir ? 'ir' : active.includes(pid) ? 'active' : 'bench';
     return {p, fp:+fp.toFixed(1), status, isLive};
   }).filter(Boolean);
   const order = {active:0, bench:1, ir:2, dropped:3};
   return rows.sort((a,b)=> order[a.status]-order[b.status] || b.fp-a.fp);
+}
+function teamWeekRows(mid){
+  const ws = currentWeekStart(), we = new Date(ws); we.setDate(ws.getDate()+6);
+  return teamRowsForRange(mid, ymd(ws), ymd(we), true);
 }
 
 function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -3830,103 +3837,64 @@ function renderMatchupCard(){
   </div>`;
 }
 
-function showMatchupDetail(){
-  const mid=getMyId();
-  if(!mid||!leagueState) return;
-  const run=getCurrentRun();
-  const weekMatchup=findMyMatchup(mid,run.id);
-  if(!weekMatchup) return;
-  const isHome=weekMatchup.home===mid;
-  const oppId=isHome?weekMatchup.away:weekMatchup.home;
-  const opp=leagueState.managers?.find(m=>m.id===oppId);
-  const myName=teamLabel(myProfile)||'Me';
-  const myColor=myProfile?.color||'#4a9eff';
-  const oppName=teamLabel(opp)||'Opponent';
-  const oppColor=opp?.color||'#4a9eff';
-
-  const buildRosterRows=(managerId)=>{
-    const weekStart = currentWeekStart();
-    const today = todayKey().replace(/-/g,'');
-    const currentActive = (leagueState.active||{})[managerId] || autoActiveFor(managerId);
-    // Collect all players who contributed (or could contribute) FP this week
-    const contributorMap = new Map(); // pid -> fp
-    for(const entry of Object.values(leagueState.playerStats||{})){
-      const entryDate = entry.date ? String(entry.date) : null;
-      if(!entryDate || entryDate.length!==8) continue;
-      const y=parseInt(entryDate.slice(0,4)),mo=parseInt(entryDate.slice(4,6))-1,dy=parseInt(entryDate.slice(6,8));
-      if(new Date(y,mo,dy)<weekStart) continue;
-      const activeThatDay = activeLineupOnDate(managerId, entryDate);
-      const pid = entry.pid;
-      if(!activeThatDay.includes(pid)&&!activeThatDay.map(Number).includes(pid)) continue;
-      contributorMap.set(pid, (contributorMap.get(pid)||0) + (entry.fp||0));
-    }
-    // Include today's active players even if no stats yet
-    for(const pid of currentActive){
-      if(!contributorMap.has(pid)) contributorMap.set(pid, 0);
-    }
-    return [...contributorMap.entries()].map(([pid, fp])=>{
-      const p=getPlayer(pid); if(!p) return '';
-      let liveFPBadge='';
-      const live=livePlayerStats[pid];
-      if(live&&currentActive.includes(pid)){
-        if(!liveAlreadySaved(pid, live)){ fp+=live.fp||0; if(live.live) liveFPBadge=`<span style="color:var(--accent2);font-size:5px"> LIVE</span>`; }
-      }
-      const isCurrentlyActive=currentActive.includes(pid)||currentActive.map(Number).includes(pid);
-      const benchLabel=!isCurrentlyActive?`<span style="color:var(--text3);font-size:4.5px"> BENCH</span>`:'';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-family:var(--pixel);font-size:6px;color:var(--text1)">${p.name.split(' ').pop()}${benchLabel}</div>
-          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${p.pos} · ${p.team}</div>
-        </div>
-        <div style="font-family:var(--pixel);font-size:7px;color:${fp>0?'var(--accent3)':'var(--text3)'};text-align:right">${fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span>${liveFPBadge}</div>
-      </div>`;
-    }).join('');
+// Box score for any matchup. No args = my current matchup.
+function showMatchupDetail(homeId, awayId, runId, weekIdx){
+  const run = runId ? RUNS.find(r=>r.id===runId) : getCurrentRun();
+  if(!run || !leagueState) return;
+  const curIdx = getCurrentWeekIndex(run.id);
+  if(homeId===undefined){
+    const mid=getMyId(); const mu=findMyMatchup(mid, run.id); if(!mu) return;
+    homeId = mid; awayId = mu.home===mid ? mu.away : mu.home; weekIdx = curIdx;
+  }
+  if(weekIdx===undefined) weekIdx = curIdx;
+  const r = runWeekRange(run.id, weekIdx);
+  const isCurrent = weekIdx===curIdx, isFuture = weekIdx>curIdx;
+  const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id)) || {id, display_name:'?', color:'#4a9eff'};
+  const A = mgr(homeId), B = mgr(awayId);
+  const rowsA = teamRowsForRange(A.id, r.from, r.to, isCurrent), rowsB = teamRowsForRange(B.id, r.from, r.to, isCurrent);
+  const sum = rows => +rows.reduce((a,x)=>a+x.fp,0).toFixed(1);
+  const fpA = isCurrent ? managerFP(A.id) : sum(rowsA), fpB = isCurrent ? managerFP(B.id) : sum(rowsB);
+  const aLead = fpA>=fpB;
+  const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const status = isFuture ? 'UPCOMING' : isCurrent ? 'THIS WEEK' : 'FINAL';
+  const tag = {active:'', bench:' <span style="color:var(--text3);font-size:4.5px">BENCH</span>', ir:' <span style="color:#805ad5;font-size:4.5px">IR</span>', dropped:' <span style="color:var(--text3);font-size:4.5px">DROPPED</span>'};
+  const col = (m, rows) => {
+    const shown = rows.filter(x=>x.fp!==0 || x.status==='active' || isFuture);
+    return `<div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${teamLabel(m).toUpperCase()}</div>
+      ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${x.p.pos} · ${x.p.team}</div></div>
+        <div style="font-family:var(--pixel);font-size:7px;color:${x.fp>0?'var(--accent3)':'var(--text3)'};white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-size:4.5px">LIVE </span>':''}${x.fp.toFixed(1)}</div>
+      </div>`).join('') || '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
+    </div>`;
   };
-
-  const myFP=managerFP(mid);
-  const oppFP=managerFP(oppId);
-  const myLeading=myFP>=oppFP;
-  const diff=Math.abs(myFP-oppFP).toFixed(1);
-
-  let modal=document.getElementById('matchup-detail-modal');
-  if(modal) modal.remove();
-  modal=document.createElement('div');
-  modal.id='matchup-detail-modal';
-  modal.className='modal-overlay';
-  modal.style.display='flex';
-  modal.innerHTML=`
-    <div class="modal-box" style="max-width:420px;width:calc(100% - 32px);max-height:85vh;overflow-y:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">${run.name.toUpperCase()} · ${getWeekLabel()}</div>
+  document.getElementById('matchup-detail-modal')?.remove();
+  const modal=document.createElement('div');
+  modal.id='matchup-detail-modal'; modal.className='top-sheet-overlay';
+  modal.onclick=e=>{ if(e.target===modal) modal.remove(); };
+  modal.innerHTML=`<div class="top-sheet">
+    <div style="padding:14px 16px 0;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent3)">${run.name.toUpperCase()} · WEEK ${weekIdx+1} · ${fmt(r.mon)} – ${fmt(r.sun)} · ${status}</div>
         <button onclick="document.getElementById('matchup-detail-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
-      <!-- Score summary -->
-      <div style="display:flex;align-items:center;justify-content:space-around;padding:12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-around;padding:12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:12px">
         <div style="text-align:center">
-          <div style="font-family:var(--pixel);font-size:16px;color:${myLeading?'var(--accent2)':'var(--text2)'}">${myFP.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${userLink(mid,myName)}</div>
+          <div style="font-family:var(--pixel);font-size:16px;color:${!isFuture&&aLead?'var(--accent2)':'var(--text2)'}">${isFuture?'—':fpA.toFixed(1)}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${A.color||'var(--text3)'};margin-top:4px">${userLink(A.id,teamLabel(A))}</div>
         </div>
         <div style="font-family:var(--pixel);font-size:8px;color:var(--text3)">VS</div>
         <div style="text-align:center">
-          <div style="font-family:var(--pixel);font-size:16px;color:${!myLeading?'var(--accent2)':'var(--text2)'}">${oppFP.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-top:4px">${userLink(oppId,oppName)}</div>
+          <div style="font-family:var(--pixel);font-size:16px;color:${!isFuture&&!aLead?'var(--accent2)':'var(--text2)'}">${isFuture?'—':fpB.toFixed(1)}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${B.color||'var(--text3)'};margin-top:4px">${userLink(B.id,teamLabel(B))}</div>
         </div>
       </div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:${myLeading?'var(--accent2)':'var(--accent4)'};text-align:center;margin-bottom:14px">
-        ${myLeading?'▲':'▼'} ${myLeading?myName:oppName} LEADS BY ${diff} FP
-      </div>
-      <!-- Two roster columns -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent1)">${myName.toUpperCase()}</div>
-          ${buildRosterRows(mid)||'<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ACTIVE PLAYERS</div>'}
-        </div>
-        <div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:${oppColor};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${oppColor}">${oppName.toUpperCase()}</div>
-          ${buildRosterRows(oppId)||'<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ACTIVE PLAYERS</div>'}
-        </div>
-      </div>
-    </div>`;
+    </div>
+    <div class="top-sheet-body">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">${col(A,rowsA)}${col(B,rowsB)}</div>
+    </div>
+  </div>`;
   document.body.appendChild(modal);
 }
 
@@ -4228,12 +4196,32 @@ function scheduleNavWeek(delta){
 
 // Runs open for selection. Add a run id here when its content is ready (Winter = 2).
 const ENABLED_RUNS = [1];
+// Run dropdown + "Week X of Y · ends …" progress bar
+function renderRunBar(){
+  const el=document.getElementById('run-bar'); if(!el) return;
+  const run=RUNS.find(r=>r.id===currentRun); if(!run) return;
+  const total=runWeekCount(run.id), cur=getCurrentWeekIndex(run.id);
+  const now=new Date(), ended=now>runEndDate(run);
+  const end=runEndDate(run).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const startTxt=runStartDate(run).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const left = cur<0 ? `STARTS ${startTxt.toUpperCase()}` : ended ? 'RUN COMPLETE' : `WEEK ${cur+1} OF ${total}`;
+  const right = cur<0 ? `${total} WEEKS` : ended ? `ENDED ${end.toUpperCase()}` : `ENDS ${end.toUpperCase()}`;
+  const pct = cur<0 ? 0 : ended ? 100 : Math.min(100, Math.round((now-mondayOf(runStartDate(run)))/(runEndDate(run)-mondayOf(runStartDate(run)))*100));
+  el.style.setProperty('--run-color', run.color);
+  el.innerHTML=`
+    <select aria-label="Select run" onchange="switchRun(+this.value)">
+      ${RUNS.map(r=>`<option value="${r.id}" ${r.id===currentRun?'selected':''} ${ENABLED_RUNS.includes(r.id)?'':'disabled'}>${r.name.toUpperCase()} RUN${ENABLED_RUNS.includes(r.id)?'':' · SOON'}</option>`).join('')}
+    </select>
+    <div class="run-progress">
+      <div class="run-progress-text"><span style="color:var(--text1)">${left}</span><span>${right}</span></div>
+      <div class="run-progress-track"><div class="run-progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+}
+
 function switchRun(runId){
   if(!ENABLED_RUNS.includes(runId)) return;
   currentRun=runId;
-  document.querySelectorAll('.run-tab').forEach(t=>{
-    t.classList.toggle('active',parseInt(t.dataset.run)===runId);
-  });
+  renderRunBar();
   if(currentFantasyTab==='standings'){
     renderFantasyRunContent();
     syncManagersToState().then(()=>renderFantasyRunContent());
@@ -4242,6 +4230,7 @@ function switchRun(runId){
 }
 
 function renderFantasyScreen(){
+  renderRunBar();
   switchFantasyTab(currentFantasyTab);
 }
 
@@ -4562,7 +4551,7 @@ function renderFantasySchedule(){
       if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
       else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
     }
-    html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}">
+    html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}" onclick="showMatchupDetail('${matchup.home}','${matchup.away}',${currentRun},${wi})" style="cursor:pointer">
       <div class="schedule-team-cell">
         ${userAvatar(h,22,7)}
         <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${userLink(h.id,teamLabel(h))}</span>
@@ -4707,7 +4696,7 @@ function renderWeekMatchups(runId){
     const hFP=managerFP(matchup.home), aFP=managerFP(matchup.away);
     const isMine=matchup.home===mid||matchup.away===mid;
     return `
-    <div class="matchup-card" style="${isMine?'border-color:var(--accent1)':''}">
+    <div class="matchup-card" onclick="showMatchupDetail('${matchup.home}','${matchup.away}',${runId},${weekIdx})" style="cursor:pointer;${isMine?'border-color:var(--accent1)':''}">
       <div class="matchup-body" style="padding:10px">
         <div class="matchup-team">
           <span class="fp" style="font-size:14px;${hFP>aFP?'color:var(--accent2)':''}">${hFP.toFixed(1)}</span>

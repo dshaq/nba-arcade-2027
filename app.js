@@ -1002,19 +1002,25 @@ function showPlayerCard(playerName, initialTab) {
 
   // Game log from leagueState.playerStats + today's live stats
   const pid = p?.id ?? p?.pid;
+  // One row per date: a recorded game always wins over the live feed, and any
+  // duplicate saved lines for the same date are collapsed.
+  const seenDates = new Set();
   const savedLogs = pid
-    ? Object.values(leagueState.playerStats||{}).filter(s=>s.pid===pid).sort((a,b)=>b.date>a.date?1:-1)
+    ? Object.values(leagueState.playerStats||{})
+        .filter(s=>String(s.pid)===String(pid))
+        .sort((a,b)=>String(b.date).localeCompare(String(a.date)))
+        .filter(s=>{ const d=String(s.date); if(seenDates.has(d)) return false; seenDates.add(d); return true; })
     : [];
   // Prepend today's live/in-progress stats if not already saved
   const liveStat = pid ? livePlayerStats[pid] : null;
   const todayKey2 = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
   const liveIsToday = liveStat && (liveStat.live || !liveStat.dateStr || String(liveStat.dateStr)===todayKey2);
-  const showLive = liveIsToday && !liveAlreadySaved(pid, liveStat);
+  const showLive = liveIsToday && !liveAlreadySaved(pid, liveStat) && !seenDates.has(todayKey2);
   const gameLogs = showLive
-    ? [{date: liveStat.live ? 'TODAY (LIVE)' : 'TODAY', pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
+    ? [{date: todayKey2, pts:liveStat.pts||0, reb:liveStat.reb||0, ast:liveStat.ast||0,
         stl:liveStat.stl||0, blk:liveStat.blk||0, to:liveStat.to||0, fp:liveStat.fp||0,
         fgm:liveStat.fgm, fga:liveStat.fga, ftm:liveStat.ftm, fta:liveStat.fta,
-        flagrant:liveStat.flagrant, technical:liveStat.technical, _live:true},
+        flagrant:liveStat.flagrant, technical:liveStat.technical, _live:!!liveStat.live},
        ...savedLogs]
     : savedLogs;
   const hasGames = gameLogs.length > 0;
@@ -1048,7 +1054,7 @@ function showPlayerCard(playerName, initialTab) {
         <tbody>
           ${gameLogs.map((g,i)=>`
           <tr style="background:${g._live?'rgba(246,173,85,0.08)':i%2===0?'transparent':'rgba(255,255,255,0.02)'}">
-            <td style="padding:6px 4px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${/^\d{8}$/.test(String(g.date)) ? statDateObj(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : (g.date||'—')}</td>
+            <td style="padding:6px 4px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${/^\d{8}$/.test(String(g.date)) ? statDateObj(g.date).toLocaleDateString('en-US',{month:'short',day:'2-digit'}).toUpperCase() : (g.date||'—')}${g._live?' (LIVE)':''}</td>
             <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.pts??'—'}</td>
             <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.reb??'—'}</td>
             <td style="padding:6px 2px;text-align:center;color:var(--text1)">${g.ast??'—'}</td>
@@ -1242,6 +1248,23 @@ function switchLoginTab(tab){
 }
 
 // ── DATA LAYER ───────────────────────────────────────────────────────────────
+// Enforce one saved stat line per player per date. Extra lines for the same
+// game (e.g. saved under two different game IDs) would double his FP.
+// Keeps the line with the most detail (foul counts merged in), else the first.
+function dedupePlayerStats(){
+  const ps = leagueState?.playerStats; if(!ps) return;
+  const keep = {};
+  const removed = [];
+  for(const k of Object.keys(ps).sort()){
+    const v = ps[k]; const id = `${v.pid}_${v.date}`;
+    const cur = keep[id];
+    if(!cur){ keep[id] = k; continue; }
+    const score = x => (x.flagrant!=null?1:0) + (x.technical!=null?1:0) + (x.fga!=null?1:0);
+    if(score(v) > score(ps[cur])){ removed.push(cur); keep[id] = k; } else removed.push(k);
+  }
+  for(const k of removed){ console.warn('[dedupePlayerStats] removing duplicate', k, ps[k]?.name, ps[k]?.fp); delete ps[k]; }
+}
+
 async function loadLeagueState(){
   const {data} = await db.from('leagues').select('state').eq('id',LEAGUE_KEY).maybeSingle();
   if(data?.state){
@@ -1249,6 +1272,7 @@ async function loadLeagueState(){
     catch(e){ leagueState = data.state; }
   }
   if(!leagueState){ leagueState = defaultLeagueState(); }
+  dedupePlayerStats();
   // Always sync live manager profiles so names/colors are never stale
   await syncManagersToState();
 }
@@ -3085,7 +3109,7 @@ function renderDuelCard(){
     el.innerHTML=`
     <div class="duel-card">
       <div class="duel-header">
-        <span>⚡ TEAM PICK'EM</span>
+        <span>⚡ DAILY DUEL</span>
         <div style="display:flex;align-items:center;gap:10px">
           <button onclick="event.stopPropagation();showDuelRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:0">RULES ›</button>
           <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
@@ -3952,7 +3976,10 @@ function scheduleNavWeek(delta){
   renderFantasySchedule();
 }
 
+// Runs open for selection. Add a run id here when its content is ready (Winter = 2).
+const ENABLED_RUNS = [1];
 function switchRun(runId){
+  if(!ENABLED_RUNS.includes(runId)) return;
   currentRun=runId;
   document.querySelectorAll('.run-tab').forEach(t=>{
     t.classList.toggle('active',parseInt(t.dataset.run)===runId);
@@ -3971,7 +3998,31 @@ function renderFantasyScreen(){
 let draftFilter = { availability:'available', team:'all', sort:'fp', rookie:false };
 let draftSearchQuery = '';
 
+// SHOW / SORT filter row for Draft and Waivers. Lives in its own container and is
+// repainted by the list renderers, so the selected button is always highlighted.
+function filterRowHtml(kind){
+  const f = kind==='draft' ? draftFilter : waiverFilter;
+  const fv = kind==='draft' ? 'draftFilter' : 'waiverFilter';
+  const list = kind==='draft' ? 'renderDraftPlayerList()' : 'renderWaiverPlayerList()';
+  const btn=(label,active,set)=>`<button onclick="${fv}.${set};${list}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+  const avail = f.availability==='all' ? 'all' : 'available';
+  const sort = f.sort==='alpha' ? 'alpha' : 'fp';
+  return `
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
+    ${btn('Available', avail==='available', "availability='available'")}
+    ${btn('All Players', avail==='all', "availability='all'")}
+    ${kind==='draft' ? btn('🌟 Rookies', !!f.rookie, 'rookie=!draftFilter.rookie') : ''}
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
+    ${btn('⬆ FP', sort==='fp', "sort='fp'")}
+    ${btn('A–Z', sort==='alpha', "sort='alpha'")}`;
+}
+function refreshFilterRow(kind){
+  const el = document.getElementById(kind+'-filter-row');
+  if(el) el.innerHTML = filterRowHtml(kind);
+}
+
 function renderDraftPlayerList(){
+  refreshFilterRow('draft');
   const el=document.getElementById('draft-player-list');
   if(!el) return;
   const now=new Date();
@@ -4059,7 +4110,6 @@ function renderFantasyDraftPane(){
   const isDraftLive=dw && now>=draftStart && now<=draftEnd;
   const isDraftPast=draftEnd && now>draftEnd;
 
-  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
   const teamDropdown=`<select onchange="draftFilter.team=this.value;renderDraftPlayerList()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
     <option value="all" ${draftFilter.team==='all'?'selected':''}>All Teams</option>
     ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${draftFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
@@ -4121,15 +4171,7 @@ function renderFantasyDraftPane(){
     <div style="padding:10px 14px 0">
       ${draftBanner}
       ${draftOrderPanel}
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
-        ${filterBtn('Available',draftFilter.availability!=='all',"draftFilter.availability='available';renderDraftPlayerList()")}
-        ${filterBtn('All Players',draftFilter.availability==='all',"draftFilter.availability='all';renderDraftPlayerList()")}
-        ${filterBtn('🌟 Rookies',draftFilter.rookie,"draftFilter.rookie=!draftFilter.rookie;renderDraftPlayerList()")}
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
-        ${filterBtn('⬆ FP',draftFilter.sort==='fp',"draftFilter.sort='fp';renderDraftPlayerList()")}
-        ${filterBtn('A–Z',draftFilter.sort==='alpha',"draftFilter.sort='alpha';renderDraftPlayerList()")}
-      </div>
+      <div id="draft-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('draft')}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
         <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
         ${teamDropdown}
@@ -4516,7 +4558,7 @@ function renderRostersScreen(){
         } else if(isLocked){
           actionBtns = '<span style="font-family:var(--pixel);font-size:4.5px;color:var(--text3)">🔒 TOP</span>';
         } else {
-          actionBtns = `<button class="btn btn-sm" style="font-size:5px;padding:4px 8px;min-height:24px;background:rgba(255,105,180,0.15);border:1px solid #ff69b4;color:#ff69b4;border-radius:8px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`;
+          actionBtns = `<button class="btn btn-sm" style="font-size:5px;padding:4px 8px;min-height:24px;background:rgba(255,217,61,0.15);border:1px solid #ffd93d;color:#ffd93d;border-radius:8px" onclick="confirmDrop('${rostersViewId}',${pid})">Drop</button>`;
         }
       } else {
         // Normal mode: Bench/Activate + IR buttons
@@ -4548,15 +4590,15 @@ function renderRostersScreen(){
   // Header Drop button: only show on own roster
   const dropBtn = isMyRoster
     ? rostersDropMode
-      ? `<button onclick="rostersDropMode=false;renderRostersScreen()" style="margin-left:auto;background:var(--accent4);color:#fff;border:none;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">✕ CANCEL</button>`
-      : `<button onclick="rostersDropMode=true;renderRostersScreen()" style="margin-left:auto;background:transparent;border:1px solid var(--accent4);color:var(--accent4);border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">DROP</button>`
+      ? `<button onclick="rostersDropMode=false;renderRostersScreen()" style="margin-left:auto;background:#ffd93d;color:#000;border:1px solid #ffd93d;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">✕ CANCEL</button>`
+      : `<button onclick="rostersDropMode=true;renderRostersScreen()" style="margin-left:auto;background:rgba(255,217,61,0.12);border:1px solid #ffd93d;color:#ffd93d;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">DROP</button>`
     : '';
   contentEl.innerHTML=`
-    <div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:6px;color:var(--text3);display:flex;align-items:center;gap:8px">
+    <div style="padding:8px 29px 4px 14px;font-family:var(--pixel);font-size:6px;color:var(--text3);display:flex;align-items:center;gap:8px">
       <span>${teamLabel(viewManager).toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE</span>
       ${dropBtn}
     </div>
-    ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
+    ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:#ffd93d">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${(()=>{
         // Order: Active → Bench → IR
@@ -4624,7 +4666,7 @@ function renderMyRosterList(){
           ${isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${mid}',${pid})">
             ${isActive?'Bench':'Activate'}
           </button>`}
-          ${!isLocked?`<button class="btn btn-sm btn-danger" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="confirmDrop('${mid}',${pid})">Drop</button>`:''}
+          ${!isLocked?`<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(255,217,61,0.15);border:1px solid #ffd93d;color:#ffd93d" onclick="confirmDrop('${mid}',${pid})">Drop</button>`:''}
         </div>
       </div>
     </div>`;
@@ -4692,6 +4734,7 @@ function resetWaiverFilters(){
 }
 
 function renderWaiverPlayerList(){
+  refreshFilterRow('waiver');
   const el=document.getElementById('waiver-player-list');
   if(!el) return;
   const mid=getMyId();
@@ -4748,7 +4791,6 @@ function renderWaiversPane(){
   const mid=getMyId();
   const used=mid?waiverUsedThisWeek(mid):0;
 
-  const filterBtn=(label,active,onclick)=>`<button onclick="${onclick}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
   const teamDropdown=`<select onchange="waiverFilter.team=this.value;renderWaiverPlayerList()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
     <option value="all" ${waiverFilter.team==='all'?'selected':''}>All Teams</option>
     ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${waiverFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}
@@ -4759,14 +4801,7 @@ function renderWaiversPane(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WAIVER WIRE · ADD/DROPS LEFT: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
-        ${filterBtn('Available',waiverFilter.availability==='available',"waiverFilter.availability='available';renderWaiverPlayerList()")}
-        ${filterBtn('All Players',waiverFilter.availability==='all',"waiverFilter.availability='all';renderWaiverPlayerList()")}
-        <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
-        ${filterBtn('⬆ FP',waiverFilter.sort==='fp',"waiverFilter.sort='fp';renderWaiverPlayerList()")}
-        ${filterBtn('A–Z',waiverFilter.sort==='alpha',"waiverFilter.sort='alpha';renderWaiverPlayerList()")}
-      </div>
+      <div id="waiver-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('waiver')}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
         <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>
         ${teamDropdown}
@@ -5858,6 +5893,22 @@ function renderTicker(events, todayDate, showYesterday){
   const speed = Math.max(20, totalW / 80);
   track.style.animationDuration = `${speed}s`;
 }
+
+// ── TAP FEEDBACK ─────────────────────────────────────────────────────────────
+// iOS Safari only applies :active styles when the page has a touch listener.
+document.addEventListener('touchstart', ()=>{}, {passive:true});
+// Roster action buttons: show a pending state from tap until the save completes
+// (the list redraws, replacing the button). If nothing redraws, e.g. the player
+// is locked, restore the button after a moment.
+const PENDING_ACTIONS = /toggleActiveStatus|confirmDrop|putOnIR|removeFromIR|rostersDropMode/;
+document.addEventListener('click', e=>{
+  const btn = e.target.closest && e.target.closest('button');
+  if(!btn || !PENDING_ACTIONS.test(btn.getAttribute('onclick')||'')) return;
+  const label = btn.innerHTML;
+  btn.classList.add('btn-pending');
+  btn.innerHTML = '…';
+  setTimeout(()=>{ if(btn.isConnected){ btn.classList.remove('btn-pending'); btn.innerHTML = label; } }, 1500);
+}, true);
 
 // ── BOOT ────────────────────────────────────────────────────────────────────
 async function boot(){

@@ -364,6 +364,13 @@ img{display:block;}
   -webkit-tap-highlight-color:transparent;
 }
 .btn:active{transform:scale(.97);}
+/* Touch feedback: hover doesn't exist on phones, so make the press itself visible */
+@media (hover:none){
+  button:active,.btn:active{transform:scale(.92);filter:brightness(1.5);transition:none;}
+}
+/* Shown on roster action buttons from tap until the save finishes and the list redraws */
+.btn-pending{opacity:.55;transform:scale(.94);pointer-events:none;animation:btnPending .6s ease-in-out infinite alternate;}
+@keyframes btnPending{from{filter:brightness(1)}to{filter:brightness(1.8)}}
 .btn-primary{background:var(--accent1);color:#000;}
 .btn-primary:hover{filter:brightness(1.15);}
 .btn-secondary{background:var(--bg3);border:1px solid var(--border);color:var(--text2);}
@@ -770,6 +777,7 @@ img{display:block;}
 .run-tab[data-run="3"]{--run-color:#2ecc71;}
 .run-tab[data-run="4"]{--run-color:#f5a623;}
 .run-tab.active{color:#fff;background:var(--run-color);border-color:var(--run-color);}
+.run-tab.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
 
 /* ── STANDINGS TABLE ── */
 .standings-table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -1229,9 +1237,9 @@ img{display:block;}
     </div>
     <div class="run-tabs" id="run-tabs">
       <div class="run-tab active" data-run="1" onclick="switchRun(1)">FALL</div>
-      <div class="run-tab" data-run="2" onclick="switchRun(2)">WINTER</div>
-      <div class="run-tab" data-run="3" onclick="switchRun(3)">SPRING</div>
-      <div class="run-tab" data-run="4" onclick="switchRun(4)">SUMMER</div>
+      <div class="run-tab disabled" data-run="2" aria-disabled="true" title="Coming soon">WINTER</div>
+      <div class="run-tab disabled" data-run="3" aria-disabled="true" title="Coming soon">SPRING</div>
+      <div class="run-tab disabled" data-run="4" aria-disabled="true" title="Coming soon">SUMMER</div>
     </div>
     <div class="fantasy-sub-tabs" id="fantasy-sub-tabs">
       <div class="fantasy-sub-tab active" data-tab="standings" onclick="switchFantasyTab('standings')">STANDINGS</div>

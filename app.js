@@ -910,6 +910,95 @@ function teamWeekRows(mid){
 
 function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
+// ── WEEKLY RESULTS POP-UP ────────────────────────────────────────────────────
+// The most recent finished matchup week across runs: {runId, idx, range} or null
+function latestFinishedWeek(today){
+  today = today || ymd(new Date());
+  let best = null;
+  for(const run of RUNS){
+    const sched = (leagueState?.schedule||{})[run.id]||[];
+    sched.forEach((week, idx)=>{
+      const r = runWeekRange(run.id, idx);
+      if(r.to < today && week.length) best = {runId:run.id, idx, range:r};
+    });
+  }
+  return best;
+}
+function weekResultsData(runId, idx){
+  fillMatchupResults();
+  const week = ((leagueState.schedule||{})[runId]||[])[idx] || [];
+  const r = runWeekRange(runId, idx);
+  const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id)) || {id, display_name:'?'};
+  let team = null, player = null;
+  for(const mu of week){
+    for(const [id, fp] of [[mu.home, mu.homeFP||0],[mu.away, mu.awayFP||0]]){
+      if(!team || fp > team.fp) team = {m:mgr(id), fp};
+      const rows = teamRowsForRange(id, r.from, r.to, false);
+      for(const row of rows) if(row.fp>0 && (!player || row.fp > player.fp)) player = {p:row.p, fp:row.fp, m:mgr(id)};
+    }
+  }
+  return {week, r, team, player, mgr};
+}
+function showWeekResults(runId, idx, onClose){
+  const run = RUNS.find(x=>x.id===runId);
+  const {week, r, team, player, mgr} = weekResultsData(runId, idx);
+  const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
+  document.getElementById('week-results-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'week-results-modal'; m.className = 'top-sheet-overlay';
+  const port = pl => `${PORTRAITS_BUCKET_URL}/${pl.team}/${encodeURIComponent(pl.name)}.jpeg`;
+  const award = (title, color, art, name, sub, fp) => `<div class="wr-award" style="--ac:${color}">
+      <div class="wr-award-title">${title}</div>
+      <div class="wr-award-art">${art}</div>
+      <div class="wr-award-name">${name}</div>
+      <div class="wr-award-sub">${sub}</div>
+      <div class="wr-award-fp">${fp.toFixed(1)}<span> FP</span></div>
+    </div>`;
+  m.innerHTML = `<div class="top-sheet">
+    <div class="top-sheet-body" style="padding-top:16px">
+      <div class="wr-head">
+        <div class="wr-trophy">🏆</div>
+        <div class="wr-title">WEEK ${idx+1} RESULTS</div>
+        <div class="wr-sub">${(run?.name||'').toUpperCase()} RUN · ${fmt(r.mon)} – ${fmt(r.sun)}</div>
+      </div>
+      <div class="wr-awards">
+        ${team ? award('TEAM OF THE WEEK', '#ffd93d', avatarEl(team.m.display_name, team.m.color||'#4a9eff', 72, 20, team.m.icon||null, team.m.photo||null), teamLabel(team.m), team.m.display_name, team.fp) : ''}
+        ${player ? award('PLAYER OF THE WEEK', '#39ff6a', `<img src="${port(player.p)}" onerror="this.style.visibility='hidden'">`, player.p.name, teamLabel(player.m), player.fp) : ''}
+      </div>
+      <div class="section-label" style="padding:16px 0 6px">FINAL SCORES</div>
+      <div class="card" style="padding:0;overflow:hidden;margin:0">
+        ${week.map(mu=>{ const h=mgr(mu.home), a=mgr(mu.away); const hw=mu.winner===mu.home, aw=mu.winner===mu.away;
+          return `<div class="wr-row" onclick="showMatchupDetail('${mu.home}','${mu.away}',${runId},${idx})">
+            <span class="wr-team${hw?' w':''}">${teamLabel(h)}</span>
+            <span class="wr-score${hw?' w':''}">${(mu.homeFP||0).toFixed(1)}</span>
+            <span class="wr-dash">–</span>
+            <span class="wr-score${aw?' w':''}">${(mu.awayFP||0).toFixed(1)}</span>
+            <span class="wr-team r${aw?' w':''}">${teamLabel(a)}</span>
+          </div>`; }).join('')}
+      </div>
+      <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:8px;text-align:center">TAP A MATCH-UP FOR ITS BOX SCORE</div>
+    </div>
+    <div class="top-sheet-actions"><button class="btn btn-primary btn-full" id="wr-continue">CONTINUE ▶</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  document.getElementById('wr-continue').onclick = () => { m.remove(); onClose && onClose(); };
+}
+// Show the newest finished week's results once per manager
+let _weekResultsShowing = false;
+async function maybeShowWeekResults(){
+  const mid = getMyId(); if(!mid || _weekResultsShowing || !leagueState) return;
+  const w = latestFinishedWeek(); if(!w) return;
+  const key = `${w.runId}-${w.idx}`;
+  if(((leagueState.resultsSeen||{})[mid]) === key) return;
+  _weekResultsShowing = true;
+  showWeekResults(w.runId, w.idx, async ()=>{
+    _weekResultsShowing = false;
+    if(!leagueState.resultsSeen) leagueState.resultsSeen = {};
+    leagueState.resultsSeen[mid] = key;
+    await saveLeagueState();
+  });
+}
+
 // Season FP for a run: finished weeks' recorded totals + this week so far
 function seasonFP(mid, runId){
   fillMatchupResults();
@@ -2241,6 +2330,7 @@ function countFoulsFromPlays(plays, espnIdToPid){
 let _lastBdlStatsFetch = 0;
 async function refreshLiveStats(){
   await pullLeagueState(); // see other managers' changes; keeps mine
+  maybeShowWeekResults();
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
 
@@ -6493,6 +6583,7 @@ async function boot(){
         showApp();
         renderHomeScreen();
         startPolling();
+        maybeShowWeekResults();
       }
     } else {
       showLogin();

@@ -2789,7 +2789,7 @@ function renderDuelScreen(){
       ${userAvatar(m,28,8)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
-        <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--pixel);font-size:10px;color:${m.streak>0?'var(--accent3)':'var(--text3)'}">${m.streak>0?`🔥 ${m.streak}`:'—'}</div>
@@ -3693,7 +3693,7 @@ function showDuelLeaderboard(){
       ${userAvatar(m,28,8)}
       <div style="flex:1">
         <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
-        <div style="font-size:10px;color:var(--text3)">${m.totalCorrect} correct all-time</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${m.totalCorrect} correct all-time</div>
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--pixel);font-size:10px;color:${m.streak>0?'var(--accent3)':'var(--text3)'}">${m.streak>0?`🔥 ${m.streak}`:'—'}</div>
@@ -5508,7 +5508,7 @@ function openAvatarEditor(){
         <span style="font-size:18px">📸</span>
         <div>
           <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">CHOOSE IMAGE</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">JPG or PNG · max 2MB</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3);margin-top:2px">JPG or PNG · max 2MB</div>
         </div>
         <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="avatarPickPhoto(this)"/>
       </label>
@@ -5685,8 +5685,8 @@ async function renderAdminContent(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
       ${avatarEl(m.display_name,m.color||'#4a9eff',28,9,m.icon||null,m.photo||null)}
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:600">${m.display_name}</div>
-        <div style="font-size:10px;color:var(--text3)">${m.email}</div>
+        <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;font-weight:600">${m.display_name}</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${m.email}</div>
       </div>
       ${m.is_commissioner?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent3)">⭐ COMM</span>':''}
     </div>`).join('')}
@@ -5695,7 +5695,7 @@ async function renderAdminContent(){
   <div class="section-label" style="padding:12px 0 8px">INVITE CODE</div>
   <div class="card" style="margin:0">
     <div style="font-family:var(--pixel);font-size:10px;color:var(--accent3);letter-spacing:2px">${INVITE_CODE}</div>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">Share this code with new users</div>
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-top:6px">Share this code with new users</div>
   </div>
 
   <div class="section-label" style="padding:12px 0 8px">LEAGUE ACTIONS</div>
@@ -5732,13 +5732,13 @@ function renderAdminLineupOverrideSection(){
   return `
   <div class="section-label" style="padding:12px 0 8px">🔧 LINEUP OVERRIDE</div>
   <div class="card" style="margin:0">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Move a player into a team's active lineup now, even if his game has already tipped off. His full game today counts for the team. The player moved to the bench earns nothing today.</div>
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px;line-height:1.5">Move a player into a team's active lineup now, even if his game has already tipped off. His full game today counts for the team. The player moved to the bench earns nothing today.</div>
     <select style="${sel}" onchange="adminOvTeam=this.value;renderAdminContent()">
       ${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(mid)?'selected':''}>${teamLabel(m)}</option>`).join('')}
     </select>
-    <div style="font-size:11px;color:var(--text3);margin:4px 0">Move to BENCH ${active.length<ACTIVE_SIZE?'(optional — lineup has an open spot)':''}</div>
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin:4px 0">Move to BENCH ${active.length<ACTIVE_SIZE?'(optional — lineup has an open spot)':''}</div>
     <select id="ov-out" style="${sel}">${active.length<ACTIVE_SIZE?'<option value="">— nobody —</option>':''}${active.map(opt).join('')}</select>
-    <div style="font-size:11px;color:var(--text3);margin:4px 0">Move to ACTIVE</div>
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin:4px 0">Move to ACTIVE</div>
     <select id="ov-in" style="${sel}">${bench.length?bench.map(opt).join(''):'<option value="">No bench players</option>'}</select>
     <button class="btn btn-primary btn-full" style="margin-top:6px" onclick="adminLineupOverride()">✅ APPLY SWAP</button>
   </div>`;
@@ -5791,7 +5791,7 @@ function renderAdminLineupFixSection(){
   return `
   <div class="section-label" style="padding:12px 0 8px">📋 FIX PAST LINEUPS</div>
   <div class="card" style="margin:0">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px;line-height:1.5">
       Check every player who was <b>ACTIVE</b> on this date. Checked players' FP count toward their team; unchecked don't.
       ${fixed?'<br><span style="color:var(--accent2)">✓ This date has been reviewed before.</span>':''}
     </div>
@@ -5801,14 +5801,14 @@ function renderAdminLineupFixSection(){
       <div style="margin-top:10px">
         <div style="font-family:var(--pixel);font-size:6px;color:var(--accent3);margin-bottom:4px">${m.team_name||m.display_name}</div>
         ${rows.length ? rows.map(r=>`
-          <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;cursor:pointer">
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-family:var(--pixel);font-size:6.5px;line-height:1.8;cursor:pointer">
             <input type="checkbox" class="lineup-fix-cb" data-mid="${m.id}" data-pid="${r.pid}" ${r.on?'checked':''}/>
             <span style="flex:1">${r.name}</span>
             <span style="font-family:var(--pixel);font-size:6px;color:var(--accent3)">${r.fp.toFixed(1)} FP</span>
             ${r.on?'':'<span style="font-family:var(--pixel);font-size:5px;color:#e53e3e">NOT COUNTED</span>'}
-          </label>`).join('') : '<div style="font-size:11px;color:var(--text3)">No rostered players with stats</div>'}
+          </label>`).join('') : '<div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3)">No rostered players with stats</div>'}
       </div>`).join('')
-    : '<div style="font-size:11px;color:var(--text3)">No saved stats for this date.</div>'}
+    : '<div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3)">No saved stats for this date.</div>'}
     ${stats.length?`<button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adminSaveLineupFix()">💾 SAVE LINEUPS FOR ${adminLineupFixDate}</button>`:''}
   </div>`;
 }
@@ -6673,7 +6673,7 @@ function confirmWlcSave(){
   m.id = 'wlc-confirm-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
   m.innerHTML = `<div class="modal-box" style="max-width:340px;width:calc(100% - 32px);text-align:center">
     <div style="font-family:var(--pixel);font-size:9px;color:var(--accent3);margin-bottom:12px">ARE YOU SURE?</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px">Roster will be final and cannot be changed once saved.</div>
+    <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;color:var(--text2);line-height:1.5;margin-bottom:16px">Roster will be final and cannot be changed once saved.</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-primary btn-full" onclick="document.getElementById('wlc-confirm-modal').remove();saveWlcLineup(window._wlcCurrentPicks||[])">YES, SAVE</button>
       <button class="btn btn-secondary btn-full" onclick="document.getElementById('wlc-confirm-modal').remove()">NO, CANCEL</button>
@@ -7065,7 +7065,7 @@ function openWlcSwapModal(fromName){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:var(--pixel);font-size:6.5px">${p.n}</div>
-        <div style="font-size:10px;color:var(--text3)">${p.t} · ${p.fpPG} FP/G</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${p.t} · ${p.fpPG} FP/G</div>
       </div>
       <button onclick="doWlcSwap(${JSON.stringify(fromName).replace(/"/g,'&quot;')},${JSON.stringify(p.n).replace(/"/g,'&quot;')})" style="background:var(--accent2);border:none;border-radius:4px;color:var(--bg);font-family:var(--pixel);font-size:5.5px;padding:6px 10px;cursor:pointer">SELECT</button>
     </div>`).join('');
@@ -7146,7 +7146,7 @@ function renderWlcPendingApproval(el, week, wk){
       <div class="wlc-banner-dates">${fmt(statDateObj(ws))} – ${fmt(statDateObj(we))}${week.testers?' · 🧪 TEST WEEK':''}</div>
     </div>
     <div style="padding:0 14px 10px">
-      <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px">Check the ${(week.pool||[]).length} players below. <b>Tap any player to replace him</b> — the replacement keeps the same price tier.</div>
+      <div style="font-family:var(--pixel);font-size:6.5px;line-height:1.8;color:var(--text2);line-height:1.5;margin-bottom:8px">Check the ${(week.pool||[]).length} players below. <b>Tap any player to replace him</b> — the replacement keeps the same price tier.</div>
       <div style="display:flex;gap:6px">
         <input id="wlc-theme-input" value="${(week.theme||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text1);padding:8px"/>
         <button class="btn btn-sm btn-secondary" onclick="commRenameWlcTheme('${wk}')">RENAME</button>
@@ -7190,7 +7190,7 @@ function openWlcReplaceModal(wk, poolName, query){
     </div>
     <div class="top-sheet-body">
       ${cands.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
-        <div onclick="${pcardOnclick(c.name)}" style="cursor:pointer;min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${c.name}${injuryBadgeHtml(c.name)}</div><div style="font-size:11px;color:var(--text3)">${c.t} · ${(c.fpPG||0).toFixed?c.fpPG.toFixed(1):c.fpPG} FP/G</div></div>
+        <div onclick="${pcardOnclick(c.name)}" style="cursor:pointer;min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${c.name}${injuryBadgeHtml(c.name)}</div><div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3)">${c.t} · ${(c.fpPG||0).toFixed?c.fpPG.toFixed(1):c.fpPG} FP/G</div></div>
         <button class="btn btn-sm btn-primary" onclick="commReplaceWlcPlayer('${wk}',${q(poolName)},${q(c.n)})">USE</button>
       </div>`).join('') || '<div style="padding:20px 0;text-align:center;color:var(--text3)">No players found</div>'}
     </div></div>`;
@@ -7236,7 +7236,7 @@ function renderWlcStandings(container){
     currentHtml = `
       <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:0 0 8px">THIS WEEK — ${week.theme||'Current'}</div>
       <div class="card" style="padding:0;overflow:hidden;margin:0 0 16px">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:6.5px;line-height:1.8;">
           <thead><tr>
             <th style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)">#</th>
             <th style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)">TEAM</th>
@@ -7249,7 +7249,7 @@ function renderWlcStandings(container){
               <td style="padding:7px 10px">
                 <div style="display:flex;align-items:center;gap:7px">
                   ${avatarEl(m.display_name,m.color||'#4a9eff',22,5.5,m.icon||null,m.photo||null)}
-                  <span style="font-size:12px;font-weight:600">${m.display_name}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
+                  <span style="font-family:var(--pixel);font-size:6.5px;line-height:1.8;font-weight:600">${m.display_name}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
                 </div>
                 ${!m.picks.length ? '<div style="font-family:var(--pixel);font-size:4.5px;color:var(--accent4);margin-top:3px;padding-left:29px">NO LINEUP</div>'
                   : (m.id===myId || isWlcLocked(wk)) ? `<div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:3px;padding-left:29px">${m.picks.map(n=>n.split(' ').pop()).join(' · ')}</div>`
@@ -7416,10 +7416,10 @@ function renderAdminWlcSection(){
       <div style="margin-top:12px;padding:10px;border:1px dashed #ffd93d;border-radius:var(--radius)">
         <div style="font-family:var(--pixel);font-size:6px;color:#ffd93d;margin-bottom:6px">🧪 TEST WEEK — ONLY THESE PEOPLE SEE IT</div>
         ${(leagueState.managers||[]).map(m=>`
-          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-family:var(--pixel);font-size:6.5px;line-height:1.8">
             <input type="checkbox" class="wlc-tester-cb" value="${m.id}" ${String(m.id)===myId?'checked disabled':''}/> ${m.display_name}
           </label>`).join('')}
-        <div style="font-size:11px;color:var(--text3);margin:6px 0;line-height:1.5">Everyone else keeps seeing "No active week." Finalizing a test week shows the winner but never changes the real standings.</div>
+        <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin:6px 0;line-height:1.5">Everyone else keeps seeing "No active week." Finalizing a test week shows the winner but never changes the real standings.</div>
         <button class="btn btn-full btn-secondary" style="border-color:#ffd93d;color:#ffd93d" onclick="commGenerateWlcWeek(true)">🧪 GENERATE TEST WEEK</button>
       </div>`;
   } else if(week.status==='pending'){
@@ -7450,7 +7450,7 @@ function renderAdminWlcSection(){
   if(week?.status==='final' && leagueState.wlc?.results?.[wk]){
     const r = leagueState.wlc.results[wk];
     const nm = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name || id;
-    html += `<div style="margin-top:8px;font-size:12px;color:var(--text2);line-height:1.7">
+    html += `<div style="margin-top:8px;font-family:var(--pixel);font-size:6.5px;line-height:1.8;color:var(--text2);line-height:1.7">
       ${Object.entries(r.scores||{}).sort((a,b)=>b[1]-a[1]).map(([id,fp])=>`${(r.winners||[]).map(String).includes(String(id))?'🏆 ':''}${nm(id)}: ${fp.toFixed(1)} FP`).join('<br>')||'No lineups'}
     </div>`;
   }
@@ -7486,9 +7486,9 @@ function showWlcRules(){
         <button onclick="document.getElementById('wlc-rules-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:5px 10px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
       <div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px;line-height:2">WEEKLY LINE-UP CHALLENGE</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:16px">
+      <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;color:var(--text2);line-height:1.8;margin-bottom:16px">
         <p style="margin-bottom:10px">Goal: build the best lineup of <strong>1 to 5 players</strong> from the week's pool while spending <strong>$15 or less</strong>.</p>
-        <p style="margin-bottom:10px">Each week, the Commissioner releases a themed pool of 25 NBA players split into 5 salary tiers, $1 through $5. Tap a player to see his profile, then Add him. Mix tiers however you like: three $5 stars, five $1 sleepers, anything up to $15.</p>
+        <p style="margin-bottom:10px">Each week, the Commissioner releases a themed pool of 25 NBA players split into 5 salary tiers, $1 through $5. Tap a player to see him at the top of the screen, then tap Select. Mix tiers however you like: three $5 stars, five $1 sleepers, anything up to $15.</p>
         <p style="margin-bottom:10px">Once you tap <strong>Save Lineup</strong> and confirm, your lineup is <strong>final</strong>. Lineups lock Monday at 7 AM ET, and nobody can see anyone else's picks until then.</p>
         <p style="margin-bottom:10px"><strong>Scoring:</strong> each player scores his <strong>average FP per game</strong> that week (Mon–Sun), and your total is the sum of those averages. Players with more games get no advantage. A player who doesn't play scores 0. FP per game: <strong>+1 per point, rebound, assist, steal and block; −1 per missed FG, missed FT, turnover, flagrant foul and technical foul.</strong></p>
         <p style="margin-bottom:10px"><strong>Injury swap:</strong> once per week, you can swap a player listed <strong>OUT</strong> for a same-tier player from the pool whose game hasn't started. That slot then averages both players' games: the original player's before the swap, the replacement's after.</p>

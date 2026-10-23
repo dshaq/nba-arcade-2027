@@ -2679,7 +2679,7 @@ function ledText(str, color, h){
 // real gym boards, then two always-lit digits ("00" before tip-off).
 function scoreLed(n, color, h){
   const v = Math.max(0, Math.floor(+n||0));
-  const hund = `<svg viewBox="0 0 60 100" style="height:${h}px;width:${h*.6}px">${['b','c'].map(k=>`<polygon points="${SEG_PTS[k]}" class="${v>=100?'on':'off'}"/>`).join('')}</svg>`;
+  const hund = `<svg viewBox="40 0 20 100" style="height:${h}px;width:${h*.2}px">${['b','c'].map(k=>`<polygon points="${SEG_PTS[k]}" class="${v>=100?'on':'off'}"/>`).join('')}</svg>`;
   const two = ledText(String(v%100).padStart(2,'0'), color, h);
   const cut = two.indexOf('>')+1;          // insert the hundreds digit inside the same LED span
   return two.slice(0,cut) + hund + two.slice(cut);
@@ -2732,7 +2732,7 @@ function renderScoreboard(){
   }
   // Game picker: label always reads "Select NBA Scoreboard"
   if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
-    <option value="" selected>SELECT NBA SCOREBOARD ▾</option>
+    <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
     ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev);
       const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${boardClock(g).trim()}`) : g.final ? 'FINAL' : g.tip;
       return `<option value="${ev.id}">${ev.id===sbEventId?'▶ ':''}${g.live?'🔴 ':''}${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
@@ -2742,10 +2742,10 @@ function renderScoreboard(){
   const g = scoreboardInfo(ev);
   const RED = '#ff3b30', AMBER = '#ffb000';
   const statusTag = g.live ? (g.half ? '<span class="gym-tag">HALFTIME</span>' : '<span class="gym-tag live"><span class="live-dot"></span>LIVE</span>')
-    : g.final ? '<span class="gym-tag final">FINAL</span>' : '<span class="gym-tag">PREGAME</span>';
+    : g.final ? '<span class="gym-tag final">FINAL</span>' : `<span class="gym-tag">TIP ${g.tip} ET</span>`;
   const marquee = team => {
     let txt;
-    if(!g.live && !g.final) txt = `TIP ${g.tip}`;
+    if(!g.live && !g.final) txt = '';  // pregame: blank (tip time is under the period)
     else { const t = topFantasyPlayer(ev.id, team);
       txt = t ? `${playerShortName(t.name)} ${(+t.fp).toFixed(0)} FP` : 'NO FP YET'; }
     const scroll = txt.length > 16;
@@ -5318,9 +5318,12 @@ function renderWaiverPlayerList(){
 
   if(waiverFilter.sort==='fp'){
     players=[...players].sort((a,b)=>{
-      const bFP=playerTotalFP(b.id)||((b.ppg+b.rpg+b.apg+b.spg+b.bpg));
-      const aFP=playerTotalFP(a.id)||((a.ppg+a.rpg+a.apg+a.spg+a.bpg));
-      return bFP-aFP;
+      const aT=playerTotalFP(a.id)||0, bT=playerTotalFP(b.id)||0;
+      // Players with no earned FP this season always sink to the bottom
+      if((aT>0)!==(bT>0)) return bT>0?1:-1;
+      if(aT>0) return bT-aT;
+      const proj=x=>(x.ppg+x.rpg+x.apg+x.spg+x.bpg);
+      return proj(b)-proj(a);
     });
   } else {
     players=[...players].sort((a,b)=>a.name.localeCompare(b.name));
@@ -6793,7 +6796,7 @@ async function saveWlcLineup(picks){
   leagueState.wlc.lineups[wk][mid] = {picks:[...picks], swaps:[], saved:true, savedAt:new Date().toISOString()};
   await saveLeagueState();
   window._wlcPicksWeekKey = null;
-  window._wlcTab = 'standings'; // saved lineups are final: go straight to Standings
+  window._wlcTab = 'pick'; // saved lineups are final: land on Current Week's Lineups
   toast('LINEUP SAVED — GOOD LUCK! ✓');
   renderWlcScreen();
   window.scrollTo({top:0, behavior:'smooth'});
@@ -6807,14 +6810,13 @@ function confirmWlcSave(){
   m.id = 'wlc-confirm-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
   m.innerHTML = `<div class="modal-box" style="max-width:340px;width:calc(100% - 32px);text-align:center">
     <div style="font-family:var(--pixel);font-size:9px;color:var(--accent3);margin-bottom:12px">ARE YOU SURE?</div>
-    <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;color:var(--text2);line-height:1.5;margin-bottom:16px">Roster will be final and cannot be changed once saved.</div>
+    <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;color:var(--text2);margin-bottom:16px">${wlcPickCost(picks) < WLC_SALARY_CAP ? `You have not used all $${WLC_SALARY_CAP}. ` : ''}Roster will be final and cannot be changed once saved.</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-primary btn-full" onclick="document.getElementById('wlc-confirm-modal').remove();saveWlcLineup(window._wlcCurrentPicks||[])">YES, SAVE</button>
       <button class="btn btn-secondary btn-full" onclick="document.getElementById('wlc-confirm-modal').remove()">NO, CANCEL</button>
     </div></div>`;
   m.onclick = e=>{ if(e.target===m) m.remove(); };
   document.body.appendChild(m);
-  void picks;
 }
 
 // SWAP RULE: the Weekly Challenge is a commit-for-the-week game. After lock, the
@@ -6857,7 +6859,8 @@ async function doWlcSwap(fromName, toName){
   lineup.swaps = [...(lineup.swaps||[]), swap];
   leagueState.wlc.lineups[wk][mid] = lineup;
   await saveLeagueState();
-  toast(`SWAPPED: ${fromName.split(' ').pop()} ➜ ${toName.split(' ').pop()}`);
+  document.getElementById('wlc-swap-modal')?.remove();
+  toast(`SWAP COMPLETE ✓ ${fromName.split(' ').pop()} ➜ ${toName.split(' ').pop()}`);
   renderWlcScreen();
 }
 
@@ -6895,7 +6898,7 @@ function generateWlcProposal(forDate){
   const parseWkDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d,12); };
   const weekNum = Math.max(0, Math.floor((parseWkDate(wk) - parseWkDate('2026-10-19')) / (7*24*3600*1000)));
   const themes = [
-    {name:'All-Stars',    filter: p => p.r <= 50},
+    {name:'Former All-Stars', filter: p => p.r <= 50},
     {name:'Atlantic Division', filter: p => ['BOS','BKN','NYK','PHI','TOR'].includes(p.t)},
     {name:'Central Division',  filter: p => ['CHI','CLE','DET','IND','MIL'].includes(p.t)},
     {name:'Southeast Division',filter: p => ['ATL','CHA','MIA','ORL','WAS'].includes(p.t)},
@@ -6992,6 +6995,38 @@ async function finalizeWlcWeek(weekKey){
 
 // ── WLC RENDER ────────────────────────────────────────────────────────────────
 
+// Display name for a week's theme (the Oct 19 test week was generated as 'All-Stars')
+function wlcThemeName(week, wk){
+  const t = week?.theme || 'Week';
+  return (t==='All-Stars') ? 'Former All-Stars' : t;
+}
+
+// Desktop: size the portrait grid so all five tier rows fit on screen at once,
+// between the sticky preview panel and the sticky SAVE bar.
+function wlcFitGrid(){
+  const grid = document.querySelector('#wlc-content .wlc-grid');
+  if(!grid) return;
+  grid.style.removeProperty('--wlc-pimg-h'); grid.classList.remove('fit');
+  if(window.innerWidth < 700) return;
+  const h = id => document.getElementById(id)?.offsetHeight || 0;
+  const pv = document.querySelector('#wlc-content .wlc-preview');
+  const bar = document.querySelector('#wlc-content .wlc-bottom-bar');
+  const avail = window.innerHeight - h('top-bar') - (pv?pv.offsetHeight+8:0) - (bar?bar.offsetHeight+12:0) - h('bottom-nav') - 16;
+  const rows = [...grid.querySelectorAll('.wlc-tier-row')];
+  if(!rows.length) return;
+  const gap = 6;
+  const card = rows[0].querySelector('.wlc-pcard'), img = card?.querySelector('.wlc-pimg');
+  if(!card || !img) return;
+  // tallest name block across all cards (names wrap to 2-3 lines)
+  const nameH = Math.max(...[...grid.querySelectorAll('.wlc-pcard')].map(c=>c.offsetHeight - (c.querySelector('.wlc-pimg')?.offsetHeight||0)));
+  const rowH = (avail - gap*(rows.length-1)) / rows.length;
+  const imgH = Math.floor(rowH - nameH);
+  if(imgH >= img.offsetWidth) return; // already fits
+  grid.style.setProperty('--wlc-pimg-h', Math.max(34, imgH)+'px');
+  grid.classList.add('fit');
+}
+window.addEventListener('resize', ()=>{ if(document.getElementById('wlc-content')?.offsetParent) wlcFitGrid(); });
+
 function renderWlcScreen(){
   const el = document.getElementById('wlc-content');
   if(!el) return;
@@ -7006,23 +7041,23 @@ function renderWlcScreen(){
   const pool = week.pool || [];
   const final = !!lineup.saved || locked;
   if(window._wlcPicksWeekKey !== wk){ window._wlcCurrentPicks = [...lineup.picks]; window._wlcPicksWeekKey = wk; }
-  if(!window._wlcTab) window._wlcTab = final ? 'standings' : 'pick';
+  if(!window._wlcTab) window._wlcTab = 'pick';
   const tab = window._wlcTab;
   const nav = document.getElementById('bottom-nav');
   if(nav) document.documentElement.style.setProperty('--nav-h', nav.offsetHeight+'px');
 
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const [ws, we] = wlcWeekRange(wk);
-  const lockTxt = locked ? '🔒 PICKS LOCKED'
-    : week.tipoffTime ? 'PICKS LOCK ' + new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}).toUpperCase()
-    : 'PICKS OPEN';
+  const lockAt = (!locked && week.tipoffTime) ? ' · LOCKS ' + new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}).toUpperCase() : '';
+  const lockTxt = locked ? '🔒 PICKS LOCKED' : '<span class="nw">MAKE PICKS BEFORE</span> <span class="nw">MONDAY\'S FIRST TIP-OFF</span>';
   const tabBtn = (id,label) => `<button onclick="window._wlcTab='${id}';renderWlcScreen()" style="flex:1;padding:9px;background:none;border:none;font-family:var(--pixel);font-size:6px;cursor:pointer;color:${tab===id?'var(--accent2)':'var(--text3)'};border-bottom:${tab===id?'2px solid var(--accent2)':'none'}">${label}</button>`;
 
   let html = `
     <div class="wlc-banner">
-      <div class="wlc-banner-title">WEEKLY LINE-UP CHALLENGE</div>
-      <div class="wlc-banner-theme">${(week.theme||'Week').toUpperCase()}</div>
-      <div class="wlc-banner-dates">${fmt(statDateObj(ws))} – ${fmt(statDateObj(we))} · ${lockTxt}</div>
+      <div class="wlc-banner-theme"><span class="nw" style="color:#ffd93d">THIS WEEK'S THEME:</span> <span class="nw">${wlcThemeName(week, wk).toUpperCase()}</span></div>
+      <div class="wlc-banner-dates">${fmt(statDateObj(ws))} – ${fmt(statDateObj(we))}${lockAt}</div>
+      <div class="wlc-banner-lock${locked?' locked':''}">${lockTxt}</div>
+      <div class="wlc-banner-sub">Choose the players you think will average the most Fantasy Points (FP) per game this week!</div>
       ${week.testers?'<div class="wlc-banner-test">🧪 TEST — ONLY TESTERS SEE THIS</div>':''}
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('pick', final?'CURRENT WEEK\'S LINEUPS':'PICK PLAYERS')}${tabBtn('standings','STANDINGS')}</div>`;
@@ -7034,6 +7069,12 @@ function renderWlcScreen(){
   }
 
   if(final){
+    if(locked){
+      // After lock everyone's lineup (including yours) is listed under All Entries
+      html += wlcOtherLineupsHtml(wk, week, locked);
+      el.innerHTML = html;
+      return;
+    }
     if(!lineup.picks.length){
       html += `<div class="card" style="margin:0 14px"><div class="empty-state"><div class="icon">🔒</div><div class="label">PICKS ARE LOCKED<br/><span style="color:var(--text3);font-size:5px">YOU DIDN'T SAVE A LINEUP THIS WEEK</span></div></div></div>`;
     } else {
@@ -7053,6 +7094,7 @@ function renderWlcScreen(){
   const cost = wlcPickCost(picks);
   const tb = document.getElementById('top-bar');
   if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
+  html += `<div class="wlc-proj-note">The listed "FP/G" is based on projections. Will soon be updated to reflect current stats.</div>`;
   html += wlcPreviewHtml(pool, picks);
   html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks, window._wlcPreview);
   const canSave = picks.length>=1 && picks.length<=WLC_TEAM_SIZE && cost<=WLC_SALARY_CAP;
@@ -7060,9 +7102,16 @@ function renderWlcScreen(){
     <div class="wlc-bottom-bar">
       <div class="wlc-bb-stat"><div class="wlc-bb-label">SALARY REMAINING</div><div class="wlc-bb-val" style="color:var(--accent2)">$${WLC_SALARY_CAP-cost}</div></div>
       <div class="wlc-bb-stat"><div class="wlc-bb-label">PLAYERS SELECTED</div><div class="wlc-bb-val">${picks.length} / ${WLC_TEAM_SIZE}</div></div>
-      <button class="btn btn-sm ${canSave?'btn-primary':'btn-secondary'}" ${canSave?'':'disabled style="opacity:.4"'} onclick="confirmWlcSave()">SAVE<br>LINEUP</button>
+      <button class="wlc-bb-btn reset" ${picks.length?'':'disabled'} onclick="wlcStartOver()">START<br>OVER</button>
+      <button class="wlc-bb-btn save${canSave?' ready':''}" ${canSave?'':'disabled'} onclick="confirmWlcSave()">SAVE<br>LINEUP</button>
     </div>`;
   el.innerHTML = html;
+  requestAnimationFrame(wlcFitGrid);
+}
+function wlcStartOver(){
+  window._wlcCurrentPicks = [];
+  window._wlcPreview = null;
+  renderWlcScreen();
 }
 
 // A manager's lineup for a week: each slot's player, price, games, average FP.
@@ -7104,17 +7153,18 @@ function wlcPickCostFor(picks, pool){ return picks.reduce((a,n)=>a+(pool.find(p=
 function wlcOtherLineupsHtml(wk, week, locked){
   const me = String(getMyId());
   const lineups = (leagueState.wlc?.lineups||{})[wk] || {};
-  let mgrs = (leagueState.managers||[]).filter(m=>String(m.id)!==me);
+  let mgrs = (leagueState.managers||[]).filter(m=>locked || String(m.id)!==me);
   if(week.testers) mgrs = mgrs.filter(m=>week.testers.map(String).includes(String(m.id)));
   if(!mgrs.length) return '';
   const fp = m => { const l=lineups[m.id]; return l?.picks?.length ? computeWlcFP(l.picks, l.swaps, wk) : -1; };
   if(locked) mgrs.sort((a,b)=>fp(b)-fp(a));
   return `<div class="section-label" style="padding:14px 14px 6px">ALL ENTRIES${locked?'':' · PICKS REVEALED AT LOCK'}</div>` + mgrs.map(m=>{
     const l = lineups[m.id];
-    const head = `<div style="display:flex;align-items:center;gap:8px;margin:0 14px 6px">${avatarEl(m.display_name,m.color||'#4a9eff',22,6,m.icon||null,m.photo||null)}<span style="font-family:var(--pixel);font-size:6.5px;color:var(--text1);flex:1">${m.display_name}</span>${locked&&l?.picks?.length?`<span style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">${fp(m).toFixed(1)}</span>`:''}</div>`;
+    const head = `<div style="display:flex;align-items:center;gap:8px;margin:0 14px 6px">${avatarEl(m.display_name,m.color||'#4a9eff',22,6,m.icon||null,m.photo||null)}<span style="font-family:var(--pixel);font-size:6.5px;color:${String(m.id)===me?'var(--accent2)':'var(--text1)'};flex:1">${m.display_name}${String(m.id)===me?' ★':''}</span>${locked&&l?.picks?.length?`<span style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">${fp(m).toFixed(1)}</span>`:''}</div>`;
     if(!l?.picks?.length) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">NO LINEUP YET</div>`;
     if(!locked) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent2)">LINEUP SAVED ✓ · ${l.picks.length} PLAYER${l.picks.length===1?'':'S'} · HIDDEN UNTIL LOCK</div>`;
-    return head + `<div style="margin-bottom:12px">${wlcLineupCardHtml(m.id, wk, false)}</div>`;
+    const mine = String(m.id)===me;
+    return head + `<div style="margin-bottom:12px">${wlcLineupCardHtml(m.id, wk, mine)}</div>`;
   }).join('');
 }
 
@@ -7135,7 +7185,7 @@ function showWlcLineupPopup(mid){
     <div style="display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--border);flex-shrink:0">
       ${userAvatar(m,36,10)}
       <div style="flex:1;min-width:0">
-        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">WEEKLY LINE-UP ROSTER</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">CURRENT WEEKLY LINE-UP</div>
         <div style="font-family:var(--pixel);font-size:8px;color:var(--text1);margin-top:4px">${m.display_name}</div>
       </div>
       <button onclick="document.getElementById('wlc-lineup-modal').remove()" style="background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer">✕</button>
@@ -7322,7 +7372,7 @@ function renderWlcPendingApproval(el, week, wk){
   el.innerHTML = `
     <div class="wlc-banner">
       <div class="wlc-banner-title">REVIEW BEFORE RELEASE</div>
-      <div class="wlc-banner-theme">${(week.theme||'Week').toUpperCase()}</div>
+      <div class="wlc-banner-theme">${wlcThemeName(week, wk).toUpperCase()}</div>
       <div class="wlc-banner-dates">${fmt(statDateObj(ws))} – ${fmt(statDateObj(we))}${week.testers?' · 🧪 TEST WEEK':''}</div>
     </div>
     <div style="padding:0 14px 10px">
@@ -7411,9 +7461,12 @@ function renderWlcStandings(container){
   const currentHtml = '';
   const myId = getMyId();
 
+  // Tries = official (non-test) weeks this manager saved a lineup for
+  const weeks = leagueState.wlc?.weeks || {}, allLineups = leagueState.wlc?.lineups || {};
+  const tries = mid => Object.keys(allLineups).filter(wk=>weeks[wk] && !weeks[wk].testers && allLineups[wk]?.[mid]?.picks?.length).length;
   const rows = managers.map(m=>{
     const s = standings[m.id] || {wins:0, totalFP:0};
-    return {...m, wins:s.wins, totalFP:s.totalFP};
+    return {...m, wins:s.wins||0, totalFP:s.totalFP||0, tries:tries(m.id)};
   }).sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.totalFP-a.totalFP);
 
   let seasonHtml = '';
@@ -7428,8 +7481,9 @@ function renderWlcStandings(container){
           ${m.display_name}${isMe?' ★':''}
         </span>
       </div>
-      <span class="wlc-standings-wins">${m.wins}W</span>
-      <span class="wlc-standings-fp">${m.totalFP.toFixed(1)}</span>
+      <span class="wlc-standings-wins">${m.wins} ${m.wins===1?'Win':'Wins'}</span>
+      <span class="wlc-standings-tries">${m.tries} ${m.tries===1?'Try':'Tries'}</span>
+      <span class="wlc-standings-fp">${m.totalFP.toFixed(1)} FP</span>
     </div>`;
   });
 

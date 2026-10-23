@@ -655,6 +655,20 @@ img{display:block;}
 .duel-picked{
   border-color:var(--accent2) !important;
 }
+/* Your pick: gold frame + ribbon across the portrait; the other side fades back */
+.duel-player .portrait-wrap{position:relative;}
+.duel-player.is-pick .portrait-wrap,.duel-player.is-pick img{border-color:#ffd93d !important;box-shadow:0 0 0 2px rgba(255,217,61,.35),0 0 14px rgba(255,217,61,.8);}
+.duel-player.is-pick .dname{color:#ffd93d;}
+.duel-player.not-pick .portrait-wrap,.duel-player.not-pick > div:first-child img{opacity:.45;filter:grayscale(.7);}
+.duel-player.not-pick .dname,.duel-player.not-pick .dstat{opacity:.55;}
+.pick-ribbon{position:absolute;left:0;right:0;top:0;z-index:2;background:#ffd93d;color:#000;font-family:var(--pixel);font-size:3.6px;line-height:1;padding:3px 0;text-align:center;white-space:nowrap;overflow:hidden;}
+.duel-player.won .pick-ribbon{background:#39ff6a;} .duel-player.lost .pick-ribbon{background:#ff3b5c;color:#fff;}
+.duel-player.won .portrait-wrap{border-color:#39ff6a !important;box-shadow:0 0 14px rgba(57,255,106,.7);}
+.duel-player.lost .portrait-wrap{border-color:#ff3b5c !important;box-shadow:none;}
+.duel-player .dgame{font-family:var(--pixel);font-size:5px;margin-top:4px;line-height:1.6;}
+.dlive{font-family:var(--pixel);font-size:12px;color:#ffb000;text-shadow:0 0 6px rgba(255,176,0,.8);margin-top:5px;}
+.dlive span{font-size:5px;margin-left:3px;color:var(--text3);text-shadow:none;}
+.dlive.lead{color:#39ff6a;text-shadow:0 0 6px rgba(57,255,106,.8);}
 .duel-my-pick{
   font-family:var(--pixel);
   font-size:4.5px;
@@ -817,6 +831,10 @@ img{display:block;}
 }
 .waiver-counter .label{font-family:var(--pixel);font-size:6px;color:var(--text3);}
 .waiver-counter .count{font-family:var(--pixel);font-size:11px;color:var(--accent2);}
+
+/* Draft/Waiver filter rows: SHOW group, then SORT group (own row on phones) */
+.frow-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+@media (max-width:600px){ .frow-group.sort{flex-basis:100%;} }
 
 /* ── HOMEPAGE SCOREBOARD + compact cards ── */
 #game-ticker{display:none!important;}  /* replaced by the scoreboard */

@@ -3478,6 +3478,29 @@ function getDuelStatDisplay(p, statType){
   }
 }
 
+// ── Duel card pieces ──
+// CSS state for a duel side: your pick (gold frame + ribbon) vs the other side (faded);
+// after settling the ribbon shows the outcome.
+function duelSideState(side, myPick, duel){
+  if(myPick===null || myPick===undefined) return {cls:'', ribbon:''};
+  if(String(myPick)!==String(side)) return {cls:'not-pick', ribbon:''};
+  const settled = duel.result!==null && duel.result!==undefined;
+  if(!settled) return {cls:'is-pick', ribbon:'<div class="pick-ribbon">YOUR PICK</div>'};
+  if(duel.result==='void') return {cls:'is-pick', ribbon:'<div class="pick-ribbon">NO CONTEST</div>'};
+  const won = duel.result==='tie' || String(duel.result)===String(side);
+  return {cls:'is-pick '+(won?'won':'lost'), ribbon:`<div class="pick-ribbon">${duel.result==='tie'?'= TIE':won?'✓ WIN':'✗ MISS'}</div>`};
+}
+// Tonight's value of the duel stat for a player (live or final), or null before tip
+function duelTonightValue(p, stat){
+  const today = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  let st = findSavedStat(p.id, today);
+  const live = livePlayerStats[p.id];
+  if(!st && live && (live.live || String(live.dateStr)===today)) st = live;
+  const v = getDuelStatValue(st, stat==='fp'?'fp':stat);
+  return v===null || v===undefined ? null : +(+v).toFixed(1);
+}
+const DUEL_STAT_LABEL = {pts:'PTS', reb:'REB', ast:'AST', fp:'FP', 'reb+ast':'REB+AST', 'stl+blk':'STL+BLK'};
+
 // Render the duel card on the home screen
 function renderDuelCard(){
   const el=document.getElementById('duel-card-container');
@@ -3532,11 +3555,11 @@ function renderDuelCard(){
         ? `<img src="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;display:block;margin:0 auto 6px" onerror="this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'">`
           + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
         : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
-      return `<div class="duel-player ${myPick===side&&!settled?'duel-picked':''}" style="${pickedStyle(side)}">
-        ${logoEl}
+      const ps = duelSideState(side, myPick, duel);
+      return `<div class="duel-player ${ps.cls}"><div style="position:relative;display:inline-block">
+        ${logoEl}${ps.ribbon}</div>
         <div class="dname">${abbr}</div>
         <div class="dstat" style="font-size:9px">${full}</div>
-        ${myPick===side?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
         ${side===1?pct1:pct2}
       </div>`;
     };
@@ -3626,6 +3649,17 @@ function renderDuelCard(){
     }
   }
 
+  // Tonight's duel stat, shown once a player's game has started (leader in green)
+  // Settled duels show the official result values; otherwise tonight's live/final stat
+  const official = settled && duel.result!=='void' && duel.score1!=null && duel.score2!=null;
+  const tv1 = official ? +duel.score1 : duelTonightValue(p1, statType), tv2 = official ? +duel.score2 : duelTonightValue(p2, statType);
+  if(official) statLine = ''; // values now shown under each player
+  const duelLiveHtml = side => {
+    const v = side===1 ? tv1 : tv2, o = side===1 ? tv2 : tv1;
+    if(v===null) return '';
+    const lead = o===null || v>o, tie = o!==null && v===o;
+    return `<div class="dlive${lead&&!tie?' lead':''}">${v}<span>${DUEL_STAT_LABEL[statType]||statType.toUpperCase()}</span></div>`;
+  };
   const pickedStyle = (side) => {
     if(!settled && myPick===side) return `box-shadow:0 0 0 2px var(--accent2);`;
     if(settled && duel.result==='void') return myPick===side ? `box-shadow:0 0 0 2px var(--text3);` : '';
@@ -3648,19 +3682,21 @@ function renderDuelCard(){
     <div class="duel-prompt">${duel.prompt}</div>
     ${statLine}
     <div class="duel-body">
-      <div class="duel-player ${myPick===1&&!settled?'duel-picked':''}" style="${pickedStyle(1)}">
-        <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p1.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div></div>
+      <div class="duel-player ${duelSideState(1,myPick,duel).cls}">
+        <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p1.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div>${duelSideState(1,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p1.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
-        ${myPick===1?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
+        <div class="dgame">${getTodayGameInfo(p1.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
+        ${duelLiveHtml(1)}
         ${pct1}
       </div>
       <div class="duel-vs">VS</div>
-      <div class="duel-player ${myPick===2&&!settled?'duel-picked':''}" style="${pickedStyle(2)}">
-        <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p2.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div></div>
+      <div class="duel-player ${duelSideState(2,myPick,duel).cls}">
+        <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p2.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div>${duelSideState(2,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p2.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
-        ${myPick===2?'<div class="duel-my-pick">YOUR PICK ✓</div>':''}
+        <div class="dgame">${getTodayGameInfo(p2.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
+        ${duelLiveHtml(2)}
         ${pct2}
       </div>
     </div>
@@ -3848,6 +3884,7 @@ function findSavedStat(pid, dateStr){
 function getDuelStatValue(statEntry, statType){
   if(!statEntry) return null;
   if(statType==='stl+blk') return (statEntry.stl||0)+(statEntry.blk||0);
+  if(statType==='reb+ast') return (statEntry.reb||0)+(statEntry.ast||0);
   const val = statEntry[statType];
   return val !== undefined && val !== null ? val : null;
 }
@@ -4446,14 +4483,18 @@ function filterRowHtml(kind){
   const avail = f.availability==='all' ? 'all' : 'available';
   const sort = f.sort==='alpha' ? 'alpha' : 'fp';
   return `
+    <div class="frow-group">
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SHOW</span>
     ${btn('Available', avail==='available', "availability='available'")}
     ${btn('All Players', avail==='all', "availability='all'")}
     ${kind==='draft' ? btn('🌟 Rookies', !!f.rookie, 'rookie=!draftFilter.rookie') : ''}
     ${kind==='waiver' ? btn('🚫 Hide Out/Inj', !!f.hideOut, 'hideOut=!waiverFilter.hideOut') : ''}
-    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
+    </div>
+    <div class="frow-group sort">
+    <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SORT</span>
     ${btn('⬆ FP', sort==='fp', "sort='fp'")}
-    ${btn('A–Z', sort==='alpha', "sort='alpha'")}`;
+    ${btn('A–Z', sort==='alpha', "sort='alpha'")}
+    </div>`;
 }
 function refreshFilterRow(kind){
   const el = document.getElementById(kind+'-filter-row');
@@ -5210,6 +5251,7 @@ function renderWaiverPlayerList(){
             <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name}${injuryBadgeHtml(p.name)}</div>
             <div class="player-meta">${p.pos} · ${p.team}</div>
             <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
+            <div class="player-meta" style="margin-top:2px">${(()=>{ const gi=getTodayGameInfo(p.team,p.id); return gi?`<span style="font-size:5px">${gi}</span>`:'<span style="color:var(--text3);font-size:5px">No Game Today</span>'; })()}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
@@ -6663,6 +6705,7 @@ async function saveWlcLineup(picks){
   window._wlcTab = 'standings'; // saved lineups are final: go straight to Standings
   toast('LINEUP SAVED — GOOD LUCK! ✓');
   renderWlcScreen();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 // "Are you sure?" before a lineup becomes final
@@ -6698,7 +6741,7 @@ async function doWlcSwap(fromName, toName){
   const wk = wlcWeekKey();
   const mid = getMyId();
   if(!mid) return;
-  if(!isWlcLocked(wk)){ toast('Swaps only available after tip-off'); return; }
+  if(!isWlcLocked(wk) && !getMyWlcLineup(wk).saved){ toast('Save your lineup first'); return; }
   const week = (leagueState.wlc?.weeks||{})[wk];
   if(!week){ toast('No active week'); return; }
   const lineup = getMyWlcLineup(wk);
@@ -6866,7 +6909,7 @@ function renderWlcScreen(){
       <div class="wlc-banner-dates">${fmt(statDateObj(ws))} – ${fmt(statDateObj(we))} · ${lockTxt}</div>
       ${week.testers?'<div class="wlc-banner-test">🧪 TEST — ONLY TESTERS SEE THIS</div>':''}
     </div>
-    <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('pick', final?'MY LINEUP':'PICK PLAYERS')}${tabBtn('standings','STANDINGS')}</div>`;
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('pick', final?'CURRENT WEEK\'S LINEUPS':'PICK PLAYERS')}${tabBtn('standings','STANDINGS')}</div>`;
 
   if(tab==='standings'){
     el.innerHTML = html + '<div id="wlc-pane-standings" style="padding:0 14px 20px"></div>';
@@ -6878,11 +6921,13 @@ function renderWlcScreen(){
     if(!lineup.picks.length){
       html += `<div class="card" style="margin:0 14px"><div class="empty-state"><div class="icon">🔒</div><div class="label">PICKS ARE LOCKED<br/><span style="color:var(--text3);font-size:5px">YOU DIDN'T SAVE A LINEUP THIS WEEK</span></div></div></div>`;
     } else {
+      html += `<div class="section-label" style="padding:0 14px 6px">YOUR LINEUP</div>`;
       html += wlcLineupCardHtml(getMyId(), wk, true);
-      html += `<div style="padding:8px 14px 20px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">${locked
-        ? ((lineup.swaps||[]).length ? 'Your one swap for this week has been used.' : 'One swap allowed this week: a player listed OUT, for a same-tier player whose game hasn\'t started.')
-        : 'Your lineup is final. After picks lock, the only change allowed is one swap of a player listed OUT.'}</div>`;
+      html += `<div style="padding:8px 14px 4px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">${(lineup.swaps||[]).length
+        ? 'Your one swap for this week has been used.'
+        : 'Your lineup is final. The only change allowed: one swap of a player listed OUT for a same-tier player whose game hasn\'t started.'}</div>`;
     }
+    html += wlcOtherLineupsHtml(wk, week, locked);
     el.innerHTML = html;
     return;
   }
@@ -6917,7 +6962,8 @@ function wlcLineupCardHtml(mid, wk, showSwap){
     const cur = wlcFindPlayer(sl.swap ? sl.swap.to : sl.name);
     const nm = sl.swap ? `${(wlcFindPlayer(sl.name)?.name||sl.name)} <span style="color:var(--text3)">➜</span> ${cur?.name||sl.swap.to}` : (cur?.name||sl.name);
     const avg = k => sl.gp ? (sl.games.reduce((a,g)=>a+(g.st[k]||0),0)/sl.gp).toFixed(1) : '—';
-    const canSwap = showSwap && locked && !sl.swap && !wlcSwapBlockReason(lineup, sl.name);
+    // The OUT swap is available once the lineup is final: saved, or picks locked
+    const canSwap = showSwap && (locked || lineup.saved) && !sl.swap && !wlcSwapBlockReason(lineup, sl.name);
     return `<div style="padding:9px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="wlc-tier-chip t${pp?.tier||1}">$${pp?.salary||'?'}</span>
@@ -6937,6 +6983,24 @@ function wlcLineupCardHtml(mid, wk, showSwap){
   </div>`;
 }
 function wlcPickCostFor(picks, pool){ return picks.reduce((a,n)=>a+(pool.find(p=>p.n===n)?.salary||0),0); }
+
+// Everyone else's entries for the week. Picks stay hidden until lineups lock.
+function wlcOtherLineupsHtml(wk, week, locked){
+  const me = String(getMyId());
+  const lineups = (leagueState.wlc?.lineups||{})[wk] || {};
+  let mgrs = (leagueState.managers||[]).filter(m=>String(m.id)!==me);
+  if(week.testers) mgrs = mgrs.filter(m=>week.testers.map(String).includes(String(m.id)));
+  if(!mgrs.length) return '';
+  const fp = m => { const l=lineups[m.id]; return l?.picks?.length ? computeWlcFP(l.picks, l.swaps, wk) : -1; };
+  if(locked) mgrs.sort((a,b)=>fp(b)-fp(a));
+  return `<div class="section-label" style="padding:14px 14px 6px">ALL ENTRIES${locked?'':' · PICKS REVEALED AT LOCK'}</div>` + mgrs.map(m=>{
+    const l = lineups[m.id];
+    const head = `<div style="display:flex;align-items:center;gap:8px;margin:0 14px 6px">${avatarEl(m.display_name,m.color||'#4a9eff',22,6,m.icon||null,m.photo||null)}<span style="font-family:var(--pixel);font-size:6.5px;color:var(--text1);flex:1">${m.display_name}</span>${locked&&l?.picks?.length?`<span style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">${fp(m).toFixed(1)}</span>`:''}</div>`;
+    if(!l?.picks?.length) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">NO LINEUP YET</div>`;
+    if(!locked) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent2)">LINEUP SAVED ✓ · ${l.picks.length} PLAYER${l.picks.length===1?'':'S'} · HIDDEN UNTIL LOCK</div>`;
+    return head + `<div style="margin-bottom:12px">${wlcLineupCardHtml(m.id, wk, false)}</div>`;
+  }).join('');
+}
 
 // Standings row tap: "Weekly Line-up Roster" for that manager
 function showWlcLineupPopup(mid){
@@ -7218,49 +7282,9 @@ function renderWlcStandings(container){
     return;
   }
 
-  // Current week scoreboard
-  const wk = wlcWeekKey();
-  const week = wlcVisibleWeek(wk);
+  // Season standings only (this week's entries live on the Current Week's Lineups tab)
+  const currentHtml = '';
   const myId = getMyId();
-
-  let currentHtml = '';
-  if(week && (week.status==='active'||week.status==='locked'||week.status==='final')){
-    const lineups = (leagueState.wlc?.lineups||{})[wk] || {};
-    const shown = week.testers ? managers.filter(m=>week.testers.map(String).includes(String(m.id))) : managers;
-    const curRows = shown.map(m=>{
-      const lineup = lineups[m.id] || {picks:[],swaps:[]};
-      const fp = computeWlcFP(lineup.picks, lineup.swaps, wk);
-      return {...m, fp, picks: lineup.picks};
-    }).sort((a,b)=>b.fp-a.fp);
-
-    currentHtml = `
-      <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:0 0 8px">THIS WEEK — ${week.theme||'Current'}</div>
-      <div class="card" style="padding:0;overflow:hidden;margin:0 0 16px">
-        <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:6.5px;line-height:1.8;">
-          <thead><tr>
-            <th style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)">#</th>
-            <th style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)">TEAM</th>
-            <th style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:6px 10px;text-align:right;border-bottom:1px solid var(--border)">FP</th>
-          </tr></thead>
-          <tbody>
-            ${curRows.map((m,i)=>`
-            <tr onclick="showWlcLineupPopup('${m.id}')" style="cursor:pointer;${m.id===myId?'background:rgba(74,158,255,.06)':''}">
-              <td style="padding:7px 10px;font-family:var(--pixel);font-size:6px;color:var(--text3)">${i+1}</td>
-              <td style="padding:7px 10px">
-                <div style="display:flex;align-items:center;gap:7px">
-                  ${avatarEl(m.display_name,m.color||'#4a9eff',22,5.5,m.icon||null,m.photo||null)}
-                  <span style="font-family:var(--pixel);font-size:6.5px;line-height:1.8;font-weight:600">${m.display_name}${m.id===myId?' <span style="font-family:var(--pixel);font-size:4.5px;color:var(--accent1)">YOU</span>':''}</span>
-                </div>
-                ${!m.picks.length ? '<div style="font-family:var(--pixel);font-size:4.5px;color:var(--accent4);margin-top:3px;padding-left:29px">NO LINEUP</div>'
-                  : (m.id===myId || isWlcLocked(wk)) ? `<div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:3px;padding-left:29px">${m.picks.map(n=>n.split(' ').pop()).join(' · ')}</div>`
-                  : '<div style="font-family:var(--pixel);font-size:4.5px;color:var(--accent2);margin-top:3px;padding-left:29px">LINEUP SAVED ✓ · HIDDEN UNTIL LOCK</div>'}
-              </td>
-              <td style="padding:7px 10px;font-family:var(--pixel);font-size:9px;color:var(--accent3);text-align:right">${m.fp.toFixed(1)}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
-  }
 
   const rows = managers.map(m=>{
     const s = standings[m.id] || {wins:0, totalFP:0};

@@ -819,8 +819,9 @@ img{display:block;}
 /* ── HOMEPAGE SCOREBOARD + compact cards ── */
 #game-ticker{display:none!important;}  /* replaced by the scoreboard */
 /* 16-bit gym scoreboard: navy board, black LED windows, pixel labels */
-.sb-select{flex:1;min-width:0;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:var(--pixel);font-size:6px;cursor:pointer;}
-.gym{margin:0 14px;background:#1d2f63;border:3px solid #0a1230;border-radius:6px;padding:8px 8px 6px;position:relative;
+.sb-select{flex:1;min-width:0;background:#0d1530;color:#ffd93d;border:2px solid #ffd93d;border-radius:6px;padding:7px 8px;font-family:var(--pixel);font-size:6.5px;cursor:pointer;text-shadow:0 0 6px rgba(255,217,61,.6);box-shadow:0 0 8px rgba(255,217,61,.25);}
+.sb-select option{color:var(--text1);background:var(--bg2);text-shadow:none;}
+.gym{cursor:pointer;height:158px;box-sizing:border-box;margin:0 14px;background:#1d2f63;border:3px solid #0a1230;border-radius:6px;padding:8px 8px 6px;position:relative;
   box-shadow:inset 0 0 0 2px #3a5cb0, inset 0 -6px 0 rgba(0,0,0,.25), 0 4px 0 #050914;image-rendering:pixelated;}
 .gym::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:4px;
   background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.12) 2px 3px);}
@@ -832,19 +833,26 @@ img{display:block;}
 .gym-label.win{color:#ffd93d;}
 .gym-label.sm{font-size:5.5px;letter-spacing:.5px;text-align:center;line-height:1.5;}
 .gym-win{background:#050505;border:2px solid #000;box-shadow:inset 0 0 0 1px #2a2a2a,inset 0 0 10px rgba(0,0,0,.9);padding:4px 5px;border-radius:3px;display:flex;align-items:center;justify-content:center;}
-.gym-win.small{padding:3px 4px;min-width:30px;min-height:36px;}
+.gym-win.small{padding:3px 4px;width:34px;height:40px;box-sizing:border-box;}
 .gym-ot{font-family:var(--pixel);font-size:11px;color:#ffb000;text-shadow:0 0 6px #ffb000;}
 .led{display:inline-flex;gap:2px;transform:skewX(-6deg);}
 .led svg{display:block;overflow:visible;}
-.led .on{fill:var(--led);filter:drop-shadow(0 0 2px var(--led));}
-.led .off{fill:var(--led);opacity:.09;}
+.led .on{fill:var(--led);filter:drop-shadow(0 0 2px var(--led)) drop-shadow(0 0 6px var(--led));}
+.led .off{fill:var(--led);opacity:.1;}
+.gym-label{text-shadow:2px 2px 0 #000,0 0 8px rgba(255,255,255,.35)!important;}
 .gym-win.clock.ticking .led svg:nth-child(3) .on{animation:ledBlink 1s steps(1) infinite;}
 @keyframes ledBlink{50%{opacity:.15;}}
 .gym-player{display:flex;align-items:center;gap:6px;min-width:0;}
 .gym-player.l{justify-content:flex-start;} .gym-player.r{justify-content:flex-end;flex-direction:row-reverse;}
 .gym-pname{font-family:var(--pixel);font-size:5.5px;color:#fff;text-shadow:1px 1px 0 #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gym-mid{display:flex;flex-direction:column;align-items:center;gap:4px;}
-.gym-tag{font-family:var(--pixel);font-size:4.5px;color:#ffb000;background:#050505;border:1px solid #000;padding:3px 5px;border-radius:2px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.gym-marquee{width:100%;max-width:118px;height:18px;overflow:hidden;background:#050505;border:2px solid #000;border-radius:3px;box-shadow:inset 0 0 0 1px #2a2a2a;position:relative;}
+.gym-marquee::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,transparent 0.8px,rgba(0,0,0,.28) 1.2px);background-size:3px 3px;}
+.gym-marquee-text{font-family:var(--pixel);font-size:6.5px;line-height:14px;color:#ffb22e;text-shadow:0 0 3px #ffb22e,0 0 8px rgba(255,178,46,.7);white-space:nowrap;text-align:center;}
+.gym-marquee-text.scroll{display:inline-block;text-align:left;padding-left:100%;animation:gymMarquee 7s linear infinite;}
+@keyframes gymMarquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+.gym-hint{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--pixel);font-size:4px;color:rgba(255,255,255,.45);}
+.gym-tag{height:14px;box-sizing:border-box;font-family:var(--pixel);font-size:4.5px;color:#ffb000;background:#050505;border:1px solid #000;padding:3px 5px;border-radius:2px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .gym-tag.live{color:#ff3b30;} .gym-tag.final{color:#fff;}
 #duel-card-container .duel-card{padding:8px 10px;}
 #duel-card-container .duel-prompt{margin:4px 0 6px;}

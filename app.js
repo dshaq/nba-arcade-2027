@@ -2585,6 +2585,53 @@ function ledText(str, color, h){
   }).join('')}</span>`;
 }
 
+// Score digits: a "1"-only hundreds digit (faint unless the score is 100+), like
+// real gym boards, then two always-lit digits ("00" before tip-off).
+function scoreLed(n, color, h){
+  const v = Math.max(0, Math.floor(+n||0));
+  const hund = `<svg viewBox="0 0 60 100" style="height:${h}px;width:${h*.6}px">${['b','c'].map(k=>`<polygon points="${SEG_PTS[k]}" class="${v>=100?'on':'off'}"/>`).join('')}</svg>`;
+  const two = ledText(String(v%100).padStart(2,'0'), color, h);
+  const cut = two.indexOf('>')+1;          // insert the hundreds digit inside the same LED span
+  return two.slice(0,cut) + hund + two.slice(cut);
+}
+
+// Clock text for the LED: "12:00" before tip, "00:24" under a minute, " 3:12" otherwise
+function boardClock(g){
+  if(g.final) return '00:00';
+  if(!g.live) return '12:00';
+  if(g.half) return '00:00';
+  const c = String(g.st.displayClock||'').trim();
+  if(/^\d+(\.\d+)?$/.test(c)) return '00:' + String(Math.floor(+c)).padStart(2,'0'); // sub-minute: whole seconds
+  const m = c.match(/^(\d{1,2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}`.padStart(5,' ') : '00:00';
+}
+
+function scoreboardInfo(ev){
+  const comp = ev.competitions?.[0]||{}, st = comp.status||ev.status||{};
+  const cs = comp.competitors||[];
+  const home = cs.find(c=>c.homeAway==='home')||cs[0]||{}, away = cs.find(c=>c.homeAway==='away')||cs[1]||{};
+  const state = st.type?.state;
+  const live = state==='in' && (st.period||0)>0 && !/^\d{4}-\d{2}-\d{2}T/.test(st.displayClock||'');
+  const final = state==='post';
+  const tip = new Date(comp.date||ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+  const per = st.period>4 ? 'OT' : String(st.period||'');
+  const half = live && /half/i.test(st.type?.shortDetail||st.type?.detail||'');
+  const ab = c => espnToAbbr((c?.team?.abbreviation||'').toUpperCase());
+  return {comp, st, home, away, live, final, tip, per, half, homeAb:ab(home), awayAb:ab(away)};
+}
+
+// Highest-FP player tonight for an NBA team in this game (from live stats)
+function topFantasyPlayer(eventId, team){
+  let best=null;
+  for(const [pid,st] of Object.entries(livePlayerStats||{})){
+    if(String(st.gameId)!==String(eventId)) continue;
+    const p = getPlayer(Number(pid)) || getPlayer(pid);
+    if(!p || p.team!==team) continue;
+    if(!best || (st.fp||0) > best.fp) best = {name:p.name, fp:st.fp||0};
+  }
+  return best;
+}
+
 function renderScoreboard(){
   const el = document.getElementById('scoreboard-container'); if(!el) return;
   const sel = document.getElementById('sb-select-wrap');
@@ -2593,67 +2640,103 @@ function renderScoreboard(){
     el.innerHTML = '';
     return;
   }
-  const ab = c => espnToAbbr((c?.team?.abbreviation||'').toUpperCase());
-  const info = ev => {
-    const comp = ev.competitions?.[0]||{}, st = comp.status||ev.status||{};
-    const cs = comp.competitors||[];
-    const home = cs.find(c=>c.homeAway==='home')||cs[0]||{}, away = cs.find(c=>c.homeAway==='away')||cs[1]||{};
-    const state = st.type?.state;
-    const live = state==='in' && (st.period||0)>0 && !/^\d{4}-\d{2}-\d{2}T/.test(st.displayClock||'');
-    const final = state==='post';
-    const tip = new Date(comp.date||ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
-    const per = st.period>4 ? 'OT' : String(st.period||'');
-    const half = live && /half/i.test(st.type?.shortDetail||st.type?.detail||'');
-    return {comp, st, home, away, live, final, tip, per, half};
-  };
-  // Game picker
-  if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Choose a game" onchange="selectScoreboardGame(this.value)">
-    ${SB_EVENTS.map(ev=>{ const g=info(ev);
-      const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${g.st.displayClock}`) : g.final ? 'FINAL' : g.tip;
-      return `<option value="${ev.id}" ${ev.id===sbEventId?'selected':''}>${g.live?'🔴 ':''}${ab(g.away)} @ ${ab(g.home)} · ${status}</option>`; }).join('')}
+  // Game picker: label always reads "Select NBA Scoreboard"
+  if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
+    <option value="" selected>SELECT NBA SCOREBOARD ▾</option>
+    ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev);
+      const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${boardClock(g).trim()}`) : g.final ? 'FINAL' : g.tip;
+      return `<option value="${ev.id}">${ev.id===sbEventId?'▶ ':''}${g.live?'🔴 ':''}${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
   </select>`;
 
   const ev = SB_EVENTS.find(e=>e.id===sbEventId) || SB_EVENTS[0];
-  const g = info(ev);
-  const showScore = g.live || g.final;
-  const pad3 = n => String(n).padStart(3,' ').slice(-3);
+  const g = scoreboardInfo(ev);
   const RED = '#ff3b30', AMBER = '#ffb000';
-  // Clock: game clock live, tip-off time before, 0:00 at the final
-  let clock = g.live ? (g.half ? '0:00' : (g.st.displayClock||'0:00')) : g.final ? '0:00' : g.tip.replace(/\s?[AP]M/,'');
-  if(!/^\d{1,2}:\d{2}$/.test(clock)) clock = clock.replace(/[^\d:]/g,'') || '0:00';
-  clock = clock.padStart(5,' ');
   const statusTag = g.live ? (g.half ? '<span class="gym-tag">HALFTIME</span>' : '<span class="gym-tag live"><span class="live-dot"></span>LIVE</span>')
-    : g.final ? '<span class="gym-tag final">FINAL</span>' : `<span class="gym-tag">TIP-OFF ${g.tip} ET</span>`;
-  // Top scorer per team (from ESPN leaders)
-  const top = c => { let best=null; for(const L of (c.leaders||[])) if(L.name==='points') for(const x of (L.leaders||[])) if(!best || (x.value??+x.displayValue) > (best.value??+best.displayValue)) best=x; return best; };
-  const leaderCell = (c, side) => { const t = showScore ? top(c) : null;
-    const nm = t ? (t.athlete?.shortName||'').split(' ').pop().toUpperCase().slice(0,9) : '';
-    return `<div class="gym-player ${side}"><div class="gym-pname">${nm || '&nbsp;'}</div><div class="gym-win small">${ledText(t ? String(Math.round(+t.displayValue||0)).padStart(2,' ') : '  ', AMBER, 26)}</div></div>`; };
+    : g.final ? '<span class="gym-tag final">FINAL</span>' : '<span class="gym-tag">PREGAME</span>';
+  const marquee = team => {
+    let txt;
+    if(!g.live && !g.final) txt = `TIP ${g.tip}`;
+    else { const t = topFantasyPlayer(ev.id, team);
+      txt = t ? `${playerShortName(t.name)} ${(+t.fp).toFixed(0)} FP` : 'NO FP YET'; }
+    const scroll = txt.length > 16;
+    return `<div class="gym-marquee"><div class="gym-marquee-text${scroll?' scroll':''}">${txt}</div></div>`;
+  };
   const homeWin = g.final && +g.home.score > +g.away.score, awayWin = g.final && +g.away.score > +g.home.score;
+  const score = c => (g.live||g.final) ? +c.score||0 : 0;
 
   el.innerHTML = `
-  <div class="gym">
+  <div class="gym" onclick="showNbaBoxScore('${ev.id}')" role="button" aria-label="Open box score">
     <div class="gym-row">
       <div class="gym-team">
-        <div class="gym-label${awayWin?' win':''}">${ab(g.away)}</div>
-        <div class="gym-win">${ledText(showScore ? pad3(+g.away.score||0) : '   ', RED, 46)}</div>
+        <div class="gym-label${awayWin?' win':''}">${g.awayAb}</div>
+        <div class="gym-win">${scoreLed(score(g.away), RED, 46)}</div>
+        ${marquee(g.awayAb)}
       </div>
       <div class="gym-center">
-        <div class="gym-win clock${g.live&&!g.half?' ticking':''}">${ledText(clock, AMBER, 34)}</div>
+        <div class="gym-win clock${g.live&&!g.half?' ticking':''}">${ledText(boardClock(g), AMBER, 34)}</div>
         <div class="gym-label sm">PERIOD</div>
-        <div class="gym-win small">${g.per==='OT' ? '<span class="gym-ot">OT</span>' : ledText(showScore?g.per:'-', AMBER, 30)}</div>
+        <div class="gym-win small">${g.per==='OT' ? '<span class="gym-ot">OT</span>' : ledText((g.live||g.final)?g.per:' ', AMBER, 30)}</div>
+        ${statusTag}
       </div>
       <div class="gym-team">
-        <div class="gym-label${homeWin?' win':''}">${ab(g.home)}</div>
-        <div class="gym-win">${ledText(showScore ? pad3(+g.home.score||0) : '   ', RED, 46)}</div>
+        <div class="gym-label${homeWin?' win':''}">${g.homeAb}</div>
+        <div class="gym-win">${scoreLed(score(g.home), RED, 46)}</div>
+        ${marquee(g.homeAb)}
       </div>
     </div>
-    <div class="gym-row bottom">
-      ${leaderCell(g.away,'l')}
-      <div class="gym-mid"><div class="gym-label sm">TOP<br>SCORER</div>${statusTag}</div>
-      ${leaderCell(g.home,'r')}
-    </div>
+    <div class="gym-hint">TAP FOR BOX SCORE</div>
   </div>`;
+}
+
+// Full ESPN box score for one NBA game, both teams, with FP per player
+async function showNbaBoxScore(eventId){
+  const ev = SB_EVENTS.find(e=>e.id===eventId); if(!ev) return;
+  const g = scoreboardInfo(ev);
+  document.getElementById('nba-box-modal')?.remove();
+  const m = document.createElement('div');
+  m.id='nba-box-modal'; m.className='top-sheet-overlay';
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--text1)">${g.awayAb} ${(g.live||g.final)?(+g.away.score||0):''} <span style="color:var(--text3)">@</span> ${g.homeAb} ${(g.live||g.final)?(+g.home.score||0):''}
+        <div style="font-family:var(--pixel);font-size:5.5px;color:${g.live?'var(--accent4)':'var(--text3)'};margin-top:5px">${g.live?(g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} · ${boardClock(g).trim()}`):g.final?'FINAL':'TIP-OFF '+g.tip+' ET'}</div></div>
+      <button onclick="document.getElementById('nba-box-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+    </div>`;
+  m.innerHTML = `<div class="top-sheet">${head}<div class="top-sheet-body" id="nba-box-body"><div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">LOADING BOX SCORE…</div></div></div>`;
+  document.body.appendChild(m);
+  const body = document.getElementById('nba-box-body');
+  if(!g.live && !g.final){ body.innerHTML = '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">BOX SCORE AVAILABLE AT TIP-OFF</div>'; return; }
+  try{
+    const res = await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${eventId}`);
+    const data = await res.json();
+    const teams = data?.boxscore?.players || [];
+    if(!teams.length) throw new Error('no box');
+    const num = v => parseInt(v)||0;
+    const split = v => String(v||'0-0').split('-').map(num);
+    body.innerHTML = teams.map(t=>{
+      const abbr = espnToAbbr((t.team?.abbreviation||'').toUpperCase());
+      const grp = (t.statistics||[])[0] || {};
+      const L = (grp.labels||[]).map(x=>String(x).toUpperCase());
+      const at = (row, lbl) => row[L.indexOf(lbl)];
+      const rows = (grp.athletes||[]).map(a=>{
+        const r = a.stats||[]; const name = a.athlete?.displayName||'';
+        if(!r.length || /^DN[PD]/i.test(r[0]||'')) return {name, dnp:true, starter:a.starter};
+        const [fgm,fga] = split(at(r,'FG')), [ftm,fta] = split(at(r,'FT'));
+        const st = {pts:num(at(r,'PTS')), reb:num(at(r,'REB')), ast:num(at(r,'AST')), stl:num(at(r,'STL')), blk:num(at(r,'BLK')), to:num(at(r,'TO')), fgm,fga,ftm,fta};
+        return {name, starter:a.starter, min:at(r,'MIN')||'', ...st, fp:calcFP(st)};
+      });
+      const tr = x => { const pl = PLAYERS.find(p=>normName(p.name)===normName(x.name));
+        const nm = pl ? `<span onclick="${pcardOnclick(pl.name)}" style="cursor:pointer;color:${rosterOwnerOf(pl.id)?'#ffd93d':'var(--text1)'}">${x.name}</span>` : x.name;
+        return x.dnp ? `<tr style="opacity:.5"><td style="padding:6px 2px">${nm}</td><td colspan="8" style="padding:6px 2px;color:var(--text3)">DNP</td></tr>`
+          : `<tr><td style="padding:6px 2px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">${nm}</td><td>${x.min}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td><td>${x.stl}</td><td>${x.blk}</td><td style="color:var(--accent4)">${x.to}</td><td style="color:var(--accent3)">${x.fp}</td></tr>`; };
+      return `<div style="font-family:var(--pixel);font-size:7px;color:var(--accent1);margin:14px 0 6px">${abbr}</div>
+        <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5px;text-align:center">
+          <thead><tr style="background:var(--bg3);color:var(--text3)"><th style="text-align:left;padding:6px 2px;font-weight:normal">PLAYER</th><th style="font-weight:normal">MIN</th><th style="font-weight:normal">PTS</th><th style="font-weight:normal">REB</th><th style="font-weight:normal">AST</th><th style="font-weight:normal">STL</th><th style="font-weight:normal">BLK</th><th style="font-weight:normal">TO</th><th style="font-weight:normal;color:var(--accent3)">FP</th></tr></thead>
+          <tbody>${rows.sort((a,b)=>(b.starter?1:0)-(a.starter?1:0)||(b.fp||-99)-(a.fp||-99)).map(tr).join('')}</tbody>
+        </table>`;
+    }).join('') + `<div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:10px;line-height:1.8"><span style="color:#ffd93d">YELLOW</span> = ON A FANTASY ROSTER · TAP A NAME FOR HIS PLAYER CARD</div>`;
+  }catch(e){
+    body.innerHTML = '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">BOX SCORE UNAVAILABLE RIGHT NOW</div>';
+  }
 }
 
 // Faster refresh for the scoreboard while a game is live and Home is open

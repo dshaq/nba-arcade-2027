@@ -6861,6 +6861,31 @@ async function doWlcSwap(fromName, toName){
   renderWlcScreen();
 }
 
+// Commissioner adjustments to a week's generated pool: [slot currently holding A, B goes there].
+// Applied all at once against the generated pool; B takes A's tier and price.
+const WLC_POOL_TWEAKS = {
+  '2026-10-19': [ // test week, set Oct 23
+    ['Cooper Flagg','Deni Avdija'],          // $1
+    ['Stephen Curry','Kon Knueppel'],        // $1 (OUT, for testing the injury swap)
+    ['Deni Avdija','LeBron James'],          // $2
+    ['Josh Giddey','Anthony Davis'],         // $3
+    ['Anthony Davis','Jalen Johnson'],       // $4
+    ['Jalen Johnson','Shai Gilgeous-Alexander'], // $5
+  ],
+};
+function applyWlcPoolTweaks(weekKey, pool){
+  const tweaks = WLC_POOL_TWEAKS[weekKey]; if(!tweaks) return pool;
+  const out = pool.map(p=>({...p}));
+  for(const [from, to] of tweaks){
+    const i = pool.findIndex(p=>normName(p.n)===normName(from)); // positions from the original pool
+    if(i<0) continue;
+    const db = PLAYERS_DB.find(p=>normName(p.n)===normName(to)) || {n:to};
+    const cur = wlcFindPlayer(db.n);
+    out[i] = {...db, t:cur?.team||db.t, tier:pool[i].tier, salary:pool[i].salary};
+  }
+  return out;
+}
+
 // Generate a WLC week proposal (commissioner-facing)
 // Called by commissioner to create next week's pool; auto-picks theme
 function generateWlcProposal(forDate){
@@ -6900,7 +6925,7 @@ function generateWlcProposal(forDate){
   }
   // Sort by fpPG, take top 25
   const pool = eligible.sort((a,b)=>b.fpPG-a.fpPG).slice(0, WLC_POOL_SIZE);
-  return { weekKey: wk, theme: theme.name, pool: assignTiers(pool) };
+  return { weekKey: wk, theme: theme.name, pool: applyWlcPoolTweaks(wk, assignTiers(pool)) };
 }
 
 // Compute WLC results for a completed week
@@ -7326,10 +7351,11 @@ function openWlcReplaceModal(wk, poolName, query){
   const slot = (w.pool||[]).find(p=>p.n===poolName); if(!slot) return;
   const inPool = new Set((w.pool||[]).map(p=>normName(p.n)));
   const ql = normName(query||'');
+  const poolTier = n => (w.pool||[]).find(p=>normName(p.n)===normName(n))?.tier;
   const cands = PLAYERS_DB
-    .map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {n:p.n, name:cur.name, t:cur.team||p.t, fpPG:BDL_STATS[cur.name]?.fpPG ?? p.fpPG} : null; })
-    .filter(c=>c && !inPool.has(normName(c.n)) && (!ql || normName(c.name).includes(ql)))
-    .sort((a,b)=>(b.fpPG||0)-(a.fpPG||0)).slice(0,60);
+    .map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {n:p.n, name:cur.name, t:cur.team||p.t, fpPG:BDL_STATS[cur.name]?.fpPG ?? p.fpPG, inPool:inPool.has(normName(p.n))} : null; })
+    .filter(c=>c && normName(c.n)!==normName(poolName) && (!ql || normName(c.name).includes(ql)))
+    .sort((a,b)=>(b.fpPG||0)-(a.fpPG||0)).slice(0,80);
   document.getElementById('wlc-replace-modal')?.remove();
   const m = document.createElement('div');
   m.id='wlc-replace-modal'; m.className='top-sheet-overlay';
@@ -7345,8 +7371,8 @@ function openWlcReplaceModal(wk, poolName, query){
     </div>
     <div class="top-sheet-body">
       ${cands.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
-        <div onclick="${pcardOnclick(c.name)}" style="cursor:pointer;min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${c.name}${injuryBadgeHtml(c.name)}</div><div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3)">${c.t} · ${(c.fpPG||0).toFixed?c.fpPG.toFixed(1):c.fpPG} FP/G</div></div>
-        <button class="btn btn-sm btn-primary" onclick="commReplaceWlcPlayer('${wk}',${q(poolName)},${q(c.n)})">USE</button>
+        <div onclick="${pcardOnclick(c.name)}" style="cursor:pointer;min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${c.name}${injuryBadgeHtml(c.name)}${c.inPool?` <span style="font-size:4.5px;color:#ffd93d">IN POOL · $${poolTier(c.n)}</span>`:''}</div><div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3)">${c.t} · ${(c.fpPG||0).toFixed?c.fpPG.toFixed(1):c.fpPG} FP/G</div></div>
+        <button class="btn btn-sm btn-primary" onclick="commReplaceWlcPlayer('${wk}',${q(poolName)},${q(c.n)})">${c.inPool?'SWAP':'USE'}</button>
       </div>`).join('') || '<div style="padding:20px 0;text-align:center;color:var(--text3)">No players found</div>'}
     </div></div>`;
   document.body.appendChild(m);
@@ -7356,12 +7382,20 @@ function openWlcReplaceModal(wk, poolName, query){
 async function commReplaceWlcPlayer(wk, oldName, newName){
   const w = leagueState.wlc?.weeks?.[wk]; if(!w) return;
   const i = (w.pool||[]).findIndex(p=>p.n===oldName); if(i<0) return;
-  const db = PLAYERS_DB.find(p=>p.n===newName) || {n:newName};
-  const cur = wlcFindPlayer(newName);
-  w.pool[i] = {...db, t:cur?.team||db.t, tier:w.pool[i].tier, salary:w.pool[i].salary};
+  const j = (w.pool||[]).findIndex(p=>normName(p.n)===normName(newName));
+  if(j>=0){
+    // Already in the pool: swap the two players' spots (each takes the other's price)
+    const a = w.pool[i], b = w.pool[j];
+    w.pool[i] = {...b, tier:a.tier, salary:a.salary};
+    w.pool[j] = {...a, tier:b.tier, salary:b.salary};
+  } else {
+    const db = PLAYERS_DB.find(p=>p.n===newName) || {n:newName};
+    const cur = wlcFindPlayer(newName);
+    w.pool[i] = {...db, t:cur?.team||db.t, tier:w.pool[i].tier, salary:w.pool[i].salary};
+  }
   await saveLeagueState();
   document.getElementById('wlc-replace-modal')?.remove();
-  toast(`${oldName} ➜ ${cur?.name||newName}`);
+  toast(j>=0 ? `Swapped ${oldName} ⇄ ${newName}` : `${oldName} ➜ ${wlcFindPlayer(newName)?.name||newName}`);
   renderWlcScreen();
 }
 

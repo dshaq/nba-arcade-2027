@@ -6890,7 +6890,10 @@ function renderWlcScreen(){
   // ── Picking grid (like the design mock): tier tag + 5 portraits per row ──
   const picks = window._wlcCurrentPicks||[];
   const cost = wlcPickCost(picks);
-  html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks);
+  const tb = document.getElementById('top-bar');
+  if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
+  html += wlcPreviewHtml(pool, picks);
+  html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks, window._wlcPreview);
   const canSave = picks.length>=1 && picks.length<=WLC_TEAM_SIZE && cost<=WLC_SALARY_CAP;
   html += `
     <div class="wlc-bottom-bar">
@@ -6966,15 +6969,55 @@ function showWlcLineupPopup(mid){
 function wlcCurrentPool(){ return (leagueState.wlc?.weeks?.[wlcWeekKey()]?.pool)||[]; }
 function wlcPickCost(picks){ const pool=wlcCurrentPool(); return picks.reduce((a,n)=>a+(pool.find(p=>p.n===n)?.salary||0),0); }
 
-// Tap a portrait: show the player's profile with Add/Cancel (or Drop/Cancel)
+// Tap a portrait: show him in the preview panel pinned at the top of the grid
+// (fighting-game select screen). The panel offers SELECT/CANCEL or DROP/CANCEL.
 function wlcOpenPlayer(poolName){
-  const picks = window._wlcCurrentPicks||[];
-  const sel = picks.includes(poolName);
-  const q = JSON.stringify(poolName).replace(/"/g,'&quot;');
-  const close = "document.getElementById('player-card-modal')?.remove()";
-  showPlayerCard(wlcFindPlayer(poolName)?.name || poolName, undefined, {actions: sel
-    ? [{label:'DROP', kind:'danger', js:`wlcDropPick(${q});${close}`}, {label:'CANCEL', kind:'secondary', js:close}]
-    : [{label:'ADD', kind:'primary', js:`wlcAddPick(${q})`}, {label:'CANCEL', kind:'secondary', js:close}]});
+  window._wlcPreview = poolName;
+  renderWlcScreen();
+}
+function wlcClearPreview(){ window._wlcPreview = null; renderWlcScreen(); }
+
+// Season averages for the preview: BDL 2025-26 averages when loaded, else the
+// player's stored averages / projection
+function wlcPreviewStats(name){
+  const cur = wlcFindPlayer(name);
+  const b = BDL_STATS[cur?.name||name];
+  const db = PLAYERS_DB.find(x=>x.n===name);
+  const f = v => (v==null||isNaN(v)) ? '—' : (+v).toFixed(1);
+  return {
+    pts: f(b?.pts ?? cur?.ppg), reb: f(b?.reb ?? cur?.rpg), ast: f(b?.ast ?? cur?.apg),
+    fp: f(b?.fpPG ?? db?.fpPG ?? (cur ? estimateFpPG(cur) : null)),
+  };
+}
+
+function wlcPreviewHtml(pool, picks){
+  const name = window._wlcPreview;
+  const p = name && pool.find(x=>x.n===name);
+  if(!p){
+    return `<div class="wlc-preview empty"><div class="wlc-pv-port"><span>?</span></div>
+      <div class="wlc-pv-info"><div class="wlc-pv-name blink">SELECT YOUR PLAYER</div>
+      <div class="wlc-pv-sub">TAP ANY PORTRAIT BELOW</div></div></div>`;
+  }
+  const cur = wlcFindPlayer(p.n), nm = cur?.name || p.n, team = cur?.team || p.t;
+  const pos = PLAYER_INFO[nm]?.pos || cur?.pos || '';
+  const st = wlcPreviewStats(p.n);
+  const sel = picks.includes(p.n);
+  const q = JSON.stringify(p.n).replace(/"/g,'&quot;');
+  const port = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(nm)}.jpeg`;
+  const box = (l,v) => `<div class="wlc-pv-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+  return `<div class="wlc-preview t${p.tier}">
+    <div class="wlc-pv-port" onclick="${pcardOnclick(nm)}" title="Full player profile"><img src="${port}" onerror="this.style.visibility='hidden'"><span class="wlc-pv-price">$${p.salary}</span></div>
+    <div class="wlc-pv-info">
+      <div class="wlc-pv-name">${nm}${injuryBadgeHtml(nm)}</div>
+      <div class="wlc-pv-sub">${pos?pos+' · ':''}${team} · 2025-26 SEASON</div>
+      <div class="wlc-pv-stats">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
+      <div class="wlc-pv-btns">
+        ${sel ? `<button class="wlc-pv-btn drop" onclick="wlcDropPick(${q})">DROP</button>`
+              : `<button class="wlc-pv-btn select" onclick="wlcAddPick(${q})">SELECT</button>`}
+        <button class="wlc-pv-btn cancel" onclick="wlcClearPreview()">CANCEL</button>
+      </div>
+    </div>
+  </div>`;
 }
 function wlcAddPick(poolName){
   const picks = window._wlcCurrentPicks||[];
@@ -6983,11 +7026,13 @@ function wlcAddPick(poolName){
   if(picks.length >= WLC_TEAM_SIZE){ toast(`Max ${WLC_TEAM_SIZE} players`); return; }
   if(wlcPickCost(picks)+p.salary > WLC_SALARY_CAP){ toast(`Only $${WLC_SALARY_CAP-wlcPickCost(picks)} left — he costs $${p.salary}`); return; }
   window._wlcCurrentPicks = [...picks, poolName];
+  window._wlcPreview = null;
   document.getElementById('player-card-modal')?.remove();
   renderWlcScreen();
 }
 function wlcDropPick(poolName){
   window._wlcCurrentPicks = (window._wlcCurrentPicks||[]).filter(n=>n!==poolName);
+  window._wlcPreview = null;
   renderWlcScreen();
 }
 
@@ -7061,7 +7106,7 @@ function renderWlcNoWeek(el, wk){
 }
 
 // Shared portrait grid. onTap(poolName) → onclick JS string.
-function wlcGridHtml(pool, onTap, selected){
+function wlcGridHtml(pool, onTap, selected, previewing){
   let html = '<div class="wlc-grid">';
   for(let tier=5; tier>=1; tier--){
     html += `<div class="wlc-tier-row t${tier}"><div class="wlc-tier-tag">$${tier}</div>`;
@@ -7074,9 +7119,11 @@ function wlcGridHtml(pool, onTap, selected){
       const parts = nm.split(' ');
       const sel = (selected||[]).includes(p.n);
       const inj = injuryInfo(nm);
-      html += `<div class="wlc-pcard${sel?' selected':''}" onclick="${onTap(p.n)}">
+      const pos = PLAYER_INFO[nm]?.pos || cur?.pos || '';
+      const pv = previewing===p.n;
+      html += `<div class="wlc-pcard${sel?' selected':''}${pv?' previewing':''}" onclick="${onTap(p.n)}">${pv?'<span class="wlc-p1">P1</span>':''}
         <div class="wlc-pimg"><img src="${port}" loading="lazy" onerror="this.style.visibility='hidden'">${logo?`<img class="wlc-plogo" src="${logo}" onerror="this.remove()">`:''}${inj?`<span class="wlc-pinj" style="background:${inj.color}">${inj.label}</span>`:''}${sel?'<span class="wlc-pcheck">✓</span>':''}</div>
-        <div class="wlc-pname">${parts[0]}<br>${parts.slice(1).join(' ')}</div>
+        <div class="wlc-pname">${parts[0]}<br>${parts.slice(1).join(' ')}${pos?`<div class="wlc-ppos">${pos}</div>`:''}</div>
       </div>`;
     }
     html += '</div>';

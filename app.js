@@ -7115,14 +7115,13 @@ function wlcGridHtml(pool, onTap, selected, previewing){
       const team = cur?.team || p.t;
       const nm = cur?.name || p.n;
       const port = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(nm)}.jpeg`;
-      const logo = getTeamLogoUrl(team);
       const parts = nm.split(' ');
       const sel = (selected||[]).includes(p.n);
       const inj = injuryInfo(nm);
       const pos = PLAYER_INFO[nm]?.pos || cur?.pos || '';
       const pv = previewing===p.n;
       html += `<div class="wlc-pcard${sel?' selected':''}${pv?' previewing':''}" onclick="${onTap(p.n)}">${pv?'<span class="wlc-p1">P1</span>':''}
-        <div class="wlc-pimg"><img src="${port}" loading="lazy" onerror="this.style.visibility='hidden'">${logo?`<img class="wlc-plogo" src="${logo}" onerror="this.remove()">`:''}${inj?`<span class="wlc-pinj" style="background:${inj.color}">${inj.label}</span>`:''}${sel?'<span class="wlc-pcheck">✓</span>':''}</div>
+        <div class="wlc-pimg"><img src="${port}" loading="lazy" onerror="this.style.visibility='hidden'">${inj?`<span class="wlc-pinj" style="background:${inj.color}">${inj.label}</span>`:''}${sel?'<span class="wlc-pcheck">✓</span>':''}</div>
         <div class="wlc-pname">${parts[0]}<br>${parts.slice(1).join(' ')}${pos?`<div class="wlc-ppos">${pos}</div>`:''}</div>
       </div>`;
     }

@@ -7,6 +7,10 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const LEAGUE_KEY    = 'nba-arcade-2027';
 const PORTRAITS_KEY = 'nba-portraits-2027';
 const PORTRAITS_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/player-portraits`;
+// Storage can't hold accented file names, so portrait files are saved without accents
+// ("Kasparas Jakucionis.jpeg"). Strip accents from the name before building the URL.
+function plainName(n){ return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/ł/g,'l').replace(/Ł/g,'L').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/ø/g,'o'); }
+function portraitUrl(team, name){ return `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(plainName(name))}.jpeg`; }
 const INVITE_CODE   = 'HOOPTIME27';  // commissioner sets this
 const COMMISSIONER_EMAIL = 'daveschachter@gmail.com';
 
@@ -946,7 +950,7 @@ function showWeekResults(runId, idx, onClose){
   document.getElementById('week-results-modal')?.remove();
   const m = document.createElement('div');
   m.id = 'week-results-modal'; m.className = 'top-sheet-overlay';
-  const port = pl => `${PORTRAITS_BUCKET_URL}/${pl.team}/${encodeURIComponent(pl.name)}.jpeg`;
+  const port = pl => portraitUrl(pl.team, pl.name);
   const award = (title, color, art, name, sub, fp) => `<div class="wr-award" style="--ac:${color}">
       <div class="wr-award-title">${title}</div>
       <div class="wr-award-art">${art}</div>
@@ -1171,7 +1175,7 @@ function showPlayerCard(playerName, initialTab, opts) {
   const teamFull = NBA_TEAMS[teamAbbr] || teamAbbr;
   const portraitName = pArr?.name || playerName;
   const portrait = teamAbbr
-    ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(portraitName)}.jpeg`
+    ? portraitUrl(teamAbbr, portraitName)
     : (playerPortraits[portraitName] || '');
   const pid = p?.id ?? p?.pid;
   const owner = rosterOwnerOf(pid);
@@ -1998,7 +2002,7 @@ async function loadPortraits(){
   playerPortraits = {};
   for(const p of PLAYERS){
     if(!p.team) continue;
-    playerPortraits[p.name] = `${PORTRAITS_BUCKET_URL}/${p.team}/${encodeURIComponent(p.name)}.jpeg`;
+    playerPortraits[p.name] = portraitUrl(p.team, p.name);
   }
 }
 
@@ -3693,7 +3697,7 @@ function renderDuelCard(){
     const pArr = PLAYERS.find(pl=>pl.name===p.name);
     const teamAbbr = pArr?.team || p.team || '';
     const port = teamAbbr
-      ? `${PORTRAITS_BUCKET_URL}/${teamAbbr}/${encodeURIComponent(p.name)}.jpeg`
+      ? portraitUrl(teamAbbr, p.name)
       : (playerPortraits[p.name] || '');
     const fallback=`this.style.display='none';this.nextSibling.style.display='flex'`;
     return `<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="${fallback}"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-family:var(--pixel);font-size:9px;color:var(--text3)">${initials(p.name)}</div>`;
@@ -7233,7 +7237,7 @@ function wlcPreviewHtml(pool, picks){
   const st = wlcPreviewStats(p.n);
   const sel = picks.includes(p.n);
   const q = JSON.stringify(p.n).replace(/"/g,'&quot;');
-  const port = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(nm)}.jpeg`;
+  const port = portraitUrl(team, nm);
   const box = (l,v) => `<div class="wlc-pv-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`;
   return `<div class="wlc-preview t${p.tier}">
     <div class="wlc-pv-port" onclick="${pcardOnclick(nm)}" title="Full player profile"><img src="${port}" onerror="this.style.visibility='hidden'"><span class="wlc-pv-price">$${p.salary}</span></div>
@@ -7344,7 +7348,7 @@ function wlcGridHtml(pool, onTap, selected, previewing){
       const cur = wlcFindPlayer(p.n);
       const team = cur?.team || p.t;
       const nm = cur?.name || p.n;
-      const port = `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(nm)}.jpeg`;
+      const port = portraitUrl(team, nm);
       const parts = nm.split(' ');
       const sel = (selected||[]).includes(p.n);
       const inj = injuryInfo(nm);
@@ -7821,3 +7825,50 @@ function showSiteOverview(){
 
 // ── START ────────────────────────────────────────────────────────────────────
 boot();
+
+// ── ACCENTED NAMES ────────────────────────────────────────────────────────────
+// Player data (BDL, ESPN matching, storage file names) uses plain ASCII names, so all
+// lookups keep working. Only the text people see is rewritten to the proper spelling.
+// Add a player here as "Plain Name": "Accented Name".
+const ACCENTED_NAMES = {
+  'Nikola Jokic':'Nikola Jokić', 'Luka Doncic':'Luka Dončić', 'Bogdan Bogdanovic':'Bogdan Bogdanović',
+  'Nikola Vucevic':'Nikola Vučević', 'Jusuf Nurkic':'Jusuf Nurkić', 'Kristaps Porzingis':'Kristaps Porziņģis',
+  'Nikola Jovic':'Nikola Jović', 'Kasparas Jakucionis':'Kasparas Jakučionis', 'Alperen Sengun':'Alperen Şengün',
+  'Tidjane Salaun':'Tidjane Salaün', 'Moussa Diabate':'Moussa Diabaté', 'Nolan Traore':'Nolan Traoré',
+  'Egor Demin':'Egor Dëmin', 'Karlo Matkovic':'Karlo Matković', 'Dennis Schroder':'Dennis Schröder',
+  'Nikola Topic':'Nikola Topić', 'Hugo Gonzalez':'Hugo González', 'Yanic Konan Niederhauser':'Yanic Konan Niederhäuser',
+  'Tristan Vukcevic':'Tristan Vukčević', 'Pacome Dadiet':'Pacôme Dadiet', 'Jose Alvarado':'José Alvarado',
+};
+// Last names that are common words get no last-name-only rewrite
+const ACCENT_LASTNAME_SKIP = new Set(['Topic']);
+const _accentPairs = (()=>{
+  const pairs = [];
+  for(const [plain, acc] of Object.entries(ACCENTED_NAMES)){
+    pairs.push([plain, acc], [plain.toUpperCase(), acc.toUpperCase()]);
+    const pl = plain.split(' ').pop(), al = acc.split(' ').pop();
+    if(pl!==al && !ACCENT_LASTNAME_SKIP.has(pl)) pairs.push([pl, al], [pl.toUpperCase(), al.toUpperCase()]);
+  }
+  const map = new Map(); pairs.sort((a,b)=>b[0].length-a[0].length).forEach(([a,b])=>{ if(!map.has(a)) map.set(a,b); });
+  const re = new RegExp('(?<![A-Za-z\\u00C0-\\u024F])(' + [...map.keys()].map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')(?![A-Za-z\\u00C0-\\u024F])', 'g');
+  return {map, re};
+})();
+function accentText(str){ return String(str).replace(_accentPairs.re, m=>_accentPairs.map.get(m)||m); }
+function _accentNode(root){
+  const fix = t => { const v = t.nodeValue; if(!v || v.length<3) return; const nv = accentText(v); if(nv!==v) t.nodeValue = nv; };
+  if(root.nodeType===3){ const par = root.parentNode; if(par && !/^(SCRIPT|STYLE|TEXTAREA)$/.test(par.nodeName)) fix(root); return; }
+  if(root.nodeType!==1 || /^(SCRIPT|STYLE|TEXTAREA|INPUT)$/.test(root.nodeName)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode:n=>/^(SCRIPT|STYLE|TEXTAREA)$/.test(n.parentNode?.nodeName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  let n; while((n = w.nextNode())) fix(n);
+}
+(function startAccentNames(){
+  const go = () => {
+    _accentNode(document.body);
+    new MutationObserver(muts=>{
+      for(const m of muts){
+        if(m.type==='characterData') _accentNode(m.target);
+        else m.addedNodes.forEach(_accentNode);
+      }
+    }).observe(document.body, {childList:true, subtree:true, characterData:true});
+  };
+  if(document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();

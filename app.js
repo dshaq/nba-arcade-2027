@@ -1141,7 +1141,7 @@ function showPlayerCard(playerName, initialTab, opts) {
           <th style="padding:6px 4px;color:var(--accent3);font-weight:normal">FP</th>
         </tr></thead>
         <tbody>
-          ${weekRows.length ? sectionRow(`THIS MATCH-UP WEEK · ${getWeekLabel().toUpperCase()}`) + weekRows.map(gameRow).join('') : ''}
+          ${weekRows.length ? sectionRow(`<span style="color:#ffd93d">CURRENT MATCH-UP</span> <span style="color:#fff">WEEK · ${getWeekLabel().toUpperCase()}</span>`) + weekRows.map(gameRow).join('') : ''}
           ${earlier.length ? sectionRow('EARLIER') + earlier.map(gameRow).join('') : ''}
         </tbody>
       </table>
@@ -2390,11 +2390,11 @@ function startPolling(){
 
 // ── ROSTER HELPERS ───────────────────────────────────────────────────────────
 // Add/drops used in the current Mon–Sun match-up week, counted from the
-// transaction log itself (each add and each drop counts once)
+// transaction log. Only ADDS count toward the weekly limit; drops are free.
 function waiverUsedThisWeek(mid){
   const ws=currentWeekStart(), we=new Date(ws); we.setDate(ws.getDate()+6);
   const from=ymd(ws), to=ymd(we);
-  return ((leagueState.waiverLog||{})[mid]||[]).filter(e=>String(e.date)>=from && String(e.date)<=to).length;
+  return ((leagueState.waiverLog||{})[mid]||[]).filter(e=>e.type==='add' && String(e.date)>=from && String(e.date)<=to).length;
 }
 
 function canWaiver(mid){
@@ -2458,7 +2458,7 @@ async function addPlayer(mid, pid){
 }
 
 async function dropPlayer(mid, pid){
-  if(!canWaiver(mid)){ toast('No add/drops remaining this week!'); return false; }
+  // Drops don't use an add/drop, so they're allowed even with none left
   const roster=(leagueState.rosters||{})[mid]||[];
   if(!roster.includes(pid)){ return false; }
   // Check if top FP player (locked from dropping)
@@ -4253,7 +4253,7 @@ function renderLineupPreview(){
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     // Game info for today
-    const gameInfo = getTodayGameInfo(p.team);
+    const gameInfo = getTodayGameInfo(p.team, p.id);
     const gameLabel = gameInfo
       ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
@@ -4309,10 +4309,12 @@ function renderQuickStats(){
   const mid=getMyId();
   if(!mid){ el.innerHTML=''; return; }
   const run=getCurrentRun();
-  const myFP=managerFP(mid);
-  const roster=getMyRoster();
-  const topPlayer=roster.length ? roster.reduce((a,b)=>playerTotalFP(a)>playerTotalFP(b)?a:b,roster[0]) : null;
-  const topP=topPlayer ? getPlayer(topPlayer) : null;
+  const myFP=seasonFP(mid, run.id); // whole run so far (finished weeks + this week)
+  // Week MVP: most FP earned FOR THIS TEAM this week (Active games only; counts
+  // players since dropped, ignores points scored elsewhere or on the bench)
+  const weekRows=teamWeekRows(mid).filter(r=>r.fp>0);
+  const mvp=weekRows.length ? weekRows.reduce((a,b)=>b.fp>a.fp?b:a) : null;
+  const topP=mvp ? mvp.p : null;
 
   // Compute standings rank
   const allMgrs=leagueState.managers||[];
@@ -4345,8 +4347,8 @@ function renderQuickStats(){
       <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">STANDINGS</div>
     </div>
     <div style="text-align:center;padding-left:4px">
-      <div style="font-family:var(--pixel);font-size:10px;color:var(--accent2)">${topP ? topP.name.split(' ').pop() : '—'}</div>
-      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">TEAM MVP · ${topP?playerTotalFP(topPlayer).toFixed(1)+' FP':'—'}</div>
+      <div onclick="${topP?pcardOnclick(topP.name):''}" style="cursor:pointer;font-family:var(--pixel);font-size:10px;color:var(--accent2)">${topP ? playerShortName(topP.name) : '—'}</div>
+      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">WEEK MVP · ${mvp?mvp.fp.toFixed(1)+' FP':'—'}</div>
     </div>
   </div>`;
 }
@@ -4429,6 +4431,13 @@ let draftSearchQuery = '';
 
 // SHOW / SORT filter row for Draft and Waivers. Lives in its own container and is
 // repainted by the list renderers, so the selected button is always highlighted.
+// "Out" or an unrecognized injury status (shown as e.g. "INJUR"). Questionable,
+// Doubtful, Day-To-Day and Probable players may still play, so they stay visible.
+function isOutOrInjured(name){
+  const i = injuryInfo(name);
+  return !!i && (i.label==='OUT' || !['DOUBT','Q','DTD','PROB'].includes(i.label));
+}
+
 function filterRowHtml(kind){
   const f = kind==='draft' ? draftFilter : waiverFilter;
   const fv = kind==='draft' ? 'draftFilter' : 'waiverFilter';
@@ -4441,6 +4450,7 @@ function filterRowHtml(kind){
     ${btn('Available', avail==='available', "availability='available'")}
     ${btn('All Players', avail==='all', "availability='all'")}
     ${kind==='draft' ? btn('🌟 Rookies', !!f.rookie, 'rookie=!draftFilter.rookie') : ''}
+    ${kind==='waiver' ? btn('🚫 Hide Out/Inj', !!f.hideOut, 'hideOut=!waiverFilter.hideOut') : ''}
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0;margin-left:4px">SORT</span>
     ${btn('⬆ FP', sort==='fp', "sort='fp'")}
     ${btn('A–Z', sort==='alpha', "sort='alpha'")}`;
@@ -4744,15 +4754,15 @@ function renderFantasySchedule(){
     html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}" onclick="showMatchupDetail('${matchup.home}','${matchup.away}',${currentRun},${wi})" style="cursor:pointer">
       <div class="schedule-team-cell">
         ${userAvatar(h,22,7)}
-        <span style="font-size:11px;color:${h.color||'var(--text1)'}${isMine&&matchup.home===myId?';font-weight:600':''}">${userLink(h.id,teamLabel(h))}</span>
+        <span class="schedule-name" style="color:${h.color||'var(--text1)'}">${userLink(h.id,teamLabel(h))}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:4px">
+      <div class="schedule-score">
         <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
         <span class="schedule-vs">VS</span>
         <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
       </div>
       <div class="schedule-team-cell right">
-        <span style="font-size:11px;color:${a.color||'var(--text1)'}${isMine&&matchup.away===myId?';font-weight:600':''}">${userLink(a.id,teamLabel(a))}</span>
+        <span class="schedule-name" style="color:${a.color||'var(--text1)'}">${userLink(a.id,teamLabel(a))}</span>
         ${userAvatar(a,22,7)}
       </div>
     </div>`;
@@ -4969,7 +4979,7 @@ function renderRostersScreen(){
     const statusLabel = isOnIR
       ? '<span style="color:#805ad5">■ INJURY RESERVE</span>'
       : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● BENCH</span>';
-    const gameInfo = getTodayGameInfo(p.team);
+    const gameInfo = getTodayGameInfo(p.team, p.id);
     const gameLabel = gameInfo
       ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
@@ -5072,7 +5082,7 @@ function renderMyRosterList(){
     const isLocked=fp>=topFP && roster.length>1;
     const port=playerPortraits[p.name];
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
-    const gameInfo = getTodayGameInfo(p.team);
+    const gameInfo = getTodayGameInfo(p.team, p.id);
     const gameLabel = gameInfo
       ? `<span style="font-size:5px">${gameInfo}</span>`
       : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
@@ -5150,7 +5160,7 @@ function renderAvailablePlayers(){
 // ── WAIVERS PANE ─────────────────────────────────────────────────────────────
 // NBA_TEAMS_LIST: sorted array of abbreviations derived from NBA_TEAMS object above
 const NBA_TEAMS_LIST = Object.keys(NBA_TEAMS).sort();
-let waiverFilter = { availability:'available', team:'all', sort:'fp' };
+let waiverFilter = { availability:'available', team:'all', sort:'fp', hideOut:false };
 let waiverSearchQuery = '';
 
 function resetWaiverFilters(){
@@ -5170,6 +5180,7 @@ function renderWaiverPlayerList(){
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(waiverFilter.team!=='all' && p.team!==waiverFilter.team) return false;
+    if(waiverFilter.hideOut && isOutOrInjured(p.name)) return false;
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -5330,7 +5341,7 @@ function confirmDrop(mid, pid){
   modal.innerHTML=`
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;max-width:320px;width:100%;font-family:var(--pixel)">
       <div style="font-size:7px;color:var(--text1);margin-bottom:12px;line-height:1.6">Are you sure you want to drop <span style="color:var(--accent4)">${p.name}</span>?</div>
-      <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px">They will be returned to the waiver pool.</div>
+      <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px;line-height:1.8">They will be returned to the waiver pool. Any FP earned thus far will still count towards your total FP.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="document.getElementById('drop-confirm-modal').remove()">No, Cancel</button>
         <button class="btn btn-danger" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="executeDrop('${mid}',${pid})">Yes, Drop</button>
@@ -6195,7 +6206,16 @@ function renderTickerBdl(games, todayDate, showYesterday, teamTimeMap={}){
 // Helper: get today's game info for an NBA team abbreviation
 // Returns an HTML string for display, or null if no game today.
 // e.g. "@ DET, 3 PM ET"  or  "vs GSW · Q3 · 88-91" (live)
-function getTodayGameInfo(teamAbbr){
+// " · 18.5 FP" in green: the FP a player has earned in today's game (live or final)
+function gameFpTag(pid){
+  if(pid==null) return '';
+  const st = livePlayerStats[pid];
+  const today = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  if(!st || (st.dateStr && String(st.dateStr)!==today)) return '';
+  return ` <span style="color:#39ff6a">· ${(+st.fp||0).toFixed(1)} FP</span>`;
+}
+
+function getTodayGameInfo(teamAbbr, pid){
   if(!teamAbbr) return null;
   const abbr = teamAbbr.toUpperCase();
   const g = todayGamesCache[abbr];
@@ -6206,12 +6226,12 @@ function getTodayGameInfo(teamAbbr){
     const leading = parseFloat(g.myScore) > parseFloat(g.oppScore);
     const trailing = parseFloat(g.myScore) < parseFloat(g.oppScore);
     const scoreColor = leading ? '#4ade80' : trailing ? 'var(--accent4)' : 'var(--text1)';
-    return `<span style="color:#f6ad55">${matchup} · ${pLabel}</span> <span style="color:${scoreColor};font-weight:700">${g.myScore}–${g.oppScore}</span>`;
+    return `<span style="color:#f6ad55">${matchup} · ${pLabel}</span> <span style="color:${scoreColor};font-weight:700">${g.myScore}–${g.oppScore}</span>${gameFpTag(pid)}`;
   }
   // Finished: keep opponent + final score, "F" where the quarter goes
   if(g.isFinal && g.myScore !== null && g.myScore !== undefined){
     const won = parseFloat(g.myScore) > parseFloat(g.oppScore);
-    return `<span style="color:var(--text2)">${matchup} · F</span> <span style="color:${won?'#4ade80':'var(--accent4)'};font-weight:700">${g.myScore}–${g.oppScore}</span>`;
+    return `<span style="color:var(--text2)">${matchup} · F</span> <span style="color:${won?'#4ade80':'var(--accent4)'};font-weight:700">${g.myScore}–${g.oppScore}</span>${gameFpTag(pid)}`;
   }
   // Upcoming: show in teal
   return `<span style="color:var(--accent2)">${matchup}${g.time ? ', '+g.time : ''}</span>`;

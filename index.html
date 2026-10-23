@@ -740,15 +740,17 @@ img{display:block;}
 .schedule-week-header.current{color:var(--accent2);}
 .schedule-week-header.past{color:var(--text3);}
 .schedule-matchup-row{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;border-top:1px solid var(--border);
-  font-size:12px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;
+  padding:10px 10px;border-top:1px solid var(--border);
 }
 .schedule-matchup-row.is-mine{background:rgba(74,158,255,.06);}
-.schedule-team-cell{display:flex;align-items:center;gap:7px;flex:1;}
-.schedule-team-cell.right{flex-direction:row-reverse;}
-.schedule-fp{font-family:var(--pixel);font-size:8px;min-width:36px;text-align:center;}
-.schedule-vs{font-family:var(--pixel);font-size:5px;color:var(--text3);padding:0 6px;}
+.schedule-team-cell{display:flex;align-items:center;gap:6px;min-width:0;}
+/* Right side: name then avatar, so avatars stack along the right edge */
+.schedule-team-cell.right{justify-content:flex-end;text-align:right;}
+.schedule-name{font-family:var(--pixel);font-size:5.5px;line-height:1.7;min-width:0;overflow-wrap:anywhere;}
+.schedule-score{display:flex;align-items:center;gap:2px;}
+.schedule-fp{font-family:var(--pixel);font-size:7px;min-width:34px;text-align:center;}
+.schedule-vs{font-family:var(--pixel);font-size:5px;color:var(--text3);padding:0 3px;}
 .run-tabs{
   display:flex;
   overflow-x:auto;

@@ -5639,12 +5639,56 @@ async function removeFromIR(mid, pid){
   const p=getPlayer(pid); if(!p) return;
   const roster=(leagueState.rosters||{})[mid]||[];
   // Must have room: IR player stays on roster, so max non-IR = ROSTER_SIZE
-  if(roster.filter(id=>id!==pid).length>=ROSTER_SIZE){ toast('Drop a player first before removing from IR'); return; }
+  // Roster full: pick who to drop to make room (the drop + IR move happen together)
+  if(roster.filter(id=>id!==pid).length>=ROSTER_SIZE){ openIrReturnDropPicker(mid, pid); return; }
   if(!leagueState.ir) leagueState.ir={};
   leagueState.ir[mid]=null;
   await saveLeagueState();
   renderRostersScreen();
   toast(`${p.name} removed from IR`);
+}
+
+// "Who do you want to drop?" when activating an IR player onto a full roster
+function openIrReturnDropPicker(mid, irPid){
+  const ret = getPlayer(irPid); if(!ret) return;
+  const roster = ((leagueState.rosters||{})[mid]||[]).filter(id=>id!==irPid);
+  const topFP = Math.max(...((leagueState.rosters||{})[mid]||[]).map(id=>playerTotalFP(id)));
+  document.getElementById('ir-return-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'ir-return-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  const rows = roster.map(id=>{
+    const p = getPlayer(id); if(!p) return '';
+    const fp = playerTotalFP(id), locked = topFP>0 && fp>=topFP;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${p.name}${injuryBadgeHtml(p.name)}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${p.pos} · ${p.team} · ${fp.toFixed(1)} FP</div></div>
+      ${locked ? '<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 TOP FP</span>'
+        : `<button onclick="if(this.dataset.sure){executeIrReturn('${mid}',${irPid},${id})}else{this.dataset.sure=1;this.textContent='CONFIRM DROP';this.style.background='#c0392b';this.style.color='#fff';this.style.borderColor='#ff5a4a'}" style="flex-shrink:0;background:rgba(255,217,61,0.15);border:1px solid #ffd93d;color:#ffd93d;border-radius:6px;font-family:var(--pixel);font-size:5.5px;padding:6px 10px;cursor:pointer">DROP</button>`}
+    </div>`;
+  }).join('');
+  m.innerHTML = `<div class="modal-box" style="max-width:360px;width:calc(100% - 32px);max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-family:var(--pixel);font-size:7px;color:#805ad5">MOVE OFF IR</div>
+      <button onclick="document.getElementById('ir-return-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+    </div>
+    <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:1.8;margin-bottom:8px">Your roster is full. Choose a player to drop to make room for <span style="color:#805ad5">${ret.name}</span>.</div>
+    ${rows}
+  </div>`;
+  document.body.appendChild(m);
+}
+async function executeIrReturn(mid, irPid, dropPid){
+  const ret = getPlayer(irPid), gone = getPlayer(dropPid);
+  document.getElementById('ir-return-modal')?.remove();
+  if(String(getIrSlot(mid))!==String(irPid)){ toast('That player is no longer on IR'); renderRostersScreen(); return; }
+  if(!leagueState.ir) leagueState.ir = {};
+  leagueState.ir[mid] = null;              // saved together with the drop below
+  const ok = await dropPlayer(mid, dropPid);
+  if(!ok){ leagueState.ir[mid] = irPid; renderRostersScreen(); return; }
+  rostersDropMode = false;
+  toast(`${gone?.name||'Player'} dropped · ${ret?.name||'Player'} is off IR`);
+  renderRostersScreen();
+  if(typeof renderLineupPreview==='function') renderLineupPreview();
 }
 
 // Check if an IR player's injury has cleared — blocks add/drop until manually moved off IR
@@ -5667,9 +5711,10 @@ function checkIrClearedBlock(mid){
       <div style="background:var(--bg2);border:1px solid #805ad5;border-radius:12px;padding:20px 24px;max-width:320px;width:100%;font-family:var(--pixel)">
         <div style="font-size:6px;color:#805ad5;margin-bottom:10px;letter-spacing:.06em">⚠ IR PLAYER HEALTHY</div>
         <div style="font-size:7px;color:var(--text1);margin-bottom:12px;line-height:1.6"><span style="color:#805ad5">${p.name}</span>'s injury has cleared.</div>
-        <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px;line-height:1.7">You must manually move ${p.name} off the Injury Reserve before you can add or drop any players.</div>
-        <div style="display:flex;justify-content:flex-end">
-          <button class="btn btn-secondary" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="document.getElementById('ir-cleared-modal').remove()">OK</button>
+        <div style="font-size:5.5px;color:var(--text3);margin-bottom:16px;line-height:1.7">Move ${p.name} off the Injury Reserve before you can add or drop any players.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-secondary" style="font-size:5.5px;padding:6px 12px;min-height:28px" onclick="document.getElementById('ir-cleared-modal').remove()">LATER</button>
+          <button class="btn btn-primary" style="font-size:5.5px;padding:6px 12px;min-height:28px;background:#805ad5;border-color:#805ad5;color:#fff" onclick="document.getElementById('ir-cleared-modal').remove();removeFromIR('${mid}',${irPid})">MOVE OFF IR</button>
         </div>
       </div>`;
     document.body.appendChild(modal);

@@ -1791,7 +1791,7 @@ function applyBdlPlayers(bdlPlayers){
 }
 
 // ── BDL SEASON AVERAGES → projected FP ───────────────────────────────────────
-const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v1';
+const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v2'; // v2 adds 3PM/FTM for themed duels
 const BDL_AVG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlSeasonAverages(){
@@ -1865,6 +1865,8 @@ async function loadBdlSeasonAverages(){
           ast:  avg.ast||0,
           stl:  avg.stl||0,
           blk:  avg.blk||0,
+          fg3m: avg.fg3m||0,
+          ftm:  avg.ftm||0,
         };
       }
     }
@@ -1898,6 +1900,8 @@ function applyBdlSeasonAverages(averages){
       p.apg = avg.ast  ?? p.apg;
       p.spg = avg.stl  ?? p.spg;
       p.bpg = avg.blk  ?? p.bpg;
+      if(avg.fg3m!=null) p.tpg = avg.fg3m;
+      if(avg.ftm!=null)  p.ftpg = avg.ftm;
     }
     updated++;
   }
@@ -3127,10 +3131,76 @@ const DUEL_STAT_TEMPLATES = [
   { stat:'fp',      label:'FP',      statKey:'fp',      maxDiff:5,  maxPpgDiff:5 },
 ];
 
-// Team Pick'em duels stay off until the custom team logos are ready (Tue Oct 27).
-// That Tuesday is forced to be a team day; after it, every 4th day as usual.
+// ── DAILY THEMES ── starting Mon Oct 26 every weekday has its own duel type.
+// Before that date: player duels only (no team duels until the custom logos are ready).
+const DUEL_THEMES_START = '2026-10-26';
 const TEAM_DUELS_START = '2026-10-27';
-const TEAM_DUEL_FORCE_DATES = new Set(['2026-10-27']);
+const DUEL_THEMES = {
+  1:{ name:'MONSTER MONDAY',        stat:'pra',     prompt:'Who has more points + rebounds + assists tonight?' },
+  2:{ name:'TEAMS TUESDAY',         stat:'team',    prompt:'Who wins tonight?' },
+  3:{ name:'WET WEDNESDAY 💦',      stat:'tpm',     prompt:'Who makes more 3-pointers tonight?' },
+  4:{ name:'STONKS THURSDAY 📈',    stat:'stl+blk', prompt:'Who has more steals + blocks tonight?' },
+  5:{ name:'FREE THROW FRIDAY',     stat:'ftm',     prompt:'Who makes more free throws tonight?' },
+  6:{ name:'PARLAY SATURDAY 🎰',    stat:'parlay',  prompt:'Which parlay hits tonight?' },
+  0:{ name:'DOUBLE-DOUBLE SUNDAY',  stat:'dd',      prompt:'Who posts the bigger double-double tonight?' },
+};
+function duelThemeFor(dateKey){
+  if(dateKey < DUEL_THEMES_START) return null;
+  return DUEL_THEMES[new Date(dateKey+'T12:00:00Z').getUTCDay()];
+}
+// Parlay line: his scoring average rounded down to a multiple of 5 (27.3 → 25+)
+function parlayLine(p){ return Math.max(10, Math.floor((p.ppg||0)/5)*5); }
+// Double-double check on a stat line
+function isDoubleDouble(st){ return ['pts','reb','ast','stl','blk'].filter(k=>(st?.[k]||0)>=10).length >= 2; }
+
+// Two players from different teams, close on 'val' and on scoring average
+function pickDuelPair(seed, pool, val, maxDiff, maxPpgDiff){
+  const shuffled = [...pool].sort((a,b)=>((seed*a.id)%997)-((seed*b.id)%997));
+  for(let i=0;i<shuffled.length;i++){
+    const a = shuffled[i], va = val(a);
+    for(let j=i+1;j<shuffled.length;j++){
+      const b = shuffled[j];
+      if(a.team===b.team) continue;
+      if(Math.abs(a.ppg-b.ppg) > maxPpgDiff) continue;
+      if(Math.abs(va-val(b)) <= maxDiff) return [a,b];
+    }
+  }
+  return null;
+}
+
+// Themed duel for a date (Monday–Sunday), or null to fall back to a classic points duel
+function themedDuel(dateKey, theme, seed, eligible, matchups){
+  const base = { theme: theme.name, stat: theme.stat, prompt: theme.prompt,
+                 result:null, score1:null, score2:null, picks:{}, generatedAt:new Date().toISOString() };
+  if(theme.stat==='team'){
+    if(!matchups.length) return null;
+    const [away, home] = matchups[seed % matchups.length];
+    return {...base, type:'team', team1:away, team2:home, pid1:null, pid2:null};
+  }
+  if(theme.stat==='parlay'){
+    // Same-game parlay: each side is "<star> scores his line AND his team wins".
+    // Both can't hit (only one team wins); if neither hits it's a push.
+    const order = matchups.map((m,i)=>({m, k:(seed*(i+7))%101})).sort((a,b)=>a.k-b.k).map(x=>x.m);
+    for(const [away, home] of order){
+      const star = t => eligible.filter(p=>(p.team||'').toUpperCase()===t && p.ppg>=18).sort((a,b)=>b.ppg-a.ppg)[0];
+      const a = star(away), h = star(home);
+      if(a && h) return {...base, type:'player', pid1:a.id, pid2:h.id, team1:away, team2:home, line1:parlayLine(a), line2:parlayLine(h)};
+    }
+    return null;
+  }
+  const cfg = {
+    pra:      { pool:p=>p.ppg>=18,                         val:p=>p.ppg+p.rpg+p.apg, maxDiff:4,   maxPpg:6 },
+    tpm:      { pool:p=>(p.tpg||0)>=1.8 && p.ppg>=14,     val:p=>p.tpg||0,          maxDiff:0.4, maxPpg:8 },
+    'stl+blk':{ pool:p=>(p.spg+p.bpg)>=1.5 && p.ppg>=14,  val:p=>p.spg+p.bpg,       maxDiff:0.4, maxPpg:10 },
+    ftm:      { pool:p=>(p.ftpg||0)>=3 && p.ppg>=18,      val:p=>p.ftpg||0,         maxDiff:0.7, maxPpg:6 },
+    dd:       { pool:p=>p.rpg>=7.5 && p.ppg>=14,          val:p=>p.ppg+p.rpg,       maxDiff:4,   maxPpg:8 },
+  }[theme.stat];
+  if(!cfg) return null;
+  const pair = pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff, cfg.maxPpg)
+            || pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff*2.5, cfg.maxPpg*2);
+  if(!pair) return null;
+  return {...base, type:'player', pid1:pair[0].id, pid2:pair[1].id};
+}
 // Team Pick'em duel type — just needs two NBA teams
 const DUEL_TEAM_TEMPLATES = [
   { stat:'team', prompt:'Who wins tonight?' },
@@ -3204,8 +3274,17 @@ async function autoGenerateDuel(forDate){
   const teamsPlaying = scheduleData?.teams || null;  // Set<string> for player filter
   const matchups = scheduleData?.matchups || [];     // Array<[away, home]> for Pick'em
 
-  // ── Team Pick'em (every 4th day) ──────────────────────────────────────────
-  if(dateKey >= TEAM_DUELS_START && (seed % 4 === 0 || TEAM_DUEL_FORCE_DATES.has(dateKey))){
+  // ── Daily theme (from Oct 26) ─────────────────────────────────────────────
+  const theme = duelThemeFor(dateKey);
+  if(theme){
+    const eligible = PLAYERS.filter(p=>!unavailable(p) && (!teamsPlaying || teamsPlaying.has((p.team||'').toUpperCase())));
+    const d = themedDuel(dateKey, theme, seed, eligible, matchups);
+    if(d) return d;
+    console.warn(`[autoGenerateDuel] ${theme.name}: no fit today — classic points duel instead`);
+  }
+
+  // (Old every-4th-day team rotation retired: team duels are Tuesdays only.)
+  if(false){
     // Pick a real matchup (two teams playing EACH OTHER) using today's schedule
     if(matchups.length > 0){
       const matchup = matchups[seed % matchups.length];
@@ -3247,7 +3326,7 @@ async function autoGenerateDuel(forDate){
   }
 
   // ── Player stat duel ──────────────────────────────────────────────────────
-  const tmpl = DUEL_STAT_TEMPLATES[seed % DUEL_STAT_TEMPLATES.length];
+  const tmpl = theme ? DUEL_STAT_TEMPLATES[0] : DUEL_STAT_TEMPLATES[seed % DUEL_STAT_TEMPLATES.length];
   const maxDiff    = tmpl.maxDiff    ?? 5;
   const maxPpgDiff = tmpl.maxPpgDiff ?? 6;
 
@@ -3466,7 +3545,7 @@ async function recalcDuelStreaks(){
     console.log(`[recalcDuelStreaks] ${dateKey}: result=${duel.result}, picks=`, duel.picks, 'counts=', countsForStreak);
     if(!countsForStreak) continue;
     const prevDate = prevDuelDateKey(dateKey);
-    if(duel.result === 'void'){
+    if(duel.result === 'void' || duel.result === 'push'){
       for(const mid of Object.keys(duel.picks||{})){
         const s = leagueState.duelStreaks[mid] || (leagueState.duelStreaks[mid] = {streak:0, lastDate:null, totalCorrect:0});
         if(s.lastDate !== prevDate) s.streak = 0;
@@ -3504,11 +3583,12 @@ async function settleDuel(dateKey, result, score1, score2){
   if(!duel){ toast('No duel for that date'); return; }
   // Guard: never settle twice — streaks would be double-counted
   if(duel.result !== null && duel.result !== undefined){ return; }
-  duel.result = result; // 1, 2, 'tie', or 'void'
+  if(result === 'tie') result = 'push'; // ties are a push: nobody wins or loses
+  duel.result = result; // 1, 2, 'push', or 'void'
   duel.score1 = score1;
   duel.score2 = score2;
-  if(result === 'void'){
-    // Voided duel doesn't count: no wins, no losses, and it doesn't break anyone's streak
+  if(result === 'void' || result === 'push'){
+    // Voided / pushed duel doesn't count: no wins, no losses, and it doesn't break anyone's streak
     if(!leagueState.duelStreaks) leagueState.duelStreaks = {};
     // Only people who voted keep their streak; skipping still breaks it
     const prev = prevDuelDateKey(dateKey);
@@ -3577,9 +3657,15 @@ function getMyDuelPick(){
 }
 
 // Get the relevant stat display string for a player based on the duel stat type
-function getDuelStatDisplay(p, statType){
+function getDuelStatDisplay(p, statType, duel, side){
   if(!p) return '—';
+  const f1 = v => (+(v||0)).toFixed(1);
   switch(statType){
+    case 'pra':     return `${f1((p.ppg||0)+(p.rpg||0)+(p.apg||0))} PTS+REB+AST · ${p.team}`;
+    case 'tpm':     return `${f1(p.tpg)} 3PM · ${p.team}`;
+    case 'ftm':     return `${f1(p.ftpg)} FTM · ${p.team}`;
+    case 'dd':      return `${f1(p.ppg)} PTS ${f1(p.rpg)} REB · ${p.team}`;
+    case 'parlay':  return `${side===1?duel.line1:duel.line2}+ PTS & ${side===1?duel.team1:duel.team2} WIN`;
     // Uppercase, with a space between every number and its label: "1 STL 0.2 BLK · SAC"
     case 'pts':     return `${p.ppg} PPG · ${p.team}`;
     case 'reb':     return `${p.rpg} RPG · ${p.team}`;
@@ -3600,6 +3686,7 @@ function duelSideState(side, myPick, duel){
   const settled = duel.result!==null && duel.result!==undefined;
   if(!settled) return {cls:'is-pick', ribbon:'<div class="pick-ribbon">YOUR PICK</div>'};
   if(duel.result==='void') return {cls:'is-pick', ribbon:'<div class="pick-ribbon">NO CONTEST</div>'};
+  if(duel.result==='push') return {cls:'is-pick', ribbon:'<div class="pick-ribbon">= PUSH</div>'};
   const won = duel.result==='tie' || String(duel.result)===String(side);
   return {cls:'is-pick '+(won?'won':'lost'), ribbon:`<div class="pick-ribbon">${duel.result==='tie'?'= TIE':won?'✓ WIN':'✗ MISS'}</div>`};
 }
@@ -3612,7 +3699,14 @@ function duelTonightValue(p, stat){
   const v = getDuelStatValue(st, stat==='fp'?'fp':stat);
   return v===null || v===undefined ? null : +(+v).toFixed(1);
 }
-const DUEL_STAT_LABEL = {pts:'PTS', reb:'REB', ast:'AST', fp:'FP', 'reb+ast':'REB+AST', 'stl+blk':'STL+BLK'};
+const DUEL_STAT_LABEL = {pts:'PTS', reb:'REB', ast:'AST', fp:'FP', 'reb+ast':'REB+AST', 'stl+blk':'STL+BLK', pra:'PRA', tpm:'3PM', ftm:'FTM', dd:'PRA', parlay:'PTS'};
+// Tonight's full stat line for a player (saved final, else live), or null
+function duelTonightEntry(p){
+  const today = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  const st = findSavedStat(p.id, today); if(st) return st;
+  const live = livePlayerStats[p.id];
+  return live && (live.live || String(live.dateStr)===today) ? live : null;
+}
 
 // Render the duel card on the home screen
 function renderDuelCard(){
@@ -3645,7 +3739,7 @@ function renderDuelCard(){
     if(settled){
       const stat1txt = duel.score1 !== null ? duel.score1 : '—';
       const stat2txt = duel.score2 !== null ? duel.score2 : '—';
-      if(duel.result==='tie') resultBanner=`<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
+      if(duel.result==='tie' || duel.result==='push') resultBanner=`<div class="duel-result-banner" style="color:${tieColor}">PUSH — STREAKS HOLD</div>`;
       else{
         const myCorrect = myPick!==null && myPick===duel.result;
         const winnerAbbr = duel.result===1 ? duel.team1 : duel.team2;
@@ -3686,6 +3780,7 @@ function renderDuelCard(){
           <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
         </div>
       </div>
+      ${duel.theme?`<div class="duel-theme">${duel.theme}</div>`:''}
       <div class="duel-prompt">${duel.prompt}</div>
       <div class="duel-body">
         ${teamBox(duel.team1, 1)}
@@ -3750,6 +3845,8 @@ function renderDuelCard(){
     if(duel.result === 'void'){
       statLine = '';
       resultBanner = `<div class="duel-result-banner" style="color:var(--text3)">NO CONTEST — ${(duel.voidReason||'PLAYER DID NOT PLAY').toUpperCase()} · STREAKS HOLD</div>`;
+    } else if(duel.result === 'push'){
+      resultBanner = `<div class="duel-result-banner" style="color:${tieColor}">PUSH — ${statType==='parlay'?'NEITHER PARLAY HIT':statType==='dd'?'NO WINNING DOUBLE-DOUBLE':'DEAD EVEN'} · STREAKS HOLD</div>`;
     } else if(duel.result === 'tie'){
       resultBanner = `<div class="duel-result-banner" style="color:${tieColor}">TIE GAME — BOTH STREAKS HOLD ✓</div>`;
     } else {
@@ -3770,6 +3867,16 @@ function renderDuelCard(){
   const duelLiveHtml = side => {
     const v = side===1 ? tv1 : tv2, o = side===1 ? tv2 : tv1;
     if(v===null) return '';
+    if(statType==='parlay'){
+      const line = side===1 ? duel.line1 : duel.line2;
+      return `<div class="dlive${v>=line?' lead':''}">${v}<span>/${line}+ PTS</span></div>`;
+    }
+    if(statType==='dd'){
+      const st = official ? null : duelTonightEntry(side===1?p1:p2);
+      const dd = official ? (side===1?duel.dd1:duel.dd2) : isDoubleDouble(st);
+      const txt = st ? `${st.pts||0}/${st.reb||0}/${st.ast||0}` : v;
+      return `<div class="dlive${dd?' lead':''}">${txt}<span>${st?'P/R/A':'PRA'}${dd?' ✓DD':''}</span></div>`;
+    }
     const lead = o===null || v>o, tie = o!==null && v===o;
     return `<div class="dlive${lead&&!tie?' lead':''}">${v}<span>${DUEL_STAT_LABEL[statType]||statType.toUpperCase()}</span></div>`;
   };
@@ -3792,13 +3899,14 @@ function renderDuelCard(){
         <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
       </div>
     </div>
+    ${duel.theme?`<div class="duel-theme">${duel.theme}</div>`:''}
     <div class="duel-prompt">${duel.prompt}</div>
     ${statLine}
     <div class="duel-body">
       <div class="duel-player ${duelSideState(1,myPick,duel).cls}">
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p1.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div>${duelSideState(1,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p1.name)}</div>
-        <div class="dstat">${getDuelStatDisplay(p1, statType)}</div>
+        <div class="dstat">${getDuelStatDisplay(p1, statType, duel, 1)}</div>
         <div class="dgame">${getTodayGameInfo(p1.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
         ${duelLiveHtml(1)}
         ${pct1}
@@ -3807,7 +3915,7 @@ function renderDuelCard(){
       <div class="duel-player ${duelSideState(2,myPick,duel).cls}">
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p2.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div>${duelSideState(2,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p2.name)}</div>
-        <div class="dstat">${getDuelStatDisplay(p2, statType)}</div>
+        <div class="dstat">${getDuelStatDisplay(p2, statType, duel, 2)}</div>
         <div class="dgame">${getTodayGameInfo(p2.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
         ${duelLiveHtml(2)}
         ${pct2}
@@ -3894,7 +4002,7 @@ function renderAdminDuelSection(){
             <input id="duel-score2" placeholder="${short2} score" type="number" step="0.1" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--pixel);font-size:6px;padding:6px"/>
           </div>
           <button class="btn btn-full btn-primary" onclick="adminSettleDuel('${today}')">🏁 SETTLE TODAY'S DUEL</button>
-        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">${duel.result==='void' ? `VOID · ${duel.voidReason||'player did not play'}` : `WINNER: ${duel.result==='tie'?'TIE':label1} · ${duel.score1} vs ${duel.score2}`}</div>`}
+        ` : `<div style="font-family:var(--pixel);font-size:6px;color:var(--accent2)">${duel.result==='void' ? `VOID · ${duel.voidReason||'player did not play'}` : `WINNER: ${duel.result==='tie'||duel.result==='push'?'PUSH':duel.result===2?label2:label1} · ${duel.score1} vs ${duel.score2}`}</div>`}
         <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="adminRegenerateDuel()">↺ REGENERATE TODAY'S DUEL</button>
         <button class="btn btn-full btn-secondary" style="margin-top:6px" onclick="recalcDuelStreaks()">🔁 RECALC ALL STREAKS</button>`;
       })()
@@ -3998,6 +4106,8 @@ function getDuelStatValue(statEntry, statType){
   if(!statEntry) return null;
   if(statType==='stl+blk') return (statEntry.stl||0)+(statEntry.blk||0);
   if(statType==='reb+ast') return (statEntry.reb||0)+(statEntry.ast||0);
+  if(statType==='pra' || statType==='dd') return (statEntry.pts||0)+(statEntry.reb||0)+(statEntry.ast||0);
+  if(statType==='parlay') return statEntry.pts ?? null;
   const val = statEntry[statType];
   return val !== undefined && val !== null ? val : null;
 }
@@ -4028,6 +4138,25 @@ function getDuelVoidNotice(){
   return `Due to ${out.map(p=>`${p.name}'s status (OUT)`).join(' and ')}, today's Daily Duel will not count.`;
 }
 
+// Final scores for a date from ESPN: {TEAM: {score, opp, oppScore, final}} (cached once all final)
+const _finalsCache = {};
+async function fetchGameFinals(dateKey){
+  if(_finalsCache[dateKey]) return _finalsCache[dateKey];
+  try{
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateKey.replace(/-/g,'')}`);
+    if(!res.ok) return null;
+    const data = await res.json(); const out = {}; let allFinal = true;
+    for(const ev of (data.events||[])) for(const comp of (ev.competitions||[])){
+      const final = !!comp.status?.type?.completed || !!ev.status?.type?.completed;
+      if(!final) allFinal = false;
+      const cs = (comp.competitors||[]).map(c=>({t:espnToAbbr((c.team?.abbreviation||'').toUpperCase()), s:+c.score||0}));
+      if(cs.length===2){ out[cs[0].t]={score:cs[0].s, opp:cs[1].t, oppScore:cs[1].s, final}; out[cs[1].t]={score:cs[1].s, opp:cs[0].t, oppScore:cs[0].s, final}; }
+    }
+    if(allFinal && Object.keys(out).length) _finalsCache[dateKey] = out;
+    return out;
+  }catch(e){ return null; }
+}
+
 async function autoSettleDuelFromStats(dateKey, silent=false){
   const duel = (leagueState.duels||{})[dateKey];
   if(!duel) return false;
@@ -4038,8 +4167,11 @@ async function autoSettleDuelFromStats(dateKey, silent=false){
   if(stat === 'team'){
     const t1 = duel.team1; // e.g. 'PHI'
     const t2 = duel.team2; // e.g. 'NYK'
-    const g1 = todayGamesCache[t1];
-    const g2 = todayGamesCache[t2];
+    let g1 = dateKey===todayKey() ? todayGamesCache[t1] : null;
+    if(!g1 || !g1.isFinal){
+      const f = (await fetchGameFinals(dateKey))?.[t1];
+      g1 = f && f.final ? {isFinal:true, myScore:f.score, oppScore:f.oppScore} : null;
+    }
     // Need a final game between these two teams
     if(!g1 || !g1.isFinal) return false;
     const score1 = parseFloat(g1.myScore);
@@ -4070,12 +4202,27 @@ async function autoSettleDuelFromStats(dateKey, silent=false){
   const v1 = getDuelStatValue(st1, stat);
   const v2 = getDuelStatValue(st2, stat);
   if(v1===null || v2===null) return false;
-  const result = v1>v2 ? 1 : v2>v1 ? 2 : 'tie';
+  let result = v1>v2 ? 1 : v2>v1 ? 2 : 'push';
+  if(stat==='dd'){
+    // Must post a double-double to win; both → bigger PTS+REB+AST; neither → push
+    const d1 = isDoubleDouble(st1), d2 = isDoubleDouble(st2);
+    duel.dd1 = d1; duel.dd2 = d2;
+    result = (d1 && d2) ? result : d1 ? 1 : d2 ? 2 : 'push';
+  } else if(stat==='parlay'){
+    // Each leg: scores his line AND his team wins. Neither hits → push.
+    const f = await fetchGameFinals(dateKey);
+    const g = f?.[duel.team1];
+    if(!g || !g.final) return false;
+    const won1 = g.score > g.oppScore, won2 = g.oppScore > g.score;
+    const hit1 = v1 >= duel.line1 && won1, hit2 = v2 >= duel.line2 && won2;
+    duel.hit1 = hit1; duel.hit2 = hit2; duel.teamScore1 = g.score; duel.teamScore2 = g.oppScore;
+    result = hit1 ? 1 : hit2 ? 2 : 'push';
+  }
   await settleDuel(dateKey, result, v1, v2);
   if(!silent){
     const p1 = getPlayer(duel.pid1);
     const p2 = getPlayer(duel.pid2);
-    const winName = result==='tie' ? 'TIE' : (result===1 ? p1?.name : p2?.name);
+    const winName = result==='push' ? 'PUSH' : (result===1 ? p1?.name : p2?.name);
     toast(`🏁 Duel auto-settled: ${winName} wins (${v1} vs ${v2} ${stat.toUpperCase()})`);
   }
   return true;
@@ -7740,12 +7887,13 @@ function showDuelRules(){
     </div>`;
 
   const statTypes=[
-    ['Points (PTS)','Who scores more?'],
-    ['Rebounds (REB)','Who grabs more boards?'],
-    ['Assists (AST)','Who dishes more dimes?'],
-    ['Fantasy Points (FP)','Who earns more total FP?'],
-    ['REB + AST','Who racks up more combined?'],
-    ['STL + BLK','Who locks down more?'],
+    ['MONSTER MONDAY','Points + Rebounds + Assists'],
+    ['TEAMS TUESDAY','Pick the team that wins'],
+    ['WET WEDNESDAY 💦','Most 3-pointers made'],
+    ['STONKS THURSDAY 📈','Steals + Blocks'],
+    ['FREE THROW FRIDAY','Most free throws made'],
+    ['PARLAY SATURDAY 🎰','Star hits his points line AND his team wins'],
+    ['DOUBLE-DOUBLE SUNDAY','Bigger double-double (must post one to win)'],
   ].map(([l,v])=>row(l,v)).join('');
 
   modal.innerHTML=`
@@ -7758,12 +7906,12 @@ function showDuelRules(){
       <div style="margin-bottom:18px">
         <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">HOW IT WORKS</div>
         <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:2.2">
-          Each day, two NBA players go head-to-head in a single stat category. Pick the one you think will win. Get it right and extend your streak — get it wrong and it resets to zero. A tie counts as a win for everyone.
+          Every day has its own theme. Pick the side you think wins. Get it right and extend your streak — get it wrong and it resets to zero. Ties and parlays where neither side hits are a PUSH: nobody wins or loses and streaks hold, as long as you voted.
         </div>
       </div>
 
       <div style="margin-bottom:18px">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">STAT CATEGORIES</div>
+        <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">DAILY THEMES</div>
         ${statTypes}
       </div>
 
@@ -7771,8 +7919,9 @@ function showDuelRules(){
         <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">STREAK & SCORING</div>
         ${row('Correct pick','Streak +1 🔥')}
         ${row('Wrong pick','Streak resets to 0')}
-        ${row('Tie','Both streaks hold')}
-        ${row('No pick','Streak unchanged')}
+        ${row('Push (tie / no hit)','Streak holds')}
+        ${row('Player sits out','No contest · streak holds')}
+        ${row('No pick','Streak resets')}
         ${row('Picks lock','Once the game tips off')}
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
           Streaks and total correct picks are tracked all season. Check the Leaderboard inside the Duel card to see how you stack up.

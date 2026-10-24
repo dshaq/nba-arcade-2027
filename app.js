@@ -5361,9 +5361,7 @@ function renderRostersScreen(){
       <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
-        <div class="player-meta">${p.pos} · ${p.team}</div>
-        <div class="player-meta" style="margin-top:2px">${statusLabel}</div>
-        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
+        <div class="player-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         ${fpColsHtml(fp, playerGamesPlayed(pid))}
@@ -5442,9 +5440,7 @@ function renderMyRosterList(){
       <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name}${injuryBadgeHtml(p.name)} ${isLocked?'🔒':''}</div>
-        <div class="player-meta">${p.pos} · ${p.team}</div>
-        <div class="player-meta" style="margin-top:2px">${isActive?'<span style="color:var(--accent2)">● ACTIVE</span>':'<span style="color:var(--accent4)">● BENCH</span>'}</div>
-        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
+        <div class="player-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         ${fpColsHtml(fp, playerGamesPlayed(pid))}
@@ -5563,9 +5559,7 @@ function renderWaiverPlayerList(){
           <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
           <div class="player-info">
             <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name}${injuryBadgeHtml(p.name)}</div>
-            <div class="player-meta">${p.pos} · ${p.team}</div>
-            <div class="player-meta">${p.ppg.toFixed(1)} pts · ${p.rpg.toFixed(1)} reb · ${p.apg.toFixed(1)} ast</div>
-            <div class="player-meta" style="margin-top:2px">${(()=>{ const gi=getTodayGameInfo(p.team,p.id); return gi?`<span style="font-size:5px">${gi}</span>`:'<span style="color:var(--text3);font-size:5px">No Game Today</span>'; })()}</div>
+            <div class="player-meta">${p.pos} · ${p.team}${(()=>{ const gi=getTodayGameInfo(p.team,p.id); return gi?` · ${gi}`:''; })()}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             ${fpColsHtml(fp, playerGamesPlayed(p.id))}

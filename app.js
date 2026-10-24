@@ -5552,6 +5552,7 @@ function renderWaiverPlayerList(){
   el.innerHTML = !players.length
     ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
     : `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+      <div style="padding:6px 14px 0">${fpColsHead('SEASON FP')}</div>
       ${players.slice(0,60).map(p=>{
         const fp=playerTotalFP(p.id);
         const rostered=allRostered.has(p.id);
@@ -5567,7 +5568,7 @@ function renderWaiverPlayerList(){
             <div class="player-meta" style="margin-top:2px">${(()=>{ const gi=getTodayGameInfo(p.team,p.id); return gi?`<span style="font-size:5px">${gi}</span>`:'<span style="color:var(--text3);font-size:5px">No Game Today</span>'; })()}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            <div class="player-fp" style="font-size:10px">${fp>0?fp.toFixed(1)+'<span class="fp-label">FP</span>':''}</div>
+            ${fpColsHtml(fp, playerGamesPlayed(p.id))}
             ${rostered?`<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">ROSTERED</span>`:canAdd?`<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmAdd('${mid}',${p.id})">ADD</button>`:''}
           </div>
         </div>`;

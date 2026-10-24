@@ -1309,6 +1309,56 @@ const ESPN_TO_ABBR = {
   UTAH:'UTA',WAS:'WAS',WSH:'WAS',
 };
 function espnToAbbr(s){ return ESPN_TO_ABBR[s] || s; }
+const ABBR_TO_ESPN_SLUG = {NYK:'ny', GSW:'gs', SAS:'sa', NOP:'no', UTA:'utah', WAS:'wsh'};
+
+// Team schedule + record from ESPN, cached per session: {record, games:[{date, opp, home, my, their, won}]}
+const _teamSchedCache = {};
+function getTeamSchedule(abbr){
+  if(_teamSchedCache[abbr]) return _teamSchedCache[abbr];
+  const slug = ABBR_TO_ESPN_SLUG[abbr] || abbr.toLowerCase();
+  _teamSchedCache[abbr] = fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${slug}/schedule`)
+    .then(r=>r.ok?r.json():null).then(j=>{
+      if(!j) return null;
+      const games = (j.events||[]).filter(e=>e.competitions?.[0]?.status?.type?.completed).map(e=>{
+        const cs = e.competitions[0].competitors||[];
+        const me = cs.find(c=>espnToAbbr((c.team?.abbreviation||'').toUpperCase())===abbr), op = cs.find(c=>c!==me);
+        if(!me || !op) return null;
+        const sc = c => +(c.score?.displayValue ?? c.score?.value ?? c.score ?? 0);
+        return {date:e.date, opp:espnToAbbr((op.team?.abbreviation||'').toUpperCase()), home:me.homeAway==='home', my:sc(me), their:sc(op), won:!!me.winner};
+      }).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date));
+      const w = games.filter(g=>g.won).length;
+      const out = {record: j.team?.recordSummary || `${w}-${games.length-w}`, games};
+      if(_teamSchedCache[abbr]) _teamSchedCache[abbr]._val = out;
+      return out;
+    }).catch(()=>{ delete _teamSchedCache[abbr]; return null; });
+  return _teamSchedCache[abbr];
+}
+// Pop-up: a team's results so far this season
+async function showTeamResults(abbr){
+  document.getElementById('team-results-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'team-results-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  const box = body => `<div class="modal-box" style="max-width:360px;width:calc(100% - 32px);max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">${getTeamLogoUrl(abbr)?`<img src="${getTeamLogoUrl(abbr)}" style="width:32px;height:32px;object-fit:contain">`:''}
+        <div><div style="font-family:var(--pixel);font-size:8px;color:var(--text1)">${(NBA_TEAMS[abbr]||abbr).toUpperCase()}</div>
+        <div id="team-results-rec" style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${abbr}</div></div></div>
+      <button onclick="document.getElementById('team-results-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+    </div>${body}</div>`;
+  m.innerHTML = box('<div style="padding:20px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">LOADING…</div>');
+  document.body.appendChild(m);
+  const d = await getTeamSchedule(abbr);
+  if(!document.body.contains(m)) return;
+  const fmt = iso => new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'});
+  const rows = (d?.games||[]).map(g=>`<div style="display:grid;grid-template-columns:52px 1fr 18px 64px;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--pixel);font-size:6px">
+      <span style="color:var(--text3)">${fmt(g.date)}</span>
+      <span style="color:var(--text1)">${g.home?'vs':'@'} ${g.opp}</span>
+      <span style="color:${g.won?'var(--accent2)':'var(--accent4)'}">${g.won?'W':'L'}</span>
+      <span style="color:var(--text2);text-align:right">${g.my}–${g.their}</span></div>`).join('');
+  m.innerHTML = box(`<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:4px">RESULTS · ${d?.record||'—'}</div>`
+    + (rows || `<div style="padding:20px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">${d?'NO GAMES PLAYED YET':'RESULTS UNAVAILABLE RIGHT NOW'}</div>`));
+}
 
 // ── FP SCORING ───────────────────────────────────────────────────────────────
 // ESPN standard: pts + reb + ast + stl + blk - missed FG - missed FT - TO - flagrant - technical
@@ -3804,6 +3854,9 @@ function renderDuelCard(){
       if(settled){ const won=duel.result===s||duel.result==='tie'; return myPick===s?`box-shadow:0 0 0 2px ${won?winColor:loseColor};`:''; }
       return '';
     };
+    // Records load from ESPN; re-render once they arrive
+    [duel.team1, duel.team2].forEach(t=>{ const c=_teamSchedCache[t]; if(!c) getTeamSchedule(t).then(d=>{ if(d) renderDuelCard(); }); });
+    const recOf = t => { const c=_teamSchedCache[t]; return (c && c._val) ? c._val.record : null; };
     const teamBox=(abbr,side)=>{
       const full = NBA_TEAMS?.[abbr] || abbr;
       const logoUrl = getTeamLogoUrl(abbr);
@@ -3812,10 +3865,10 @@ function renderDuelCard(){
           + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
         : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
       const ps = duelSideState(side, myPick, duel);
-      return `<div class="duel-player ${ps.cls}"><div style="position:relative;display:inline-block">
+      return `<div class="duel-player duel-team ${ps.cls}" onclick="event.stopPropagation();showTeamResults('${abbr}')" style="cursor:pointer"><div style="position:relative;display:inline-block">
         ${logoEl}${ps.ribbon}</div>
+        <div class="dstat">${recOf(abbr) || '&nbsp;'}</div>
         <div class="dname">${abbr}</div>
-        <div class="dstat" style="font-size:9px">${full}</div>
         ${side===1?pct1:pct2}
       </div>`;
     };
@@ -3838,8 +3891,9 @@ function renderDuelCard(){
       </div>
       ${!myPick && !settled ? `
       <div class="duel-btns">
-        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${duel.team1}</button>
-        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${duel.team2}</button>
+        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${(NBA_TEAMS[duel.team1]||duel.team1).toUpperCase()}</button>
+        <span class="duel-vs" style="visibility:hidden">VS</span>
+        <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${(NBA_TEAMS[duel.team2]||duel.team2).toUpperCase()}</button>
       </div>` : ''}
       ${resultBanner}
     </div>`;
@@ -3914,20 +3968,22 @@ function renderDuelCard(){
   const tv1 = official ? +duel.score1 : duelTonightValue(p1, statType), tv2 = official ? +duel.score2 : duelTonightValue(p2, statType);
   if(official) statLine = ''; // values now shown under each player
   const duelLiveHtml = side => {
-    const v = side===1 ? tv1 : tv2, o = side===1 ? tv2 : tv1;
-    if(v===null) return '';
+    // Tonight's stat sits above the portrait: one size, one color, no glow.
+    // Once either game starts both sides get a line (a dash until his game tips).
+    const v = side===1 ? tv1 : tv2;
+    if(tv1===null && tv2===null) return '';
+    const label = DUEL_STAT_LABEL[statType] || statType.toUpperCase();
+    if(v===null) return `<div class="dlive">— ${statType==='parlay'?'PTS':statType==='dd'?'P/R/A':label}</div>`;
     if(statType==='parlay'){
       const line = side===1 ? duel.line1 : duel.line2;
-      return `<div class="dlive${v>=line?' lead':''}">${v}<span>/${line}+ PTS</span></div>`;
+      return `<div class="dlive">${v} PTS${v>=line?' ✓':''}</div>`;
     }
     if(statType==='dd'){
       const st = official ? null : duelTonightEntry(side===1?p1:p2);
       const dd = official ? (side===1?duel.dd1:duel.dd2) : isDoubleDouble(st);
-      const txt = st ? `${st.pts||0}/${st.reb||0}/${st.ast||0}` : v;
-      return `<div class="dlive${dd?' lead':''}">${txt}<span>${st?'P/R/A':'PRA'}${dd?' ✓DD':''}</span></div>`;
+      return `<div class="dlive">${st ? `${st.pts||0}/${st.reb||0}/${st.ast||0}` : v + ' PRA'}${dd?' DD':''}</div>`;
     }
-    const lead = o===null || v>o, tie = o!==null && v===o;
-    return `<div class="dlive${lead&&!tie?' lead':''}">${v}<span>${DUEL_STAT_LABEL[statType]||statType.toUpperCase()}</span></div>`;
+    return `<div class="dlive">${v} ${label}</div>`;
   };
   const pickedStyle = (side) => {
     if(!settled && myPick===side) return `box-shadow:0 0 0 2px var(--accent2);`;
@@ -3953,26 +4009,27 @@ function renderDuelCard(){
     ${statLine}
     <div class="duel-body">
       <div class="duel-player ${duelSideState(1,myPick,duel).cls}">
+        ${duelLiveHtml(1)}
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p1.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div>${duelSideState(1,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p1.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p1, statType, duel, 1)}</div>
         <div class="dgame">${getTodayGameInfo(p1.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
-        ${duelLiveHtml(1)}
         ${pct1}
       </div>
       <div class="duel-vs">VS</div>
       <div class="duel-player ${duelSideState(2,myPick,duel).cls}">
+        ${duelLiveHtml(2)}
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p2.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div>${duelSideState(2,myPick,duel).ribbon}</div>
         <div class="dname">${playerShortName(p2.name)}</div>
         <div class="dstat">${getDuelStatDisplay(p2, statType, duel, 2)}</div>
         <div class="dgame">${getTodayGameInfo(p2.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
-        ${duelLiveHtml(2)}
         ${pct2}
       </div>
     </div>
     ${!myPick && !settled ? `
     <div class="duel-btns">
       <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(1)">${playerShortName(p1.name)}</button>
+      <span class="duel-vs" style="visibility:hidden">VS</span>
       <button class="duel-pick-btn" onclick="event.stopPropagation();makeDuelPick(2)">${playerShortName(p2.name)}</button>
     </div>` : ''}
     ${resultBanner}

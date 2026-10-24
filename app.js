@@ -2692,7 +2692,7 @@ async function toggleActiveStatus(mid, pid){
 
 // ESPN-style swap: one active player and one bench player trade places in a single save
 async function swapActiveBench(mid, a, b){
-  rostersMovePid = null;
+  rostersMovePid = null; lineupMovePid = null;
   const pa = getPlayer(a), pb = getPlayer(b);
   if([pa,pb].some(p=>isPlayerLocked(p))){ toast('🔒 A player in this swap has already tipped off'); renderRostersScreen(); return; }
   const active = [...((leagueState.active||{})[mid]||autoActiveFor(mid))];
@@ -4681,23 +4681,22 @@ function renderLineupPreview(){
     const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:${myProfile?.color||'#4a9eff'};font-size:7px">${initials(p.name)}</div>`;
     // Game info for today
     const gameInfo = getTodayGameInfo(p.team, p.id);
-    const gameLabel = gameInfo
-      ? `<span style="font-size:5px">${gameInfo}</span>`
-      : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
-    // Toggle button
-    const toggleBtn = isOnIR ? '' : isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : isActive
-      ? `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent4);color:var(--accent4)" onclick="toggleActiveStatus('${mid}',${pid})">Bench</button>`
-      : `<button class="btn btn-sm" style="font-size:5px;padding:3px 7px;min-height:22px;background:transparent;border:1px solid var(--accent2);color:var(--accent2)" onclick="toggleActiveStatus('${mid}',${pid})">Activate</button>`;
+    // MOVE / HERE swap (mirrors the Rosters tab)
+    const moverActive = lineupMovePid!=null ? active.includes(lineupMovePid) : false;
+    const toggleBtn = isOnIR ? ''
+      : isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>`
+      : lineupMovePid==null ? `<button class="move-btn" onclick="lineupMovePid=${pid};renderLineupPreview()">MOVE</button>`
+      : pid===lineupMovePid ? `<button class="move-btn cancel" onclick="lineupMovePid=null;renderLineupPreview()">CANCEL</button>`
+      : isActive!==moverActive ? `<button class="move-btn here" onclick="swapActiveBench('${mid}',${lineupMovePid},${pid})">HERE</button>` : '';
     return `
-    <div class="player-row"${isOnIR?` style="background:rgba(128,90,213,0.06)"`:''}>
+    <div class="player-row${pid===lineupMovePid?' moving':''}"${isOnIR?` style="background:rgba(128,90,213,0.06)"`:''}>
       <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name}${injuryBadgeHtml(p.name)}${isLive?' <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
-        <div class="player-meta">${p.pos} · ${p.team}</div>
-        <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
+        <div class="player-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div class="player-fp">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
+        ${fpColsHtml(fp, playerGamesPlayed(pid))}
         ${toggleBtn}
       </div>
     </div>`;
@@ -4710,11 +4709,17 @@ function renderLineupPreview(){
       ${irPid ? rowHtml(irPid,'ir') : `<div style="padding:8px 14px 12px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">NO PLAYER ON IR · ONLY PLAYERS LISTED <span style="color:#e53e3e">OUT</span> CAN BE PLACED HERE</div>`}
     </div>`;
 
+  const mover = lineupMovePid!=null ? getPlayer(lineupMovePid) : null;
+  if(mover && !roster.includes(lineupMovePid)) lineupMovePid = null;
+  const mvActive = mover ? active.includes(lineupMovePid) : false;
+  const openMove = mover ? (mvActive ? (active.length>1?'MOVE TO BENCH':'') : (active.length<ACTIVE_SIZE?'MOVE TO ACTIVE':'')) : '';
   el.innerHTML=`
+  ${mover && lineupMovePid!=null ? `<div class="move-banner"><span>MOVING <b>${playerShortName(mover.name)}</b> · TAP <b>HERE</b> ON ${mvActive?'A BENCH':'AN ACTIVE'} PLAYER TO SWAP</span>
+    <span style="display:flex;gap:6px;flex-shrink:0">${openMove?`<button class="move-btn" onclick="const id=lineupMovePid;lineupMovePid=null;toggleActiveStatus('${mid}',id)">${openMove}</button>`:''}<button class="move-btn cancel" onclick="lineupMovePid=null;renderLineupPreview()">✕</button></span></div>` : ''}
   <div class="lineup-card">
     <div class="lineup-section">
-      <div class="lineup-section-label active-label">
-        ✅ ACTIVE <span class="count">(${active.length}/${ACTIVE_SIZE})</span>
+      <div class="lineup-section-label active-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span>✅ ACTIVE <span class="count">(${active.length}/${ACTIVE_SIZE})</span></span>${fpColsHead('SEASON FP')}
       </div>
       ${active.map(pid=>rowHtml(pid,'active')).join('')}
     </div>
@@ -5346,7 +5351,8 @@ function renderWeekMatchups(runId){
 // ── ROSTER SCREEN ────────────────────────────────────────────────────────────
 let rostersViewId = null; // which manager's roster to show
 let rostersDropMode = false; // true = drop mode active (per-row Drop buttons visible)
-let rostersMovePid = null;    // ESPN-style MOVE: the player being moved (others show HERE to swap)
+let rostersMovePid = null;
+let lineupMovePid = null;     // same MOVE / HERE flow on the Home "My Lineup" card    // ESPN-style MOVE: the player being moved (others show HERE to swap)
 
 function renderRostersScreen(){
   const managers=leagueState.managers||[];

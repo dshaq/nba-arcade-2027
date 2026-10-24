@@ -2690,6 +2690,29 @@ async function toggleActiveStatus(mid, pid){
   toast(isActive ? 'Moved to Bench' : 'Moved to Active');
 }
 
+// ESPN-style swap: one active player and one bench player trade places in a single save
+async function swapActiveBench(mid, a, b){
+  rostersMovePid = null;
+  const pa = getPlayer(a), pb = getPlayer(b);
+  if([pa,pb].some(p=>isPlayerLocked(p))){ toast('🔒 A player in this swap has already tipped off'); renderRostersScreen(); return; }
+  const active = [...((leagueState.active||{})[mid]||autoActiveFor(mid))];
+  let inA = active.includes(a), inB = active.includes(b);
+  if(inA===inB){ renderRostersScreen(); return; }
+  const [goingIn, goingOut] = inA ? [b, a] : [a, b];
+  if(!leagueState.active) leagueState.active = {};
+  if(!leagueState.inactive) leagueState.inactive = {};
+  leagueState.active[mid] = active.map(id=>id===goingOut ? goingIn : id);
+  leagueState.inactive[mid] = [...(leagueState.inactive[mid]||[]).filter(id=>id!==goingIn && id!==goingOut), goingOut];
+  if(!leagueState.activeLog) leagueState.activeLog = {};
+  if(!leagueState.activeLog[mid]) leagueState.activeLog[mid] = [];
+  leagueState.activeLog[mid].push({ts:new Date().toISOString(), active:[...leagueState.active[mid]]});
+  await saveLeagueState();
+  renderRostersScreen();
+  if(typeof renderLineupPreview==='function') renderLineupPreview();
+  renderHomeScreen();
+  toast(`⇄ ${playerShortName(getPlayer(goingIn).name)} IN · ${playerShortName(getPlayer(goingOut).name)} TO BENCH`);
+}
+
 // ── CURRENT RUN LOGIC ────────────────────────────────────────────────────────
 function getCurrentRun(){
   const today=new Date();
@@ -5323,6 +5346,7 @@ function renderWeekMatchups(runId){
 // ── ROSTER SCREEN ────────────────────────────────────────────────────────────
 let rostersViewId = null; // which manager's roster to show
 let rostersDropMode = false; // true = drop mode active (per-row Drop buttons visible)
+let rostersMovePid = null;    // ESPN-style MOVE: the player being moved (others show HERE to swap)
 
 function renderRostersScreen(){
   const managers=leagueState.managers||[];
@@ -5350,7 +5374,7 @@ function renderRostersScreen(){
     const isActive=m.id===rostersViewId;
     const isMe=m.id===myId;
     const label=(m.team_name||m.display_name)+(isMe?' ★':'');
-    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};rostersDropMode=false;renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+    return `<button onclick="rostersViewId=${JSON.stringify(m.id)};rostersDropMode=false;rostersMovePid=null;renderRostersScreen()" style="flex-shrink:0;background:${isActive?'var(--accent1)':'var(--bg3)'};color:${isActive?'#000':'var(--text2)'};border:1px solid ${isActive?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 12px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
   }).join('');
   tabsEl.innerHTML=`
     <button onclick="(function(){var s=document.getElementById('${tabsContainerId}');s.scrollBy({left:-120,behavior:'smooth'})})()" style="flex-shrink:0;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2)">‹</button>
@@ -5407,14 +5431,25 @@ function renderRostersScreen(){
         // Normal mode: Bench/Activate + IR buttons
         // Only show → IR button for OUT status (not DTD)
         const isOut = !!injuryInfo(p.name)?.isOut;
-        actionBtns = isOnIR
-          ? `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`
-          : `${isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${rostersViewId}',${pid})">${isActive?'Bench':'Activate'}</button>`}
+        const mover = rostersMovePid!=null ? getPlayer(rostersMovePid) : null;
+        const moverActive = mover ? active.includes(rostersMovePid) : false;
+        if(isOnIR){
+          actionBtns = rostersMovePid!=null ? '' : `<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px" onclick="removeFromIR('${rostersViewId}',${pid})">REMOVE IR</button>`;
+        } else if(isPlayerLocked(p)){
+          actionBtns = `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>`;
+        } else if(mover){
+          // Move in progress: the mover gets CANCEL; players on the other side get HERE (swap)
+          actionBtns = pid===rostersMovePid
+            ? `<button class="btn btn-sm move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">CANCEL</button>`
+            : (isActive!==moverActive ? `<button class="btn btn-sm move-btn here" onclick="swapActiveBench('${rostersViewId}',${rostersMovePid},${pid})">HERE</button>` : '');
+        } else {
+          actionBtns = `<button class="btn btn-sm move-btn" onclick="rostersMovePid=${pid};renderRostersScreen()">MOVE</button>
              ${isOut&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
+        }
       }
     }
     return `
-    <div class="player-row" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}${rostersDropMode&&isMyRoster&&!isLocked&&!isOnIR?';background:rgba(233,69,96,0.04)':''}">
+    <div class="player-row${isMyRoster&&rostersMovePid===pid?' moving':''}" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}${rostersDropMode&&isMyRoster&&!isLocked&&!isOnIR?';background:rgba(233,69,96,0.04)':''}">
       <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
       <div class="player-info">
         <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
@@ -5440,6 +5475,14 @@ function renderRostersScreen(){
       ${dropBtn}
     </div>
     ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:#ffd93d">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
+    ${(()=>{
+      if(!isMyRoster || rostersMovePid==null || !getPlayer(rostersMovePid)) return '';
+      const mp = getPlayer(rostersMovePid), mpActive = active.includes(rostersMovePid);
+      // Open slot moves (no swap needed): bench → active when there's room; active → bench if 2+ active
+      const open = mpActive ? (active.length>1 ? 'MOVE TO BENCH' : '') : (active.length<ACTIVE_SIZE ? 'MOVE TO ACTIVE' : '');
+      return `<div class="move-banner"><span>MOVING <b>${playerShortName(mp.name)}</b> · TAP <b>HERE</b> ON ${mpActive?'A BENCH':'AN ACTIVE'} PLAYER TO SWAP</span>
+        <span style="display:flex;gap:6px;flex-shrink:0">${open?`<button class="move-btn" onclick="const id=rostersMovePid;rostersMovePid=null;toggleActiveStatus('${rostersViewId}',id)">${open}</button>`:''}<button class="move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">✕</button></span></div>`;
+    })()}
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
       ${(()=>{
         // Order: Active → Bench → IR

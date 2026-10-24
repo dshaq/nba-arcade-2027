@@ -886,23 +886,24 @@ function teamRowsForRange(mid, from, to, includeLive){
   const roster = ((leagueState.rosters||{})[mid]||[]).map(String);
   const active = ((leagueState.active||{})[mid] || autoActiveFor(mid)).map(String);
   const ir = String(getIrSlot(mid) ?? '');
-  const fpBy = new Map(), seen = new Set();
+  const fpBy = new Map(), gpBy = new Map(), seen = new Set();
   for(const e of Object.values(leagueState.playerStats||{})){
     const d = e.date ? String(e.date) : '';
     if(d.length!==8 || d<from || d>to) continue;
     const k=`${e.pid}_${d}`; if(seen.has(k)) continue; seen.add(k);
     if(!activeLineupOnDate(mid, d).map(String).includes(String(e.pid))) continue;
     fpBy.set(String(e.pid), (fpBy.get(String(e.pid))||0) + (e.fp||0));
+    gpBy.set(String(e.pid), (gpBy.get(String(e.pid))||0) + 1);
   }
   const pids = new Set([...roster, ...fpBy.keys()]);
   const rows = [...pids].map(pid=>{
     const p = getPlayer(Number(pid)) || getPlayer(pid);
     if(!p) return null;
-    let fp = fpBy.get(pid)||0, isLive = false;
+    let fp = fpBy.get(pid)||0, gp = gpBy.get(pid)||0, isLive = false;
     const live = livePlayerStats[p.id];
-    if(includeLive && live && active.includes(pid) && !liveAlreadySaved(p.id, live)){ fp += live.fp||0; isLive = !!live.live; }
+    if(includeLive && live && active.includes(pid) && !liveAlreadySaved(p.id, live)){ fp += live.fp||0; gp += 1; isLive = !!live.live; }
     const status = !roster.includes(pid) ? 'dropped' : pid===ir ? 'ir' : active.includes(pid) ? 'active' : 'bench';
-    return {p, fp:+fp.toFixed(1), status, isLive};
+    return {p, fp:+fp.toFixed(1), gp, status, isLive};
   }).filter(Boolean);
   const order = {active:0, bench:1, ir:2, dropped:3};
   return rows.sort((a,b)=> order[a.status]-order[b.status] || b.fp-a.fp);
@@ -1074,6 +1075,7 @@ function showUserProfile(mid, tab='profile'){
       <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">WEEK OF ${getWeekLabel().toUpperCase()}</span>
       <span style="font-family:var(--pixel);font-size:10px;color:var(--accent2)">${managerFP(m.id).toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP TOTAL</span></span>
     </div>
+    ${rows.length ? fpColsHead('THIS WEEK') : ''}
     ${rows.length ? rows.map(r=>`
     <div onclick="showPlayerCard(${JSON.stringify(r.p.name).replace(/"/g,'&quot;')})" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
       <div style="min-width:0">
@@ -1082,7 +1084,7 @@ function showUserProfile(mid, tab='profile'){
       </div>
       <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
         ${r.isLive?'<span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}
-        <span style="font-family:var(--pixel);font-size:8px;color:${r.fp>0?'var(--accent3)':'var(--text3)'};min-width:44px;text-align:right">${r.fp.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span></span>
+        ${fpColsHtml(r.fp, r.gp)}
       </div>
     </div>`).join('') : '<div style="text-align:center;padding:24px 0;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO ROSTER YET</div>'}
     <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);line-height:1.8;margin-top:10px">FP shown is what each player has earned for this team this week while Active.</div>`;
@@ -2121,6 +2123,23 @@ function playerTotalFP(pid){
   const live  = livePlayerStats[pid];
   if(live && !liveAlreadySaved(pid, live)) return +(saved + (live.fp||0)).toFixed(1);
   return +saved.toFixed(1);
+}
+
+// Games behind playerTotalFP: saved stat lines plus tonight's unsaved live game
+function playerGamesPlayed(pid){
+  let n = Object.values(leagueState.playerStats||{}).filter(s=>s.pid===pid).length;
+  const live = livePlayerStats[pid];
+  if(live && !liveAlreadySaved(pid, live)) n++;
+  return n;
+}
+// Compact FP columns: TOT (bright) and AVG per game (dim), fixed widths so rows line up.
+// fpColsHead() goes once above a list, right-aligned over the same columns.
+function fpColsHtml(tot, gp, size){
+  const avg = gp ? (tot/gp).toFixed(1) : '—';
+  return `<div class="fpc${size==='sm'?' sm':''}"><span class="fpc-tot${tot>0?'':' zero'}">${(+tot).toFixed(1)}</span><span class="fpc-avg">${avg}</span></div>`;
+}
+function fpColsHead(label, size){
+  return `<div class="fpc fpc-head${size==='sm'?' sm':''}">${label?`<span class="fpc-lbl">${label}</span>`:''}<span class="fpc-tot">TOT</span><span class="fpc-avg">AVG</span></div>`;
 }
 
 function rosterFP(pids){
@@ -4362,11 +4381,12 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
   const col = (m, rows) => {
     const shown = rows.filter(x=>x.fp!==0 || x.status==='active' || isFuture);
     return `<div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${teamLabel(m).toUpperCase()}</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:4px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${teamLabel(m).toUpperCase()}</div>
+      ${fpColsHead('', 'sm')}
       ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
         <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${x.p.pos} · ${x.p.team}</div></div>
-        <div style="font-family:var(--pixel);font-size:7px;color:${x.fp>0?'var(--accent3)':'var(--text3)'};white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-size:4.5px">LIVE </span>':''}${x.fp.toFixed(1)}</div>
+        <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsHtml(x.fp, x.gp, 'sm')}</div>
       </div>`).join('') || '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
     </div>`;
   };
@@ -5346,7 +5366,7 @@ function renderRostersScreen(){
         <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
+        ${fpColsHtml(fp, playerGamesPlayed(pid))}
         ${actionBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actionBtns}</div>` : ''}
       </div>
     </div>`;
@@ -5373,7 +5393,7 @@ function renderRostersScreen(){
         const irPids     = irPid && roster.includes(irPid) ? [irPid] : [];
         const sections = [];
         if(activePids.length){
-          sections.push(`<div style="padding:4px 14px 2px;font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</div>`);
+          sections.push(`<div style="padding:6px 14px 2px;display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</span>${fpColsHead('SEASON FP')}</div>`);
           sections.push(...activePids.map(rowHtml));
         }
         if(benchPids.length){
@@ -5427,7 +5447,7 @@ function renderMyRosterList(){
         <div class="player-meta" style="margin-top:2px">${gameLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <div class="player-fp" style="font-size:11px">${fp.toFixed(1)}<span class="fp-label">FP</span></div>
+        ${fpColsHtml(fp, playerGamesPlayed(pid))}
         <div style="display:flex;gap:4px">
           ${isPlayerLocked(p) ? `<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">🔒 LOCKED</span>` : `<button class="btn btn-sm" style="font-size:5px;padding:4px 6px;min-height:24px;background:transparent;border:1px solid ${isActive?'var(--accent4)':'var(--accent2)'};color:${isActive?'var(--accent4)':'var(--accent2)'}" onclick="toggleActiveStatus('${mid}',${pid})">
             ${isActive?'Bench':'Activate'}

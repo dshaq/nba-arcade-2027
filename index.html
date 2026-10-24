@@ -1290,6 +1290,19 @@ img{display:block;}
   .duel-player .portrait-wrap{width:70px;height:70px;}
   #duel-card-container .duel-player .portrait-wrap{width:55px;height:55px;}
 }
+
+/* Compact FP columns (TOT / AVG) on lineups */
+.fpc{display:flex;align-items:baseline;justify-content:flex-end;gap:0;font-family:var(--pixel);white-space:nowrap;}
+.fpc > span{display:inline-block;text-align:right;}
+.fpc-tot{width:44px;font-size:8px;color:var(--accent3);}
+.fpc-tot.zero{color:var(--text3);}
+.fpc-avg{width:38px;font-size:6px;color:var(--text3);}
+.fpc.sm .fpc-tot{width:34px;font-size:6.5px;}
+.fpc.sm .fpc-avg{width:30px;font-size:5px;}
+.fpc-head > span{font-size:4.5px!important;color:var(--text3)!important;letter-spacing:.06em;}
+.fpc-head .fpc-lbl{width:auto;margin-right:auto;padding-right:6px;}
+.fpc-head{padding:2px 0 3px;}
+.fpc-head.sm > span{font-size:4px!important;}
 </style>
 </head>
 <body>

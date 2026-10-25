@@ -4414,6 +4414,46 @@ async function autoSettleDuelFromStats(dateKey, silent=false){
 }
 
 // Admin manual auto-settle button handler
+// ── COMMISSIONER: CHANGE A PAST DUEL RESULT ─────────────────────────────────
+// Re-score any day's duel (e.g. a bad matchup that ended as No Contest), then
+// replay every duel so streaks and all-time correct picks are rebuilt.
+let adminDuelEditDate = null;
+function renderAdminDuelResultEditSection(){
+  if(!adminDuelEditDate) adminDuelEditDate = getPrevDateKey(todayKey());
+  const d = (leagueState.duels||{})[adminDuelEditDate];
+  const lab = side => !d ? '?' : d.type==='team' ? (side===1?d.team1:d.team2) : (getPlayer(side===1?d.pid1:d.pid2)?.name || '?');
+  const who = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name || id;
+  const picks = d ? Object.entries(d.picks||{}).map(([id,v])=>`${who(id)} → ${playerShortName(lab(+v))||lab(+v)}`).join(' · ') : '';
+  const cur = !d ? '' : d.result==null ? 'OPEN' : d.result==='void' ? `NO CONTEST${d.voidReason?' ('+d.voidReason+')':''}` : (d.result==='push'||d.result==='tie') ? 'PUSH' : `${lab(+d.result)} WON`;
+  const b = (label, res) => `<button class="btn btn-secondary btn-full" style="margin-top:6px" onclick="adminSetDuelResult('${adminDuelEditDate}', ${typeof res==='string'?`'${res}'`:res})">${label}</button>`;
+  return `
+  <div class="section-label" style="padding:12px 0 8px">✏️ CHANGE A PAST DUEL RESULT</div>
+  <div class="card" style="margin:0">
+    <input type="date" value="${adminDuelEditDate}" onchange="adminDuelEditDate=this.value;renderAdminContent()" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:6px;margin-bottom:8px"/>
+    ${!d ? '<div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">NO DUEL THAT DAY</div>' : `
+      <div style="font-family:var(--pixel);font-size:6px;color:var(--text1);line-height:1.8">${lab(1)} vs ${lab(2)} · ${(d.stat||'').toUpperCase()}</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);line-height:1.8">NOW: ${cur}</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);line-height:1.8;margin-bottom:4px">PICKS: ${picks||'none'}</div>
+      ${b(`${lab(1).toUpperCase()} WINS`, 1)}${b(`${lab(2).toUpperCase()} WINS`, 2)}${b('PUSH (STREAKS HOLD)', 'push')}${b('NO CONTEST', 'void')}`}
+  </div>`;
+}
+async function adminSetDuelResult(dateKey, result){
+  await pullLeagueState();
+  const d = (leagueState.duels||{})[dateKey];
+  if(!d){ toast('No duel that day'); return; }
+  d.result = result;
+  if(result!=='void') delete d.voidReason;
+  if(d.type!=='team'){
+    const ds = dateKey.replace(/-/g,'');
+    const v = pid => { const st=findSavedStat(pid, ds); const x=getDuelStatValue(st, d.stat||'pts'); return x==null?null:x; };
+    d.score1 = v(d.pid1); d.score2 = v(d.pid2);
+  }
+  d.commEdited = new Date().toISOString();
+  await saveLeagueState();
+  await recalcDuelStreaks();   // replays every duel: streaks + all-time correct
+  renderAdminContent();
+}
+
 async function adminAutoSettleDuel(dateKey){
   const settled = await autoSettleDuelFromStats(dateKey, false);
   if(!settled) toast('No saved stats yet — enter scores manually');
@@ -6266,6 +6306,7 @@ async function renderAdminContent(){
   ${renderAdminLineupOverrideSection()}
   ${renderAdminLineupFixSection()}
   ${renderAdminDuelSection()}
+  ${renderAdminDuelResultEditSection()}
   ${renderAdminWlcSection()}
   `;
 }

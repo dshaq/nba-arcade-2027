@@ -1576,10 +1576,28 @@ function _replaceLeagueState(next){
   for(const k of Object.keys(leagueState)) if(!(k in next)) delete leagueState[k];
   Object.assign(leagueState, next);
 }
-async function fetchRemoteLeagueState(){
-  const {data, error} = await db.from('leagues').select('state').eq('id',LEAGUE_KEY).maybeSingle();
+// Build number of this code. Every save stamps state.minBuild with the newest build that
+// has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
+// Bump this whenever a deploy changes how league data is written.
+const APP_BUILD = 2026102501;
+let _staleReloading = false;
+function handleStaleClient(remote){
+  if(!remote || !(remote.minBuild > APP_BUILD)) return false;
+  if(!_staleReloading){
+    _staleReloading = true;
+    console.warn('[build] this tab runs old code (', APP_BUILD, '<', remote.minBuild, ') — reloading');
+    try{ toast('NBA Arcade was updated — reloading…'); }catch(e){}
+    setTimeout(()=>location.reload(), 1200);
+  }
+  return true;
+}
+async function fetchRemoteLeagueStateWithTs(){
+  const {data, error} = await db.from('leagues').select('state,updated_at').eq('id',LEAGUE_KEY).maybeSingle();
   if(error || !data?.state) return null;
-  try{ return typeof data.state==='string' ? JSON.parse(data.state) : data.state; }catch(e){ return null; }
+  try{ return {state: typeof data.state==='string' ? JSON.parse(data.state) : data.state, ts: data.updated_at}; }catch(e){ return null; }
+}
+async function fetchRemoteLeagueState(){
+  return (await fetchRemoteLeagueStateWithTs())?.state || null;
 }
 
 // Bring in everyone else's saved changes without losing my unsaved ones.
@@ -1589,6 +1607,7 @@ function pullLeagueState(){
     const startJson = JSON.stringify(leagueState);
     const remote = await fetchRemoteLeagueState();
     if(!remote) return;
+    if(handleStaleClient(remote)) return;
     const merged = merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote);
     // Keep anything changed locally while the fetch was in flight
     _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, merged));
@@ -1600,6 +1619,7 @@ function pullLeagueState(){
 async function loadLeagueState(){
   await _leagueStateQueue; // let any in-flight save finish first
   const remote = await fetchRemoteLeagueState();
+  if(remote && handleStaleClient(remote)) return;
   if(remote) leagueState = remote;
   if(!leagueState){ leagueState = defaultLeagueState(); }
   _leagueBaseJson = JSON.stringify(leagueState);
@@ -1636,23 +1656,49 @@ function logActiveChanges(){
   }
 }
 
+// Merge-safe AND race-safe: the write only lands if nobody else saved since we read
+// (updated_at must still match). If someone did, re-read, re-merge and try again.
 function saveLeagueState(){
   _leagueStateQueue = _leagueStateQueue.then(async ()=>{
+    if(_staleReloading) return;
     logActiveChanges();
-    const startJson = JSON.stringify(leagueState);
-    const remote = await fetchRemoteLeagueState();
-    const toWrite = (remote && _leagueBaseJson)
-      ? merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote)
-      : JSON.parse(startJson);
-    const json = JSON.stringify(toWrite);
-    const {error} = await db.from('leagues').upsert({id:LEAGUE_KEY, state:json});
-    if(error){ console.warn('[saveLeagueState] failed', error); return; }
-    // Adopt the merged result, keeping anything changed locally during the save
-    _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
-    _leagueBaseJson = json;
+    for(let attempt=0; attempt<6; attempt++){
+      const startJson = JSON.stringify(leagueState);
+      const r = await fetchRemoteLeagueStateWithTs();
+      if(r && handleStaleClient(r.state)) return;
+      const toWrite = (r && _leagueBaseJson)
+        ? merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), r.state)
+        : JSON.parse(startJson);
+      toWrite.minBuild = Math.max(+toWrite.minBuild||0, APP_BUILD);
+      const json = JSON.stringify(toWrite);
+      let error, landed = true;
+      if(r && r.ts){
+        const res = await db.from('leagues').update({state:json}).eq('id',LEAGUE_KEY).eq('updated_at', r.ts).select('updated_at');
+        error = res.error; landed = !error && (res.data||[]).length > 0;
+      } else {
+        error = (await db.from('leagues').upsert({id:LEAGUE_KEY, state:json})).error;
+      }
+      if(error){ console.warn('[saveLeagueState] failed', error); return; }
+      if(!landed && r){
+        // No row came back: either someone saved first, or the row landed but wasn't returned
+        const chk = await fetchRemoteLeagueStateWithTs();
+        if(chk && JSON.stringify(chk.state)===json) landed = true;
+      }
+      if(!landed){ console.info('[saveLeagueState] someone saved first — re-merging (attempt', attempt+1, ')'); continue; }
+      // Adopt the merged result, keeping anything changed locally during the save
+      _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
+      _leagueBaseJson = json;
+      return;
+    }
+    console.warn('[saveLeagueState] gave up after repeated conflicts');
+    try{ toast('Save conflict — please try again'); }catch(e){}
   }).catch(e=>console.warn('[saveLeagueState]', e));
   return _leagueStateQueue;
 }
+// A phone tab can sleep for days. When it wakes, pull right away (this also catches old code).
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && typeof currentUser!=='undefined' && currentUser && leagueState) pullLeagueState();
+});
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
 const BDL_BASE = 'https://api.balldontlie.io/v1';

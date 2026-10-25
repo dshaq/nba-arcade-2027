@@ -8366,3 +8366,42 @@ function _accentNode(root){
   };
   if(document.body) go(); else document.addEventListener('DOMContentLoaded', go);
 })();
+
+// ── AUTO-UPDATE ──────────────────────────────────────────────────────────────
+// League data already refreshes every minute; this keeps the CODE current too.
+// Every 5 minutes (and whenever the tab comes back into view) check whether a newer
+// version of the site has been deployed. If so, reload — but only at a safe moment:
+// tab visible, no pop-up open, not typing. Also reload any tab that wakes up after 12+ hours.
+(function autoUpdate(){
+  const LOADED_AT = Date.now();
+  let loadedTag = null, pending = false;
+  const versionTag = async () => {
+    try{
+      const r = await fetch('app.js', {method:'HEAD', cache:'no-store'});
+      return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified')) : null;
+    }catch(e){ return null; }
+  };
+  const safeNow = () => {
+    if(document.visibilityState !== 'visible') return false;
+    const a = document.activeElement;
+    if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+    if([...document.querySelectorAll('.modal-overlay, .top-sheet-overlay, [id$="-modal"]')].some(e=>e.offsetParent!==null || getComputedStyle(e).position==='fixed' && getComputedStyle(e).display!=='none')) return false;
+    return true;
+  };
+  const tryReload = () => { if(pending && safeNow()){ console.log('[autoUpdate] new version — reloading'); location.reload(); } };
+  const check = async () => {
+    const tag = await versionTag();
+    if(!tag) return;
+    if(!loadedTag){ loadedTag = tag; return; }
+    if(tag !== loadedTag) pending = true;
+    tryReload();
+  };
+  check();
+  setInterval(check, 5*60*1000);
+  setInterval(tryReload, 15*1000);           // a pop-up closed / typing finished → reload then
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState !== 'visible') return;
+    if(Date.now() - LOADED_AT > 12*60*60*1000){ pending = true; tryReload(); }
+    check();
+  });
+})();

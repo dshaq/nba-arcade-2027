@@ -1313,6 +1313,14 @@ img{display:block;}
 .player-row.moving{background:rgba(255,217,61,.08)!important;box-shadow:inset 3px 0 0 #ffd93d;}
 .move-banner{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 14px 8px;padding:8px 10px;border:1px solid #ffd93d;border-radius:8px;background:rgba(255,217,61,.08);font-family:var(--pixel);font-size:5px;line-height:1.7;color:var(--text2);}
 .move-banner b{color:#ffd93d;font-weight:normal;}
+
+/* Challenge nav icon: faint glow */
+.nav-btn .challenge-icon{filter:drop-shadow(0 0 3px rgba(190,120,255,.75)) drop-shadow(0 0 7px rgba(190,120,255,.35));}
+/* Monday Weekly Challenge banner on Home */
+.wlc-home-banner{margin:10px 14px 4px;padding:12px 12px;border:2px solid #b36bff;border-radius:10px;cursor:pointer;text-align:center;
+  background:linear-gradient(180deg,#2a1a5c 0%,#3a1f5c 60%,#1b2a6b 100%);box-shadow:0 0 12px rgba(179,107,255,.35);}
+.wlc-home-banner .whb-title{font-family:var(--pixel);font-size:7.5px;line-height:1.7;color:#fff;text-shadow:2px 2px 0 #000;}
+.wlc-home-banner .whb-sub{font-family:var(--pixel);font-size:5.5px;line-height:1.7;color:#ffd93d;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -1407,6 +1415,7 @@ img{display:block;}
   <div id="home-screen" class="screen active">
     <!-- Contextual news banner -->
     <div id="news-banner" style="display:none"></div>
+    <div id="wlc-home-banner" style="display:none"></div>
 
     <!-- Scoreboard (replaces the old ticker) -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px">
@@ -1600,7 +1609,7 @@ img{display:block;}
     <span class="icon">🏀</span>FANTASY
   </button>
   <button class="nav-btn" id="nav-wlc" onclick="showScreen('wlc')">
-    <span class="icon">🎯</span>CHALLENGE
+    <span class="icon challenge-icon">🔮</span>CHALLENGE
   </button>
   <button class="nav-btn" id="nav-duel" onclick="showScreen('duel')">
     <span class="icon">⚡</span>DUEL

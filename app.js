@@ -1035,7 +1035,7 @@ function showUserProfile(mid, tab='profile'){
   const wk = wlcWeekKey(), wweek = wlcVisibleWeek(wk);
   const isMe = String(m.id)===String(getMyId());
   const wl = ((leagueState.wlc?.lineups||{})[wk]||{})[m.id];
-  const wlcCur = !wweek ? 'No active week' : !wl ? 'No lineup' : (!isMe && !isWlcLocked(wk)) ? 'Hidden until lock' : computeWlcFP(wl.picks, wl.swaps, wk).toFixed(1)+' FP';
+  const wlcCur = (!wweek || wweek.testers) ? 'No active week' : !wl ? 'No lineup' : (!isMe && !isWlcLocked(wk)) ? 'Hidden until lock' : computeWlcFP(wl.picks, wl.swaps, wk).toFixed(1)+' FP';
   const days = n => `${n} day${n===1?'':'s'}`;
 
   const tabBtn = (id, label) => `<button onclick="showUserProfile('${m.id}','${id}')" style="flex:1;padding:8px 0;font-family:var(--pixel);font-size:5.5px;border:none;cursor:pointer;border-bottom:2px solid ${tab===id?'var(--accent1)':'transparent'};background:transparent;color:${tab===id?'var(--accent1)':'var(--text3)'}">${label}</button>`;
@@ -2987,7 +2987,23 @@ setInterval(async ()=>{
   }catch(e){}
 }, 20000);
 
+// Monday banner: picks are open for this week's Weekly Line-up Challenge
+function renderWlcHomeBanner(){
+  const el = document.getElementById('wlc-home-banner'); if(!el) return;
+  const wk = wlcWeekKey(), w = wlcVisibleWeek(wk);
+  const mine = ((leagueState?.wlc?.lineups||{})[wk]||{})[getMyId()];
+  const show = w && w.status==='active' && !w.testers && !isWlcLocked(wk) && !mine?.saved;
+  if(!show){ el.style.display='none'; el.innerHTML=''; return; }
+  const lock = w.tipoffTime ? new Date(w.tipoffTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET' : '';
+  el.style.display='block';
+  el.innerHTML = `<div class="wlc-home-banner" onclick="showScreen('wlc')">
+    <div class="whb-title">🔮 ${wk==='2026-10-26' ? 'Tap here to access the first Weekly Line-up Challenge!' : 'Tap here to make your Weekly Line-up Challenge picks!'}</div>
+    <div class="whb-sub">ONLY AVAILABLE EACH MONDAY PRIOR TO TIP-OFF${lock?` · PICKS LOCK ${lock}`:''}</div>
+  </div>`;
+}
+
 function renderHomeScreen(){
+  renderWlcHomeBanner();
   renderScoreboard();
   renderNewsBanner();
   renderDuelCard();
@@ -7127,6 +7143,7 @@ async function boot(){
       await loadPortraits();
       await ensureTodaysDuel();
       maybeSwapInjuredDuel();
+      purgeWlcTestWeeks().then(ensureWlcTipoff);
       updateUserChip();
       if(isFirstLogin){
         // Only navigate to home on actual login — not on silent token refreshes
@@ -7223,6 +7240,41 @@ function wlcWeekLabel(weekKey){
 
 // TEST MODE: a week with a `testers` list is visible only to those managers and
 // never touches the real standings. Weeks without `testers` are live for everyone.
+// The Oct 19 test week (Dave + Danny G) is wiped so nothing from it shows anywhere.
+// Runs once per client on load; merge-safe save deletes the keys for everyone.
+const WLC_PURGE_WEEKS = ['2026-10-19'];
+async function purgeWlcTestWeeks(){
+  const w = leagueState?.wlc; if(!w) return;
+  let changed = false;
+  for(const wk of WLC_PURGE_WEEKS){
+    for(const k of ['weeks','lineups','results']){
+      if(w[k] && w[k][wk] !== undefined){ delete w[k][wk]; changed = true; }
+    }
+  }
+  if(changed){ console.log('[wlc] removed test week data'); await saveLeagueState(); }
+}
+
+// Picks lock at the first tip-off of the week's Monday (ESPN schedule)
+async function firstTipOn(dateKey){
+  try{
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateKey.replace(/-/g,'')}`);
+    const j = await res.json();
+    const times = (j.events||[]).map(e=>new Date(e.date).getTime()).filter(t=>!isNaN(t));
+    return times.length ? new Date(Math.min(...times)).toISOString() : null;
+  }catch(e){ return null; }
+}
+// A live, public week with no lock time gets Monday's first tip-off (if still ahead)
+async function ensureWlcTipoff(){
+  const wk = wlcWeekKey(); const w = leagueState?.wlc?.weeks?.[wk];
+  if(!w || w.status!=='active' || w.tipoffTime || w.testers) return;
+  const tip = await firstTipOn(wk);
+  if(tip && new Date(tip) > new Date()){
+    await pullLeagueState();
+    const cur = leagueState.wlc?.weeks?.[wk];
+    if(cur && !cur.tipoffTime){ cur.tipoffTime = tip; await saveLeagueState(); renderHomeScreen(); }
+  }
+}
+
 function wlcVisibleWeek(wk){
   const week = (leagueState.wlc?.weeks||{})[wk];
   if(!week) return null;
@@ -7414,7 +7466,7 @@ async function doWlcSwap(fromName, toName){
 // Commissioner adjustments to a week's generated pool: [slot currently holding A, B goes there].
 // Applied all at once against the generated pool; B takes A's tier and price.
 const WLC_POOL_TWEAKS = {
-  '2026-10-19': [ // test week, set Oct 23
+  '2026-10-26': [ // first official week: the arrangement set for the test week on Oct 23
     ['Cooper Flagg','Deni Avdija'],          // $1
     ['Stephen Curry','Kon Knueppel'],        // $1 (OUT, for testing the injury swap)
     ['Deni Avdija','LeBron James'],          // $2
@@ -7443,7 +7495,8 @@ function generateWlcProposal(forDate){
   // Suggest a theme based on week number (cycle through themes)
   // Parse week keys as local noon to avoid UTC boundary issues
   const parseWkDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d,12); };
-  const weekNum = Math.max(0, Math.floor((parseWkDate(wk) - parseWkDate('2026-10-19')) / (7*24*3600*1000)));
+  // Week 1 of the real challenge is Oct 26 (Oct 19 was the test week)
+  const weekNum = Math.max(0, Math.floor((parseWkDate(wk) - parseWkDate('2026-10-26')) / (7*24*3600*1000)));
   const themes = [
     {name:'Former All-Stars', filter: p => p.r <= 50},
     {name:'Atlantic Division', filter: p => ['BOS','BKN','NYK','PHI','TOR'].includes(p.t)},
@@ -7864,7 +7917,7 @@ function renderWlcNoWeek(el, wk){
     <div style="padding:20px 14px;">
       <div class="card">
         <div class="empty-state">
-          <div class="icon" style="font-size:28px">🎯</div>
+          <div class="icon" style="font-size:28px">🔮</div>
           <div class="label">NO ACTIVE WEEK<br/><span style="color:var(--text3);font-size:5px">CHECK BACK MONDAY</span></div>
         </div>
       </div>
@@ -8071,12 +8124,11 @@ async function commApproveWlcWeek(weekKey){
   leagueState.wlc.weeks[weekKey].status = 'active';
   // Default tip-off to Monday of that week at 7am ET (11:00 UTC in EST / 12:00 UTC in EDT)
   // weekKey is a Monday ISO date string
-  const mon = new Date(weekKey + 'T00:00:00Z'); // parse as UTC midnight
-  mon.setUTCHours(11, 0, 0, 0); // 7am ET = 11:00 UTC (EST) — close enough for EDT off-season
-  // Approved midweek (e.g. for testing)? Monday 7am already passed, so leave picks
+  // Lock at Monday's first tip-off. Approved after that (e.g. testing)? Leave picks
   // open until the commissioner sets a lock time instead of locking instantly.
-  const late = mon <= new Date();
-  leagueState.wlc.weeks[weekKey].tipoffTime = late ? null : mon.toISOString();
+  const tip = await firstTipOn(weekKey);
+  const late = !tip || new Date(tip) <= new Date();
+  leagueState.wlc.weeks[weekKey].tipoffTime = late ? null : tip;
   await saveLeagueState();
   toast(late ? 'Week is LIVE — picks open until you set a lock time.' : 'Week is LIVE! Users can now submit lineups.');
   renderAdminContent();
@@ -8156,7 +8208,7 @@ function renderAdminWlcSection(){
   const prevWks = Object.keys(leagueState.wlc?.weeks||{}).sort().reverse().filter(k=>k!==wk).slice(0,4);
   let html = `
     <div style="margin-top:16px">
-      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:10px">🎯 LINE-UP CHALLENGE</div>
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:10px">🔮 LINE-UP CHALLENGE</div>
       <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:8px">CURRENT WEEK: ${wlcWeekLabel(wk)}</div>`;
 
   if(!week){
@@ -8194,7 +8246,7 @@ function renderAdminWlcSection(){
   }
   if(week?.testers){
     const names = week.testers.map(id=>(leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name||'?').join(', ');
-    html = html.replace('🎯 LINE-UP CHALLENGE</div>', `🎯 LINE-UP CHALLENGE</div><div style="font-family:var(--pixel);font-size:5.5px;color:#ffd93d;margin-bottom:8px">🧪 TEST MODE — VISIBLE ONLY TO: ${names.toUpperCase()}</div>`);
+    html = html.replace('🔮 LINE-UP CHALLENGE</div>', `🔮 LINE-UP CHALLENGE</div><div style="font-family:var(--pixel);font-size:5.5px;color:#ffd93d;margin-bottom:8px">🧪 TEST MODE — VISIBLE ONLY TO: ${names.toUpperCase()}</div>`);
     if(week.status!=='final') html += `<button class="btn btn-full btn-secondary" style="margin-top:8px" onclick="commMakeWlcPublic('${wk}')">📣 MAKE VISIBLE TO EVERYONE</button>`;
   }
   if(week?.status==='final' && leagueState.wlc?.results?.[wk]){
@@ -8348,7 +8400,7 @@ function showSiteOverview(){
         'Up to 3 waiver claims per week to improve your roster',
       ],'showScreen(\'fantasy\')','GO TO FANTASY →')}
 
-      ${game('🎯','WEEKLY LINE-UP CHALLENGE','var(--accent3)','Pick up to 5 players for $15 or less',[
+      ${game('🔮','WEEKLY LINE-UP CHALLENGE','var(--accent3)','Pick up to 5 players for $15 or less',[
         'Every week: a themed pool of 25 players split into 5 salary tiers ($1–$5)',
         'Pick 1–5 players for $15 or less; saving makes your lineup final',
         'Each player scores his average FP per game that week',

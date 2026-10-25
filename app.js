@@ -2609,7 +2609,7 @@ function startPolling(){
 function waiverUsedThisWeek(mid){
   const ws=currentWeekStart(), we=new Date(ws); we.setDate(ws.getDate()+6);
   const from=ymd(ws), to=ymd(we);
-  return ((leagueState.waiverLog||{})[mid]||[]).filter(e=>e.type==='add' && String(e.date)>=from && String(e.date)<=to).length;
+  return ((leagueState.waiverLog||{})[mid]||[]).filter(e=>e.type==='add' && !e.comm && String(e.date)>=from && String(e.date)<=to).length;
 }
 
 function canWaiver(mid){
@@ -2646,7 +2646,7 @@ function showTransactionLog(){
         <tbody>${rows.map((e,i)=>{ const p=getPlayer(e.pid); return `<tr style="background:${i%2?'rgba(255,255,255,0.02)':'transparent'}">
           <td style="padding:8px 4px;color:var(--text3);white-space:nowrap">${fmt(e)}</td>
           <td style="padding:8px 4px;color:var(--text1)">${e.team}</td>
-          <td style="padding:8px 4px;color:${e.type==='add'?'var(--accent2)':'#ffd93d'}">${e.type==='add'?'ADDED':'DROPPED'}</td>
+          <td style="padding:8px 4px;color:${e.type==='add'?'var(--accent2)':'#ffd93d'}">${e.type==='add'?'ADDED':'DROPPED'}${e.comm?' <span style="color:var(--text3)">(COMM)</span>':''}</td>
           <td style="padding:8px 4px;color:var(--text1);cursor:pointer" onclick="${p?pcardOnclick(p.name):''}">${p?p.name:'Player #'+e.pid}</td>
         </tr>`; }).join('')}</tbody></table>`
       : '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO TRANSACTIONS YET</div>'}
@@ -6252,11 +6252,95 @@ async function renderAdminContent(){
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
   </div>
 
+  ${renderAdminRosterEditorSection()}
   ${renderAdminLineupOverrideSection()}
   ${renderAdminLineupFixSection()}
   ${renderAdminDuelSection()}
   ${renderAdminWlcSection()}
   `;
+}
+
+// ── COMMISSIONER: ROSTER EDITOR ─────────────────────────────────────────────
+// Add / drop / IR any player on any team (to fix lost moves). Doesn't use the team's
+// weekly adds; shows in the Transaction Log marked as a commissioner move.
+let adminRosterTeam = null;
+function renderAdminRosterEditorSection(){
+  const mgrs = allManagers();
+  if(!mgrs.length) return '';
+  if(!adminRosterTeam || !mgrs.some(m=>String(m.id)===String(adminRosterTeam))) adminRosterTeam = mgrs[0].id;
+  const mid = adminRosterTeam;
+  const roster = (leagueState.rosters||{})[mid]||[];
+  const ir = getIrSlot(mid);
+  const nonIr = roster.filter(id=>String(id)!==String(ir)).length;
+  const owned = new Map(); Object.entries(leagueState.rosters||{}).forEach(([k,v])=>v.forEach(id=>owned.set(String(id),k)));
+  const sel = 'background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:6px;width:100%;margin-bottom:6px';
+  const btn = (c,label,fn) => `<button onclick="${fn}" style="background:transparent;border:1px solid ${c};color:${c};border-radius:4px;font-family:var(--pixel);font-size:5px;padding:4px 6px;cursor:pointer">${label}</button>`;
+  return `
+  <div class="section-label" style="padding:12px 0 8px">🛠 ROSTER EDITOR</div>
+  <div class="card" style="margin:0">
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px">Add, drop or IR any player on any team. Doesn't use the team's weekly adds. To credit points from a past day afterwards, use FIX PAST LINEUPS below.</div>
+    <select style="${sel}" onchange="adminRosterTeam=this.value;renderAdminContent()">
+      ${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(mid)?'selected':''}>${teamLabel(m)}</option>`).join('')}
+    </select>
+    <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin:2px 0 6px">${nonIr}/${ROSTER_SIZE} PLAYERS${ir?' · 1 ON IR':''}</div>
+    ${roster.map(pid=>{ const p=getPlayer(pid); if(!p) return ''; const onIr=String(pid)===String(ir);
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;min-width:0;font-family:var(--pixel);font-size:6px;color:var(--text1)">${p.name}${onIr?' <span style="color:#805ad5">IR</span>':''}${injuryBadgeHtml(p.name)}</span>
+        ${onIr ? btn('#805ad5','OFF IR',`adminRosterIr('${mid}',null)`) : (!ir ? btn('#805ad5','→ IR',`adminRosterIr('${mid}',${pid})`) : '')}
+        ${btn('#ffd93d','DROP',`adminRosterDrop('${mid}',${pid})`)}
+      </div>`; }).join('')}
+    <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin:10px 0 4px">ADD PLAYER</div>
+    <input id="adm-add-player" list="adm-add-list" placeholder="Type a name…" style="${sel}"/>
+    <datalist id="adm-add-list">${PLAYERS.filter(p=>!owned.has(String(p.id))).map(p=>`<option value="${p.name}">${p.team}</option>`).join('')}</datalist>
+    <button class="btn btn-primary btn-full" onclick="adminRosterAdd('${mid}')">➕ ADD TO ${teamLabel(mgrs.find(m=>String(m.id)===String(mid))).toUpperCase()}</button>
+  </div>`;
+}
+function _commLog(mid, pid, type){
+  if(!leagueState.waiverLog) leagueState.waiverLog = {};
+  if(!leagueState.waiverLog[mid]) leagueState.waiverLog[mid] = [];
+  leagueState.waiverLog[mid].push({pid, date:todayStr(), type, ts:new Date().toISOString(), comm:true});
+}
+async function adminRosterAdd(mid){
+  const name = (document.getElementById('adm-add-player')?.value||'').trim();
+  const p = PLAYERS.find(x=>x.name===name) || PLAYERS.find(x=>normName(x.name)===normName(name));
+  if(!p){ toast('Pick a player from the list'); return; }
+  await pullLeagueState();
+  const owner = Object.entries(leagueState.rosters||{}).find(([k,v])=>v.map(String).includes(String(p.id)));
+  if(owner){ toast(`${p.name} is already on a roster — drop him there first`); return; }
+  const roster = (leagueState.rosters[mid] = leagueState.rosters[mid]||[]);
+  const ir = getIrSlot(mid);
+  if(roster.filter(id=>String(id)!==String(ir)).length >= ROSTER_SIZE){ toast('Roster is full — drop someone first'); return; }
+  roster.push(p.id);
+  if(!leagueState.inactive) leagueState.inactive = {};
+  leagueState.inactive[mid] = [...(leagueState.inactive[mid]||[]), p.id];
+  _commLog(mid, p.id, 'add');
+  await saveLeagueState();
+  toast(`${p.name} added ✓`); renderAdminContent();
+}
+async function adminRosterDrop(mid, pid){
+  const p = getPlayer(pid);
+  await pullLeagueState();
+  leagueState.rosters[mid] = (leagueState.rosters[mid]||[]).filter(id=>String(id)!==String(pid));
+  if(leagueState.active?.[mid]) leagueState.active[mid] = leagueState.active[mid].filter(id=>String(id)!==String(pid));
+  if(leagueState.inactive?.[mid]) leagueState.inactive[mid] = leagueState.inactive[mid].filter(id=>String(id)!==String(pid));
+  if(String(getIrSlot(mid))===String(pid)) leagueState.ir[mid] = null;
+  _commLog(mid, pid, 'drop');
+  await saveLeagueState();
+  toast(`${p?.name||'Player'} dropped ✓`); renderAdminContent();
+}
+async function adminRosterIr(mid, pid){
+  await pullLeagueState();
+  if(!leagueState.ir) leagueState.ir = {};
+  if(pid!=null){
+    leagueState.ir[mid] = pid;
+    if(leagueState.active?.[mid]) leagueState.active[mid] = leagueState.active[mid].filter(id=>String(id)!==String(pid));
+    if(leagueState.inactive?.[mid]) leagueState.inactive[mid] = leagueState.inactive[mid].filter(id=>String(id)!==String(pid));
+  } else {
+    const back = leagueState.ir[mid]; leagueState.ir[mid] = null;
+    if(back!=null){ if(!leagueState.inactive) leagueState.inactive = {}; leagueState.inactive[mid] = [...(leagueState.inactive[mid]||[]), back]; }
+  }
+  await saveLeagueState();
+  toast(pid!=null ? `${getPlayer(pid)?.name} → IR ✓` : 'Moved off IR ✓'); renderAdminContent();
 }
 
 // ── COMMISSIONER: LINEUP OVERRIDE ───────────────────────────────────────────

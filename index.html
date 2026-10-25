@@ -1245,6 +1245,20 @@ img{display:block;}
 .pixel-loader span:nth-child(2){animation-delay:.12s;background:var(--accent3);}
 .pixel-loader span:nth-child(3){animation-delay:.24s;background:var(--accent2);}
 @keyframes pixelBounce{0%,100%{transform:scaleY(1);}50%{transform:scaleY(1.8);}}
+/* 8-bit basketball bouncing (stepped motion for a retro feel) */
+.ball-loader{position:relative;width:40px;height:64px;margin-top:22px;}
+.ball-loader .ball{position:absolute;left:7px;top:0;width:26px;height:26px;image-rendering:pixelated;
+  animation:ballBounce .8s steps(8,end) infinite;transform-origin:50% 100%;}
+.ball-loader .ball-shadow{position:absolute;left:8px;bottom:4px;width:24px;height:4px;background:rgba(140,160,220,.28);
+  border-radius:0;animation:ballShadow .8s steps(8,end) infinite;}
+@keyframes ballBounce{
+  0%  {transform:translateY(0) scale(1,1);}
+  45% {transform:translateY(32px) scale(1,1);}
+  50% {transform:translateY(34px) scale(1.15,.85);}
+  55% {transform:translateY(32px) scale(1,1);}
+  100%{transform:translateY(0) scale(1,1);}
+}
+@keyframes ballShadow{0%,100%{transform:scaleX(.45);opacity:.35;}50%{transform:scaleX(1);opacity:.8;}}
 
 /* ── PAGE HEADER ── */
 .page-header{
@@ -1328,7 +1342,10 @@ img{display:block;}
 <!-- Loading screen -->
 <div id="loading-screen">
   <div class="logo">NBA <span>ARCADE</span></div>
-  <div class="pixel-loader"><span></span><span></span><span></span></div>
+  <div class="ball-loader">
+    <svg class="ball" viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true"><rect x="4" y="0" width="5" height="1" fill="#2a1206"/><rect x="2" y="1" width="2" height="1" fill="#2a1206"/><rect x="4" y="1" width="2" height="1" fill="#f0862a"/><rect x="6" y="1" width="1" height="1" fill="#2a1206"/><rect x="7" y="1" width="2" height="1" fill="#f0862a"/><rect x="9" y="1" width="2" height="1" fill="#2a1206"/><rect x="1" y="2" width="2" height="1" fill="#2a1206"/><rect x="3" y="2" width="3" height="1" fill="#f0862a"/><rect x="6" y="2" width="1" height="1" fill="#2a1206"/><rect x="7" y="2" width="3" height="1" fill="#f0862a"/><rect x="10" y="2" width="2" height="1" fill="#2a1206"/><rect x="1" y="3" width="1" height="1" fill="#2a1206"/><rect x="2" y="3" width="1" height="1" fill="#f0862a"/><rect x="3" y="3" width="1" height="1" fill="#2a1206"/><rect x="4" y="3" width="1" height="1" fill="#ffb060"/><rect x="5" y="3" width="1" height="1" fill="#f0862a"/><rect x="6" y="3" width="1" height="1" fill="#2a1206"/><rect x="7" y="3" width="2" height="1" fill="#f0862a"/><rect x="9" y="3" width="1" height="1" fill="#2a1206"/><rect x="10" y="3" width="1" height="1" fill="#f0862a"/><rect x="11" y="3" width="1" height="1" fill="#2a1206"/><rect x="0" y="4" width="1" height="1" fill="#2a1206"/><rect x="1" y="4" width="2" height="1" fill="#f0862a"/><rect x="3" y="4" width="1" height="1" fill="#2a1206"/><rect x="4" y="4" width="1" height="1" fill="#ffb060"/><rect x="5" y="4" width="1" height="1" fill="#f0862a"/><rect x="6" y="4" width="1" height="1" fill="#2a1206"/><rect x="7" y="4" width="2" height="1" fill="#f0862a"/><rect x="9" y="4" width="1" height="1" fill="#2a1206"/><rect x="10" y="4" width="2" height="1" fill="#f0862a"/><rect x="12" y="4" width="1" height="1" fill="#2a1206"/><rect x="0" y="5" width="1" height="1" fill="#2a1206"/><rect x="1" y="5" width="2" height="1" fill="#f0862a"/><rect x="3" y="5" width="1" height="1" fill="#2a1206"/><rect x="4" y="5" width="2" height="1" fill="#f0862a"/><rect x="6" y="5" width="1" height="1" fill="#2a1206"/><rect x="7" y="5" width="2" height="1" fill="#f0862a"/><rect x="9" y="5" width="1" height="1" fill="#2a1206"/><rect x="10" y="5" width="2" height="1" fill="#f0862a"/><rect x="12" y="5" width="1" height="1" fill="#2a1206"/><rect x="0" y="6" width="13" height="1" fill="#2a1206"/><rect x="0" y="7" width="1" height="1" fill="#2a1206"/><rect x="1" y="7" width="2" height="1" fill="#f0862a"/><rect x="3" y="7" width="1" height="1" fill="#2a1206"/><rect x="4" y="7" width="2" height="1" fill="#f0862a"/><rect x="6" y="7" width="1" height="1" fill="#2a1206"/><rect x="7" y="7" width="2" height="1" fill="#f0862a"/><rect x="9" y="7" width="1" height="1" fill="#2a1206"/><rect x="10" y="7" width="2" height="1" fill="#f0862a"/><rect x="12" y="7" width="1" height="1" fill="#2a1206"/><rect x="0" y="8" width="1" height="1" fill="#2a1206"/><rect x="1" y="8" width="2" height="1" fill="#f0862a"/><rect x="3" y="8" width="1" height="1" fill="#2a1206"/><rect x="4" y="8" width="2" height="1" fill="#f0862a"/><rect x="6" y="8" width="1" height="1" fill="#2a1206"/><rect x="7" y="8" width="2" height="1" fill="#f0862a"/><rect x="9" y="8" width="1" height="1" fill="#2a1206"/><rect x="10" y="8" width="2" height="1" fill="#f0862a"/><rect x="12" y="8" width="1" height="1" fill="#2a1206"/><rect x="1" y="9" width="1" height="1" fill="#2a1206"/><rect x="2" y="9" width="1" height="1" fill="#f0862a"/><rect x="3" y="9" width="1" height="1" fill="#2a1206"/><rect x="4" y="9" width="2" height="1" fill="#f0862a"/><rect x="6" y="9" width="1" height="1" fill="#2a1206"/><rect x="7" y="9" width="2" height="1" fill="#f0862a"/><rect x="9" y="9" width="1" height="1" fill="#2a1206"/><rect x="10" y="9" width="1" height="1" fill="#f0862a"/><rect x="11" y="9" width="1" height="1" fill="#2a1206"/><rect x="1" y="10" width="2" height="1" fill="#2a1206"/><rect x="3" y="10" width="3" height="1" fill="#f0862a"/><rect x="6" y="10" width="1" height="1" fill="#2a1206"/><rect x="7" y="10" width="3" height="1" fill="#f0862a"/><rect x="10" y="10" width="2" height="1" fill="#2a1206"/><rect x="2" y="11" width="2" height="1" fill="#2a1206"/><rect x="4" y="11" width="2" height="1" fill="#f0862a"/><rect x="6" y="11" width="1" height="1" fill="#2a1206"/><rect x="7" y="11" width="2" height="1" fill="#f0862a"/><rect x="9" y="11" width="2" height="1" fill="#2a1206"/><rect x="4" y="12" width="5" height="1" fill="#2a1206"/></svg>
+    <div class="ball-shadow"></div>
+  </div>
 </div>
 
 <!-- Login screen (shown when not authed) -->

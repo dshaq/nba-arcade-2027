@@ -2956,7 +2956,7 @@ async function showNbaBoxScore(eventId){
       const L = (grp.labels||[]).map(x=>String(x).toUpperCase());
       const at = (row, lbl) => row[L.indexOf(lbl)];
       const rows = (grp.athletes||[]).map(a=>{
-        const r = a.stats||[]; const name = a.athlete?.displayName||'';
+        const r = a.stats||[]; const name = plainName(a.athlete?.displayName||'');
         if(!r.length || /^DN[PD]/i.test(r[0]||'')) return {name, dnp:true, starter:a.starter};
         const [fgm,fga] = split(at(r,'FG')), [ftm,fta] = split(at(r,'FT'));
         const st = {pts:num(at(r,'PTS')), reb:num(at(r,'REB')), ast:num(at(r,'AST')), stl:num(at(r,'STL')), blk:num(at(r,'BLK')), to:num(at(r,'TO')), fgm,fga,ftm,fta};
@@ -8371,52 +8371,8 @@ function showSiteOverview(){
 // ── START ────────────────────────────────────────────────────────────────────
 boot();
 
-// ── ACCENTED NAMES ────────────────────────────────────────────────────────────
-// Player data (BDL, ESPN matching, storage file names) uses plain ASCII names, so all
-// lookups keep working. Only the text people see is rewritten to the proper spelling.
-// Add a player here as "Plain Name": "Accented Name".
-const ACCENTED_NAMES = {
-  'Nikola Jokic':'Nikola Jokić', 'Luka Doncic':'Luka Dončić', 'Bogdan Bogdanovic':'Bogdan Bogdanović',
-  'Nikola Vucevic':'Nikola Vučević', 'Jusuf Nurkic':'Jusuf Nurkić', 'Kristaps Porzingis':'Kristaps Porziņģis',
-  'Nikola Jovic':'Nikola Jović', 'Kasparas Jakucionis':'Kasparas Jakučionis', 'Alperen Sengun':'Alperen Şengün',
-  'Tidjane Salaun':'Tidjane Salaün', 'Moussa Diabate':'Moussa Diabaté', 'Nolan Traore':'Nolan Traoré',
-  'Egor Demin':'Egor Dëmin', 'Karlo Matkovic':'Karlo Matković', 'Dennis Schroder':'Dennis Schröder',
-  'Nikola Topic':'Nikola Topić', 'Hugo Gonzalez':'Hugo González', 'Yanic Konan Niederhauser':'Yanic Konan Niederhäuser',
-  'Tristan Vukcevic':'Tristan Vukčević', 'Pacome Dadiet':'Pacôme Dadiet', 'Jose Alvarado':'José Alvarado',
-};
-// Last names that are common words get no last-name-only rewrite
-const ACCENT_LASTNAME_SKIP = new Set(['Topic']);
-const _accentPairs = (()=>{
-  const pairs = [];
-  for(const [plain, acc] of Object.entries(ACCENTED_NAMES)){
-    pairs.push([plain, acc], [plain.toUpperCase(), acc.toUpperCase()]);
-    const pl = plain.split(' ').pop(), al = acc.split(' ').pop();
-    if(pl!==al && !ACCENT_LASTNAME_SKIP.has(pl)) pairs.push([pl, al], [pl.toUpperCase(), al.toUpperCase()]);
-  }
-  const map = new Map(); pairs.sort((a,b)=>b[0].length-a[0].length).forEach(([a,b])=>{ if(!map.has(a)) map.set(a,b); });
-  const re = new RegExp('(?<![A-Za-z\\u00C0-\\u024F])(' + [...map.keys()].map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')(?![A-Za-z\\u00C0-\\u024F])', 'g');
-  return {map, re};
-})();
-function accentText(str){ return String(str).replace(_accentPairs.re, m=>_accentPairs.map.get(m)||m); }
-function _accentNode(root){
-  const fix = t => { const v = t.nodeValue; if(!v || v.length<3) return; const nv = accentText(v); if(nv!==v) t.nodeValue = nv; };
-  if(root.nodeType===3){ const par = root.parentNode; if(par && !/^(SCRIPT|STYLE|TEXTAREA)$/.test(par.nodeName)) fix(root); return; }
-  if(root.nodeType!==1 || /^(SCRIPT|STYLE|TEXTAREA|INPUT)$/.test(root.nodeName)) return;
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode:n=>/^(SCRIPT|STYLE|TEXTAREA)$/.test(n.parentNode?.nodeName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
-  let n; while((n = w.nextNode())) fix(n);
-}
-(function startAccentNames(){
-  const go = () => {
-    _accentNode(document.body);
-    new MutationObserver(muts=>{
-      for(const m of muts){
-        if(m.type==='characterData') _accentNode(m.target);
-        else m.addedNodes.forEach(_accentNode);
-      }
-    }).observe(document.body, {childList:true, subtree:true, characterData:true});
-  };
-  if(document.body) go(); else document.addEventListener('DOMContentLoaded', go);
-})();
+// (Accented display names were removed Oct 25: the pixel font's accents looked bad.
+// Names show in plain ASCII everywhere; ESPN names are stripped with plainName().)
 
 // ── AUTO-UPDATE ──────────────────────────────────────────────────────────────
 // League data already refreshes every minute; this keeps the CODE current too.

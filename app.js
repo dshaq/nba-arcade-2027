@@ -1557,8 +1557,17 @@ function switchLoginTab(tab){
 // Enforce one saved stat line per player per date. Extra lines for the same
 // game (e.g. saved under two different game IDs) would double his FP.
 // Keeps the line with the most detail (foul counts merged in), else the first.
+// Stat lines saved under a player's old id move to his real id (then de-duplicated)
+const PID_REMAP = { 1058160888: 2903 }; // "Airious Bailey" (feed id) → Ace Bailey
 function dedupePlayerStats(){
   const ps = leagueState?.playerStats; if(!ps) return;
+  for(const k of Object.keys(ps)){
+    const v = ps[k], to = PID_REMAP[v?.pid];
+    if(to == null) continue;
+    const nk = `${to}_${String(k).split('_').slice(1).join('_')}`;
+    delete ps[k];
+    if(!ps[nk]) ps[nk] = {...v, pid:to, name:getPlayer(to)?.name || NAME_ALIASES[v.name] || v.name};
+  }
   const keep = {};
   const removed = [];
   for(const k of Object.keys(ps).sort()){
@@ -1754,7 +1763,7 @@ document.addEventListener('visibilitychange', ()=>{
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
 const BDL_BASE = 'https://api.balldontlie.io/v1';
-const BDL_CACHE_KEY = 'bdl_players_cache_v4'; // bumped: added draftYear to PLAYERS runtime object
+const BDL_CACHE_KEY = 'bdl_players_cache_v5'; // v5: name aliases (Ace Bailey)
 const BDL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlKey(){
@@ -1807,7 +1816,7 @@ function bdlPos(p){ return (p||'').split('-')[0].toUpperCase()||'F'; }
 function bdlTeam(t){ return t?.abbreviation || ''; }
 
 // Build a full name from BDL player object
-function bdlName(p){ return `${p.first_name} ${p.last_name}`; }
+function bdlName(p){ const n = `${p.first_name} ${p.last_name}`; return NAME_ALIASES[n] || n; }
 
 // Load active players from BDL; cache in localStorage for 24h
 async function loadBdlPlayers(){
@@ -1852,7 +1861,14 @@ async function loadBdlPlayers(){
 }
 
 // Normalize a name for fuzzy matching: lowercase, remove punctuation, collapse spaces
-function normName(n){ return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim(); }
+// Names players actually go by (the data feed uses legal first names)
+const NAME_ALIASES = { 'Airious Bailey':'Ace Bailey' };
+const _NAME_ALIAS_NORM = {};
+function normName(n){
+  const k = String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.\-']/g,'').replace(/\s+/g,' ').trim();
+  if(!Object.keys(_NAME_ALIAS_NORM).length) for(const [a,b] of Object.entries(NAME_ALIASES)) _NAME_ALIAS_NORM[a.toLowerCase()] = b.toLowerCase();
+  return _NAME_ALIAS_NORM[k] || k;
+}
 
 // Returns a short display name for a player — last name, stripping name suffixes (Jr., Sr., II, III, IV)
 // e.g. "Michael Porter Jr." → "PORTER", "Jaren Jackson Jr." → "JACKSON"
@@ -1941,7 +1957,7 @@ function applyBdlPlayers(bdlPlayers){
 }
 
 // ── BDL SEASON AVERAGES → projected FP ───────────────────────────────────────
-const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v2'; // v2 adds 3PM/FTM for themed duels
+const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v3'; // v3: name aliases
 const BDL_AVG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function loadBdlSeasonAverages(){

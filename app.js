@@ -3030,8 +3030,7 @@ function renderHomeScreen(){
   renderScoreboard();
   renderNewsBanner();
   renderDuelCard();
-  renderMatchupCard();
-  renderLineupPreview();
+  renderHomeMatchups();
   renderQuickStats();
 }
 
@@ -5353,7 +5352,16 @@ function renderFantasySchedule(){
   if(prevBtn) prevBtn.style.opacity=wi>0?'1':'0.3';
   if(nextBtn) nextBtn.style.opacity=wi<schedule.length-1?'1':'0.3';
 
-  let html='<div style="height:8px"></div><div class="schedule-week">';
+  let html='<div style="height:8px"></div><div class="schedule-week">'+scheduleRowsHtml(week, wi, isCurrent, isPast)+'</div>';
+  el.innerHTML=html;
+}
+
+// One row per match-up (used by the Schedule tab and the Home "Current Match-ups")
+function scheduleRowsHtml(week, wi, isCurrent, isPast){
+  const managers=leagueState.managers||[];
+  const myId=getMyId();
+  const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
+  let html='';
   week.forEach(matchup=>{
     const h=getM(matchup.home), a=getM(matchup.away);
     const isMine=matchup.home===myId||matchup.away===myId;
@@ -5380,8 +5388,24 @@ function renderFantasySchedule(){
       </div>
     </div>`;
   });
-  html+='</div>';
-  el.innerHTML=html;
+  return html;
+}
+
+// Home: this week's match-ups for the whole league, mine first
+function renderHomeMatchups(){
+  const el=document.getElementById('home-matchups-container'); if(!el) return;
+  const run=getCurrentRun();
+  const schedule=(leagueState?.schedule||{})[run.id]||[];
+  const wi=getCurrentWeekIndex(run.id);
+  if(!schedule.length || wi<0 || !schedule[wi]){ el.innerHTML=`<div class="card" style="margin:0 14px"><div style="padding:12px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">SEASON STARTS ${fmtRunDate(run.start)}</div></div>`; return; }
+  fillMatchupResults();
+  const myId=getMyId();
+  const week=[...schedule[wi]].sort((x,y)=>((y.home===myId||y.away===myId)?1:0)-((x.home===myId||x.away===myId)?1:0));
+  const {mon,sun}=runWeekRange(run.id, wi);
+  const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  el.innerHTML=`<div style="padding:0 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${run.name.toUpperCase()} RUN · WEEK ${wi+1} · ${fmt(mon)} – ${fmt(sun)}${typeof liveGamesActive!=='undefined'&&liveGamesActive?' · <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
+    <div class="schedule-week" style="margin:0 14px">${scheduleRowsHtml(week, wi, true, false)}</div>
+    <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);text-align:center;margin-top:6px">TAP A MATCH-UP FOR ITS BOX SCORE</div>`;
 }
 
 function renderFantasyRunContent(){

@@ -1498,16 +1498,12 @@ html[data-theme="neon"]{
     <!-- Daily Duel -->
     <div id="duel-card-container"></div>
 
-    <!-- Active matchup -->
-    <div class="section-label" style="padding-top:8px;padding-bottom:6px">⚔️ CURRENT MATCH-UP</div>
-    <div id="matchup-card-container"></div>
-
-    <!-- My Lineup -->
-    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;padding-top:10px;padding-bottom:6px">
-      <span>📋 MY LINEUP</span>
-      <button class="btn btn-sm btn-secondary" onclick="showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE</button>
+    <!-- This week's match-ups (whole league, mine first) -->
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;padding-top:8px;padding-bottom:6px">
+      <span>⚔️ CURRENT MATCH-UPS</span>
+      <button class="btn btn-sm btn-secondary" onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE MY LINE-UP</button>
     </div>
-    <div id="lineup-preview-container"></div>
+    <div id="home-matchups-container"></div>
 
     <!-- Quick stats -->
     <div class="section-label">📊 MY FANTASY STATS</div>

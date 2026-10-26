@@ -7244,7 +7244,27 @@ function assignTiers(pool){
 }
 
 // Get or create current week key (Mon–Sun, starts Monday)
+// On Sundays the NEXT week's challenge can open early (picks open the night before).
+// If today is Sunday, this week has no live (non-test) challenge, and next Monday's
+// exists — or the commissioner is generating it — that next week is "current".
+function _wlcRealWeek(w){ return w && !w.testers; }
+function wlcSundayNextKey(){
+  const now = new Date();
+  if(now.getDay() !== 0) return null;
+  const cur = _wlcWeekKeyRaw(), nxt = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 12);
+  const nk = _wlcWeekKeyRaw(nxt);
+  const weeks = leagueState?.wlc?.weeks || {};
+  if(_wlcRealWeek(weeks[cur])) return null;
+  return nk;
+}
 function wlcWeekKey(date){
+  if(!date){
+    const nk = wlcSundayNextKey();
+    if(nk && leagueState?.wlc?.weeks?.[nk]) return nk;
+  }
+  return _wlcWeekKeyRaw(date);
+}
+function _wlcWeekKeyRaw(date){
   // Use local date to avoid UTC midnight boundary issues
   let d;
   if(!date){
@@ -8136,7 +8156,9 @@ function renderWlcStandings(container){
 // ── WLC ADMIN (Commissioner) ──────────────────────────────────────────────────
 
 async function commGenerateWlcWeek(testMode){
-  const proposal = generateWlcProposal();
+  // Sunday with no live week: generate for tomorrow so picks can open tonight
+  const nk = !testMode ? wlcSundayNextKey() : null;
+  const proposal = generateWlcProposal(nk || undefined);
   if(!leagueState.wlc) leagueState.wlc = {weeks:{},lineups:{},results:{},standings:{}};
   let testers = null;
   if(testMode){

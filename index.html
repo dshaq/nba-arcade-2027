@@ -26,6 +26,9 @@
   --text3:    #506080;
   --panel:    #0d1530;
   --panel2:   #0b1020;
+  --sb-bg:    #1d2f63;
+  --sb-edge:  #0a1230;
+  --sb-inner: #3a5cb0;
   --pixel:    'Press Start 2P', monospace;
   --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --radius:   4px;
@@ -654,9 +657,12 @@ img{display:block;}
   border:1px solid var(--accent3);
   border-radius:20px;
   padding:2px 8px;
-  font-family:var(--pixel);font-size:6px;
+  font-family:var(--pixel);font-size:6px;line-height:1;
   color:var(--accent3);
+  display:inline-flex;align-items:center;gap:4px;min-height:16px;
 }
+.duel-streak-chip .fire{font-family:system-ui,sans-serif;font-size:9px;line-height:1;display:inline-block;transform:translateY(-.5px);}
+.duel-streak-chip > span:last-child{display:inline-block;line-height:1;padding-top:1px;}
 .duel-picked{
   border-color:var(--accent2) !important;
 }
@@ -844,10 +850,10 @@ img{display:block;}
 /* ── HOMEPAGE SCOREBOARD + compact cards ── */
 #game-ticker{display:none!important;}  /* replaced by the scoreboard */
 /* 16-bit gym scoreboard: navy board, black LED windows, pixel labels */
-.sb-select{text-align:center;text-align-last:center;flex:1;min-width:0;background:var(--panel);color:#ffd93d;border:2px solid #ffd93d;border-radius:6px;padding:7px 8px;font-family:var(--pixel);font-size:6.5px;cursor:pointer;text-shadow:0 0 6px rgba(255,217,61,.6);box-shadow:0 0 8px rgba(255,217,61,.25);}
+.sb-select{text-align:center;text-align-last:center;flex:1;min-width:0;background:var(--panel);color:#ffd93d;border:2px solid #ffd93d;border-radius:6px;padding:6px 4px;font-family:var(--pixel);font-size:5px;cursor:pointer;text-shadow:0 0 6px rgba(255,217,61,.6);box-shadow:0 0 8px rgba(255,217,61,.25);}
 .sb-select option{color:var(--text1);background:var(--bg2);text-shadow:none;}
-.gym{cursor:pointer;height:158px;box-sizing:border-box;margin:0 21px;zoom:.667;background:#1d2f63;border:3px solid #0a1230;border-radius:6px;padding:8px 8px 6px;position:relative;
-  box-shadow:inset 0 0 0 2px #3a5cb0, inset 0 -6px 0 rgba(0,0,0,.25), 0 4px 0 #050914;image-rendering:pixelated;}
+.gym{cursor:pointer;height:158px;box-sizing:border-box;margin:0 21px;zoom:.667;background:var(--sb-bg);border:3px solid var(--sb-edge);border-radius:6px;padding:8px 8px 6px;position:relative;
+  box-shadow:inset 0 0 0 2px var(--sb-inner), inset 0 -6px 0 rgba(0,0,0,.25), 0 4px 0 #050914;image-rendering:pixelated;}
 .gym::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:4px;
   background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.12) 2px 3px);}
 .gym-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
@@ -1368,16 +1374,19 @@ img{display:block;}
 
 /* ── COLOR THEMES (Profile → Color Theme). Default = Arcade Night (:root above) ── */
 html[data-theme="hardwood"]{
+  --sb-bg:#6b3d17; --sb-edge:#2a1406; --sb-inner:#a0622a;
   --bg:#140b05; --bg2:#1e1209; --bg3:#2a190d; --card:#24160b; --border:#4a2f19;
   --accent1:#ff8a3d; --accent2:#7bd389; --accent3:#ffc857; --accent4:#e4572e; --accent5:#c084fc;
   --text1:#fff6ec; --text2:#e8d2b8; --text3:#8a6a50; --panel:#24160b; --panel2:#1a0f07;
 }
 html[data-theme="pocket"]{
+  --sb-bg:#1e3d1c; --sb-edge:#081408; --sb-inner:#3f7a35;
   --bg:#030a04; --bg2:#061208; --bg3:#0b1c0d; --card:#09180b; --border:#24502a;
   --accent1:#9bbc0f; --accent2:#8bdc5f; --accent3:#d4e157; --accent4:#ef6f6c; --accent5:#a5d6a7;
   --text1:#e8f5c8; --text2:#b8d68a; --text3:#6b8f4a; --panel:#09180b; --panel2:#050e06;
 }
 html[data-theme="neon"]{
+  --sb-bg:#3d1470; --sb-edge:#14052a; --sb-inner:#8a3bd6;
   --bg:#10041c; --bg2:#180929; --bg3:#220e3a; --card:#1d0b33; --border:#3d1f66;
   --accent1:#00e5ff; --accent2:#39ff9f; --accent3:#ffd23f; --accent4:#ff2e88; --accent5:#b14cff;
   --text1:#ffffff; --text2:#e0c8ff; --text3:#7a5aa8; --panel:#1d0b33; --panel2:#14072a;
@@ -1403,6 +1412,17 @@ html[data-theme="neon"]{
 .day-btn.warn{border-color:#ff3b5c;} .day-btn.warn .dm{color:#ff3b5c;}
 .day-note{margin:0 14px 8px;font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3);}
 .day-note.ok{color:var(--accent2);} .day-note.bad{color:#ff8a9a;}
+
+.wlc-pv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.wlc-pv-games{flex-shrink:0;text-align:right;font-family:var(--pixel);font-size:5px;line-height:1.7;color:var(--text2);}
+.wlc-pv-games .h{font-size:4.5px;color:#7fc8ff;margin-bottom:1px;}
+
+.pcard-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:30px;height:44px;border-radius:6px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);color:#fff;font-family:var(--pixel);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.pcard-nav.l{left:8px;} .pcard-nav.r{right:8px;}
+.pcard-count{position:absolute;top:12px;left:12px;z-index:4;font-family:var(--pixel);font-size:5.5px;color:#fff;background:rgba(0,0,0,.5);padding:4px 6px;border-radius:4px;}
+
+.sb-side-btn{flex-shrink:0;margin-left:4px;font-family:var(--pixel);font-size:5px;line-height:1.5;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 6px;cursor:pointer;min-height:28px;}
+.sb-side-btn.standings{color:var(--accent1);border-color:var(--accent1);}
 </style>
 </head>
 <body>
@@ -1504,8 +1524,9 @@ html[data-theme="neon"]{
 
     <!-- Scoreboard (replaces the old ticker) -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px">
-      <div id="sb-select-wrap" style="flex:1;min-width:0;display:flex;margin-right:8px"></div>
-      <button onclick="showSiteOverview()" style="font-family:var(--pixel);font-size:5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:4px 8px;cursor:pointer">📖 HOW TO PLAY</button>
+      <div id="sb-select-wrap" style="flex:1;min-width:0;display:flex;margin-right:6px"></div>
+      <button class="sb-side-btn standings" onclick="showNbaStandings()">STANDINGS</button>
+      <button class="sb-side-btn" onclick="showSiteOverview()">HOW TO<br>PLAY</button>
     </div>
     <div id="scoreboard-container"></div>
 
@@ -1586,7 +1607,7 @@ html[data-theme="neon"]{
   <!-- WEEKLY LINE-UP CHALLENGE screen -->
   <div id="wlc-screen" class="screen">
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px">
-      <span>WEEKLY CHALLENGE</span>
+      <span>WEEKLY LINE-UP CHALLENGE</span>
       <button onclick="showWlcRules()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 9px;cursor:pointer;flex-shrink:0">📖 RULES</button>
     </div>
     <div id="wlc-content"></div>
@@ -1650,7 +1671,7 @@ html[data-theme="neon"]{
       </div>
     </div>
 
-    <div class="section-label">WEEKLY CHALLENGE STATS</div>
+    <div class="section-label">WEEKLY LINE-UP CHALLENGE STATS</div>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="settings-row" style="padding:10px 14px">
         <span class="label">Current Challenge FP</span>

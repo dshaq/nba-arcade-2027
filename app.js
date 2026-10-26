@@ -1058,7 +1058,7 @@ function showUserProfile(mid, tab='profile'){
       ['This Week FP', me.fp.toFixed(1)+' FP'],
       ['Season FP', seasonFP(m.id, currentRun).toFixed(1)+' FP'],
     ])}
-    ${section('WEEKLY CHALLENGE STATS', [
+    ${section('WEEKLY LINE-UP CHALLENGE STATS', [
       ['Current Challenge FP', wlcCur],
       ['Total Wins', `${wlc.wins||0} win${wlc.wins===1?'':'s'}`],
       ['Total FP', (wlc.totalFP||0).toFixed(1)+' FP'],
@@ -1159,7 +1159,34 @@ function rosterOwnerOf(pid){
 // opts.actions: [{label, js, kind:'primary'|'danger'|'secondary'}] → button bar
 // at the bottom (used by the Weekly Challenge Add/Drop prompt). Kept across tab switches.
 let playerCardOpts = {};
+// ‹ › on the player card step through the list the card was opened from
+// (roster, waivers, box score…): every player link in the same list, in order.
+let pcardList = null;
+function _pcardNamesNear(el){
+  const re = /showPlayerCard\(("(?:[^"\\]|\\.)*")/;
+  for(let n = el; n && n !== document.body; n = n.parentElement){
+    const links = [...n.querySelectorAll('[onclick*="showPlayerCard("]')];
+    if(links.length >= 2){
+      const names = [];
+      for(const a of links){ const m = (a.getAttribute('onclick')||'').match(re); if(m){ try{ const nm = JSON.parse(m[1]); if(!names.includes(nm)) names.push(nm); }catch(e){} } }
+      if(names.length >= 2) return names;
+    }
+  }
+  return null;
+}
+function pcardNav(dir){
+  if(!pcardList || !openPlayerCardName) return;
+  const i = pcardList.indexOf(openPlayerCardName);
+  const next = pcardList[(i + dir + pcardList.length) % pcardList.length];
+  const tab = document.getElementById('pcard-tab-profile')?.style.color==='var(--accent1)' ? 'profile' : 'stats';
+  showPlayerCard(next, tab);
+}
 function showPlayerCard(playerName, initialTab, opts) {
+  const ev = window.event;
+  if(ev && ev.type==='click' && ev.target && !ev.target.closest?.('#player-card-modal')){
+    const names = _pcardNamesNear(ev.target);
+    pcardList = names && names.includes(playerName) ? names : null;
+  }
   if(opts !== undefined) playerCardOpts = {name:playerName, ...opts};
   else if(playerCardOpts.name !== playerName) playerCardOpts = {};
   const actions = playerCardOpts.actions || [];
@@ -1237,7 +1264,7 @@ function showPlayerCard(playerName, initialTab, opts) {
         </tr></thead>
         <tbody>
           ${weekRows.length ? sectionRow(`<span style="color:#ffd93d">CURRENT MATCH-UP</span> <span style="color:#fff">WEEK · ${getWeekLabel().toUpperCase()}</span>`) + weekRows.map(gameRow).join('') : ''}
-          ${earlier.length ? sectionRow('EARLIER') + earlier.map(gameRow).join('') : ''}
+          ${earlier.length ? sectionRow('PREVIOUS') + earlier.map(gameRow).join('') : ''}
         </tbody>
       </table>
     </div>` : `<div style="text-align:center;padding:24px 0 8px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO GAMES PLAYED YET</div>`;
@@ -1280,6 +1307,8 @@ function showPlayerCard(playerName, initialTab, opts) {
         <div style="font-family:var(--pixel);font-size:6px;color:rgba(255,255,255,.75);margin-top:4px">${info.pos||pArr?.pos||''} · ${teamFull}${teamAbbr?' ('+teamAbbr+')':''}</div>
         <div style="font-family:var(--pixel);font-size:6px;color:${owner?'#ffd93d':'rgba(255,255,255,.55)'};margin-top:4px">${ownerLine}</div>
       </div>
+      ${pcardList && pcardList.length>1 && pcardList.includes(playerName) ? `<button class="pcard-nav l" onclick="event.stopPropagation();pcardNav(-1)" aria-label="Previous player">‹</button><button class="pcard-nav r" onclick="event.stopPropagation();pcardNav(1)" aria-label="Next player">›</button>
+      <div class="pcard-count">${pcardList.indexOf(playerName)+1} / ${pcardList.length}</div>` : ''}
       <button onclick="document.getElementById('player-card-modal').remove()" style="position:absolute;top:10px;right:10px;z-index:4;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);margin:8px 16px 0;flex-shrink:0">
@@ -2652,13 +2681,23 @@ function canWaiver(mid){
 }
 
 // Full-screen list of every add and drop in the league, newest first
-function showTransactionLog(){
-  const rows=[];
+let txlogTab = 'current';
+function showTransactionLog(tab){
+  if(tab) txlogTab = tab;
+  const all=[];
   for(const [mid,log] of Object.entries(leagueState.waiverLog||{})){
     const m=(leagueState.managers||[]).find(x=>String(x.id)===String(mid));
-    for(const e of log||[]) rows.push({...e, team: m?teamLabel(m):'?'});
+    for(const e of log||[]) all.push({...e, team: m?teamLabel(m):'?'});
   }
-  rows.sort((a,b)=> String(b.ts||b.date).localeCompare(String(a.ts||a.date)) || String(b.date).localeCompare(String(a.date)));
+  // Newest first. Older entries have only a date: treat them as noon that day
+  const key = e => e.ts || (/^\d{8}$/.test(String(e.date)) ? `${String(e.date).slice(0,4)}-${String(e.date).slice(4,6)}-${String(e.date).slice(6,8)}T16:00:00.000Z` : '');
+  all.sort((a,b)=> key(b).localeCompare(key(a)));
+  // Current Match-up = this Monday–Sunday; everything before moves to Previous
+  const ws = ymd(currentWeekStart());
+  const dayOf = e => e.ts ? new Date(e.ts).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'') : String(e.date);
+  const rows = all.filter(e => txlogTab==='current' ? dayOf(e)>=ws : dayOf(e)<ws);
+  const tabBtn = (id,label,n) => `<button onclick="showTransactionLog('${id}')" style="flex:1;padding:9px 0;font-family:var(--pixel);font-size:6px;border:none;background:transparent;cursor:pointer;border-bottom:2px solid ${txlogTab===id?'var(--accent1)':'transparent'};color:${txlogTab===id?'var(--accent1)':'var(--text3)'}">${label} (${n})</button>`;
+  const nCur = all.filter(e=>dayOf(e)>=ws).length;
   const fmt = e => e.ts ? new Date(e.ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})
                         : statDateObj(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
   document.getElementById('txlog-modal')?.remove();
@@ -2670,6 +2709,7 @@ function showTransactionLog(){
       <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1)">TRANSACTION LOG</div>
       <button onclick="document.getElementById('txlog-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
     </div>
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:0 16px;flex-shrink:0">${tabBtn('current','CURRENT MATCH-UP',nCur)}${tabBtn('previous','PREVIOUS',all.length-nCur)}</div>
     <div class="top-sheet-body" style="padding-top:0">
       ${rows.length ? `<table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5.5px">
         <thead><tr style="position:sticky;top:0;background:var(--bg2)">
@@ -2684,7 +2724,7 @@ function showTransactionLog(){
           <td style="padding:8px 4px;color:${e.type==='add'?'var(--accent2)':'#ffd93d'}">${e.type==='add'?'ADDED':'DROPPED'}${e.comm?' <span style="color:var(--text3)">(COMM)</span>':''}</td>
           <td style="padding:8px 4px;color:var(--text1);cursor:pointer" onclick="${p?pcardOnclick(p.name):''}">${p?p.name:'Player #'+e.pid}</td>
         </tr>`; }).join('')}</tbody></table>`
-      : '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO TRANSACTIONS YET</div>'}
+      : `<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">${txlogTab==='current'?'NO TRANSACTIONS THIS MATCH-UP YET':'NO EARLIER TRANSACTIONS'}</div>`}
     </div></div>`;
   document.body.appendChild(m);
 }
@@ -3031,7 +3071,7 @@ function renderScoreboard(){
     <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
     ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev);
       const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${boardClock(g).trim()}`) : g.final ? 'FINAL' : g.tip;
-      return `<option value="${ev.id}">${ev.id===sbEventId?'▶ ':''}${g.live?'🔴 ':''}${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
+      return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
   </select>`;
 
   const ev = SB_EVENTS.find(e=>e.id===sbEventId) || SB_EVENTS[0];
@@ -3072,6 +3112,47 @@ function renderScoreboard(){
     </div>
     <div class="gym-hint">TAP FOR BOX SCORE</div>
   </div>`;
+}
+
+// NBA standings by conference (ESPN), in a pop-up from the Home scoreboard row
+let _nbaStandingsConf = 'Eastern Conference';
+async function showNbaStandings(conf){
+  if(conf) _nbaStandingsConf = conf;
+  let m = document.getElementById('nba-standings-modal');
+  if(!m){
+    m = document.createElement('div'); m.id='nba-standings-modal'; m.className='top-sheet-overlay';
+    m.onclick = e=>{ if(e.target===m) m.remove(); };
+    document.body.appendChild(m);
+  }
+  const head = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--text1)">🏆 NBA STANDINGS</div>
+      <button onclick="document.getElementById('nba-standings-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button></div>
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:0 16px;flex-shrink:0">${['Eastern Conference','Western Conference'].map(c=>`<button onclick="showNbaStandings('${c}')" style="flex:1;padding:9px 0;font-family:var(--pixel);font-size:6px;border:none;background:transparent;cursor:pointer;border-bottom:2px solid ${_nbaStandingsConf===c?'var(--accent1)':'transparent'};color:${_nbaStandingsConf===c?'var(--accent1)':'var(--text3)'}">${c.split(' ')[0].toUpperCase()}</button>`).join('')}</div>`;
+  m.innerHTML = `<div class="top-sheet">${head}<div class="top-sheet-body" id="nba-standings-body"><div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">LOADING…</div></div></div>`;
+  try{
+    if(!window._nbaStandingsData || Date.now()-window._nbaStandingsAt > 10*60*1000){
+      window._nbaStandingsData = await fetch('https://site.api.espn.com/apis/v2/sports/basketball/nba/standings').then(r=>r.json());
+      window._nbaStandingsAt = Date.now();
+    }
+    const conf = (window._nbaStandingsData.children||[]).find(c=>c.name===_nbaStandingsConf);
+    const stat = (e,n) => (e.stats||[]).find(x=>x.name===n);
+    const rows = (conf?.standings?.entries||[]).map(e=>({abbr:espnToAbbr((e.team?.abbreviation||'').toUpperCase()), name:e.team?.shortDisplayName||e.team?.displayName||'',
+      seed:+(stat(e,'playoffSeed')?.value||99), w:stat(e,'wins')?.displayValue||'0', l:stat(e,'losses')?.displayValue||'0',
+      pct:stat(e,'winPercent')?.displayValue||'—', gb:stat(e,'gamesBehind')?.displayValue||'—', strk:stat(e,'streak')?.displayValue||'—'}))
+      .sort((a,b)=>a.seed-b.seed);
+    const c = 'padding:7px 2px;text-align:center';
+    document.getElementById('nba-standings-body').innerHTML = `<table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:6px">
+      <thead><tr style="color:var(--text3);background:var(--bg3)"><th style="${c}">#</th><th style="${c};text-align:left">TEAM</th><th style="${c}">W</th><th style="${c}">L</th><th style="${c}">PCT</th><th style="${c}">GB</th><th style="${c}">STRK</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);${i===5||i===9?'border-bottom:2px dashed var(--text3);':''}">
+        <td style="${c};color:var(--text3)">${i+1}</td>
+        <td style="${c};text-align:left;color:var(--text1);white-space:nowrap">${r.abbr} <span style="color:var(--text3)">${r.name.toUpperCase()}</span></td>
+        <td style="${c};color:var(--text1)">${r.w}</td><td style="${c};color:var(--text1)">${r.l}</td>
+        <td style="${c};color:var(--text2)">${r.pct}</td><td style="${c};color:var(--text2)">${r.gb}</td>
+        <td style="${c};color:${/^W/.test(r.strk)?'var(--accent2)':/^L/.test(r.strk)?'var(--accent4)':'var(--text2)'}">${r.strk}</td></tr>`).join('')}</tbody></table>
+      <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:8px;line-height:1.8">TOP 6: PLAYOFFS · 7–10: PLAY-IN</div>`;
+  }catch(e){
+    document.getElementById('nba-standings-body').innerHTML = '<div style="padding:32px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">STANDINGS UNAVAILABLE RIGHT NOW</div>';
+  }
 }
 
 // Full ESPN box score for one NBA game, both teams, with FP per player
@@ -3442,10 +3523,10 @@ const DUEL_THEMES = {
   1:{ name:'MONSTER MONDAY',        stat:'pra',     prompt:'Who has more points + rebounds + assists tonight?' },
   2:{ name:'TEAMS TUESDAY',         stat:'team',    prompt:'Who wins tonight?' },
   3:{ name:'WET WEDNESDAY 💦',      stat:'tpm',     prompt:'Who makes more 3-pointers tonight?' },
-  4:{ name:'STONKS THURSDAY 📈',    stat:'stl+blk', prompt:'Who has more steals + blocks tonight?' },
+  4:{ name:'THOROUGH THURSDAY',     stat:'fp',      prompt:'Who earns the most Fantasy Points today?' },
   5:{ name:'FREE THROW FRIDAY',     stat:'ftm',     prompt:'Who makes more free throws tonight?' },
-  6:{ name:'PARLAY SATURDAY 🎰',    stat:'parlay',  prompt:'Which parlay hits tonight?' },
-  0:{ name:'DOUBLE-DOUBLE SUNDAY',  stat:'dd',      prompt:'Who posts the bigger double-double tonight?' },
+  6:{ name:'STONKS SATURDAY 📈',    stat:'stl+blk', prompt:'Who records the most steals + blocks today?' },
+  0:{ name:'SWISH SUNDAY',          stat:'pts',     prompt:'Who scores the most points today?' },
 };
 function duelThemeFor(dateKey){
   if(dateKey < DUEL_THEMES_START) return null;
@@ -3531,6 +3612,8 @@ function themedDuel(dateKey, theme, seed, eligible, matchups){
     'stl+blk':{ pool:p=>(p.spg+p.bpg)>=1.5 && p.ppg>=14,  val:p=>p.spg+p.bpg,       maxDiff:0.4, maxPpg:10 },
     ftm:      { pool:p=>duelFtpg(p)>=3 && p.ppg>=18,      val:duelFtpg,         maxDiff:0.7, maxPpg:6 },
     dd:       { pool:p=>p.rpg>=7.5 && p.ppg>=14,          val:p=>p.ppg+p.rpg,       maxDiff:4,   maxPpg:8 },
+    fp:       { pool:p=>p.ppg>=18,                         val:p=>+getPlayerProjFP(p)||0, maxDiff:4, maxPpg:6 },
+    pts:      { pool:p=>p.ppg>=18,                         val:p=>p.ppg,             maxDiff:3,   maxPpg:3 },
   }[theme.stat];
   if(!cfg) return null;
   const pair = pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff, cfg.maxPpg)
@@ -4161,7 +4244,7 @@ function renderDuelCard(){
         <span>⚡ DAILY DUEL</span>
         <div style="display:flex;align-items:center;gap:10px">
           <button onclick="event.stopPropagation();showDuelRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:0">RULES ›</button>
-          <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+          <span class="duel-streak-chip">${streak > 0 ? `<span class="fire">🔥</span><span>${streak}</span>` : '—'}</span>
         </div>
       </div>
       ${duel.theme?`<div class="duel-theme">${duel.theme}</div>`:''}
@@ -4284,7 +4367,7 @@ function renderDuelCard(){
       <span>⚡ DAILY DUEL</span>
       <div style="display:flex;align-items:center;gap:10px">
         <button onclick="event.stopPropagation();showDuelRules()" style="background:none;border:none;font-family:var(--pixel);font-size:5.5px;color:var(--accent1);cursor:pointer;padding:0">RULES ›</button>
-        <span class="duel-streak-chip">${streak > 0 ? `🔥 ${streak}` : '—'}</span>
+        <span class="duel-streak-chip">${streak > 0 ? `<span class="fire">🔥</span><span>${streak}</span>` : '—'}</span>
       </div>
     </div>
     ${duel.theme?`<div class="duel-theme">${duel.theme}</div>`:''}
@@ -4917,7 +5000,7 @@ function showFantasyRulesModal(){
           <span style="font-family:var(--pixel);font-size:4.5px;color:${ok==='YES'?'var(--accent2)':'var(--text3)'};white-space:nowrap">IR: ${ok}</span>
         </div>`).join('')}
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">
-          Statuses come from the official injury report and refresh every 15 minutes. Players without a badge are healthy. The same OUT rule applies to the Weekly Challenge's one injury swap.
+          Statuses come from the official injury report and refresh every 15 minutes. Players without a badge are healthy. The same OUT rule applies to the Weekly Line-up Challenge's one injury swap.
         </div>
       `)}
 
@@ -5175,7 +5258,8 @@ function filterRowHtml(kind){
   const f = kind==='draft' ? draftFilter : waiverFilter;
   const fv = kind==='draft' ? 'draftFilter' : 'waiverFilter';
   const list = kind==='draft' ? 'renderDraftPlayerList()' : 'renderWaiverPlayerList()';
-  const btn=(label,active,set)=>`<button onclick="${fv}.${set};${list}" style="background:${active?'var(--accent1)':'var(--bg3)'};color:${active?'#000':'var(--text2)'};border:1px solid ${active?'var(--accent1)':'var(--border)'};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;white-space:nowrap">${label}</button>`;
+  const btn=(label,active,set,col)=>{ const c = col || 'var(--accent1)';
+    return `<button onclick="${fv}.${set};${list}" style="background:${active?c:'var(--bg3)'};color:${active?'#000':(col||'var(--text2)')};border:1px solid ${active?c:(col||'var(--border)')};border-radius:20px;padding:5px 10px;font-family:var(--pixel);font-size:5.5px;line-height:1;cursor:pointer;white-space:nowrap">${label}</button>`; };
   const avail = f.availability==='all' ? 'all' : 'available';
   const sort = f.sort==='alpha' ? 'alpha' : 'fp';
   return `
@@ -5184,7 +5268,7 @@ function filterRowHtml(kind){
     ${btn('Available', avail==='available', "availability='available'")}
     ${btn('All Players', avail==='all', "availability='all'")}
     ${kind==='draft' ? btn('🌟 Rookies', !!f.rookie, 'rookie=!draftFilter.rookie') : ''}
-    ${kind==='waiver' ? btn('🚫 Hide Out/Inj', !!f.hideOut, 'hideOut=!waiverFilter.hideOut') : ''}
+    ${kind==='waiver' ? btn('Hide Out/Inj', !!f.hideOut, 'hideOut=!waiverFilter.hideOut', '#ff6b81') : ''}
     </div>
     <div class="frow-group sort">
     <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">SORT</span>
@@ -5343,6 +5427,9 @@ function renderFantasyDraftPane(){
     ? `<div style="background:rgba(245,166,35,.12);border:1px solid var(--accent3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-family:var(--pixel);font-size:6px;color:var(--accent3)">📋 DRAFT STARTS OCT 18 AT 8:30PM ET — Browse the player pool below</div>`
     : '';
 
+  // Draft finished: show the draft board instead of the player picker
+  if(isDraftComplete){ el.innerHTML = draftOverviewHtml(dw.run); return; }
+
   el.innerHTML=`
     <div style="padding:10px 14px 0">
       ${draftBanner}
@@ -5359,6 +5446,63 @@ function renderFantasyDraftPane(){
     <div id="draft-player-list"></div>`;
 
   renderDraftPlayerList();
+}
+
+// Every pick of a finished draft, round by round. Drafts from now on log each pick;
+// the Fall draft predates that, so it's rebuilt from rosters (players stay in the
+// order they were drafted). A drafted player who was later dropped can't be placed
+// exactly, so he's shown in his team's last open pick(s), marked *.
+function draftPicksFor(runId){
+  const draft = (leagueState.drafts||{})[runId] || {};
+  const order = (draft.order||[]).map(String);
+  const n = order.length;
+  if(!n) return {picks:[], estimated:false};
+  if(Array.isArray(draft.picks) && draft.picks.length){
+    return {picks: draft.picks.map(p=>({pick:p.pick, mid:String(p.mid), pid:p.pid})), estimated:false};
+  }
+  const rounds = Math.round((draft.currentPick||n*ROSTER_SIZE)/n);
+  const seq = {}; let estimated = false;
+  for(const mid of order){
+    const log = (leagueState.waiverLog||{})[mid] || [];
+    const added = new Set(log.filter(e=>e.type==='add').map(e=>String(e.pid)));
+    const kept = ((leagueState.rosters||{})[mid]||[]).map(String).filter(id=>!added.has(id));
+    const dropped = log.filter(e=>e.type==='drop' && !added.has(String(e.pid))).map(e=>String(e.pid));
+    seq[mid] = [...kept.map(id=>({pid:id})), ...dropped.map(id=>({pid:id, est:true}))];
+    if(dropped.length) estimated = true;
+  }
+  const picks = [];
+  for(let i=0;i<rounds*n;i++){
+    const r = Math.floor(i/n), pos = i%n, mid = order[r%2===0 ? pos : n-1-pos];
+    const x = seq[mid][r]; if(!x) continue;
+    picks.push({pick:i+1, mid, pid:x.pid, est:!!x.est});
+  }
+  return {picks, estimated};
+}
+function draftOverviewHtml(runId){
+  const {picks, estimated} = draftPicksFor(runId);
+  const n = ((leagueState.drafts||{})[runId]?.order||[]).length || 1;
+  const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id));
+  const me = String(getMyId());
+  const byRound = {};
+  picks.forEach(p=>{ (byRound[Math.ceil(p.pick/n)] ||= []).push(p); });
+  const c = 'padding:7px 3px;font-family:var(--pixel);font-size:5.5px;text-align:left';
+  return `<div style="padding:10px 14px 20px">
+    <div style="background:rgba(0,255,136,.10);border:1px solid var(--accent1);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;text-align:center">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent1)">✓ DRAFT COMPLETE</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);margin-top:4px">${(RUNS.find(r=>r.id===runId)?.name||'').toUpperCase()} RUN DRAFT BOARD</div>
+    </div>
+    ${Object.keys(byRound).sort((a,b)=>a-b).map(r=>`
+      <div style="font-family:var(--pixel);font-size:7px;font-weight:bold;color:var(--accent3);margin:14px 0 6px;text-shadow:1px 1px 0 #000">ROUND ${r}</div>
+      <div class="card" style="padding:0;overflow:hidden;margin:0"><table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg3);color:var(--text3)"><th style="${c};font-weight:normal;width:34px">PICK</th><th style="${c};font-weight:normal">TEAM</th><th style="${c};font-weight:normal">PLAYER</th><th style="${c};font-weight:normal;width:34px">NBA</th></tr></thead>
+        <tbody>${byRound[r].map(p=>{ const m = mgr(p.mid), pl = getPlayer(Number(p.pid)) || getPlayer(p.pid);
+          return `<tr style="border-bottom:1px solid var(--border);${String(p.mid)===me?'background:rgba(74,158,255,.08)':''}">
+            <td style="${c};color:var(--text3)">${p.pick}</td>
+            <td style="${c};color:${m?.color||'var(--text1)'}">${m?teamLabel(m):'?'}</td>
+            <td style="${c};color:var(--text1);cursor:pointer" onclick="${pl?pcardOnclick(pl.name):''}">${pl?pl.name:'#'+p.pid}${p.est?' <span style="color:#ffd93d">*</span>':''}</td>
+            <td style="${c};color:var(--text2)">${pl?.team||''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
+    ${estimated?`<div style="font-family:var(--pixel);font-size:4.5px;line-height:1.9;color:var(--text3);margin-top:10px"><span style="color:#ffd93d">*</span> Later dropped. This draft happened before picks were recorded one by one, so a dropped player's exact pick isn't known — he's shown in that team's last pick(s), and that team's picks in between may be off by a round.</div>`:''}
+  </div>`;
 }
 
 async function confirmDraftPick(mid, pid){
@@ -5402,6 +5546,7 @@ async function confirmDraftPick(mid, pid){
     if(!leagueState.rosters) leagueState.rosters={};
     if(!leagueState.rosters[mid]) leagueState.rosters[mid]=[];
     leagueState.rosters[mid].push(pid);
+    (draft.picks ||= []).push({pick:(draft.currentPick||0)+1, mid, pid, ts:new Date().toISOString()});
     draft.currentPick=(draft.currentPick||0)+1;
 
     await saveLeagueState();
@@ -5605,8 +5750,10 @@ function renderFantasyRunContent(){
         else losses++;
       }
     }));
-    return {m, fp:managerFP(m.id), wins, losses, ties, record:`${wins}-${losses}${ties?'-'+ties:''}`};
-  }).sort((a,b)=>{ if(b.wins!==a.wins) return b.wins-a.wins; return b.fp-a.fp; });
+    return {m, fp:seasonFP(m.id, currentRun), wins, losses, ties, record:`${wins}-${losses}${ties?'-'+ties:''}`};
+  }).sort((a,b)=> standingsSort==='fp'
+      ? (b.fp-a.fp) || (b.wins-a.wins)
+      : (b.wins-a.wins) || (a.losses-b.losses) || (b.fp-a.fp));
 
   const myId=getMyId();
   el.innerHTML=`
@@ -5620,8 +5767,8 @@ function renderFantasyRunContent(){
       <thead><tr>
         <th style="width:24px">#</th>
         <th>TEAM</th>
-        <th style="text-align:center">W-L</th>
-        <th style="text-align:right">FP</th>
+        <th style="text-align:center;cursor:pointer;${standingsSort==='wl'?'color:var(--accent1)':''}" onclick="standingsSort='wl';renderFantasyRunContent()">W-L${standingsSort==='wl'?' ▼':''}</th>
+        <th style="text-align:right;cursor:pointer;${standingsSort==='fp'?'color:var(--accent1)':''}" onclick="standingsSort='fp';renderFantasyRunContent()">FP${standingsSort==='fp'?' ▼':''}</th>
       </tr></thead>
       <tbody>
         ${standings.map((s,i)=>`
@@ -5634,16 +5781,15 @@ function renderFantasyRunContent(){
               ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
             </div>
           </td>
-          <td class="record" style="text-align:center">${s.record||'0-0'}</td>
+          <td class="record" style="text-align:center;font-family:var(--pixel);font-size:7px">${s.record||'0-0'}</td>
           <td class="fp-total" style="text-align:right">${s.fp.toFixed(1)}</td>
         </tr>`).join('')}
       </tbody>
     </table>
   </div>
-
-  <div class="section-label">THIS WEEK'S MATCHUPS</div>
-  ${renderWeekMatchups(currentRun)}`;
+  <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);text-align:center;margin-top:8px">TAP W-L OR FP TO SORT · FP = ${run.name.toUpperCase()} RUN TOTAL</div>`;
 }
+let standingsSort = 'wl';
 
 function renderWeekMatchups(runId){
   const mid=getMyId();
@@ -6245,7 +6391,7 @@ const COLOR_THEMES = [
   {id:'arcade',   name:'ARCADE NIGHT', sw:['#020c18','#111d35','#4a9eff','#00d4aa','#f5a623']},
   {id:'hardwood', name:'HARDWOOD',     sw:['#140b05','#24160b','#ff8a3d','#7bd389','#ffc857']},
   {id:'pocket',   name:'POCKET GREEN', sw:['#030a04','#09180b','#9bbc0f','#8bdc5f','#d4e157']},
-  {id:'neon',     name:'NEON NIGHTS',  sw:['#10041c','#1d0b33','#00e5ff','#ff2e88','#ffd23f']},
+  {id:'neon',     name:'NEON LIGHTS',  sw:['#10041c','#1d0b33','#00e5ff','#ff2e88','#ffd23f']},
 ];
 function applyColorTheme(id){
   if(!COLOR_THEMES.some(t=>t.id===id)) id = 'arcade';
@@ -8196,8 +8342,10 @@ function wlcPreviewHtml(pool, picks){
   return `<div class="wlc-preview t${p.tier}">
     <div class="wlc-pv-port" onclick="${pcardOnclick(nm)}" title="Full player profile"><img src="${port}" onerror="this.style.visibility='hidden'"><span class="wlc-pv-price">$${p.salary}</span></div>
     <div class="wlc-pv-info">
-      <div class="wlc-pv-name">${nm}${injuryBadgeHtml(nm)}</div>
-      <div class="wlc-pv-sub">${pos?pos+' · ':''}${team} · 2025-26 SEASON</div>
+      <div class="wlc-pv-head"><div style="min-width:0">
+        <div class="wlc-pv-name">${nm}${injuryBadgeHtml(nm)}</div>
+        <div class="wlc-pv-sub">${pos?pos+' · ':''}${team} · 2025-26 SEASON</div></div>
+        ${wlcWeekGamesHtml(team)}</div>
       <div class="wlc-pv-stats">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
       <div class="wlc-pv-btns">
         ${sel ? `<button class="wlc-pv-btn drop" onclick="wlcDropPick(${q})">DROP</button>`
@@ -8206,6 +8354,14 @@ function wlcPreviewHtml(pool, picks){
       </div>
     </div>
   </div>`;
+}
+// The player's NBA games during the challenge week: "10/26 @ UTA"
+function wlcWeekGamesHtml(team){
+  if(ymd(currentWeekStart()) !== wlcWeekKey().replace(/-/g,'')){ return ''; }
+  if(!Object.keys(WEEK_GAMES).length){ loadWeekGames().then(()=>{ if(window._wlcPreview) renderWlcScreen(); }); return '<div class="wlc-pv-games"></div>'; }
+  const g = teamWeekGames(team);
+  const rows = g.map(x=>`<div>${+x.date.slice(4,6)}/${+x.date.slice(6,8)} ${x.isHome?'vs.':'@'} ${x.opp}</div>`).join('');
+  return `<div class="wlc-pv-games"><div class="h">${g.length} GAME${g.length===1?'':'S'}</div>${rows||'<div>—</div>'}</div>`;
 }
 function wlcAddPick(poolName){
   const picks = window._wlcCurrentPicks||[];
@@ -8531,7 +8687,7 @@ function commSetTipoffFromInput(weekKey){
 // Wipe a week completely (for test weeks): pool, lineups, results, and any
 // standings it added when finalized.
 async function commResetWlcWeek(weekKey){
-  if(!confirm(`Delete the ${wlcWeekLabel(weekKey)} Weekly Challenge and everyone's lineups for it? This can't be undone.`)) return;
+  if(!confirm(`Delete the ${wlcWeekLabel(weekKey)} Weekly Line-up Challenge and everyone's lineups for it? This can't be undone.`)) return;
   await loadLeagueState();
   const w = leagueState.wlc || {};
   const res = (w.results||{})[weekKey];
@@ -8587,7 +8743,7 @@ function renderAdminWlcSection(){
   } else if(week.status==='pending'){
     html += `
       <div style="font-family:var(--pixel);font-size:6px;color:var(--accent3);margin-bottom:8px">STATUS: PENDING — Theme: ${week.theme}</div>
-      <button class="btn btn-full btn-secondary" style="margin-bottom:8px" onclick="closeAdminPanel&&closeAdminPanel();showScreen('wlc')">👀 REVIEW PLAYERS ON THE WEEKLY CHALLENGE TAB</button>
+      <button class="btn btn-full btn-secondary" style="margin-bottom:8px" onclick="closeAdminPanel&&closeAdminPanel();showScreen('wlc')">👀 REVIEW PLAYERS ON THE WEEKLY LINE-UP CHALLENGE TAB</button>
       <button class="btn btn-full btn-primary" onclick="commApproveWlcWeek('${wk}')" style="margin-bottom:8px">✓ APPROVE</button>
       <button class="btn btn-full btn-secondary" onclick="commRejectWlcWeek('${wk}')">✕ REJECT</button>`;
   } else if(week.status==='active'){
@@ -8679,10 +8835,10 @@ function showDuelRules(){
     ['MONSTER MONDAY','Points + Rebounds + Assists'],
     ['TEAMS TUESDAY','Pick the team that wins'],
     ['WET WEDNESDAY 💦','Most 3-pointers made'],
-    ['STONKS THURSDAY 📈','Steals + Blocks'],
+    ['THOROUGH THURSDAY','Most Fantasy Points'],
     ['FREE THROW FRIDAY','Most free throws made'],
-    ['PARLAY SATURDAY 🎰','Star hits his points line AND his team wins'],
-    ['DOUBLE-DOUBLE SUNDAY','Bigger double-double (must post one to win)'],
+    ['STONKS SATURDAY 📈','Steals + Blocks'],
+    ['SWISH SUNDAY','Most points'],
   ].map(([l,v])=>row(l,v)).join('');
 
   modal.innerHTML=`
@@ -8695,7 +8851,7 @@ function showDuelRules(){
       <div style="margin-bottom:18px">
         <div style="font-family:var(--pixel);font-size:6.5px;color:var(--accent5);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">HOW IT WORKS</div>
         <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:2.2">
-          Every day has its own theme. Pick the side you think wins. Get it right and extend your streak — get it wrong and it resets to zero. Ties and parlays where neither side hits are a PUSH: nobody wins or loses and streaks hold, as long as you voted.
+          Every day has its own theme. Pick the side you think wins. Get it right and extend your streak — get it wrong and it resets to zero. Ties are a PUSH: nobody wins or loses and streaks hold, as long as you voted.
         </div>
       </div>
 
@@ -8766,7 +8922,7 @@ function showSiteOverview(){
         'Each player scores his average FP per game that week',
         'One injury swap per week: a player listed OUT, same tier',
         'Highest total wins the week. Wins and total FP tracked all season',
-      ],'showScreen(\'wlc\')','GO TO WEEKLY CHALLENGE →')}
+      ],'showScreen(\'wlc\')','GO TO WEEKLY LINE-UP CHALLENGE →')}
 
       ${game('⚡','DAILY DUEL','var(--accent5)','One pick, every day',[
         'Two NBA players face off in a single stat category each day',

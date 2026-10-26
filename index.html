@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>try{var t=localStorage.getItem('nba-theme');if(t&&t!=='arcade')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -23,6 +24,8 @@
   --text1:    #ffffff;
   --text2:    #a8c0e8;
   --text3:    #506080;
+  --panel:    #0d1530;
+  --panel2:   #0b1020;
   --pixel:    'Press Start 2P', monospace;
   --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --radius:   4px;
@@ -841,7 +844,7 @@ img{display:block;}
 /* ── HOMEPAGE SCOREBOARD + compact cards ── */
 #game-ticker{display:none!important;}  /* replaced by the scoreboard */
 /* 16-bit gym scoreboard: navy board, black LED windows, pixel labels */
-.sb-select{text-align:center;text-align-last:center;flex:1;min-width:0;background:#0d1530;color:#ffd93d;border:2px solid #ffd93d;border-radius:6px;padding:7px 8px;font-family:var(--pixel);font-size:6.5px;cursor:pointer;text-shadow:0 0 6px rgba(255,217,61,.6);box-shadow:0 0 8px rgba(255,217,61,.25);}
+.sb-select{text-align:center;text-align-last:center;flex:1;min-width:0;background:var(--panel);color:#ffd93d;border:2px solid #ffd93d;border-radius:6px;padding:7px 8px;font-family:var(--pixel);font-size:6.5px;cursor:pointer;text-shadow:0 0 6px rgba(255,217,61,.6);box-shadow:0 0 8px rgba(255,217,61,.25);}
 .sb-select option{color:var(--text1);background:var(--bg2);text-shadow:none;}
 .gym{cursor:pointer;height:158px;box-sizing:border-box;margin:0 21px;zoom:.667;background:#1d2f63;border:3px solid #0a1230;border-radius:6px;padding:8px 8px 6px;position:relative;
   box-shadow:inset 0 0 0 2px #3a5cb0, inset 0 -6px 0 rgba(0,0,0,.25), 0 4px 0 #050914;image-rendering:pixelated;}
@@ -892,7 +895,7 @@ img{display:block;}
 .wr-title{font-family:var(--pixel);font-size:12px;color:#ffd93d;text-shadow:2px 2px 0 #000,0 0 10px rgba(255,217,61,.5);margin-top:8px;}
 .wr-sub{font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:6px;}
 .wr-awards{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.wr-award{border:3px solid var(--ac);border-radius:8px;background:#0d1530;padding:10px 6px;text-align:center;box-shadow:0 0 12px color-mix(in srgb,var(--ac) 35%,transparent);min-width:0;}
+.wr-award{border:3px solid var(--ac);border-radius:8px;background:var(--panel);padding:10px 6px;text-align:center;box-shadow:0 0 12px color-mix(in srgb,var(--ac) 35%,transparent);min-width:0;}
 .wr-award-title{font-family:var(--pixel);font-size:5px;color:var(--ac);margin-bottom:8px;}
 .wr-award-art{width:72px;height:72px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden;}
 .wr-award-art img{width:100%;height:100%;object-fit:cover;object-position:center top;}
@@ -949,20 +952,20 @@ img{display:block;}
 .wlc-tier-row.t5{--tc:#f5c518;} .wlc-tier-row.t4{--tc:#3fa9f5;} .wlc-tier-row.t3{--tc:#4cd964;}
 .wlc-tier-row.t2{--tc:#b36bff;} .wlc-tier-row.t1{--tc:#e8892b;}
 .wlc-tier-tag{display:flex;align-items:center;justify-content:center;border:2px solid var(--tc);border-radius:6px;
-  background:color-mix(in srgb,var(--tc) 22%,#0b1020);font-family:var(--pixel);font-size:10px;color:#fff;text-shadow:2px 2px 0 #000;}
-.wlc-pcard{border:2px solid var(--tc);border-radius:6px;background:#0d1530;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;min-width:0;}
+  background:color-mix(in srgb,var(--tc) 22%,var(--panel2));font-family:var(--pixel);font-size:10px;color:#fff;text-shadow:2px 2px 0 #000;}
+.wlc-pcard{border:2px solid var(--tc);border-radius:6px;background:var(--panel);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;min-width:0;}
 .wlc-pcard.selected{box-shadow:0 0 0 2px #fff,0 0 12px var(--tc);}
-.wlc-pimg{position:relative;aspect-ratio:1/1;background:#0b1020;max-width:100%;}
+.wlc-pimg{position:relative;aspect-ratio:1/1;background:var(--panel2);max-width:100%;}
 .wlc-pimg img:first-child{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}
 .wlc-pcheck{position:absolute;top:2px;right:2px;background:var(--accent2);color:#000;border-radius:50%;width:15px;height:15px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 .wlc-pinj{position:absolute;bottom:2px;right:2px;background:#e53e3e;color:#fff;font-family:var(--pixel);font-size:4px;padding:1px 3px;border-radius:2px;}
 .wlc-pname{font-family:var(--pixel);font-size:4.5px;line-height:1.5;color:#fff;text-align:center;padding:3px 1px 4px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;}
 /* Fighting-game style preview panel, pinned under the top bar while picking */
 .wlc-preview{position:sticky;top:var(--topbar-h,52px);z-index:6;margin:0 10px 8px;display:flex;gap:10px;padding:8px;
-  background:#0d1530;border:3px solid var(--tc,#3fa9f5);border-radius:8px;box-shadow:0 4px 0 #050914,0 0 14px color-mix(in srgb,var(--tc,#3fa9f5) 40%,transparent);}
+  background:var(--panel);border:3px solid var(--tc,#3fa9f5);border-radius:8px;box-shadow:0 4px 0 #050914,0 0 14px color-mix(in srgb,var(--tc,#3fa9f5) 40%,transparent);}
 .wlc-preview.t5{--tc:#f5c518;} .wlc-preview.t4{--tc:#3fa9f5;} .wlc-preview.t3{--tc:#4cd964;} .wlc-preview.t2{--tc:#b36bff;} .wlc-preview.t1{--tc:#e8892b;}
 .wlc-preview.empty{--tc:#3a4a7a;}
-.wlc-pv-port{position:relative;width:96px;height:96px;flex-shrink:0;border:2px solid var(--tc,#3a4a7a);border-radius:6px;overflow:hidden;background:#0b1020;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.wlc-pv-port{position:relative;width:96px;height:96px;flex-shrink:0;border:2px solid var(--tc,#3a4a7a);border-radius:6px;overflow:hidden;background:var(--panel2);cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .wlc-pv-port img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}
 .wlc-pv-port > span:not(.wlc-pv-price){font-family:var(--pixel);font-size:30px;color:#3a4a7a;}
 .wlc-pv-price{position:absolute;bottom:2px;left:2px;font-family:var(--pixel);font-size:7px;color:#000;background:var(--tc);padding:2px 4px;border-radius:2px;}
@@ -971,7 +974,7 @@ img{display:block;}
 .wlc-pv-name.blink{animation:ledBlink 1.2s steps(1) infinite;color:#ffd93d;}
 .wlc-pv-sub{font-family:var(--pixel);font-size:5px;color:var(--text3);}
 .wlc-pv-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
-.wlc-pv-stat{border:2px solid #3fa9f5;border-radius:4px;text-align:center;padding:3px 0;background:#0b1020;}
+.wlc-pv-stat{border:2px solid #3fa9f5;border-radius:4px;text-align:center;padding:3px 0;background:var(--panel2);}
 .wlc-pv-stat .l{font-family:var(--pixel);font-size:4.5px;color:#7fc8ff;}
 .wlc-pv-stat .v{font-family:var(--pixel);font-size:8px;color:#fff;margin-top:3px;}
 .wlc-pv-btns{display:flex;gap:6px;}
@@ -984,7 +987,7 @@ img{display:block;}
 .wlc-pcard{position:relative;}
 .wlc-ppos{font-size:4px;color:#7fc8ff;margin-top:1px;}
 .wlc-bottom-bar{position:sticky;bottom:var(--nav-h,58px);z-index:5;margin:0 10px 12px;display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border:2px solid #3fa9f5;border-radius:10px;background:#0d1530;}
+  padding:10px 12px;border:2px solid #3fa9f5;border-radius:10px;background:var(--panel);}
 .wlc-bb-stat{flex:1;min-width:0;}
 .wlc-bb-label{font-family:var(--pixel);font-size:4.5px;color:var(--text3);}
 .wlc-bb-val{font-family:var(--pixel);font-size:11px;color:#fff;margin-top:4px;}
@@ -1344,16 +1347,16 @@ img{display:block;}
 .lis-theme{font-family:var(--pixel);font-size:7px;color:#ffd93d;letter-spacing:.12em;margin-bottom:10px;}
 .lis-title{font-family:var(--pixel);font-size:20px;line-height:1.35;color:#fff;text-shadow:3px 3px 0 #b36bff,6px 6px 0 #000;animation:lisPop .5s steps(5) both;}
 .lis-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:20px 0 16px;}
-.lis-card{--tc:#e8892b;border:2px solid var(--tc);border-radius:6px;background:#0d1530;overflow:hidden;box-shadow:0 0 12px color-mix(in srgb,var(--tc) 55%,transparent);
+.lis-card{--tc:#e8892b;border:2px solid var(--tc);border-radius:6px;background:var(--panel);overflow:hidden;box-shadow:0 0 12px color-mix(in srgb,var(--tc) 55%,transparent);
   opacity:0;transform:translateY(24px);animation:lisIn .35s steps(4) forwards;}
 .lis-card.t5{--tc:#f5c518;} .lis-card.t4{--tc:#3fa9f5;} .lis-card.t3{--tc:#4cd964;} .lis-card.t2{--tc:#b36bff;} .lis-card.t1{--tc:#e8892b;}
-.lis-port{position:relative;aspect-ratio:1/1;background:#0b1020;}
+.lis-port{position:relative;aspect-ratio:1/1;background:var(--panel2);}
 .lis-port img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}
 .lis-price{position:absolute;left:2px;bottom:2px;font-family:var(--pixel);font-size:6px;color:#000;background:var(--tc);padding:2px 3px;border-radius:2px;}
 .lis-name{font-family:var(--pixel);font-size:5.5px;color:#fff;padding:5px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .lis-team{font-family:var(--pixel);font-size:4.5px;color:#7fc8ff;padding-bottom:5px;}
 .lis-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
-.lis-stats div{border:2px solid #3fa9f5;border-radius:6px;background:#0b1020;padding:8px 0;}
+.lis-stats div{border:2px solid #3fa9f5;border-radius:6px;background:var(--panel2);padding:8px 0;}
 .lis-stats span{display:block;font-family:var(--pixel);font-size:4.5px;color:#7fc8ff;}
 .lis-stats b{display:block;font-family:var(--pixel);font-weight:normal;font-size:11px;color:#fff;margin-top:6px;}
 .lis-lock{font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text2);margin-bottom:10px;}
@@ -1362,6 +1365,30 @@ img{display:block;}
 @keyframes lisFade{from{opacity:0}to{opacity:1}}
 @keyframes lisPop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes lisIn{to{opacity:1;transform:translateY(0)}}
+
+/* ── COLOR THEMES (Profile → Color Theme). Default = Arcade Night (:root above) ── */
+html[data-theme="hardwood"]{
+  --bg:#140b05; --bg2:#1e1209; --bg3:#2a190d; --card:#24160b; --border:#4a2f19;
+  --accent1:#ff8a3d; --accent2:#7bd389; --accent3:#ffc857; --accent4:#e4572e; --accent5:#c084fc;
+  --text1:#fff6ec; --text2:#e8d2b8; --text3:#8a6a50; --panel:#24160b; --panel2:#1a0f07;
+}
+html[data-theme="pocket"]{
+  --bg:#0b1f0d; --bg2:#102a13; --bg3:#163619; --card:#133017; --border:#306230;
+  --accent1:#9bbc0f; --accent2:#8bdc5f; --accent3:#d4e157; --accent4:#ef6f6c; --accent5:#a5d6a7;
+  --text1:#e8f5c8; --text2:#b8d68a; --text3:#6b8f4a; --panel:#133017; --panel2:#0e2410;
+}
+html[data-theme="neon"]{
+  --bg:#10041c; --bg2:#180929; --bg3:#220e3a; --card:#1d0b33; --border:#3d1f66;
+  --accent1:#00e5ff; --accent2:#39ff9f; --accent3:#ffd23f; --accent4:#ff2e88; --accent5:#b14cff;
+  --text1:#ffffff; --text2:#e0c8ff; --text3:#7a5aa8; --panel:#1d0b33; --panel2:#14072a;
+}
+.theme-pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px 12px;}
+.theme-opt{border:2px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;background:var(--bg3);text-align:left;}
+.theme-opt.on{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2);}
+.theme-opt .sw{display:flex;gap:3px;margin-bottom:7px;}
+.theme-opt .sw i{flex:1;height:14px;border-radius:2px;}
+.theme-opt .nm{font-family:var(--pixel);font-size:6px;color:var(--text1);}
+.theme-opt .on-tag{font-family:var(--pixel);font-size:4.5px;color:var(--accent2);margin-top:4px;min-height:6px;}
 </style>
 </head>
 <body>
@@ -1593,6 +1620,9 @@ img{display:block;}
         <button onclick="cancelEditDisplayName()" style="font-family:var(--pixel);font-size:5.5px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:7px 10px;cursor:pointer">✕</button>
       </div>
     </div>
+
+    <div class="section-label" style="padding-top:20px">COLOR THEME</div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="theme-pick" id="theme-picker"></div></div>
 
     <div class="section-label" style="padding-top:20px">FANTASY STANDINGS</div>
     <div class="card" style="padding:0;overflow:hidden" id="profile-fantasy-standings">

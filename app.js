@@ -6042,7 +6042,43 @@ async function executeDrop(mid, pid){
 }
 
 // ── PROFILE SCREEN ───────────────────────────────────────────────────────────
+// ── COLOR THEMES ── saved per person (league data, so it follows them to every device)
+// and mirrored to this browser so it applies instantly on load.
+const COLOR_THEMES = [
+  {id:'arcade',   name:'ARCADE NIGHT', sw:['#020c18','#111d35','#4a9eff','#00d4aa','#f5a623']},
+  {id:'hardwood', name:'HARDWOOD',     sw:['#140b05','#24160b','#ff8a3d','#7bd389','#ffc857']},
+  {id:'pocket',   name:'POCKET GREEN', sw:['#0b1f0d','#133017','#9bbc0f','#8bdc5f','#d4e157']},
+  {id:'neon',     name:'NEON NIGHTS',  sw:['#10041c','#1d0b33','#00e5ff','#ff2e88','#ffd23f']},
+];
+function applyColorTheme(id){
+  if(!COLOR_THEMES.some(t=>t.id===id)) id = 'arcade';
+  if(id==='arcade') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', id);
+  try{ localStorage.setItem('nba-theme', id); }catch(e){}
+}
+function myColorTheme(){
+  const mid = getMyId();
+  return (leagueState?.prefs?.[mid]?.theme) || (()=>{ try{ return localStorage.getItem('nba-theme'); }catch(e){ return null; } })() || 'arcade';
+}
+async function setColorTheme(id){
+  applyColorTheme(id);
+  renderThemePicker();
+  const mid = getMyId(); if(!mid) return;
+  if(!leagueState.prefs) leagueState.prefs = {};
+  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), theme:id};
+  await saveLeagueState();
+  toast(`Theme: ${COLOR_THEMES.find(t=>t.id===id)?.name||id} ✓`);
+}
+function renderThemePicker(){
+  const el = document.getElementById('theme-picker'); if(!el) return;
+  const cur = myColorTheme();
+  el.innerHTML = COLOR_THEMES.map(t=>`<button class="theme-opt${t.id===cur?' on':''}" onclick="setColorTheme('${t.id}')">
+    <div class="sw">${t.sw.map(c=>`<i style="background:${c}"></i>`).join('')}</div>
+    <div class="nm">${t.name}</div><div class="on-tag">${t.id===cur?'✓ IN USE':''}</div></button>`).join('');
+}
+
 function renderProfileScreen(){
+  renderThemePicker();
   fillMatchupResults();
   if(!myProfile) return;
   const color=myProfile.color||'#4a9eff';
@@ -7206,6 +7242,7 @@ async function boot(){
       await loadManagerProfile();
       await loadLeagueState();
       await loadPortraits();
+      applyColorTheme(myColorTheme());   // their saved theme, from any device
       await ensureTodaysDuel();
       maybeSwapInjuredDuel();
       purgeWlcTestWeeks().then(ensureWlcTipoff);

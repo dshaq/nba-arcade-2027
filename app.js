@@ -3597,7 +3597,7 @@ const DUEL_THEMES = {
   3:{ name:'WET WEDNESDAY 💦',      stat:'tpm',     prompt:'Who makes more 3-pointers tonight?' },
   4:{ name:'THOROUGH THURSDAY',     stat:'fp',      prompt:'Who earns the most Fantasy Points today?' },
   5:{ name:'FREE THROW FRIDAY',     stat:'ftm',     prompt:'Who makes more free throws tonight?' },
-  6:{ name:'STONKS SATURDAY 📈',    stat:'stl+blk', prompt:'Who records the most steals + blocks today?' },
+  6:{ name:'STOCKS SATURDAY 📈',    stat:'stl+blk', prompt:'Who records the most steals + blocks today?' },
   0:{ name:'SWISH SUNDAY',          stat:'pts',     prompt:'Who scores the most points today?' },
 };
 function duelThemeFor(dateKey){
@@ -8913,7 +8913,7 @@ function showDuelRules(){
     ['WET WEDNESDAY 💦','Most 3-pointers made'],
     ['THOROUGH THURSDAY','Most Fantasy Points'],
     ['FREE THROW FRIDAY','Most free throws made'],
-    ['STONKS SATURDAY 📈','Steals + Blocks'],
+    ['STOCKS SATURDAY 📈','Steals + Blocks'],
     ['SWISH SUNDAY','Most points'],
   ].map(([l,v])=>row(l,v)).join('');
 

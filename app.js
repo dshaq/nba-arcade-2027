@@ -2512,19 +2512,23 @@ async function fetchBoxScoreESPN(eventId){
   for(const teamData of (box.players||[])){
     const teamAbbr=espnToAbbr(teamData?.team?.abbreviation||'');
     for(const grp of (teamData.statistics||[])){
+      // Read columns by their labels — ESPN has reordered them before
+      const L=(grp.labels||[]).map(x=>String(x).toUpperCase());
+      const col=(lbl,fallback)=>{ const i=L.indexOf(lbl); return i>=0?i:fallback; };
+      const iP=col('PTS',1), iFG=col('FG',2), i3=col('3PT',3), iFT=col('FT',4), iR=col('REB',5), iA=col('AST',6), iTO=col('TO',7), iS=col('STL',8), iB=col('BLK',9);
       for(const a of (grp.athletes||[])){
         const name=a?.athlete?.displayName||'';
         const s=a?.stats||[];
-        if(!s.length||s[0]==='DNP'||s[0]==='DND') continue;
-        const pts=parseInt(s[1])||0;
-        const [fgm,fga]=parseSplit(s[2]);
-        const [ftm,fta]=parseSplit(s[4]);
-        const reb=parseInt(s[5])||0;
-        const ast=parseInt(s[6])||0;
-        const to =parseInt(s[7])||0;
-        const stl=parseInt(s[8])||0;
-        const blk=parseInt(s[9])||0;
-        const [tpm,tpa]=parseSplit(s[3]);
+        if(!s.length||/^DN[PD]/i.test(String(s[0]))) continue;
+        const pts=parseInt(s[iP])||0;
+        const [fgm,fga]=parseSplit(s[iFG]);
+        const [ftm,fta]=parseSplit(s[iFT]);
+        const reb=parseInt(s[iR])||0;
+        const ast=parseInt(s[iA])||0;
+        const to =parseInt(s[iTO])||0;
+        const stl=parseInt(s[iS])||0;
+        const blk=parseInt(s[iB])||0;
+        const [tpm,tpa]=parseSplit(s[i3]);
         const flagrant=0, technical=0;
         const fp=calcFP({pts,reb,ast,stl,blk,fgm,fga,ftm,fta,to,flagrant,technical});
         const nameLow=name.toLowerCase();
@@ -2625,8 +2629,9 @@ async function refreshLiveStats(){
   // Also used as the sole source when bdlKey is absent.
   if(!bdlHandledLive){
     try{
-      const fmt=d=>d.toISOString().split('T')[0].replace(/-/g,'');
-      const today=new Date(), yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+      // ET calendar dates (UTC dates flip at 8 PM ET and mislabel tonight's games)
+      const fmt=d=>d.toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+      const today=new Date(), yesterday=new Date(Date.now()-86400000);
       let allEvents=[];
       for(const dateStr of [fmt(today),fmt(yesterday)]){
         try{
@@ -2658,15 +2663,15 @@ async function refreshLiveStats(){
         if(!isLive && !isDone) continue;
         try{
           const gs=await fetchBoxScoreESPN(event.id);
+          // One line per player: his game in progress, else his most recent game.
+          // (Never add games together — on a back-to-back that merged yesterday's
+          // final into tonight's live line.)
           for(const [pid,stat] of Object.entries(gs)){
-            if(!newLive[pid]) newLive[pid]={fp:0,pts:0,reb:0,ast:0,stl:0,blk:0,to:0,fgm:0,fga:0,ftm:0,fta:0,flagrant:0,technical:0,live:isLive,gameId:event.id,dateStr:event._dateStr};
-            newLive[pid].fp  +=stat.fp;  newLive[pid].pts +=stat.pts; newLive[pid].reb +=stat.reb;
-            newLive[pid].ast +=stat.ast; newLive[pid].stl +=stat.stl; newLive[pid].blk +=stat.blk;
-            newLive[pid].to  +=stat.to;
-            newLive[pid].fgm +=stat.fgm||0; newLive[pid].fga +=stat.fga||0;
-            newLive[pid].ftm +=stat.ftm||0; newLive[pid].fta +=stat.fta||0;
-            newLive[pid].flagrant +=stat.flagrant||0; newLive[pid].technical +=stat.technical||0;
-            if(isLive) newLive[pid].live=true;
+            const cand={fp:stat.fp,pts:stat.pts,reb:stat.reb,ast:stat.ast,stl:stat.stl,blk:stat.blk,to:stat.to,
+              fgm:stat.fgm||0,fga:stat.fga||0,ftm:stat.ftm||0,fta:stat.fta||0,tpm:stat.tpm||0,tpa:stat.tpa||0,
+              flagrant:stat.flagrant||0,technical:stat.technical||0,live:isLive,gameId:event.id,dateStr:event._dateStr};
+            const cur=newLive[pid];
+            if(!cur || (isLive && !cur.live) || (!cur.live && !isLive && String(event._dateStr) > String(cur.dateStr))) newLive[pid]=cand;
           }
           if(isLive) hasLive=true;
           // Finished games always go through the save step: new lines get saved, and lines

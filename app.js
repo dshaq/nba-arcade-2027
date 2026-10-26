@@ -1579,7 +1579,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102501;
+const APP_BUILD = 2026102601;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1678,11 +1678,17 @@ function saveLeagueState(){
       } else {
         error = (await db.from('leagues').upsert({id:LEAGUE_KEY, state:json})).error;
       }
-      if(error){ console.warn('[saveLeagueState] failed', error); return; }
+      if(error){ console.warn('[saveLeagueState] failed', error); showSaveFailed(error.message); return; }
       if(!landed && r){
         // No row came back: either someone saved first, or the row landed but wasn't returned
         const chk = await fetchRemoteLeagueStateWithTs();
         if(chk && JSON.stringify(chk.state)===json) landed = true;
+        else if(chk && chk.ts === r.ts){
+          // Nobody else saved, yet our write didn't land: the database refused it
+          // (usually an expired sign-in on a long-open tab). Refresh the session once.
+          if(attempt===0){ try{ await db.auth.refreshSession(); }catch(e){} continue; }
+          console.warn('[saveLeagueState] write refused'); showSaveFailed('refused'); return;
+        }
       }
       if(!landed){ console.info('[saveLeagueState] someone saved first — re-merging (attempt', attempt+1, ')'); continue; }
       // Adopt the merged result, keeping anything changed locally during the save
@@ -1691,10 +1697,24 @@ function saveLeagueState(){
       return;
     }
     console.warn('[saveLeagueState] gave up after repeated conflicts');
-    try{ toast('Save conflict — please try again'); }catch(e){}
+    showSaveFailed('conflict');
   }).catch(e=>console.warn('[saveLeagueState]', e));
   return _leagueStateQueue;
 }
+// Loud warning when a change didn't reach the server, so nobody thinks it saved
+function showSaveFailed(why){
+  if(document.getElementById('save-failed-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'save-failed-modal'; m.className = 'modal-overlay'; m.style.display = 'flex'; m.style.zIndex = '10050';
+  m.innerHTML = `<div class="modal-box" style="max-width:340px;width:calc(100% - 32px);text-align:center">
+    <div style="font-family:var(--pixel);font-size:9px;color:#ff3b5c;margin-bottom:12px">⚠ NOT SAVED</div>
+    <div style="font-family:var(--pixel);font-size:6.5px;line-height:1.9;color:var(--text2);margin-bottom:16px">Your last change didn't reach the league. Tap RELOAD (sign in again if asked), then make the change again.</div>
+    <button class="btn btn-primary btn-full" onclick="location.reload()">RELOAD</button>
+  </div>`;
+  document.body.appendChild(m);
+  console.warn('[saveLeagueState] not saved:', why);
+}
+
 // A phone tab can sleep for days. When it wakes, pull right away (this also catches old code).
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='visible' && typeof currentUser!=='undefined' && currentUser && leagueState) pullLeagueState();

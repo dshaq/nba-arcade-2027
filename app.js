@@ -1666,6 +1666,52 @@ async function loadLeagueState(){
   await syncManagersToState();
 }
 
+// Default avatars (no photo, no icon) were often the same red. Any default color too
+// close in hue to one already taken gets the palette color farthest from all taken
+// ones; people with a photo or icon always keep theirs.
+const AVATAR_PALETTE = ['#e94560','#f97316','#ffd93d','#84cc16','#22c55e','#00d4aa','#06b6d4','#4a9eff','#6366f1','#b36bff','#ec4899','#94a3b8'];
+function _hue(hex){
+  const h = String(hex||'').replace('#',''); if(h.length<6) return null;
+  const r=parseInt(h.slice(0,2),16)/255, g=parseInt(h.slice(2,4),16)/255, b=parseInt(h.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  if(d<0.15) return -1;                     // greyish: its own bucket
+  let hu = mx===r ? ((g-b)/d)%6 : mx===g ? (b-r)/d+2 : (r-g)/d+4;
+  return (hu*60+360)%360;
+}
+function _hueDist(a,b){ if(a===-1||b===-1) return a===b?0:180; const d=Math.abs(a-b); return Math.min(d,360-d); }
+function uniqueManagerColors(mgrs){
+  const custom = m => !!(m.photo || m.icon || m._customAvatar);
+  const sorted = [...mgrs].sort((a,b)=>(custom(b)?1:0)-(custom(a)?1:0) || String(a.id).localeCompare(String(b.id), undefined, {numeric:true}));
+  const taken = [];
+  const near = h => taken.length ? Math.min(...taken.map(t=>_hueDist(t,h))) : 999;
+  const needs = [];
+  for(const m of sorted){
+    const h = _hue(m.color);
+    if(custom(m) || (h!=null && near(h) >= 24)){ if(h!=null) taken.push(h); }
+    else needs.push(m);
+  }
+  for(const m of needs){
+    // Prefer real colors; grey only once every hue is crowded
+    let best = AVATAR_PALETTE.filter(c=>_hue(c)!==-1).map(c=>({c, d:near(_hue(c))})).sort((x,y)=>y.d-x.d)[0];
+    if(best.d < 15 && near(-1) > 0) best = {c:'#94a3b8'};
+    m.color = best.c; taken.push(_hue(best.c));
+  }
+}
+
+// One-time: an avatar saved before it lived in the league data only exists in the
+// browser it was picked on. Copy that pick into the league so every device matches.
+async function migrateAvatarFromDevice(){
+  const mid = getMyId(); if(!mid || leagueState.prefs?.[mid]?.avatar) return;
+  let cached = null; try{ cached = JSON.parse(localStorage.getItem(`avatar-${mid}`)||'null'); }catch(e){}
+  if(!cached || !(cached.photo || cached.icon || cached.color)) return;
+  const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid));
+  const photo = cached.photo || m?.photo || null;
+  if(!leagueState.prefs) leagueState.prefs = {};
+  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), avatar:{photo, icon:photo?null:(cached.icon||null), color:cached.color||m?.color||'#4a9eff', at:new Date().toISOString()}};
+  await saveLeagueState();
+  await syncManagersToState();
+}
+
 async function syncManagersToState(){
   // Preserve photos from leagueState (they're stored in the leagues JSON blob, not in the managers table)
   const prevPhotoMap={};
@@ -1676,6 +1722,16 @@ async function syncManagersToState(){
     console.log('[syncManagers] got', data.length, 'managers');
     // Merge photos back in from the JSON blob
     leagueState.managers = data.map(m=>prevPhotoMap[m.id]?{...m,photo:prevPhotoMap[m.id]}:m);
+    // Avatar picks saved in the league (same on every device) win over the managers table
+    for(const m of leagueState.managers){
+      const av = leagueState.prefs?.[m.id]?.avatar;
+      if(av){ m.photo = av.photo||null; m.icon = av.photo ? null : (av.icon||null); if(av.color) m.color = av.color; m._customAvatar = true; }
+    }
+    uniqueManagerColors(leagueState.managers);
+    if(myProfile){
+      const me = leagueState.managers.find(m=>String(m.id)===String(myProfile.id));
+      if(me){ myProfile.color = me.color; myProfile.photo = me.photo||null; myProfile.icon = me.icon||null; }
+    }
   } else console.warn('[syncManagers] data is null/undefined');
 }
 
@@ -6629,10 +6685,13 @@ async function saveAvatarChoice(){
   const color=modal_pendingColor??myProfile?.color??'#4a9eff';
   const updates={color};
   if(icon !== undefined) updates.icon=icon||null;
-  if(photo) updates.photo=photo;
+  // The avatar lives in the league data so every device shows the same one
+  if(!leagueState.prefs) leagueState.prefs = {};
+  const keepPhoto = photo || (icon ? null : (myProfile?.photo||null));
+  leagueState.prefs[myId] = {...(leagueState.prefs[myId]||{}), avatar:{photo:keepPhoto, icon:keepPhoto?null:(icon||null), color, at:new Date().toISOString()}};
   const managers=leagueState.managers||[];
   const m=managers.find(m=>m.id===myId);
-  if(m){ m.color=color; if(icon!==undefined) m.icon=icon; if(photo) m.photo=photo; }
+  if(m){ m.color=color; if(icon!==undefined) m.icon=icon; if(photo) m.photo=photo; m._customAvatar=true; }
   if(myProfile){ myProfile.color=color; if(icon!==undefined) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
   // Persist avatar locally so it survives reload even if Supabase write is slow
   try{
@@ -7600,6 +7659,7 @@ async function boot(){
       const isFirstLogin = event==='SIGNED_IN' || event==='INITIAL_SESSION';
       await loadManagerProfile();
       await loadLeagueState();
+      await migrateAvatarFromDevice();
       await loadPortraits();
       applyColorTheme(myColorTheme());   // their saved theme, from any device
       await applyLineupPlans();

@@ -1656,10 +1656,12 @@ function logActiveChanges(){
   }
 }
 
+let _lastSaveOk = false; // did the most recent saveLeagueState() land?
 // Merge-safe AND race-safe: the write only lands if nobody else saved since we read
 // (updated_at must still match). If someone did, re-read, re-merge and try again.
 function saveLeagueState(){
   _leagueStateQueue = _leagueStateQueue.then(async ()=>{
+    _lastSaveOk = false;
     if(_staleReloading) return;
     logActiveChanges();
     for(let attempt=0; attempt<6; attempt++){
@@ -1694,6 +1696,7 @@ function saveLeagueState(){
       // Adopt the merged result, keeping anything changed locally during the save
       _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
       _leagueBaseJson = json;
+      _lastSaveOk = true;
       return;
     }
     console.warn('[saveLeagueState] gave up after repeated conflicts');
@@ -7478,9 +7481,47 @@ async function saveWlcLineup(picks){
   await saveLeagueState();
   window._wlcPicksWeekKey = null;
   window._wlcTab = 'pick'; // saved lineups are final: land on Current Week's Lineups
-  toast('LINEUP SAVED — GOOD LUCK! ✓');
   renderWlcScreen();
-  window.scrollTo({top:0, behavior:'smooth'});
+  window.scrollTo({top:0, behavior:'auto'});
+  if(_lastSaveOk) showWlcLockedInSplash(picks, wk);
+}
+
+// "LINEUP LOCKED IN" — arcade team-select splash after a successful save
+function showWlcLockedInSplash(picks, wk){
+  const week = (leagueState.wlc?.weeks||{})[wk] || {};
+  const pool = week.pool || [];
+  const order = [...picks].sort((a,b)=>(pool.find(p=>p.n===b)?.tier||0)-(pool.find(p=>p.n===a)?.tier||0));
+  const spent = wlcPickCostFor(picks, pool);
+  const proj = order.reduce((a,n)=>a+(+(pool.find(p=>p.n===n)?.fpPG)||0),0);
+  const lock = week.tipoffTime ? new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET' : '';
+  const cards = order.map((n,i)=>{
+    const pp = pool.find(p=>p.n===n) || {}; const cur = wlcFindPlayer(n);
+    const nm = cur?.name || n, team = cur?.team || pp.t;
+    const last = playerShortName(nm);
+    return `<div class="lis-card t${pp.tier||1}" style="animation-delay:${.15+i*.12}s">
+      <div class="lis-port"><img src="${portraitUrl(team, nm)}" onerror="this.style.visibility='hidden'"><span class="lis-price">$${pp.salary||'?'}</span></div>
+      <div class="lis-name">${last}</div>
+      <div class="lis-team">${team||''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('wlc-locked-splash')?.remove();
+  const m = document.createElement('div');
+  m.id = 'wlc-locked-splash'; m.className = 'lis-overlay';
+  m.innerHTML = `<div class="lis-box">
+    <div class="lis-theme">${wlcThemeName(week, wk).toUpperCase()}</div>
+    <div class="lis-title">LINEUP<br>LOCKED IN!</div>
+    <div class="lis-cards">${cards}</div>
+    <div class="lis-stats">
+      <div><span>SPENT</span><b>$${spent}</b></div>
+      <div><span>PLAYERS</span><b>${picks.length}</b></div>
+      <div><span>PROJ FP/G</span><b>${proj.toFixed(1)}</b></div>
+    </div>
+    ${lock?`<div class="lis-lock">🔒 PICKS LOCK ${lock} · SCORING STARTS AT TIP-OFF</div>`:''}
+    <div class="lis-gl">GOOD LUCK!</div>
+    <button class="lis-btn" onclick="document.getElementById('wlc-locked-splash').remove()">VIEW ALL LINEUPS ▶</button>
+  </div>`;
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
 }
 
 // "Are you sure?" before a lineup becomes final

@@ -1389,6 +1389,20 @@ html[data-theme="neon"]{
 .theme-opt .sw i{flex:1;height:14px;border-radius:2px;}
 .theme-opt .nm{font-family:var(--pixel);font-size:6px;color:var(--text1);}
 .theme-opt .on-tag{font-family:var(--pixel);font-size:4.5px;color:var(--accent2);margin-top:4px;min-height:6px;}
+
+/* Rosters: WEEK | FALL switch */
+.fpt-wrap{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.fpt{font-family:var(--pixel);font-size:4.5px;padding:3px 6px;color:var(--text3);background:transparent;}
+.fpt.on{background:var(--accent1);color:#000;}
+/* Rosters: day-by-day strip */
+.day-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:2px 14px 6px;}
+.day-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-family:var(--pixel);}
+.day-btn .dw{font-size:5px;} .day-btn .dd{font-size:8px;color:var(--text1);} .day-btn .dm{font-size:4px;color:var(--accent2);min-height:5px;}
+.day-btn.past{opacity:.5;}
+.day-btn.on{border-color:var(--accent1);box-shadow:0 0 0 1px var(--accent1);background:var(--card);}
+.day-btn.warn{border-color:#ff3b5c;} .day-btn.warn .dm{color:#ff3b5c;}
+.day-note{margin:0 14px 8px;font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3);}
+.day-note.ok{color:var(--accent2);} .day-note.bad{color:#ff8a9a;}
 </style>
 </head>
 <body>

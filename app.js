@@ -2257,6 +2257,17 @@ function fpColsHtml(tot, gp, size){
   const avg = gp ? (tot/gp).toFixed(1) : '—';
   return `<div class="fpc${size==='sm'?' sm':''}"><span class="fpc-tot${tot>0?'':' zero'}">${(+tot).toFixed(1)}</span><span class="fpc-avg">${avg}</span></div>`;
 }
+// Value + per-game average given explicitly (WEEK mode: week FP + season avg)
+function fpColsPairHtml(val, avg){
+  return `<div class="fpc"><span class="fpc-tot${val>0?'':' zero'}">${(+val).toFixed(1)}</span><span class="fpc-avg">${avg==null?'—':(+avg).toFixed(1)}</span></div>`;
+}
+// Rosters: WEEK | FALL switch over the FP columns (remembered per browser)
+let rostersFpMode = (()=>{ try{ return localStorage.getItem('nba-fpmode')||'week'; }catch(e){ return 'week'; } })();
+function setRostersFpMode(m){ rostersFpMode = m; try{ localStorage.setItem('nba-fpmode', m); }catch(e){} renderRostersScreen(); }
+function fpToggleHead(){
+  const b = (m,l) => `<button class="fpt${rostersFpMode===m?' on':''}" onclick="setRostersFpMode('${m}')">${l}</button>`;
+  return `<div class="fpc fpc-head"><span class="fpc-lbl"><span class="fpt-wrap">${b('week','WEEK')}${b('fall','FALL')}</span></span><span class="fpc-tot">${rostersFpMode==='week'?'WEEK':'TOT'}</span><span class="fpc-avg">AVG</span></div>`;
+}
 function fpColsHead(label, size){
   return `<div class="fpc fpc-head${size==='sm'?' sm':''}">${label?`<span class="fpc-lbl">${label}</span>`:''}<span class="fpc-tot">TOT</span><span class="fpc-avg">AVG</span></div>`;
 }
@@ -2478,6 +2489,7 @@ function countFoulsFromPlays(plays, espnIdToPid){
 let _lastBdlStatsFetch = 0;
 async function refreshLiveStats(){
   await pullLeagueState(); // see other managers' changes; keeps mine
+  await applyLineupPlans(); // a planned day has arrived → make it the lineup
   maybeShowWeekResults();
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
@@ -2757,6 +2769,119 @@ async function toggleActiveStatus(mid, pid){
   renderLineupPreview();
   renderHomeScreen();
   toast(isActive ? 'Moved to Bench' : 'Moved to Active');
+}
+
+// ── DAY-BY-DAY LINEUPS ──────────────────────────────────────────────────────
+// leagueState.lineupPlans[mid][YYYYMMDD] = active list planned for that future day.
+// A day with no plan carries forward the day before (just like today's lineup does).
+// When a planned day arrives, applyLineupPlans() makes it the active lineup and logs it
+// as of 12:00 AM ET that day, so scoring uses it no matter who opens the app first.
+function ymdKey(d){ return d.toISOString().slice(0,10).replace(/-/g,''); }
+function todayYmd(){ return todayKey().replace(/-/g,''); }
+function weekDaysYmd(){
+  const ws = currentWeekStart();
+  return [...Array(7)].map((_,i)=>{ const d=new Date(ws.getFullYear(), ws.getMonth(), ws.getDate()+i, 12); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; });
+}
+function etMidnightIso(ymd){
+  const y=ymd.slice(0,4), m=ymd.slice(4,6), d=ymd.slice(6,8);
+  for(const off of ['-04:00','-05:00']){
+    const t = new Date(`${y}-${m}-${d}T00:00:00${off}`);
+    if(t.toLocaleString('en-US',{timeZone:'America/New_York',hour:'2-digit',hour12:false}).replace(/\D/g,'')%24===0) return t.toISOString();
+  }
+  return new Date(`${y}-${m}-${d}T00:00:00-05:00`).toISOString();
+}
+function planEligible(mid, list){
+  const roster = ((leagueState.rosters||{})[mid]||[]).map(String), ir = String(getIrSlot(mid)??'');
+  return list.filter(id=>roster.includes(String(id)) && String(id)!==ir).slice(0, ACTIVE_SIZE);
+}
+// The lineup that will be active on a FUTURE day (latest plan on or before it, else today's)
+function plannedLineup(mid, ymd){
+  const plans = (leagueState.lineupPlans||{})[mid] || {};
+  const t = todayYmd();
+  const key = Object.keys(plans).filter(k=>k>t && k<=ymd).sort().pop();
+  const base = key ? plans[key] : ((leagueState.active||{})[mid] || autoActiveFor(mid));
+  return planEligible(mid, base.map(x=>isNaN(x)?x:Number(x)));
+}
+async function savePlan(mid, ymd, list){
+  if(!leagueState.lineupPlans) leagueState.lineupPlans = {};
+  if(!leagueState.lineupPlans[mid]) leagueState.lineupPlans[mid] = {};
+  leagueState.lineupPlans[mid][ymd] = planEligible(mid, list);
+  await saveLeagueState();
+  return _lastSaveOk;
+}
+// Was this day's plan read back from the league (i.e. it's really saved)?
+function planConfirmed(mid, ymd){
+  const mine = (leagueState.lineupPlans||{})[mid]?.[ymd];
+  if(!mine) return null;
+  try{ const base = JSON.parse(_leagueBaseJson||'{}'); return JSON.stringify(base.lineupPlans?.[mid]?.[ymd]||null) === JSON.stringify(mine); }catch(e){ return false; }
+}
+async function planSwap(mid, ymd, a, b){
+  rostersMovePid = null;
+  const cur = plannedLineup(mid, ymd);
+  const inA = cur.includes(a), inB = cur.includes(b);
+  if(inA===inB){ renderRostersScreen(); return; }
+  const [goingIn, goingOut] = inA ? [b, a] : [a, b];
+  const ok = await savePlan(mid, ymd, cur.map(id=>id===goingOut?goingIn:id));
+  renderRostersScreen();
+  if(ok) toast(`${dayLabel(ymd)}: ${playerShortName(getPlayer(goingIn).name)} IN · ${playerShortName(getPlayer(goingOut).name)} OUT ✓`);
+}
+async function planToggle(mid, ymd, pid){
+  rostersMovePid = null;
+  const cur = plannedLineup(mid, ymd);
+  let next;
+  if(cur.includes(pid)){ if(cur.length<=1){ toast('Need at least 1 active player'); return; } next = cur.filter(x=>x!==pid); }
+  else { if(cur.length>=ACTIVE_SIZE){ toast(`Active is full (${ACTIVE_SIZE})`); return; } next = [...cur, pid]; }
+  const ok = await savePlan(mid, ymd, next);
+  renderRostersScreen();
+  if(ok) toast(`${dayLabel(ymd)} lineup saved ✓`);
+}
+function dayLabel(ymd){
+  const d = new Date(+ymd.slice(0,4), +ymd.slice(4,6)-1, +ymd.slice(6,8), 12);
+  return d.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
+}
+// Game info for a team on a given day (from the cached schedule; loads it if needed)
+function dayGameInfo(team, ymd){
+  const dk = `${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}`;
+  const sc = _schedCache[dk];
+  if(!sc){ if(!_schedLoading[dk]){ _schedLoading[dk]=1; fetchTeamsPlayingOn(dk).then(()=>{ if(currentScreen==='fantasy') renderRostersScreen(); }); } return ''; }
+  const t = (team||'').toUpperCase(), o = sc.oppByTeam?.[t];
+  if(!o) return '<span style="color:var(--text3)">No game</span>';
+  const tip = sc.tipByTeam?.[t] ? new Date(sc.tipByTeam[t]).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : '';
+  return `<span style="color:var(--accent2)">${o.home?'vs':'@'} ${o.opp}${tip?', '+tip:''}</span>`;
+}
+const _schedLoading = {};
+// Turn any plan whose day has arrived into the real lineup (run on every load / pull)
+let _applyingPlans = false;
+async function applyLineupPlans(){
+  if(_applyingPlans || !leagueState?.lineupPlans) return;
+  const t = todayYmd();
+  let changed = false;
+  for(const [mid, plans] of Object.entries(leagueState.lineupPlans)){
+    const due = Object.keys(plans||{}).filter(k=>k<=t).sort();
+    if(!due.length) continue;
+    const day = due[due.length-1], list = planEligible(mid, plans[day].map(x=>isNaN(x)?x:Number(x)));
+    const since = etMidnightIso(day);
+    if(!leagueState.activeLog) leagueState.activeLog = {};
+    const log = leagueState.activeLog[mid] || (leagueState.activeLog[mid] = []);
+    // A lineup change already made on that day wins over the plan
+    if(!log.some(e=>e.ts >= since)){
+      // Keep earlier days scoring with the lineup they really had: if the log has no
+      // entry before this day, record the pre-plan lineup first
+      if(!log.some(e=>e.ts < since)){
+        const prev = (leagueState.active||{})[mid] || autoActiveFor(mid);
+        log.push({ts:'2000-01-01T00:00:00.000Z', active:[...prev]});
+      }
+      if(!leagueState.active) leagueState.active = {};
+      if(!leagueState.inactive) leagueState.inactive = {};
+      leagueState.active[mid] = list;
+      leagueState.inactive[mid] = ((leagueState.rosters||{})[mid]||[]).filter(id=>!list.map(String).includes(String(id)) && String(id)!==String(getIrSlot(mid)??''));
+      log.push({ts: since, active:[...list], plan:true});
+      log.sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
+    }
+    due.forEach(k=>delete plans[k]);
+    changed = true;
+  }
+  if(changed){ _applyingPlans = true; try{ await saveLeagueState(); } finally { _applyingPlans = false; } }
 }
 
 // ESPN-style swap: one active player and one bench player trade places in a single save
@@ -3449,7 +3574,7 @@ async function fetchTeamsPlayingOn(dateKey){
     const data = await res.json();
     const teams = new Set();
     const matchups = [];
-    const tipByTeam = {};
+    const tipByTeam = {}, oppByTeam = {};
     for(const ev of (data.events||[])){
       for(const comp of (ev.competitions||[])){
         const tip = comp.date || ev.date;
@@ -3465,10 +3590,10 @@ async function fetchTeamsPlayingOn(dateKey){
           if(c.homeAway === 'home') home = abbr;
           else away = abbr;
         }
-        if(home && away) matchups.push([away, home]);
+        if(home && away){ matchups.push([away, home]); oppByTeam[home] = {opp:away, home:true}; oppByTeam[away] = {opp:home, home:false}; }
       }
     }
-    const out = teams.size > 0 ? { teams, matchups, tipByTeam } : null;
+    const out = teams.size > 0 ? { teams, matchups, tipByTeam, oppByTeam } : null;
     if(out) _schedCache[dateKey] = out;
     return out;
   } catch(e){
@@ -5593,8 +5718,20 @@ function renderRostersScreen(){
   if(!viewManager){ contentEl.innerHTML=''; return; }
   const isMyRoster=rostersViewId===myId;
   const roster=(leagueState.rosters||{})[rostersViewId]||[];
-  const active=isMyRoster?(getMyActive().length?getMyActive():autoActiveFor(rostersViewId))
+  let active=isMyRoster?(getMyActive().length?getMyActive():autoActiveFor(rostersViewId))
     :((leagueState.active||{})[rostersViewId]||autoActiveFor(rostersViewId));
+  // Day-by-day: my roster can view past days (what counted) and plan future days
+  const todayD = todayYmd(), weekDays = weekDaysYmd();
+  const viewDay = (isMyRoster && rostersDay && weekDays.includes(rostersDay)) ? rostersDay : todayD;
+  const isFutureDay = viewDay > todayD, isPastDay = viewDay < todayD;
+  if(isFutureDay) active = plannedLineup(rostersViewId, viewDay);
+  else if(isPastDay) active = activeLineupOnDate(rostersViewId, viewDay).map(x=>isNaN(x)?x:Number(x));
+  if(!isFutureDay && rostersMovePid!=null && isPastDay) rostersMovePid = null;
+  // FP columns: this week's FP for this team (Active games) or Fall Run total; AVG = season FP/game
+  const ws = currentWeekStart(), we = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate()+6);
+  const weekFp = {}; if(rostersFpMode==='week') teamRowsForRange(rostersViewId, ymd(ws), ymd(we), true).forEach(r=>{ weekFp[String(r.p.id)] = r.fp; });
+  const fpCells = pid => { const gp = playerGamesPlayed(pid), tot = playerTotalFP(pid), avg = gp ? tot/gp : null;
+    return fpColsPairHtml(rostersFpMode==='week' ? (weekFp[String(pid)]||0) : tot, avg); };
   const topFP=roster.length?Math.max(...roster.map(id=>playerTotalFP(id))):0;
 
   if(!roster.length){
@@ -5618,13 +5755,21 @@ function renderRostersScreen(){
     const statusLabel = isOnIR
       ? '<span style="color:#805ad5">■ INJURY RESERVE</span>'
       : isActive ? '<span style="color:var(--accent2)">● ACTIVE</span>' : '<span style="color:var(--accent4)">● BENCH</span>';
-    const gameInfo = getTodayGameInfo(p.team, p.id);
-    const gameLabel = gameInfo
-      ? `<span style="font-size:5px">${gameInfo}</span>`
-      : `<span style="color:var(--text3);font-size:5px">No Game Today</span>`;
+    const gameInfo = viewDay===todayD ? getTodayGameInfo(p.team, p.id) : dayGameInfo(p.team, viewDay);
     // Determine which action buttons to show
     let actionBtns = '';
-    if(isMyRoster){
+    if(isMyRoster && isPastDay){
+      actionBtns = '';
+    } else if(isMyRoster && isFutureDay){
+      // Planning a future day: no game locks yet; IR/drops happen on today's view
+      const mover = rostersMovePid!=null ? getPlayer(rostersMovePid) : null;
+      const moverActive = mover ? active.includes(rostersMovePid) : false;
+      if(isOnIR) actionBtns = '';
+      else if(mover) actionBtns = pid===rostersMovePid
+        ? `<button class="btn btn-sm move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">CANCEL</button>`
+        : (isActive!==moverActive ? `<button class="btn btn-sm move-btn here" onclick="planSwap('${rostersViewId}','${viewDay}',${rostersMovePid},${pid})">HERE</button>` : '');
+      else actionBtns = `<button class="btn btn-sm move-btn" onclick="rostersMovePid=${pid};renderRostersScreen()">MOVE</button>`;
+    } else if(isMyRoster){
       if(rostersDropMode){
         // Drop mode: show Drop button only on eligible (non-IR, non-locked) players
         if(isOnIR){
@@ -5663,7 +5808,7 @@ function renderRostersScreen(){
         <div class="player-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        ${fpColsHtml(fp, playerGamesPlayed(pid))}
+        ${fpCells(pid)}
         ${actionBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actionBtns}</div>` : ''}
       </div>
     </div>`;
@@ -5671,7 +5816,7 @@ function renderRostersScreen(){
 
   const nonIrCount = roster.filter(id=>id!==irPid).length;
   // Header Drop button: only show on own roster
-  const dropBtn = isMyRoster
+  const dropBtn = (isMyRoster && viewDay===todayD)
     ? rostersDropMode
       ? `<button onclick="rostersDropMode=false;renderRostersScreen()" style="margin-left:auto;background:#ffd93d;color:#000;border:1px solid #ffd93d;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">✕ CANCEL</button>`
       : `<button onclick="rostersDropMode=true;renderRostersScreen()" style="margin-left:auto;background:rgba(255,217,61,0.12);border:1px solid #ffd93d;color:#ffd93d;border-radius:12px;padding:4px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">DROP</button>`
@@ -5681,9 +5826,16 @@ function renderRostersScreen(){
       <span>${teamLabel(viewManager).toUpperCase()} · ${nonIrCount}/${ROSTER_SIZE} PLAYERS${irPid?` · <span style="color:#805ad5">1 ON IR</span>`:''}  · ${active.length} ACTIVE</span>
       ${dropBtn}
     </div>
+    ${isMyRoster ? dayStripHtml(rostersViewId, weekDays, viewDay, todayD) : ''}
     ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:#ffd93d">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
     ${(()=>{
       if(!isMyRoster || rostersMovePid==null || !getPlayer(rostersMovePid)) return '';
+      if(isFutureDay){
+        const mp = getPlayer(rostersMovePid), mpActive = active.includes(rostersMovePid);
+        const open = mpActive ? (active.length>1 ? 'MOVE TO BENCH' : '') : (active.length<ACTIVE_SIZE ? 'MOVE TO ACTIVE' : '');
+        return `<div class="move-banner"><span>${dayLabel(viewDay)} · MOVING <b>${playerShortName(mp.name)}</b> · TAP <b>HERE</b> ON ${mpActive?'A BENCH':'AN ACTIVE'} PLAYER</span>
+          <span style="display:flex;gap:6px;flex-shrink:0">${open?`<button class="move-btn" onclick="planToggle('${rostersViewId}','${viewDay}',${rostersMovePid})">${open}</button>`:''}<button class="move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">✕</button></span></div>`;
+      }
       const mp = getPlayer(rostersMovePid), mpActive = active.includes(rostersMovePid);
       // Open slot moves (no swap needed): bench → active when there's room; active → bench if 2+ active
       const open = mpActive ? (active.length>1 ? 'MOVE TO BENCH' : '') : (active.length<ACTIVE_SIZE ? 'MOVE TO ACTIVE' : '');
@@ -5698,7 +5850,7 @@ function renderRostersScreen(){
         const irPids     = irPid && roster.includes(irPid) ? [irPid] : [];
         const sections = [];
         if(activePids.length){
-          sections.push(`<div style="padding:6px 14px 2px;display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</span>${fpColsHead('SEASON FP')}</div>`);
+          sections.push(`<div style="padding:6px 14px 2px;display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</span>${fpToggleHead()}</div>`);
           sections.push(...activePids.map(rowHtml));
         }
         if(benchPids.length){
@@ -5712,6 +5864,27 @@ function renderRostersScreen(){
         return sections.join('');
       })()}
     </div>`;
+}
+
+let rostersDay = null; // YYYYMMDD being viewed on my roster (null = today)
+function dayStripHtml(mid, days, viewDay, todayD){
+  const btns = days.map(d=>{
+    const past = d < todayD, isToday = d === todayD;
+    const conf = !past && !isToday ? planConfirmed(mid, d) : null;
+    const mark = past ? '' : isToday ? 'TODAY' : conf===true ? '✓ SET' : conf===false ? '⚠' : '';
+    const dt = +d.slice(6,8);
+    return `<button class="day-btn${d===viewDay?' on':''}${past?' past':''}${conf===false?' warn':''}" onclick="rostersDay='${d}';rostersMovePid=null;rostersDropMode=false;renderRostersScreen()">
+      <span class="dw">${dayLabel(d)}</span><span class="dd">${dt}</span><span class="dm">${mark}</span></button>`;
+  }).join('');
+  let note = '';
+  if(viewDay < todayD) note = `<div class="day-note">${dayLabel(viewDay)} · THE LINEUP THAT COUNTED · VIEW ONLY</div>`;
+  else if(viewDay > todayD){
+    const conf = planConfirmed(mid, viewDay);
+    note = conf===true ? `<div class="day-note ok">✓ ${dayLabel(viewDay)} LINEUP SAVED TO THE LEAGUE · IT BECOMES ACTIVE THAT MORNING</div>`
+      : conf===false ? `<div class="day-note bad">⚠ ${dayLabel(viewDay)} LINEUP NOT CONFIRMED — <button class="move-btn here" onclick="savePlan('${mid}','${viewDay}',plannedLineup('${mid}','${viewDay}')).then(()=>renderRostersScreen())">SAVE AGAIN</button></div>`
+      : `<div class="day-note">${dayLabel(viewDay)} · SAME AS THE DAY BEFORE · MOVE ANYONE TO SET THIS DAY</div>`;
+  }
+  return `<div class="day-strip">${btns}</div>${note}`;
 }
 
 function renderRosterScreen(){
@@ -7267,6 +7440,7 @@ async function boot(){
       await loadLeagueState();
       await loadPortraits();
       applyColorTheme(myColorTheme());   // their saved theme, from any device
+      await applyLineupPlans();
       await ensureTodaysDuel();
       maybeSwapInjuredDuel();
       purgeWlcTestWeeks().then(ensureWlcTipoff);

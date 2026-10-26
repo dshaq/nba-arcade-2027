@@ -6461,8 +6461,8 @@ async function executeDrop(mid, pid){
 // and mirrored to this browser so it applies instantly on load.
 const COLOR_THEMES = [
   {id:'arcade',   name:'ARCADE NIGHT', sw:['#020c18','#111d35','#4a9eff','#00d4aa','#f5a623']},
-  {id:'hardwood', name:'HARDWOOD',     sw:['#140b05','#24160b','#ff8a3d','#7bd389','#ffc857']},
-  {id:'pocket',   name:'POCKET GREEN', sw:['#030a04','#09180b','#9bbc0f','#8bdc5f','#d4e157']},
+  {id:'hardwood', name:'HARDWOOD',     sw:['#110d0a','#1d1611','#ff7a2f','#34d1a4','#f2c14e']},
+  {id:'pocket',   name:'POCKET GREEN', sw:['#070a08','#101712','#a6d22a','#3fd0c9','#f5d547']},
   {id:'neon',     name:'NEON LIGHTS',  sw:['#10041c','#1d0b33','#00e5ff','#ff2e88','#ffd23f']},
 ];
 function applyColorTheme(id){

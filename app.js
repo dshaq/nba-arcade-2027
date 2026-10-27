@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102603;
+const APP_BUILD = 2026102604;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -8363,7 +8363,7 @@ function wlcLineupCardHtml(mid, wk, showSwap){
   const total = computeWlcFP(lineup.picks, lineup.swaps, wk);
   return `<div class="card wlc-entry" style="margin:0 14px">
     <div class="we-top"><span>${lineup.picks.length} PLAYER${lineup.picks.length===1?'':'S'} · $${wlcPickCostFor(lineup.picks,pool)} SPENT</span>
-      <span class="we-tot">${total.toFixed(1)}<span> FP</span></span></div>
+      <span class="we-tot">${total.toFixed(1)}<span> FP/G</span></span></div>
     ${wlcCardsGridHtml(mid, wk, showSwap)}
   </div>`;
 }
@@ -8390,7 +8390,7 @@ function wlcCardsGridHtml(mid, wk, showSwap){
       <div class="pt"><img src="${portraitUrl(team, nm)}" loading="lazy" onerror="this.style.visibility='hidden'"><span class="pr">$${sl.pp.salary||'?'}</span>
         ${live?'<span class="lvtag">LIVE</span>':''}${inj?`<span class="inj" style="background:${inj.color}">${inj.label}</span>`:''}${sl.swap?'<span class="sw">⇄</span>':''}</div>
       <div class="ln">${playerShortName(nm)}</div>
-      <div class="fp">${sl.gp?sl.avg.toFixed(1)+'<span class="fpg">FP/G</span>':'—'}</div>
+      <div class="fp">${sl.gp?sl.avg.toFixed(1):'—'}</div>
       <div class="gp">${sub}</div>
     </div>${canSwap?`<button class="wc-swap" onclick="openWlcSwapModal(${JSON.stringify(sl.name).replace(/"/g,'&quot;')})">SWAP</button>`:''}</div>`;
   }).join('');

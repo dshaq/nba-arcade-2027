@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102608;
+const APP_BUILD = 2026102609;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1657,10 +1657,25 @@ function handleStaleClient(remote){
   }
   return true;
 }
+// updated_at of the league row as of _leagueBaseJson. Lets pulls and saves skip
+// downloading the whole league when nobody has saved since (a tiny check instead).
+let _leagueTs = null;
+async function fetchRemoteLeagueTs(){
+  const {data, error} = await db.from('leagues').select('updated_at').eq('id',LEAGUE_KEY).maybeSingle();
+  return (error || !data) ? null : data.updated_at;
+}
 async function fetchRemoteLeagueStateWithTs(){
   const {data, error} = await db.from('leagues').select('state,updated_at').eq('id',LEAGUE_KEY).maybeSingle();
   if(error || !data?.state) return null;
   try{ return {state: typeof data.state==='string' ? JSON.parse(data.state) : data.state, ts: data.updated_at}; }catch(e){ return null; }
+}
+// Same as above, but reuses our copy when the row hasn't changed since we last read it
+async function fetchRemoteLeagueStateIfChanged(){
+  if(_leagueTs && _leagueBaseJson){
+    const ts = await fetchRemoteLeagueTs();
+    if(ts && ts === _leagueTs) return {state: JSON.parse(_leagueBaseJson), ts, same:true};
+  }
+  return await fetchRemoteLeagueStateWithTs();
 }
 async function fetchRemoteLeagueState(){
   return (await fetchRemoteLeagueStateWithTs())?.state || null;
@@ -1671,24 +1686,27 @@ function pullLeagueState(){
   _leagueStateQueue = _leagueStateQueue.then(async ()=>{
     if(!leagueState || !_leagueBaseJson) return;
     const startJson = JSON.stringify(leagueState);
-    const remote = await fetchRemoteLeagueState();
-    if(!remote) return;
+    const r = await fetchRemoteLeagueStateIfChanged();
+    if(!r || r.same) return;          // nobody saved since our last read
+    const remote = r.state;
     if(handleStaleClient(remote)) return;
     const merged = merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote);
     // Keep anything changed locally while the fetch was in flight
     _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, merged));
     _leagueBaseJson = JSON.stringify(remote);
+    _leagueTs = r.ts;
   }).catch(e=>console.warn('[pullLeagueState]', e));
   return _leagueStateQueue;
 }
 
 async function loadLeagueState(){
   await _leagueStateQueue; // let any in-flight save finish first
-  const remote = await fetchRemoteLeagueState();
+  const rr = await fetchRemoteLeagueStateWithTs(), remote = rr?.state || null;
   if(remote && handleStaleClient(remote)) return;
   if(remote) leagueState = remote;
   if(!leagueState){ leagueState = defaultLeagueState(); }
   _leagueBaseJson = JSON.stringify(leagueState);
+  _leagueTs = rr?.ts || null;
   dedupePlayerStats();
   // Always sync live manager profiles so names/colors are never stale
   await syncManagersToState();
@@ -1824,17 +1842,18 @@ function saveLeagueState(){
     logActiveChanges();
     for(let attempt=0; attempt<6; attempt++){
       const startJson = JSON.stringify(leagueState);
-      const r = await fetchRemoteLeagueStateWithTs();
+      const r = await fetchRemoteLeagueStateIfChanged();
       if(r && handleStaleClient(r.state)) return;
       const toWrite = (r && _leagueBaseJson)
         ? merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), r.state)
         : JSON.parse(startJson);
       toWrite.minBuild = Math.max(+toWrite.minBuild||0, APP_BUILD);
       const json = JSON.stringify(toWrite);
-      let error, landed = true;
+      let error, landed = true, newTs = null;
       if(r && r.ts){
         const res = await db.from('leagues').update({state:json}).eq('id',LEAGUE_KEY).eq('updated_at', r.ts).select('updated_at');
         error = res.error; landed = !error && (res.data||[]).length > 0;
+        if(landed) newTs = res.data[0].updated_at;
       } else {
         error = (await db.from('leagues').upsert({id:LEAGUE_KEY, state:json})).error;
       }
@@ -1842,7 +1861,7 @@ function saveLeagueState(){
       if(!landed && r){
         // No row came back: either someone saved first, or the row landed but wasn't returned
         const chk = await fetchRemoteLeagueStateWithTs();
-        if(chk && JSON.stringify(chk.state)===json) landed = true;
+        if(chk && JSON.stringify(chk.state)===json){ landed = true; newTs = chk.ts; }
         else if(chk && chk.ts === r.ts){
           // Nobody else saved, yet our write didn't land: the database refused it
           // (usually an expired sign-in on a long-open tab). Refresh the session once.
@@ -1854,6 +1873,7 @@ function saveLeagueState(){
       // Adopt the merged result, keeping anything changed locally during the save
       _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
       _leagueBaseJson = json;
+      _leagueTs = newTs;   // null (unknown) → next pull/save downloads the row
       _lastSaveOk = true;
       return;
     }
@@ -2566,6 +2586,15 @@ function parseBdlStatRows(rows){
 }
 
 // ESPN fallback box score fetch (unchanged logic)
+// Finished games barely change: re-read each at most every 30 minutes, not every minute
+const _finalBoxCache = {};
+async function fetchBoxScoreESPNCached(eventId, isFinal){
+  const c = _finalBoxCache[eventId];
+  if(isFinal && c && Date.now() - c.at < 30*60*1000) return c.stats;
+  const stats = await fetchBoxScoreESPN(eventId);
+  if(isFinal && stats && Object.keys(stats).length) _finalBoxCache[eventId] = {stats, at:Date.now()};
+  return stats;
+}
 async function fetchBoxScoreESPN(eventId){
   const res=await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${eventId}`);
   const data=await res.json();
@@ -2726,7 +2755,7 @@ async function refreshLiveStats(){
         const isDone=st?.completed;
         if(!isLive && !isDone) continue;
         try{
-          const gs=await fetchBoxScoreESPN(event.id);
+          const gs=await fetchBoxScoreESPNCached(event.id, isDone);
           // One line per player: his game in progress, else his most recent game.
           // (Never add games together — on a back-to-back that merged yesterday's
           // final into tonight's live line.)

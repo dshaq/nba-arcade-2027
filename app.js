@@ -1638,6 +1638,7 @@ function merge3(base, local, remote){
   return local;                             // both changed the same value: mine wins
 }
 function _replaceLeagueState(next){
+  _statsIdx = null;
   if(!leagueState){ leagueState = next; return; }
   for(const k of Object.keys(leagueState)) if(!(k in next)) delete leagueState[k];
   Object.assign(leagueState, next);
@@ -1645,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102609;
+const APP_BUILD = 2026102610;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -2401,8 +2402,21 @@ function allManagers(){
 let livePlayerStats = {};  // {pid: {fp, pts, reb, ast, stl, blk, to, live, gameId}}
 let liveGamesActive = false;
 
+// Saved stat lines grouped by player, rebuilt only when playerStats changes (new object or
+// new lines). Before this, every lookup scanned all ~1,200 lines, and default lineups sorted
+// rosters with those lookups thousands of times per screen — seconds of frozen page.
+let _statsIdx = null;
+function statsByPid(){
+  const ps = leagueState?.playerStats || {};
+  const n = Object.keys(ps).length;
+  if(_statsIdx && _statsIdx.obj === ps && _statsIdx.n === n) return _statsIdx.map;
+  const map = new Map();
+  for(const v of Object.values(ps)){ const k = String(v.pid); let a = map.get(k); if(!a) map.set(k, a = []); a.push(v); }
+  _statsIdx = {obj:ps, n, map};
+  return map;
+}
 function playerSavedFP(pid){
-  return Object.values(leagueState.playerStats||{})
+  return (statsByPid().get(String(pid))||[])
     .filter(s=>s.pid===pid)
     .reduce((sum,s)=>sum+(s.fp||0),0);
 }
@@ -2417,8 +2431,7 @@ function savedPidDateSet(){
 
 // Is this live/finished game line already counted in saved stats?
 function liveAlreadySaved(pid, live){
-  return Object.values(leagueState.playerStats||{}).some(s =>
-    String(s.pid)===String(pid) &&
+  return (statsByPid().get(String(pid))||[]).some(s =>
     ((s.gameId && String(s.gameId)===String(live.gameId)) || (live.dateStr && String(s.date)===String(live.dateStr))));
 }
 
@@ -2431,7 +2444,7 @@ function playerTotalFP(pid){
 
 // Games behind playerTotalFP: saved stat lines plus tonight's unsaved live game
 function playerGamesPlayed(pid){
-  let n = Object.values(leagueState.playerStats||{}).filter(s=>s.pid===pid).length;
+  let n = (statsByPid().get(String(pid))||[]).filter(s=>s.pid===pid).length;
   const live = livePlayerStats[pid];
   if(live && !liveAlreadySaved(pid, live)) n++;
   return n;
@@ -2542,10 +2555,17 @@ function managerFP(mid){
 }
 
 // Auto-select top 8 by season FP if user hasn't set lineup (excludes IR player)
+const _autoActiveMemo = new Map();
 function autoActiveFor(mid){
   const roster=(leagueState.rosters||{})[mid]||[];
   const irPid=getIrSlot(mid);
-  return [...roster].filter(p=>p!==irPid).sort((a,b)=>playerTotalFP(b)-playerTotalFP(a)).slice(0,ACTIVE_SIZE);
+  statsByPid();
+  const key = `${mid}|${roster.join(',')}|${irPid}`, c = _autoActiveMemo.get(key);
+  if(c && c.idx === _statsIdx && c.live === livePlayerStats) return [...c.v];
+  const tot = new Map(roster.map(p=>[p, playerTotalFP(p)]));
+  const v = [...roster].filter(p=>p!==irPid).sort((a,b)=>tot.get(b)-tot.get(a)).slice(0,ACTIVE_SIZE);
+  _autoActiveMemo.set(key, {idx:_statsIdx, live:livePlayerStats, v});
+  return [...v];
 }
 
 // ── LIVE STATS (BallDontLie primary, ESPN fallback) ──────────────────────────

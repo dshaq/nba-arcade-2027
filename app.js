@@ -1398,7 +1398,7 @@ async function showTeamResults(abbr){
   m.onclick = e=>{ if(e.target===m) m.remove(); };
   const box = body => `<div class="modal-box" style="max-width:360px;width:calc(100% - 32px);max-height:80vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px">${getTeamLogoUrl(abbr)?`<img src="${getTeamLogoUrl(abbr)}" style="width:32px;height:32px;object-fit:contain">`:''}
+      <div style="display:flex;align-items:center;gap:10px">${getTeamLogoUrl(abbr)?`<img src="${duelLogoUrl(abbr)}" data-fallback="${getTeamLogoUrl(abbr)}" style="width:56px;height:56px;object-fit:contain" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.width=this.style.height='32px';}else this.remove()">`:''}
         <div><div style="font-family:var(--pixel);font-size:8px;color:var(--text1)">${(NBA_TEAMS[abbr]||abbr).toUpperCase()}</div>
         <div id="team-results-rec" style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:4px">${abbr}</div></div></div>
       <button onclick="document.getElementById('team-results-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102605;
+const APP_BUILD = 2026102606;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -4369,7 +4369,7 @@ function renderDuelCard(){
       // the right-hand team is mirrored so the two face each other. Falls back to the normal logo.
       const custom = duelLogoUrl(abbr);
       const logoEl = logoUrl
-        ? `<img src="${custom}" data-fallback="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;display:block;margin:0 auto 6px;${side===2?'transform:scaleX(-1);':''}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.transform='none';}else{this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'}">`
+        ? `<img src="${custom}" data-fallback="${logoUrl}" style="width:120px;height:120px;max-width:100%;object-fit:contain;border-radius:8px;display:block;margin:0 auto 4px;${side===2?'transform:scaleX(-1);':''}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.transform='none';this.style.width=this.style.height='64px';}else{this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'}">`
           + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
         : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
       const ps = duelSideState(side, myPick, duel);

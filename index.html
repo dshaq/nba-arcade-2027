@@ -53,6 +53,13 @@ img{display:block;}
   position:relative;
 }
 
+/* Phones: the app scrolls inside #app instead of the page, so iOS Safari's collapsing
+   toolbar can't shift the fixed bottom nav (it floated mid-screen while scrolling). */
+@media (hover:none) and (pointer:coarse){
+  html,body{overflow:hidden;height:100%;}
+  #app{height:100vh;height:100dvh;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+}
+
 /* ── SCANLINES OVERLAY ── */
 #app::before{
   content:'';

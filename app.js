@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102606;
+const APP_BUILD = 2026102607;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -3735,6 +3735,8 @@ const DUEL_TEAM_TEMPLATES = [
   { stat:'team', prompt:'Who wins tonight?' },
 ];
 
+// Scroll the app to the top (phones scroll inside #app, desktop scrolls the page)
+function appScrollTop(){ const a=document.getElementById('app'); if(a) a.scrollTop=0; window.scrollTo(0,0); }
 function todayKey(){
   // Use ET (UTC-4 in EDT, UTC-5 in EST) and shift back 2 hours so the duel
   // rolls over at 2:00 AM ET instead of midnight — accommodates West Coast users.
@@ -8054,7 +8056,7 @@ async function saveWlcLineup(picks){
   window._wlcPicksWeekKey = null;
   window._wlcTab = 'pick'; // saved lineups are final: land on Current Week's Lineups
   renderWlcScreen();
-  window.scrollTo({top:0, behavior:'auto'});
+  appScrollTop();
   if(_lastSaveOk) showWlcLockedInSplash(picks, wk);
 }
 

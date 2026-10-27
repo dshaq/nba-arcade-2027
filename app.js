@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102613;
+const APP_BUILD = 2026102614;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -6245,7 +6245,7 @@ function renderRostersScreen(){
       else if(mover) actionBtns = pid===rostersMovePid
         ? `<button class="btn btn-sm move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">CANCEL</button>`
         : (isActive!==moverActive ? `<button class="btn btn-sm move-btn here" onclick="planSwap('${rostersViewId}','${viewDay}',${rostersMovePid},${pid})">HERE</button>` : '');
-      else actionBtns = `<button class="btn btn-sm move-btn" onclick="rostersMovePid=${pid};renderRostersScreen()">MOVE</button>`;
+      else actionBtns = `<button class="move-btn rc-mv" aria-label="Move ${p.name.replace(/"/g,'&quot;')}" onclick="rostersMovePid=${pid};renderRostersScreen()">⇅</button>`;
     } else if(isMyRoster){
       if(rostersDropMode){
         // Drop mode: show Drop button only on eligible (non-IR, non-locked) players
@@ -6272,22 +6272,30 @@ function renderRostersScreen(){
             ? `<button class="btn btn-sm move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">CANCEL</button>`
             : (isActive!==moverActive ? `<button class="btn btn-sm move-btn here" onclick="swapActiveBench('${rostersViewId}',${rostersMovePid},${pid})">HERE</button>` : '');
         } else {
-          actionBtns = `<button class="btn btn-sm move-btn" onclick="rostersMovePid=${pid};renderRostersScreen()">MOVE</button>
+          actionBtns = `<button class="move-btn rc-mv" aria-label="Move ${p.name.replace(/"/g,'&quot;')}" onclick="rostersMovePid=${pid};renderRostersScreen()">⇅</button>
              ${isOut&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
         }
       }
     }
+    // Live tonight: LED score pill + tonight's FP under the total
+    const tg = viewDay===todayD ? todayGamesCache[(p.team||'').toUpperCase()] : null;
+    const lv = livePlayerStats[pid];
+    const isLiveNow = !!(tg && tg.isLive && tg.myScore!=null);
+    const liveFp = isLiveNow && lv && lv.live ? (+lv.fp||0) : null;
+    const gp = playerGamesPlayed(pid), tot = playerTotalFP(pid), avg = gp ? tot/gp : null;
+    const big = rostersFpMode==='week' ? (weekFp[String(pid)]||0) : tot;
+    const line2 = isLiveNow
+      ? `<div class="rc-led">${p.team} ${tg.myScore}-${tg.oppScore} ${tg.opponent}${tg.period?` · Q${tg.period}`:''}</div>`
+      : `<div class="rc-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>`;
     return `
-    <div class="player-row${isMyRoster&&rostersMovePid===pid?' moving':''}" style="padding:8px 14px${isOnIR?';background:rgba(128,90,213,0.06)':''}${rostersDropMode&&isMyRoster&&!isLocked&&!isOnIR?';background:rgba(233,69,96,0.04)':''}">
-      <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
-      <div class="player-info">
-        <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
-        <div class="player-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>
+    <div class="rc${isActive?'':isOnIR?' ir':' bench'}${isLiveNow?' live':''}${isMyRoster&&rostersMovePid===pid?' moving':''}${rostersDropMode&&isMyRoster&&!isLocked&&!isOnIR?' dropping':''}">
+      <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${portEl}</div>
+      <div class="rc-info">
+        <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
+        ${line2}
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        ${fpCells(pid)}
-        ${actionBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actionBtns}</div>` : ''}
-      </div>
+      <div class="rc-fp"><b class="${big>0?'':'z'}">${(+big).toFixed(1)}</b><i>${liveFp!=null?`<span class="lv">+${liveFp.toFixed(1)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
+      ${actionBtns ? `<div class="rc-act">${actionBtns}</div>` : '<div class="rc-act"></div>'}
     </div>`;
   };
 
@@ -6319,7 +6327,7 @@ function renderRostersScreen(){
       return `<div class="move-banner"><span>MOVING <b>${playerShortName(mp.name)}</b> · TAP <b>HERE</b> ON ${mpActive?'A BENCH':'AN ACTIVE'} PLAYER TO SWAP</span>
         <span style="display:flex;gap:6px;flex-shrink:0">${open?`<button class="move-btn" onclick="const id=rostersMovePid;rostersMovePid=null;toggleActiveStatus('${rostersViewId}',id)">${open}</button>`:''}<button class="move-btn cancel" onclick="rostersMovePid=null;renderRostersScreen()">✕</button></span></div>`;
     })()}
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
+    <div class="rc-wrap">
       ${(()=>{
         // Order: Active → Bench → IR
         const activePids = roster.filter(id => id !== irPid && active.includes(id));
@@ -6327,15 +6335,16 @@ function renderRostersScreen(){
         const irPids     = irPid && roster.includes(irPid) ? [irPid] : [];
         const sections = [];
         if(activePids.length){
-          sections.push(`<div style="padding:6px 14px 2px;display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--pixel);font-size:5px;color:var(--accent2);letter-spacing:.08em">ACTIVE</span>${fpToggleHead()}</div>`);
+          const tb = (m,l) => `<button class="fpt${rostersFpMode===m?' on':''}" onclick="setRostersFpMode('${m}')">${l}</button>`;
+          sections.push(`<div class="rc-sec act"><span>ACTIVE ${activePids.length}</span><span class="fpt-wrap">${tb('week','WEEK')}${tb('fall','FALL')}</span></div>`);
           sections.push(...activePids.map(rowHtml));
         }
         if(benchPids.length){
-          sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:var(--accent4);letter-spacing:.08em;border-top:1px solid var(--border)">BENCH</div>`);
+          sections.push(`<div class="rc-sec bn"><span>BENCH</span></div>`);
           sections.push(...benchPids.map(rowHtml));
         }
         // IR section always shows, with a placeholder when empty
-        sections.push(`<div style="padding:6px 14px 2px;font-family:var(--pixel);font-size:5px;color:#805ad5;letter-spacing:.08em;border-top:1px solid var(--border)">INJURY RESERVE (${irPids.length}/1)</div>`);
+        sections.push(`<div class="rc-sec ir"><span>INJURY RESERVE (${irPids.length}/1)</span></div>`);
         if(irPids.length) sections.push(...irPids.map(rowHtml));
         else sections.push(`<div style="padding:8px 14px 12px;font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.8">NO PLAYER ON IR · ONLY PLAYERS LISTED <span style="color:#e53e3e">OUT</span> CAN BE PLACED HERE</div>`);
         return sections.join('');

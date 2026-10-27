@@ -1525,16 +1525,7 @@ function pcardOnclick(name){ return 'showPlayerCard('+JSON.stringify(String(name
 function userAvatar(m, size=22, fontSize=7){
   return userLink(m.id, avatarEl(m.display_name, m.color||'#4a9eff', size, fontSize, m.icon||null, m.photo||null));
 }
-// Pixel ball characters (Profile → Avatar). Stored as prefs[mid].avatar.char; shown with
-// no circle or background. Art: /avatars/<id>.png (128×128, transparent).
-const AVATAR_CHARS = [["angela", "Angela"], ["bee", "Bee"], ["brax", "Brax"], ["duncan", "Duncan"], ["earl", "Earl"], ["eugene", "Eugene"], ["jake", "Jake"], ["karl", "Karl"], ["kirby", "Kirby"], ["sharon", "Sharon"], ["stache", "Stache"], ["glare", "Glare"], ["gritz", "Gritz"], ["warpaint", "Warpaint"], ["grudge", "Grudge"], ["ember", "Ember"], ["krakk", "Krakk"], ["bolt", "Bolt"], ["bully", "Bully"], ["imp", "Imp"], ["hoot", "Hoot"], ["bubblegum", "Bubblegum"], ["heat-check", "Heat Check"], ["zorp", "Zorp"], ["goat", "Goat"], ["drako", "Drako"], ["sulk", "Sulk"], ["fang", "Fang"], ["squid", "Squid"], ["bones", "Bones"], ["shades", "Shades"], ["boo", "Boo"], ["oni", "Oni"]];
-const isCharAvatar = p => typeof p==='string' && p.startsWith('/avatars/');
-function charAvatarUrl(id){ return `/avatars/${id}.png`; }
 function avatarEl(name,color,size=22,fontSize=7,icon=null,photo=null){
-  if(isCharAvatar(photo)){
-    const s = Math.round(size*1.2);
-    return `<img src="${photo}" alt="" class="av-char" style="width:${s}px;height:${s}px;margin:${-Math.round((s-size)/2)}px;object-fit:contain;image-rendering:pixelated;flex-shrink:0;display:block">`;
-  }
   if(photo){
     return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color} url(${photo}) center/cover;flex-shrink:0"></div>`;
   }
@@ -1661,7 +1652,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102620;
+const APP_BUILD = 2026102618;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1841,17 +1832,9 @@ async function syncManagersToState(){
     // Avatar picks saved in the league (same on every device) win over the managers table
     for(const m of leagueState.managers){
       const av = leagueState.prefs?.[m.id]?.avatar;
-      if(av?.char){ m.photo = charAvatarUrl(av.char); m.icon = null; m.char = av.char; m._customAvatar = true; }
-      else if(av){ m.photo = av.photo||null; m.icon = av.photo ? null : (av.icon||null); if(av.color) m.color = av.color; m._customAvatar = true; }
+      if(av){ m.photo = av.photo||null; m.icon = av.photo ? null : (av.icon||null); if(av.color) m.color = av.color; m._customAvatar = true; }
     }
     uniqueManagerColors(leagueState.managers);
-    // Everyone shows a ball character. Until a manager picks one, they get a stand-in
-    // (not saved, never one somebody picked) — photos, emoji and color circles are retired.
-    const picked = new Set(leagueState.managers.map(m=>m.char).filter(Boolean));
-    const pool = AVATAR_CHARS.map(c=>c[0]).filter(id=>!picked.has(id));
-    [...leagueState.managers].filter(m=>!m.char).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}))
-      .forEach((m,i)=>{ const id = pool.length ? pool[(i*7) % pool.length] : AVATAR_CHARS[i % AVATAR_CHARS.length][0];
-        pool.splice(pool.indexOf(id),1); m.photo = charAvatarUrl(id); m.icon = null; m._defaultChar = id; });
     if(myProfile){
       const me = leagueState.managers.find(m=>String(m.id)===String(myProfile.id));
       if(me){ myProfile.color = me.color; myProfile.photo = me.photo||null; myProfile.icon = me.icon||null; }
@@ -6815,20 +6798,6 @@ function renderThemePicker(){
     <div class="nm">${t.name}</div><div class="on-tag">${t.id===cur?'✓ IN USE':''}</div></button>`).join('');
 }
 
-// Profile/top-bar avatar boxes: a character stands on its own (no circle, no color)
-function paintAvatarBox(el, prof, txtSize){
-  el.classList.toggle('is-char', isCharAvatar(prof.photo));
-  el.style.background = isCharAvatar(prof.photo) ? 'transparent' : (prof.color||'#4a9eff');
-  if(prof.photo){
-    el.style.backgroundImage=`url(${prof.photo})`;
-    el.style.backgroundSize=isCharAvatar(prof.photo)?'contain':'cover';
-    el.style.backgroundRepeat='no-repeat';
-    el.style.backgroundPosition='center';
-    el.textContent=''; el.style.fontSize='';
-    return true;
-  }
-  return false;
-}
 function renderProfileScreen(){
   renderThemePicker();
   fillMatchupResults();
@@ -6836,7 +6805,13 @@ function renderProfileScreen(){
   const color=myProfile.color||'#4a9eff';
   const name=myProfile.display_name||'Player';
   const avatarEl=document.getElementById('profile-avatar');
-  if(paintAvatarBox(avatarEl, myProfile)){
+  avatarEl.style.background=color;
+  if(myProfile.photo){
+    avatarEl.style.backgroundImage=`url(${myProfile.photo})`;
+    avatarEl.style.backgroundSize='cover';
+    avatarEl.style.backgroundPosition='center';
+    avatarEl.textContent='';
+    avatarEl.style.fontSize='';
   } else if(myProfile.icon){
     avatarEl.style.backgroundImage='';
     avatarEl.style.fontSize='28px';
@@ -6943,37 +6918,53 @@ const AVATAR_ICONS=[
 ];
 const PICKER_COLORS=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d','#06b6d4','#84cc16'];
 
-let avatarPendingChar = null;
 function openAvatarEditor(){
   const myId=getMyId();
-  avatarPendingChar = leagueState?.prefs?.[myId]?.avatar?.char || null;
-  document.getElementById('avatar-modal')?.remove();
-  const modal=document.createElement('div');
-  modal.id='avatar-modal'; modal.className='modal-overlay'; modal.style.display='flex';
-  modal.onclick = e=>{ if(e.target===modal) modal.remove(); };
-  const taken = {};
-  for(const [mid,p] of Object.entries(leagueState?.prefs||{})) if(p?.avatar?.char && String(mid)!==String(myId)) taken[p.avatar.char] = (leagueState.managers||[]).find(m=>String(m.id)===String(mid));
+  const curIcon=myProfile?.icon||null;
+  const curColor=myProfile?.color||'#4a9eff';
+  let modal=document.getElementById('avatar-modal');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='avatar-modal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
   modal.innerHTML=`
-    <div class="modal-box av-picker" style="max-width:380px;width:calc(100% - 24px);max-height:88vh;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">CHOOSE YOUR BALLER</div>
+    <div class="modal-box" style="max-width:340px;width:calc(100% - 32px);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">CUSTOMIZE AVATAR</div>
         <button onclick="document.getElementById('avatar-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
-      <div class="avp-stage"><img id="avp-hero" src="${avatarPendingChar?charAvatarUrl(avatarPendingChar):''}" alt="" ${avatarPendingChar?'':'hidden'}><div id="avp-name">${avatarPendingChar?(AVATAR_CHARS.find(c=>c[0]===avatarPendingChar)||[,''])[1].toUpperCase():'PICK ONE BELOW'}</div></div>
-      <div class="avp-grid">
-        ${AVATAR_CHARS.map(([id,name])=>{ const t=taken[id]; return `<button type="button" class="avp-cell${id===avatarPendingChar?' on':''}${t?' taken':''}" data-char="${id}" onclick="avatarPickChar('${id}')" ${t?`title="${(t.display_name||'').replace(/"/g,'&quot;')} has this one"`:''}>
-          <img src="${charAvatarUrl(id)}" alt="" loading="lazy"><span>${t?'TAKEN':name.toUpperCase()}</span></button>`; }).join('')}
+      <!-- Live preview -->
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <div id="avatar-preview" style="width:56px;height:56px;border-radius:50%;background:${curColor};display:flex;align-items:center;justify-content:center;font-size:26px;border:3px solid var(--border);transition:all .2s">
+          ${curIcon||`<span style="font-family:var(--pixel);font-size:12px;color:#000">${initials(myProfile?.display_name||'?')}</span>`}
+        </div>
       </div>
-      <button class="btn btn-primary btn-full" style="margin-top:12px;flex-shrink:0" onclick="saveAvatarChoice()">SAVE AVATAR</button>
+      <!-- Photo upload -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">UPLOAD PHOTO</div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;margin-bottom:16px">
+        <span style="font-size:18px">📸</span>
+        <div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">CHOOSE IMAGE</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3);margin-top:2px">JPG or PNG · max 2MB</div>
+        </div>
+        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="avatarPickPhoto(this)"/>
+      </label>
+      <!-- Icon grid -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">— OR PICK AN ICON —</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px" id="icon-grid">
+        ${AVATAR_ICONS.map(ic=>`<div onclick="avatarPickIcon('${ic}')" data-icon="${ic}" style="aspect-ratio:1;border-radius:6px;background:var(--bg3);border:2px solid ${ic===curIcon?'var(--accent1)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:border-color .1s">${ic}</div>`).join('')}
+      </div>
+      <!-- Color row -->
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK A COLOR</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="color-row">
+        ${PICKER_COLORS.map(c=>`<div onclick="avatarPickColor('${c}')" data-color="${c}" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===curColor?'#fff':'transparent'};transition:transform .1s,border-color .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
+      </div>
+      <button class="btn btn-primary btn-full" onclick="saveAvatarChoice()">SAVE AVATAR</button>
     </div>`;
   document.body.appendChild(modal);
 }
-function avatarPickChar(id){
-  avatarPendingChar = id;
-  document.querySelectorAll('#avatar-modal .avp-cell').forEach(b=>b.classList.toggle('on', b.dataset.char===id));
-  const h=document.getElementById('avp-hero'); if(h){ h.src=charAvatarUrl(id); h.hidden=false; }
-  const n=document.getElementById('avp-name'); if(n) n.textContent=(AVATAR_CHARS.find(c=>c[0]===id)||[,''])[1].toUpperCase();
-}
+
 function avatarPickIcon(icon){
   // Update selection highlight
   document.querySelectorAll('#icon-grid [data-icon]').forEach(el=>{
@@ -6998,21 +6989,30 @@ let modal_pendingColor=null;
 async function saveAvatarChoice(){
   const myId=getMyId();
   if(!myId) return;
-  if(!avatarPendingChar){ toast('Pick a baller first'); return; }
-  const taken = Object.entries(leagueState?.prefs||{}).some(([mid,p])=>String(mid)!==String(myId) && p?.avatar?.char===avatarPendingChar);
-  if(taken){ toast('Someone already has that one'); return; }
+  const photo=modal_pendingPhoto??null;
+  const icon=photo?null:(modal_pendingIcon??myProfile?.icon??null);
+  const color=modal_pendingColor??myProfile?.color??'#4a9eff';
+  const updates={color};
+  if(icon !== undefined) updates.icon=icon||null;
+  // The avatar lives in the league data so every device shows the same one
   if(!leagueState.prefs) leagueState.prefs = {};
-  leagueState.prefs[myId] = {...(leagueState.prefs[myId]||{}), avatar:{char:avatarPendingChar, at:new Date().toISOString()}};
-  const url = charAvatarUrl(avatarPendingChar);
-  const m=(leagueState.managers||[]).find(m=>String(m.id)===String(myId));
-  if(m){ m.photo=url; m.icon=null; m.char=avatarPendingChar; m._customAvatar=true; }
-  if(myProfile){ myProfile.photo=url; myProfile.icon=null; }
-  try{ localStorage.removeItem(`avatar-${myId}`); }catch(e){}
+  const keepPhoto = photo || (icon ? null : (myProfile?.photo||null));
+  leagueState.prefs[myId] = {...(leagueState.prefs[myId]||{}), avatar:{photo:keepPhoto, icon:keepPhoto?null:(icon||null), color, at:new Date().toISOString()}};
+  const managers=leagueState.managers||[];
+  const m=managers.find(m=>m.id===myId);
+  if(m){ m.color=color; if(icon!==undefined) m.icon=icon; if(photo) m.photo=photo; m._customAvatar=true; }
+  if(myProfile){ myProfile.color=color; if(icon!==undefined) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
+  // Persist avatar locally so it survives reload even if Supabase write is slow
+  try{
+    const localKey=`avatar-${myId}`;
+    localStorage.setItem(localKey, JSON.stringify({photo:photo||myProfile?.photo||null, icon:icon||null, color}));
+  }catch(e){}
   await saveLeagueState();
-  if(!_lastSaveOk) return;
+  await db.from('managers').update(updates).eq('id',myId).then(({error})=>{ if(error) console.warn('Avatar save error',error); });
+  modal_pendingIcon=null; modal_pendingColor=null; modal_pendingPhoto=null;
   document.getElementById('avatar-modal')?.remove();
-  renderProfileScreen(); updateUserChip();
-  if(currentScreen==='home') renderHomeScreen();
+  renderProfileScreen();
+  updateUserChip();
   toast('Avatar saved!');
 }
 
@@ -7428,7 +7428,13 @@ function updateUserChip(){
   if(!myProfile) return;
   const el=document.getElementById('chip-avatar');
   if(el){
-    if(paintAvatarBox(el, myProfile)){
+    el.style.background=myProfile.color||'#4a9eff';
+    if(myProfile.photo){
+      el.style.backgroundImage=`url(${myProfile.photo})`;
+      el.style.backgroundSize='cover';
+      el.style.backgroundPosition='center';
+      el.textContent='';
+      el.style.fontSize='';
     } else if(myProfile.icon){
       el.style.backgroundImage='';
       el.style.fontSize='18px';

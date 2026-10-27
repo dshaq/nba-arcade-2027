@@ -1383,17 +1383,6 @@ img{display:block;}
 /* ── Rosters: big-portrait rows ── */
 /* Teams Tuesday art: soft glow hides the 1px white edge on the cut-outs */
 .duel-art{filter:drop-shadow(0 0 1.5px color-mix(in srgb,var(--accent1) 65%,transparent)) drop-shadow(0 0 5px color-mix(in srgb,var(--accent1) 25%,transparent));}
-/* Avatar picker (pixel ball characters) */
-.avp-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 12px;flex-shrink:0;background:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1.4px) 0 0/6px 6px;border-radius:8px;margin-bottom:10px}
-.avp-stage img{width:112px;height:112px;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 6px 0 rgba(0,0,0,.35))}
-#avp-name{font-family:var(--pixel);font-size:7px;color:var(--accent3)}
-.avp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;overflow-y:auto;min-height:0;padding:2px}
-.avp-cell{background:var(--bg3);border:2px solid transparent;border-radius:8px;padding:6px 2px 5px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
-.avp-cell img{width:56px;height:56px;object-fit:contain;image-rendering:pixelated}
-.avp-cell span{font-family:var(--pixel);font-size:4.5px;color:var(--text3)}
-.avp-cell.on{border-color:var(--accent3)} .avp-cell.on span{color:var(--accent3)}
-.avp-cell.taken{opacity:.35;pointer-events:none}
-.is-char{border-color:transparent!important;border-radius:0!important;image-rendering:pixelated}
 .rc-wrap{margin:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .rc-sec{display:flex;align-items:center;justify-content:space-between;font-family:var(--pixel);font-size:6px;letter-spacing:.12em;padding:0 10px;height:24px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg) 55%,transparent);}
 .rc-sec:first-child{border-top:none;}

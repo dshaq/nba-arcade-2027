@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102602;
+const APP_BUILD = 2026102603;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -8390,7 +8390,7 @@ function wlcCardsGridHtml(mid, wk, showSwap){
       <div class="pt"><img src="${portraitUrl(team, nm)}" loading="lazy" onerror="this.style.visibility='hidden'"><span class="pr">$${sl.pp.salary||'?'}</span>
         ${live?'<span class="lvtag">LIVE</span>':''}${inj?`<span class="inj" style="background:${inj.color}">${inj.label}</span>`:''}${sl.swap?'<span class="sw">⇄</span>':''}</div>
       <div class="ln">${playerShortName(nm)}</div>
-      <div class="fp">${sl.gp?sl.avg.toFixed(1):'—'}</div>
+      <div class="fp">${sl.gp?sl.avg.toFixed(1)+'<span class="fpg">FP/G</span>':'—'}</div>
       <div class="gp">${sub}</div>
     </div>${canSwap?`<button class="wc-swap" onclick="openWlcSwapModal(${JSON.stringify(sl.name).replace(/"/g,'&quot;')})">SWAP</button>`:''}</div>`;
   }).join('');

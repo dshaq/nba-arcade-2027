@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102610;
+const APP_BUILD = 2026102611;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1780,6 +1780,24 @@ async function shrinkLeaguePhotos(){
   if(myProfile?.photo && myProfile.photo.length > BIG){
     const me = (leagueState.managers||[]).find(x=>String(x.id)===String(myProfile.id)); if(me?.photo) myProfile.photo = me.photo;
     try{ const k=`avatar-${myProfile.id}`, c=JSON.parse(localStorage.getItem(k)||'null'); if(c?.photo){ c.photo = myProfile.photo; localStorage.setItem(k, JSON.stringify(c)); } }catch(e){}
+  }
+  if(changed) await saveLeagueState();
+}
+// A team that never touched its lineup had no saved Active 8, so the site re-ranked its
+// roster by FP every time and the "Active" players shifted on their own. Save whatever the
+// team shows right now as its lineup, once; from then on only the manager changes it.
+async function freezeDefaultLineups(){
+  if(!leagueState?.rosters) return;
+  let changed = false;
+  for(const m of (leagueState.managers||[])){
+    const roster = (leagueState.rosters||{})[m.id] || [];
+    if(!roster.length || Array.isArray((leagueState.active||{})[m.id])) continue;
+    const act = autoActiveFor(m.id), ir = getIrSlot(m.id);
+    if(!leagueState.active) leagueState.active = {};
+    if(!leagueState.inactive) leagueState.inactive = {};
+    leagueState.active[m.id] = act;
+    leagueState.inactive[m.id] = roster.filter(p=>!act.map(String).includes(String(p)) && String(p)!==String(ir??''));
+    changed = true;
   }
   if(changed) await saveLeagueState();
 }
@@ -7863,6 +7881,7 @@ async function boot(){
       await loadLeagueState();
       await migrateAvatarFromDevice();
       await shrinkLeaguePhotos();
+      await freezeDefaultLineups();
       await loadPortraits();
       await syncColorTheme();   // newest theme pick wins (this browser vs the league)
       await applyLineupPlans();

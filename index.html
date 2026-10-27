@@ -1405,6 +1405,11 @@ img{display:block;}
 .rc.ir{background:rgba(128,90,213,.06);}
 .rc.moving{background:rgba(255,217,61,.08);box-shadow:inset 3px 0 0 #ffd93d;}
 .rc.dropping{background:rgba(233,69,96,.04);}
+.rc .rc-add{flex-direction:column;gap:2px;background:var(--accent1);color:#000;border-color:var(--accent1);font-size:13px;}
+.rc .rc-add span{font-family:var(--pixel);font-size:4px;}
+.rc-own{display:flex;flex-direction:column;align-items:center;gap:3px;width:34px;cursor:pointer;}
+.rc-own span{font-family:var(--pixel);font-size:4px;color:var(--text3);}
+.rc.taken .rc-pt img{filter:saturate(.5) brightness(.8);} .rc.taken .rc-nm{color:var(--text2);}
 .move-btn{font-family:var(--pixel);font-size:5px;padding:4px 8px;min-height:24px;border-radius:6px;cursor:pointer;background:transparent;border:1px solid var(--accent1);color:var(--accent1);}
 .move-btn.here{background:#ffd93d;border-color:#ffd93d;color:#000;}
 .move-btn.cancel{border-color:var(--text3);color:var(--text3);}

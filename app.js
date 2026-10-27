@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102614;
+const APP_BUILD = 2026102615;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -6513,27 +6513,36 @@ function renderWaiverPlayerList(){
 
   el.innerHTML = !players.length
     ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
-    : `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 14px">
-      <div style="padding:6px 14px 0">${fpColsHead('SEASON FP')}</div>
+    : `<div class="rc-wrap">
+      <div class="rc-sec act"><span>${waiverFilter.availability==='available'?'AVAILABLE':'ALL PLAYERS'} · ${players.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP</span></div>
       ${players.slice(0,60).map(p=>{
-        const fp=playerTotalFP(p.id);
-        const rostered=allRostered.has(p.id);
+        const tot=playerTotalFP(p.id), gp=playerGamesPlayed(p.id), avg=gp?tot/gp:null;
+        const owner=allRostered.has(p.id) ? rosterOwnerOf(p.id) : null;
         const port=playerPortraits[p.name];
-        const portEl=`<img src="${port}" style="width:100%;height:100%;object-fit:cover;object-position:center top" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+        const portEl=`<img src="${port}" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="initials" style="display:none;color:var(--text3);font-size:7px">${initials(p.name)}</div>`;
+        const tg=todayGamesCache[(p.team||'').toUpperCase()], lv=livePlayerStats[p.id];
+        const isLiveNow=!!(tg && tg.isLive && tg.myScore!=null);
+        const liveFp=isLiveNow && lv && lv.live ? (+lv.fp||0) : null;
+        const gi=getTodayGameInfo(p.team,p.id);
+        const line2=isLiveNow
+          ? `<div class="rc-led">${p.team} ${tg.myScore}-${tg.oppScore} ${tg.opponent}${tg.period?` · Q${tg.period}`:''}</div>`
+          : `<div class="rc-meta">${p.pos} · ${p.team}${gi?` · ${gi}`:''}</div>`;
+        const act = owner
+          ? `<div class="rc-own" onclick="event.stopPropagation();showUserProfile('${owner.id}')" title="${teamLabel(owner).replace(/"/g,'&quot;')}">${avatarEl(owner.display_name, owner.color||'#4a9eff', 22, 7, owner.icon||null, owner.photo||null)}<span>TAKEN</span></div>`
+          : allRostered.has(p.id) ? `<div class="rc-own"><span>TAKEN</span></div>`
+          : canAdd ? `<button class="move-btn rc-mv rc-add" aria-label="Add ${p.name.replace(/"/g,'&quot;')}" onclick="confirmAdd('${mid}',${p.id})">+<span>ADD</span></button>` : '';
         return `
-        <div class="player-row" style="padding:8px 14px">
-          <div class="player-portrait" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${portEl}</div>
-          <div class="player-info">
-            <div class="player-name" onclick="${pcardOnclick(p.name)}" style="cursor:pointer">${p.name}${injuryBadgeHtml(p.name)}</div>
-            <div class="player-meta">${p.pos} · ${p.team}${(()=>{ const gi=getTodayGameInfo(p.team,p.id); return gi?` · ${gi}`:''; })()}</div>
+        <div class="rc${owner||allRostered.has(p.id)?' taken':''}${isLiveNow?' live':''}">
+          <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${portEl}</div>
+          <div class="rc-info">
+            <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${injuryBadgeHtml(p.name)}</div>
+            ${line2}
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            ${fpColsHtml(fp, playerGamesPlayed(p.id))}
-            ${rostered?`<span style="font-family:var(--pixel);font-size:5px;color:var(--text3)">ROSTERED</span>`:canAdd?`<button class="btn btn-sm btn-primary" style="font-size:5px;padding:4px 8px;min-height:24px" onclick="confirmAdd('${mid}',${p.id})">ADD</button>`:''}
-          </div>
+          <div class="rc-fp"><b class="${tot>0?'':'z'}">${tot.toFixed(1)}</b><i>${liveFp!=null?`<span class="lv">+${liveFp.toFixed(1)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
+          <div class="rc-act">${act}</div>
         </div>`;
       }).join('')}
-      ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
+      ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3);border-top:1px solid var(--border)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
     </div>`;
 }
 

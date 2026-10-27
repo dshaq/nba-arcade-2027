@@ -726,6 +726,7 @@ const ESPN_TEAM_IDS = {
   OKC:25, ORL:19, PHI:20, PHX:21, POR:22, SAC:23, SAS:24, TOR:28, UTA:26, WAS:27,
 };
 const PIXEL_LOGOS = { NYK:'/logos/NYK.jpg', PHI:'/logos/PHI.jpg' };
+function duelLogoUrl(abbr){ return `${PORTRAITS_BUCKET_URL}/TEAMS/${abbr}.png`; }
 function getTeamLogoUrl(abbr){
   if(PIXEL_LOGOS[abbr]) return PIXEL_LOGOS[abbr];
   const id = ESPN_TEAM_IDS[abbr];
@@ -1238,11 +1239,25 @@ function showPlayerCard(playerName, initialTab, opts) {
 
   const fmtD = d => statDateObj(d).toLocaleDateString('en-US',{month:'short',day:'2-digit'}).toUpperCase();
   const td = (v, color) => `<td style="padding:6px 1px;text-align:center;color:${color||'var(--text1)'}">${v}</td>`;
+  // Opponent for a row: this week's schedule, else the team's ESPN results (loaded on demand)
+  const needSched = new Set();
+  const oppOf = g => {
+    if(g._sched) return (g._sched.isHome?'vs. ':'@ ')+g._sched.opp;
+    const t = String(g.team || teamAbbr); if(!t) return '—';
+    const sd = _teamSchedCache[t]?._val;
+    if(!sd){
+      if(_teamSchedCache[t] || !_oppSchedTried.has(t)){ needSched.add(t); return '…'; }
+      return '—';
+    }
+    const m = sd.games.find(x => new Date(x.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'')===String(g.date));
+    return m ? (m.home?'vs. ':'@ ')+m.opp : '—';
+  };
   const gameRow = (g, i) => {
     const pending = g._pending && !g._live;
     const past = String(g.date) < todayKey2;
-    const sub = g._sched ? `<div style="font-size:4.5px;color:var(--text3);margin-top:2px">${g._sched.isHome?'vs':'@'} ${g._sched.opp}${pending&&!past&&g._sched.time?' · '+g._sched.time:''}</div>` : '';
-    const dateCell = `<td style="padding:6px 2px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${fmtD(g.date)}${g._live?' (LIVE)':''}${sub}</td>`;
+    const sub = g._sched && pending && !past && g._sched.time ? `<div style="font-size:4.5px;color:var(--text3);margin-top:2px">${g._sched.time}</div>` : '';
+    const dateCell = `<td style="padding:6px 2px;color:${g._live?'#f6ad55':'var(--text2)'};white-space:nowrap">${fmtD(g.date)}${g._live?' (LIVE)':''}${sub}</td>`
+      + `<td style="padding:6px 3px;color:var(--text2);white-space:nowrap">${oppOf(g)}</td>`;
     if(pending){
       const label = past ? 'DNP' : '—';
       return `<tr style="background:${i%2===0?'transparent':'rgba(255,255,255,0.02)'};opacity:.6">${dateCell}${[...Array(10)].map(()=>td(label,'var(--text3)')).join('')}<td style="padding:6px 4px;text-align:right;color:var(--text3)">${label}</td></tr>`;
@@ -1254,12 +1269,13 @@ function showPlayerCard(playerName, initialTab, opts) {
       <td style="padding:6px 4px;text-align:right;color:var(--accent3);font-size:7px">${typeof g.fp==='number'?g.fp.toFixed(1):'—'}</td></tr>`;
   };
   const th = (t, title) => `<th style="padding:6px 1px;color:var(--text3);font-weight:normal"${title?` title="${title}"`:''}>${t}</th>`;
-  const sectionRow = t => `<tr><td colspan="12" style="padding:8px 4px 4px;color:var(--accent1);font-size:5px;letter-spacing:.08em">${t}</td></tr>`;
+  const sectionRow = t => `<tr><td colspan="13" style="padding:8px 4px 4px;color:var(--accent1);font-size:5px;letter-spacing:.08em">${t}</td></tr>`;
   const statsTabHtml = hasGames ? `
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;border-collapse:collapse;font-family:var(--pixel);font-size:5px">
         <thead><tr style="background:var(--bg3)">
           <th style="text-align:left;padding:6px 2px;color:var(--text3);font-weight:normal;white-space:nowrap">DATE</th>
+          <th style="text-align:left;padding:6px 3px;color:var(--text3);font-weight:normal">OPP</th>
           ${th('PTS')}${th('REB')}${th('AST')}${th('STL')}${th('BLK')}${th('MFG','Missed field goals')}${th('MFT','Missed free throws')}${th('TO')}${th('FLG','Flagrant fouls')}${th('TECH','Technical fouls')}
           <th style="padding:6px 4px;color:var(--accent3);font-weight:normal">FP</th>
         </tr></thead>
@@ -1327,7 +1343,18 @@ function showPlayerCard(playerName, initialTab, opts) {
   const origRemove = modal.remove.bind(modal);
   modal.remove = ()=>{ if(openPlayerCardName===playerName) openPlayerCardName=null; origRemove(); };
   document.body.appendChild(modal);
+  // Older games need the team's schedule for the OPP column: fetch, then redraw this card
+  if(activeTab==='stats' && needSched.size){
+    Promise.all([...needSched].map(t=>{ _oppSchedTried.add(t); return getTeamSchedule(t); })).then(()=>{
+      if(openPlayerCardName===playerName && document.body.contains(modal)){
+        const sc = modal.querySelector('.top-sheet-body')?.scrollTop||0;
+        showPlayerCard(playerName,'stats');
+        const b = document.querySelector('#player-card-modal .top-sheet-body'); if(b) b.scrollTop = sc;
+      }
+    });
+  }
 }
+const _oppSchedTried = new Set();
 
 // ── ESPN TEAM ID MAP ─────────────────────────────────────────────────────────
 const ESPN_TO_ABBR = {
@@ -1618,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102601;
+const APP_BUILD = 2026102602;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -2705,7 +2732,7 @@ async function refreshLiveStats(){
             }
             if(!leagueState.playerStats[key]){
               have.add(`${pid}_${dateStr}`);
-              leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id};
+              leagueState.playerStats[key]={...stat,pid:parseInt(pid),date:dateStr,gameId:event.id,...(stat.team?{}:{team:getPlayer(parseInt(pid))?.team})};
               changed=true;
             }
           }
@@ -4303,8 +4330,11 @@ function renderDuelCard(){
     const teamBox=(abbr,side)=>{
       const full = NBA_TEAMS?.[abbr] || abbr;
       const logoUrl = getTeamLogoUrl(abbr);
+      // Commissioner's custom duel art (player-portraits/TEAMS/<ABBR>.png), drawn facing right;
+      // the right-hand team is mirrored so the two face each other. Falls back to the normal logo.
+      const custom = duelLogoUrl(abbr);
       const logoEl = logoUrl
-        ? `<img src="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;display:block;margin:0 auto 6px" onerror="this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'">`
+        ? `<img src="${custom}" data-fallback="${logoUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;display:block;margin:0 auto 6px;${side===2?'transform:scaleX(-1);':''}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.transform='none';}else{this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'}">`
           + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
         : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
       const ps = duelSideState(side, myPick, duel);

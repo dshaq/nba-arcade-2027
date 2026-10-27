@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102611;
+const APP_BUILD = 2026102612;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -3201,7 +3201,84 @@ function setScoreboardEvents(evs){
   if(!SB_EVENTS.some(e=>e.id===sbEventId)) sbEventId = SB_EVENTS[0]?.id || null;
   renderScoreboard();
 }
-function selectScoreboardGame(id){ sbEventId = id; renderScoreboard(); }
+function selectScoreboardGame(id){
+  if(id==='dyk'){ sbUserPicked = false; renderScoreboard(); return; }
+  sbEventId = id; sbUserPicked = true; renderScoreboard();
+}
+let sbUserPicked = false;
+
+// ── "DID YOU KNOW?" board: fills the scoreboard spot until the first tip-off ──────────
+// A neon pixel basketball lights up in 4 spots, left → right → back, like an old
+// ballpark sign; tips about site features rotate underneath. Tap a tip to go there.
+const DYK_TIPS = [
+  {t:'Pick your colors! Profile → Color Theme has Arcade Night, Hardwood, Pocket Green and Neon Lights.', go:()=>dykGoProfile('theme-picker')},
+  {t:'Set your lineup for the whole week: on Rosters, tap a day at the top to plan it ahead.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Your Active 8 stays put until you change it. No need to confirm it every day.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Tap any player\'s name to open his card, then use ‹ › to flip through the list.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'A player\'s card shows every game this season, with the opponent for each.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Flip the Rosters FP columns between this WEEK and the whole FALL run.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Waivers: the Hide Out/Inj button hides players who are hurt.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
+  {t:'The Transaction Log on Waivers lists every add and drop in the league.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
+  {t:'Daily Duel picks lock when the game tips off. Get yours in early!', go:()=>showScreen('duel')},
+  {t:'Teams Tuesday: tap a team on the Duel card to see its results so far.', go:()=>showScreen('duel')},
+  {t:'New photo or icon? Tap the 📷 on your Profile avatar.', go:()=>dykGoProfile(null, true)},
+  {t:'Tap STANDINGS up top for the NBA East and West standings.', go:()=>showNbaStandings()},
+  {t:'Talk trash in the league chat: the 💬 button at the top.', go:()=>openChat()},
+  {t:'Tap a match-up under Current Match-ups for its box score.', go:()=>document.getElementById('home-matchups-container')?.scrollIntoView({behavior:'smooth',block:'start'})},
+];
+let dykIdx = Math.floor(Math.random()*DYK_TIPS.length), _dykTimer = null;
+function dykGoProfile(id, avatar){
+  showScreen('profile');
+  if(avatar){ openAvatarEditor(); return; }
+  if(id) setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'center'}), 60);
+}
+function dykTap(){ try{ DYK_TIPS[dykIdx].go(); }catch(e){} }
+function dykStep(d){ dykIdx = (dykIdx + d + DYK_TIPS.length) % DYK_TIPS.length; const el=document.getElementById('scoreboard-container'); if(el) renderDykBoard(el, true); }
+function stopDykTimer(){ if(_dykTimer){ clearInterval(_dykTimer); _dykTimer = null; } }
+// Pixel basketball (15×15): round outline, center seams, two curved side seams
+const DYK_BALL = (()=>{
+  const g = [
+    '.....#####.....',
+    '...##..#..##...',
+    '..#....#....#..',
+    '.#.#...#...#.#.',
+    '.#..#..#..#..#.',
+    '#...#..#..#...#',
+    '#....#.#.#....#',
+    '###############',
+    '#....#.#.#....#',
+    '#...#..#..#...#',
+    '.#..#..#..#..#.',
+    '.#.#...#...#.#.',
+    '..#....#....#..',
+    '...##..#..##...',
+    '.....#####.....'];
+  const px = [];
+  g.forEach((row,y)=>[...row].forEach((ch,x)=>{ if(ch==='#') px.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`); }));
+  return `<svg viewBox="-0.5 -0.5 16 16" shape-rendering="crispEdges">${px.join('')}</svg>`;
+})();
+function renderDykBoard(el, keepTimer){
+  const tip = DYK_TIPS[dykIdx];
+  el.innerHTML = `
+  <div class="dyk" onclick="dykTap()" role="button" aria-label="Did you know: ${tip.t.replace(/"/g,'&quot;')}">
+    <div class="dyk-balls" aria-hidden="true">${[1,2,3,4].map(i=>`<span class="dyk-ball b${i}">${DYK_BALL}</span>`).join('')}</div>
+    <div class="dyk-floor" aria-hidden="true"></div>
+    <div class="dyk-head">DID YOU KNOW?</div>
+    <div class="dyk-tip" key="${dykIdx}">${tip.t}</div>
+    <div class="dyk-foot">
+      <button class="dyk-nav" onclick="event.stopPropagation();dykStep(-1)" aria-label="Previous tip">‹</button>
+      <span>TAP TO TRY IT · ${dykIdx+1}/${DYK_TIPS.length}</span>
+      <button class="dyk-nav" onclick="event.stopPropagation();dykStep(1)" aria-label="Next tip">›</button>
+    </div>
+  </div>`;
+  if(keepTimer) stopDykTimer();
+  if(!_dykTimer) _dykTimer = setInterval(()=>{
+    if(currentScreen!=='home' || document.hidden) return;
+    const c = document.getElementById('scoreboard-container');
+    if(!c?.querySelector('.dyk')){ stopDykTimer(); return; }
+    dykIdx = (dykIdx + 1) % DYK_TIPS.length; renderDykBoard(c);
+  }, 9000);
+}
 
 // Seven-segment LED digit as inline SVG. Unlit segments stay faintly visible,
 // like a real gym scoreboard. Supports 0-9, '-', ' ' (blank) and ':'.
@@ -3271,9 +3348,20 @@ function renderScoreboard(){
   const sel = document.getElementById('sb-select-wrap');
   if(!SB_EVENTS.length){
     if(sel) sel.innerHTML = `<span style="font-family:var(--pixel);font-size:6px;color:var(--text3)">🏀 NO NBA GAMES TODAY</span>`;
-    el.innerHTML = '';
+    renderDykBoard(el);
     return;
   }
+  // Before the day's first tip-off the board shows "Did You Know?" tips, unless a game was picked
+  const anyStarted = SB_EVENTS.some(e=>{ const st=e.competitions?.[0]?.status?.type?.state; return st==='in'||st==='post'; });
+  if(!anyStarted && !sbUserPicked){
+    if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
+      <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
+      ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev); return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${g.tip}</option>`; }).join('')}
+    </select>`;
+    renderDykBoard(el);
+    return;
+  }
+  stopDykTimer();
   // Game picker: label always reads "Select NBA Scoreboard"
   if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
     <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
@@ -3282,6 +3370,7 @@ function renderScoreboard(){
       return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
   </select>`;
 
+  if(!anyStarted) sel?.querySelector('select')?.insertAdjacentHTML('beforeend', `<option value="dyk">★ DID YOU KNOW?</option>`);
   const ev = SB_EVENTS.find(e=>e.id===sbEventId) || SB_EVENTS[0];
   const g = scoreboardInfo(ev);
   const RED = '#ff3b30', AMBER = '#ffb000';

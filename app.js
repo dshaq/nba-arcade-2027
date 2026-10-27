@@ -8304,33 +8304,41 @@ function wlcStartOver(){
 function wlcLineupCardHtml(mid, wk, showSwap){
   const week = (leagueState.wlc?.weeks||{})[wk]; const pool = week?.pool||[];
   const lineup = ((leagueState.wlc?.lineups||{})[wk]||{})[mid] || {picks:[],swaps:[]};
-  const slots = wlcSlots(lineup.picks, lineup.swaps, wk);
-  const total = slots.reduce((a,sl)=>a+sl.avg,0);
-  const locked = isWlcLocked(wk);
-  const rows = slots.map(sl=>{
-    const pp = pool.find(x=>x.n===sl.name);
-    const cur = wlcFindPlayer(sl.swap ? sl.swap.to : sl.name);
-    const nm = sl.swap ? `${(wlcFindPlayer(sl.name)?.name||sl.name)} <span style="color:var(--text3)">➜</span> ${cur?.name||sl.swap.to}` : (cur?.name||sl.name);
-    const avg = k => sl.gp ? (sl.games.reduce((a,g)=>a+(g.st[k]||0),0)/sl.gp).toFixed(1) : '—';
-    // The OUT swap is available once the lineup is final: saved, or picks locked
-    const canSwap = showSwap && (locked || lineup.saved) && !sl.swap && !wlcSwapBlockReason(lineup, sl.name);
-    return `<div style="padding:9px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="wlc-tier-chip t${pp?.tier||1}">$${pp?.salary||'?'}</span>
-        <span onclick="${pcardOnclick(cur?.name||sl.name)}" style="flex:1;min-width:0;font-family:var(--pixel);font-size:6.5px;color:var(--text1);cursor:pointer">${nm}${injuryBadgeHtml(cur?.name||sl.name)}</span>
-        ${canSwap?`<button onclick="openWlcSwapModal(${JSON.stringify(sl.name).replace(/"/g,'&quot;')})" style="background:var(--bg3);border:1px solid #ffd93d;border-radius:4px;color:#ffd93d;font-family:var(--pixel);font-size:5px;padding:3px 6px;cursor:pointer">SWAP</button>`:''}
-        <span style="font-family:var(--pixel);font-size:8px;color:var(--accent3);white-space:nowrap">${sl.avg.toFixed(1)}<span style="font-size:4.5px;color:var(--text3)"> AVG FP</span></span>
-      </div>
-      <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:5px">${sl.gp} GP · ${avg('pts')} PTS · ${avg('reb')} REB · ${avg('ast')} AST · ${avg('stl')} STL · ${avg('blk')} BLK${sl.games.some(g=>g.st._live)?' · <span style="color:var(--accent4)">LIVE</span>':''}</div>
-    </div>`;
-  }).join('');
-  return `<div class="card" style="margin:0 14px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:8px;border-bottom:2px solid var(--border)">
-      <span style="font-family:var(--pixel);font-size:6px;color:var(--text3)">${lineup.picks.length} PLAYERS · $${wlcPickCostFor(lineup.picks,pool)} SPENT</span>
-      <span style="font-family:var(--pixel);font-size:10px;color:var(--accent2)">${total.toFixed(1)}<span style="font-size:5px;color:var(--text3)"> FP</span></span>
-    </div>
-    ${rows || '<div style="padding:16px 0;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
+  const total = computeWlcFP(lineup.picks, lineup.swaps, wk);
+  return `<div class="card wlc-entry" style="margin:0 14px">
+    <div class="we-top"><span>${lineup.picks.length} PLAYER${lineup.picks.length===1?'':'S'} · $${wlcPickCostFor(lineup.picks,pool)} SPENT</span>
+      <span class="we-tot">${total.toFixed(1)}<span> FP</span></span></div>
+    ${wlcCardsGridHtml(mid, wk, showSwap)}
   </div>`;
+}
+// Five portrait cards (like the Locked In screen): price, LIVE tag, last name, week
+// average FP, and tonight's game FP while it's on / once it's done. Tap → player card.
+function wlcCardsGridHtml(mid, wk, showSwap){
+  const week = (leagueState.wlc?.weeks||{})[wk]; const pool = week?.pool||[];
+  const lineup = ((leagueState.wlc?.lineups||{})[wk]||{})[mid] || {picks:[],swaps:[]};
+  if(!lineup.picks.length) return '<div style="padding:16px 0;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>';
+  const slots = wlcSlots(lineup.picks, lineup.swaps, wk).map((sl,i)=>({...sl, pp:pool.find(x=>x.n===sl.name)||{}}));
+  slots.sort((a,b)=>(b.pp.tier||0)-(a.pp.tier||0));
+  const locked = isWlcLocked(wk), today = etDateStr();
+  const cards = slots.map(sl=>{
+    const cur = wlcFindPlayer(sl.swap ? sl.swap.to : sl.name);
+    const nm = cur?.name || (sl.swap ? sl.swap.to : sl.name), team = cur?.team || sl.pp.t;
+    const tg = sl.games.find(g=>g.st._live) || sl.games.find(g=>g.date===today);
+    const live = !!tg?.st?._live;
+    const inj = injuryInfo(nm);
+    const canSwap = showSwap && (locked || lineup.saved) && !sl.swap && !wlcSwapBlockReason(lineup, sl.name);
+    const sub = live ? `<span class="lv">LIVE ${(+tg.st.fp||0).toFixed(1)}</span>`
+      : tg ? `TODAY ${(+tg.st.fp||0).toFixed(1)}`
+      : sl.gp ? `${sl.gp} GP · AVG` : 'NO GAMES YET';
+    return `<div class="wc-wrap"><div class="wc t${sl.pp.tier||1}${sl.gp?'':' dim'}" onclick="${pcardOnclick(nm)}">
+      <div class="pt"><img src="${portraitUrl(team, nm)}" loading="lazy" onerror="this.style.visibility='hidden'"><span class="pr">$${sl.pp.salary||'?'}</span>
+        ${live?'<span class="lvtag">LIVE</span>':''}${inj?`<span class="inj" style="background:${inj.color}">${inj.label}</span>`:''}${sl.swap?'<span class="sw">⇄</span>':''}</div>
+      <div class="ln">${playerShortName(nm)}</div>
+      <div class="fp">${sl.gp?sl.avg.toFixed(1):'—'}</div>
+      <div class="gp">${sub}</div>
+    </div>${canSwap?`<button class="wc-swap" onclick="openWlcSwapModal(${JSON.stringify(sl.name).replace(/"/g,'&quot;')})">SWAP</button>`:''}</div>`;
+  }).join('');
+  return `<div class="we-cards">${cards}</div>`;
 }
 function wlcPickCostFor(picks, pool){ return picks.reduce((a,n)=>a+(pool.find(p=>p.n===n)?.salary||0),0); }
 
@@ -8343,9 +8351,10 @@ function wlcOtherLineupsHtml(wk, week, locked){
   if(!mgrs.length) return '';
   const fp = m => { const l=lineups[m.id]; return l?.picks?.length ? computeWlcFP(l.picks, l.swaps, wk) : -1; };
   if(locked) mgrs.sort((a,b)=>fp(b)-fp(a));
+  const rankOf = m => 1 + mgrs.filter(x=>fp(x) > fp(m)).length;
   return `<div class="section-label" style="padding:14px 14px 6px">ALL ENTRIES${locked?'':' · PICKS REVEALED AT LOCK'}</div>` + mgrs.map(m=>{
     const l = lineups[m.id];
-    const head = `<div style="display:flex;align-items:center;gap:8px;margin:0 14px 6px">${avatarEl(m.display_name,m.color||'#4a9eff',22,6,m.icon||null,m.photo||null)}<span style="font-family:var(--pixel);font-size:6.5px;color:${String(m.id)===me?'var(--accent2)':'var(--text1)'};flex:1">${m.display_name}${String(m.id)===me?' ★':''}</span>${locked&&l?.picks?.length?`<span style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">${fp(m).toFixed(1)}</span>`:''}</div>`;
+    const head = `<div style="display:flex;align-items:center;gap:8px;margin:0 14px 6px">${avatarEl(m.display_name,m.color||'#4a9eff',22,6,m.icon||null,m.photo||null)}<span style="font-family:var(--pixel);font-size:6.5px;color:${String(m.id)===me?'var(--accent2)':'var(--text1)'};flex:1">${m.display_name}${String(m.id)===me?' ★':''}</span>${locked&&l?.picks?.length?`<span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${ordinal(rankOf(m)).toUpperCase()}</span>`:''}</div>`;
     if(!l?.picks?.length) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent4)">NO LINEUP YET</div>`;
     if(!locked) return head + `<div class="card" style="margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent2)">LINEUP SAVED ✓ · ${l.picks.length} PLAYER${l.picks.length===1?'':'S'} · HIDDEN UNTIL LOCK</div>`;
     const mine = String(m.id)===me;
@@ -8365,7 +8374,7 @@ function showWlcLineupPopup(mid){
   modal.onclick = e=>{ if(e.target===modal) modal.remove(); };
   const body = !lineup?.picks?.length ? '<div style="padding:24px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO LINEUP THIS WEEK</div>'
     : (!isMe && !isWlcLocked(wk)) ? '<div style="padding:24px 0;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3);line-height:2">PICKS ARE HIDDEN<br>UNTIL LINEUPS LOCK</div>'
-    : wlcLineupCardHtml(mid, wk, false).replace('class="card" style="margin:0 14px"','class="card" style="margin:0"');
+    : wlcLineupCardHtml(mid, wk, false).replace('class="card wlc-entry" style="margin:0 14px"','class="card wlc-entry" style="margin:0"');
   modal.innerHTML = `<div class="top-sheet">
     <div style="display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--border);flex-shrink:0">
       ${userAvatar(m,36,10)}

@@ -1423,6 +1423,27 @@ html[data-theme="neon"]{
 
 .sb-side-btn{flex-shrink:0;margin-left:4px;font-family:var(--pixel);font-size:5px;line-height:1.5;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 6px;cursor:pointer;min-height:28px;}
 .sb-side-btn.standings{color:var(--accent1);border-color:var(--accent1);}
+
+/* Weekly Line-up Challenge entries: portrait cards */
+.wlc-entry{padding:12px 10px;}
+.we-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;font-family:var(--pixel);font-size:5.5px;color:var(--text3);}
+.we-tot{font-size:12px;color:var(--accent2);} .we-tot span{font-size:5px;color:var(--text3);}
+.we-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;}
+.wc-wrap{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.wc{--tc:#e8892b;border:2px solid var(--tc);border-radius:6px;background:var(--panel);overflow:hidden;cursor:pointer;box-shadow:0 0 10px color-mix(in srgb,var(--tc) 40%,transparent);font-family:var(--pixel);}
+.wc.t5{--tc:#f5c518;} .wc.t4{--tc:#3fa9f5;} .wc.t3{--tc:#4cd964;} .wc.t2{--tc:#b36bff;} .wc.t1{--tc:#e8892b;}
+.wc .pt{position:relative;aspect-ratio:1/1;background:var(--panel2);}
+.wc .pt img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}
+.wc .pr{position:absolute;left:2px;top:2px;font-size:5.5px;color:#000;background:var(--tc);padding:2px 3px;border-radius:2px;}
+.wc .lvtag{position:absolute;right:2px;top:2px;font-size:4.5px;color:#fff;background:#e53e3e;padding:2px 3px;border-radius:2px;animation:ledBlink 1s steps(1) infinite;}
+.wc .inj{position:absolute;right:2px;bottom:2px;font-size:4px;color:#fff;padding:1px 3px;border-radius:2px;}
+.wc .sw{position:absolute;left:2px;bottom:2px;font-size:6px;color:#fff;background:rgba(0,0,0,.6);padding:1px 3px;border-radius:2px;}
+.wc.dim .pt img{filter:grayscale(.85) brightness(.6);}
+.wc .ln{font-size:5px;color:#fff;text-align:center;padding:5px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wc .fp{font-size:9px;color:var(--accent3);text-align:center;padding:2px 0 1px;} .wc.dim .fp{color:var(--text3);}
+.wc .gp{font-size:4px;color:var(--text3);text-align:center;padding-bottom:6px;white-space:nowrap;}
+.wc .gp .lv{color:#ff6b6b;}
+.wc-swap{font-family:var(--pixel);font-size:5px;padding:5px 0;border-radius:4px;background:var(--bg3);border:1px solid #ffd93d;color:#ffd93d;cursor:pointer;}
 </style>
 </head>
 <body>

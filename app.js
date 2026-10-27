@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102615;
+const APP_BUILD = 2026102616;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -4563,7 +4563,7 @@ function renderDuelCard(){
       // the right-hand team is mirrored so the two face each other. Falls back to the normal logo.
       const custom = duelLogoUrl(abbr);
       const logoEl = logoUrl
-        ? `<img src="${custom}" data-fallback="${logoUrl}" style="width:120px;height:120px;max-width:100%;object-fit:contain;border-radius:8px;display:block;margin:0 auto 4px;${side===2?'transform:scaleX(-1);':''}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.transform='none';this.style.width=this.style.height='64px';}else{this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'}">`
+        ? `<img class="duel-art" src="${custom}" data-fallback="${logoUrl}" style="width:120px;height:120px;max-width:100%;object-fit:contain;border-radius:8px;display:block;margin:0 auto 4px;${side===2?'transform:scaleX(-1);':''}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.style.transform='none';this.classList.remove('duel-art');this.style.width=this.style.height='64px';}else{this.style.display='none';document.getElementById('logo-fb-${abbr}-${side}').style.display='flex'}">`
           + `<div id="logo-fb-${abbr}-${side}" style="display:none;width:64px;height:64px;border-radius:8px;background:var(--bg3);align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`
         : `<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:14px;color:var(--text1);margin:0 auto 6px">${abbr}</div>`;
       const ps = duelSideState(side, myPick, duel);

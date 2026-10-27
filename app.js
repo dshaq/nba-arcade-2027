@@ -1645,7 +1645,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102607;
+const APP_BUILD = 2026102608;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1728,6 +1728,42 @@ function uniqueManagerColors(mgrs){
 
 // One-time: an avatar saved before it lived in the league data only exists in the
 // browser it was picked on. Copy that pick into the league so every device matches.
+// Avatar photos live in the league data that every device downloads, so keep them small:
+// 160px JPEG (a few KB) on the avatar's color. A full-size photo made every load and save slow.
+function shrinkPhoto(dataUrl, bg){
+  return new Promise(res=>{
+    if(!dataUrl || !/^data:image\//.test(dataUrl)) return res(dataUrl);
+    const img = new Image();
+    img.onload = ()=>{
+      const S = 160, c = document.createElement('canvas'); c.width = c.height = S;
+      const x = c.getContext('2d'); x.fillStyle = bg || '#1a1a2e'; x.fillRect(0,0,S,S);
+      const k = Math.max(S/img.width, S/img.height), w = img.width*k, h = img.height*k;
+      x.drawImage(img, (S-w)/2, (S-h)/2, w, h);
+      try{ res(c.toDataURL('image/jpeg', 0.85)); }catch(e){ res(dataUrl); }
+    };
+    img.onerror = ()=>res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+async function shrinkLeaguePhotos(){
+  const BIG = 40*1024; let changed = false;
+  for(const [id, p] of Object.entries(leagueState?.prefs||{})){
+    const ph = p?.avatar?.photo;
+    if(ph && ph.length > BIG){ const sm = await shrinkPhoto(ph, p.avatar.color); if(sm && sm.length < ph.length){ p.avatar = {...p.avatar, photo:sm}; changed = true; } }
+  }
+  for(const m of (leagueState?.managers||[])){
+    if(m.photo && m.photo.length > BIG){
+      const pref = leagueState.prefs?.[m.id]?.avatar?.photo;
+      const sm = (pref && pref.length <= BIG) ? pref : await shrinkPhoto(m.photo, m.color);
+      if(sm && sm.length < m.photo.length){ m.photo = sm; changed = true; }
+    }
+  }
+  if(myProfile?.photo && myProfile.photo.length > BIG){
+    const me = (leagueState.managers||[]).find(x=>String(x.id)===String(myProfile.id)); if(me?.photo) myProfile.photo = me.photo;
+    try{ const k=`avatar-${myProfile.id}`, c=JSON.parse(localStorage.getItem(k)||'null'); if(c?.photo){ c.photo = myProfile.photo; localStorage.setItem(k, JSON.stringify(c)); } }catch(e){}
+  }
+  if(changed) await saveLeagueState();
+}
 async function migrateAvatarFromDevice(){
   const mid = getMyId(); if(!mid || leagueState.prefs?.[mid]?.avatar) return;
   let cached = null; try{ cached = JSON.parse(localStorage.getItem(`avatar-${mid}`)||'null'); }catch(e){}
@@ -6828,10 +6864,10 @@ async function saveAvatarChoice(){
 function avatarPickPhoto(input){
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 2 * 1024 * 1024){ toast('Image too large (max 2MB)'); return; }
+  if(file.size > 15 * 1024 * 1024){ toast('Image too large (max 15MB)'); return; }
   const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
+  reader.onload = async e => {
+    const dataUrl = await shrinkPhoto(e.target.result, modal_pendingColor ?? myProfile?.color);
     // Update preview with photo
     const preview = document.getElementById('avatar-preview');
     if(preview){
@@ -7777,6 +7813,7 @@ async function boot(){
       await loadManagerProfile();
       await loadLeagueState();
       await migrateAvatarFromDevice();
+      await shrinkLeaguePhotos();
       await loadPortraits();
       await syncColorTheme();   // newest theme pick wins (this browser vs the league)
       await applyLineupPlans();

@@ -872,8 +872,9 @@ function fantasyStandings(runId){
       if(!mu.winner || (mu.home!==m.id && mu.away!==m.id)) return;
       if(mu.winner===m.id) wins++; else if(mu.winner==='tie') ties++; else losses++;
     }));
-    return {id:m.id, wins, losses, ties, fp:managerFP(m.id)};
-  }).sort((a,b)=> b.wins!==a.wins ? b.wins-a.wins : b.fp-a.fp);
+    // Same order as the Standings tab: wins, then fewest losses, then run FP
+    return {id:m.id, wins, losses, ties, fp:seasonFP(m.id, runId), weekFp:managerFP(m.id)};
+  }).sort((a,b)=> (b.wins-a.wins) || (a.losses-b.losses) || (b.fp-a.fp));
 }
 
 // Every player relevant to a team this week, with the FP he's contributed to it.
@@ -1024,7 +1025,7 @@ function showUserProfile(mid, tab='profile'){
 
   const st = fantasyStandings(currentRun);
   const idx = st.findIndex(x=>String(x.id)===String(m.id));
-  const me = st[idx] || {wins:0, losses:0, ties:0, fp:managerFP(m.id)};
+  const me = st[idx] || {wins:0, losses:0, ties:0, fp:seasonFP(m.id, currentRun), weekFp:managerFP(m.id)};
   const record = `${me.wins}-${me.losses}${me.ties?'-'+me.ties:''}`;
   const run = RUNS.find(r=>r.id===currentRun);
   const wlc = (leagueState.wlc?.standings||{})[m.id] || {wins:0,totalFP:0};
@@ -1055,8 +1056,8 @@ function showUserProfile(mid, tab='profile'){
     ${section('FANTASY STANDINGS', [
       ['Record', record],
       ['Standing', idx>=0 ? `${ordinal(idx+1)} of ${st.length}${run?' · '+run.name+' Run':''}` : '—'],
-      ['This Week FP', me.fp.toFixed(1)+' FP'],
-      ['Season FP', seasonFP(m.id, currentRun).toFixed(1)+' FP'],
+      ['Current Week FP', me.weekFp.toFixed(1)+' FP'],
+      [`Total ${run?.name||'Run'} FP`, me.fp.toFixed(1)+' FP'],
     ])}
     ${section('WEEKLY LINE-UP CHALLENGE STATS', [
       ['Current Challenge FP', wlcCur],
@@ -5222,8 +5223,7 @@ function renderQuickStats(){
     }));
     return {id:m.id, wins:w, losses:l, fp:managerFP(m.id)};
   });
-  mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
-  const rank=mgrStats.findIndex(m=>m.id===mid)+1;
+  const rank=fantasyStandings(currentRun).findIndex(m=>String(m.id)===String(mid))+1;
   const total=allMgrs.length;
   const rankStr=rank>0?`${rank}/${total}`:'—';
   const myRecord=mgrStats.find(m=>m.id===mid);
@@ -5571,7 +5571,7 @@ function draftOverviewHtml(runId){
     ${Object.keys(byRound).sort((a,b)=>a-b).map(r=>`
       <div style="font-family:var(--pixel);font-size:7px;font-weight:bold;color:var(--accent3);margin:14px 0 6px;text-shadow:1px 1px 0 #000">ROUND ${r}</div>
       <div class="card" style="padding:0;overflow:hidden;margin:0"><table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:var(--bg3);color:var(--text3)"><th style="${c};font-weight:normal;width:34px">PICK</th><th style="${c};font-weight:normal">TEAM</th><th style="${c};font-weight:normal">PLAYER</th><th style="${c};font-weight:normal;width:34px">NBA</th></tr></thead>
+        <thead><tr style="background:var(--bg3);color:var(--text3)"><th style="${c};font-weight:normal;width:30px">PICK</th><th style="${c};font-weight:normal">FANTASY TEAM</th><th style="${c};font-weight:normal">PLAYER</th><th style="${c};font-weight:normal;white-space:nowrap">NBA TEAM</th></tr></thead>
         <tbody>${byRound[r].map(p=>{ const m = mgr(p.mid), pl = getPlayer(Number(p.pid)) || getPlayer(p.pid);
           return `<tr style="border-bottom:1px solid var(--border);${String(p.mid)===me?'background:rgba(74,158,255,.08)':''}">
             <td style="${c};color:var(--text3)">${p.pick}</td>
@@ -6470,24 +6470,47 @@ const COLOR_THEMES = [
   {id:'pocket',   name:'POCKET GREEN', sw:['#070a08','#101712','#a6d22a','#3fd0c9','#f5d547']},
   {id:'neon',     name:'NEON LIGHTS',  sw:['#10041c','#1d0b33','#00e5ff','#ff2e88','#ffd23f']},
 ];
-function applyColorTheme(id){
+// The theme is kept in two places: this browser (applies instantly on load) and the
+// league data (follows you to other devices). Each carries a timestamp and the newer
+// one wins, so a save that didn't reach the league can never undo your last pick.
+function _localTheme(){ try{ const v = localStorage.getItem('nba-theme-v2'); return v ? JSON.parse(v) : (localStorage.getItem('nba-theme') ? {id:localStorage.getItem('nba-theme'), at:''} : null); }catch(e){ return null; } }
+function applyColorTheme(id, at){
   if(!COLOR_THEMES.some(t=>t.id===id)) id = 'arcade';
   if(id==='arcade') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', id);
-  try{ localStorage.setItem('nba-theme', id); }catch(e){}
+  try{ localStorage.setItem('nba-theme', id); localStorage.setItem('nba-theme-v2', JSON.stringify({id, at: at || new Date().toISOString()})); }catch(e){}
 }
 function myColorTheme(){
   const mid = getMyId();
-  return (leagueState?.prefs?.[mid]?.theme) || (()=>{ try{ return localStorage.getItem('nba-theme'); }catch(e){ return null; } })() || 'arcade';
+  const lp = leagueState?.prefs?.[mid], loc = _localTheme();
+  if(lp?.theme && loc?.id && loc.id !== lp.theme) return (String(loc.at||'') > String(lp.themeAt||'')) ? loc.id : lp.theme;
+  return lp?.theme || loc?.id || 'arcade';
+}
+// On sign-in: apply the newest choice and, if this browser's is newer, push it to the league
+async function syncColorTheme(){
+  const mid = getMyId(); if(!mid) return;
+  const lp = leagueState?.prefs?.[mid], loc = _localTheme();
+  const id = myColorTheme();
+  const leagueNewer = lp?.theme === id;
+  applyColorTheme(id, leagueNewer ? (lp.themeAt || '') : (loc?.at || ''));
+  if(!leagueNewer && loc?.id === id){
+    if(!leagueState.prefs) leagueState.prefs = {};
+    leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), theme:id, themeAt: loc.at || new Date().toISOString()};
+    await saveLeagueState();
+  }
 }
 async function setColorTheme(id){
-  applyColorTheme(id);
+  const at = new Date().toISOString();
+  applyColorTheme(id, at);
+  const mid = getMyId();
+  if(mid){
+    if(!leagueState.prefs) leagueState.prefs = {};
+    leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), theme:id, themeAt:at};
+  }
   renderThemePicker();
-  const mid = getMyId(); if(!mid) return;
-  if(!leagueState.prefs) leagueState.prefs = {};
-  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), theme:id};
+  if(!mid) return;
   await saveLeagueState();
-  toast(`Theme: ${COLOR_THEMES.find(t=>t.id===id)?.name||id} ✓`);
+  if(_lastSaveOk) toast(`Theme: ${COLOR_THEMES.find(t=>t.id===id)?.name||id} ✓`);
 }
 function renderThemePicker(){
   const el = document.getElementById('theme-picker'); if(!el) return;
@@ -6552,9 +6575,13 @@ function renderProfileScreen(){
     const fp=managerFP(myId);
     const recEl=document.getElementById('profile-record');
     const fpEl=document.getElementById('profile-total-fp');
+    const runFpEl=document.getElementById('profile-run-fp');
+    const runLbl=document.getElementById('profile-run-fp-label');
     const standEl=document.getElementById('profile-standing');
     if(recEl) recEl.textContent=record||'0-0';
     if(fpEl) fpEl.textContent=fp.toFixed(1)+' FP';
+    if(runFpEl) runFpEl.textContent=seasonFP(myId, currentRun).toFixed(1)+' FP';
+    if(runLbl) runLbl.textContent=`Total ${RUNS.find(r=>r.id===currentRun)?.name||'Run'} FP`;
     // Compute standings rank for current run
     if(standEl){
       const allMgrs=leagueState.managers||[];
@@ -6571,9 +6598,8 @@ function renderProfileScreen(){
         }));
         return {id:m.id, wins:w, losses:l, ties:t, fp:managerFP(m.id)};
       });
-      // Sort: wins desc, then FP desc
-      mgrStats.sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.fp-a.fp);
-      const rank=mgrStats.findIndex(m=>m.id===myId)+1;
+      // Same order as the Standings tab
+      const rank=fantasyStandings(currentRun).findIndex(m=>String(m.id)===String(myId))+1;
       const total=allMgrs.length;
       standEl.textContent=rank>0?`${rank}/${total}`:'—';
     }
@@ -7666,7 +7692,7 @@ async function boot(){
       await loadLeagueState();
       await migrateAvatarFromDevice();
       await loadPortraits();
-      applyColorTheme(myColorTheme());   // their saved theme, from any device
+      await syncColorTheme();   // newest theme pick wins (this browser vs the league)
       await applyLineupPlans();
       await ensureTodaysDuel();
       maybeSwapInjuredDuel();

@@ -1646,7 +1646,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102612;
+const APP_BUILD = 2026102613;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -5977,7 +5977,10 @@ function renderFantasySchedule(){
   if(prevBtn) prevBtn.style.opacity=wi>0?'1':'0.3';
   if(nextBtn) nextBtn.style.opacity=wi<schedule.length-1?'1':'0.3';
 
-  let html='<div style="height:8px"></div><div class="schedule-week">'+scheduleRowsHtml(week, wi, isCurrent, isPast)+'</div>';
+  let html=`<div style="height:8px"></div><div class="hs"><div class="hs-title">WEEK ${wi+1} MATCH-UPS</div>
+    <div class="hs-sub">${fmtDate(monDate).toUpperCase()} – ${fmtDate(sunDate).toUpperCase()}${isPast?' · FINAL':isCurrent?'':' · UPCOMING'}</div>
+    ${scheduleRowsHtml(week, wi, isCurrent, isPast)}
+    <div class="hs-foot">TAP A MATCH-UP FOR ITS BOX SCORE</div></div>`;
   el.innerHTML=html;
 }
 
@@ -5986,34 +5989,22 @@ function scheduleRowsHtml(week, wi, isCurrent, isPast){
   const managers=leagueState.managers||[];
   const myId=getMyId();
   const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
-  let html='';
-  week.forEach(matchup=>{
+  const side=(m,r)=>`<div class="vs-side${r?' r':''}">${avatarEl(m.display_name, m.color||'#4a9eff', 26, 8, m.icon||null, m.photo||null)}<div class="vs-n">${userLink(m.id, teamLabel(m).toUpperCase())}</div></div>`;
+  return week.map(matchup=>{
     const h=getM(matchup.home), a=getM(matchup.away);
     const isMine=matchup.home===myId||matchup.away===myId;
-    let hFPStr='—', aFPStr='—', hWin=false, aWin=false;
+    let hS='—', aS='—', hWin=false, aWin=false;
     if(isPast||isCurrent){
       const hFP=isPast?(matchup.homeFP||0):managerFP(matchup.home), aFP=isPast?(matchup.awayFP||0):managerFP(matchup.away);
-      hFPStr=hFP.toFixed(1); aFPStr=aFP.toFixed(1);
+      hS=hFP.toFixed(1); aS=aFP.toFixed(1);
       if(isPast&&matchup.winner){ hWin=matchup.winner===matchup.home; aWin=matchup.winner===matchup.away; }
       else if(isCurrent){ hWin=hFP>aFP; aWin=aFP>hFP; }
     }
-    html+=`<div class="schedule-matchup-row${isMine?' is-mine':''}" onclick="showMatchupDetail('${matchup.home}','${matchup.away}',${currentRun},${wi})" style="cursor:pointer">
-      <div class="schedule-team-cell">
-        ${userAvatar(h,22,7)}
-        <span class="schedule-name" style="color:${h.color||'var(--text1)'}">${userLink(h.id,teamLabel(h))}</span>
-      </div>
-      <div class="schedule-score">
-        <span class="schedule-fp" style="${hWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${hFPStr}</span>
-        <span class="schedule-vs">VS</span>
-        <span class="schedule-fp" style="${aWin?'color:var(--accent2)':isPast?'color:var(--text3)':''}">${aFPStr}</span>
-      </div>
-      <div class="schedule-team-cell right">
-        <span class="schedule-name" style="color:${a.color||'var(--text1)'}">${userLink(a.id,teamLabel(a))}</span>
-        ${userAvatar(a,22,7)}
-      </div>
-    </div>`;
-  });
-  return html;
+    return `<div class="vs-row${isMine?' me':''}" onclick="showMatchupDetail('${matchup.home}','${matchup.away}',${currentRun},${wi})">
+      ${side(h,false)}
+      <span class="vs-s${hWin?' w':''}">${hS}</span><span class="vs-v">VS</span><span class="vs-s${aWin?' w':''}">${aS}</span>
+      ${side(a,true)}</div>`;
+  }).join('');
 }
 
 // Home: this week's match-ups for the whole league, mine first
@@ -6028,9 +6019,10 @@ function renderHomeMatchups(){
   const week=[...schedule[wi]].sort((x,y)=>((y.home===myId||y.away===myId)?1:0)-((x.home===myId||x.away===myId)?1:0));
   const {mon,sun}=runWeekRange(run.id, wi);
   const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  el.innerHTML=`<div style="padding:0 14px 6px;font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${run.name.toUpperCase()} RUN · WEEK ${wi+1} · ${fmt(mon)} – ${fmt(sun)}${typeof liveGamesActive!=='undefined'&&liveGamesActive?' · <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
-    <div class="schedule-week" style="margin:0 14px">${scheduleRowsHtml(week, wi, true, false)}</div>
-    <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);text-align:center;margin-top:6px">TAP A MATCH-UP FOR ITS BOX SCORE</div>`;
+  el.innerHTML=`<div class="hs"><div class="hs-title">WEEK ${wi+1} MATCH-UPS</div>
+    <div class="hs-sub">${fmt(mon).toUpperCase()} – ${fmt(sun).toUpperCase()}${typeof liveGamesActive!=='undefined'&&liveGamesActive?' · <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
+    ${scheduleRowsHtml(week, wi, true, false)}
+    <div class="hs-foot">TAP A MATCH-UP FOR ITS BOX SCORE</div></div>`;
 }
 
 function renderFantasyRunContent(){
@@ -6111,38 +6103,22 @@ function renderFantasyRunContent(){
       : (b.wins-a.wins) || (a.losses-b.losses) || (b.fp-a.fp));
 
   const myId=getMyId();
-  el.innerHTML=`
-  <div style="padding:0 14px">
-    <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:12px 0 6px">
-      ${run.name.toUpperCase()} RUN · ${fmtRunDate(run.start)} – ${fmtRunDate(run.end)}
-    </div>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <table class="standings-table" style="width:100%">
-      <thead><tr>
-        <th style="width:24px">#</th>
-        <th>TEAM</th>
-        <th style="text-align:center;cursor:pointer;${standingsSort==='wl'?'color:var(--accent1)':''}" onclick="standingsSort='wl';renderFantasyRunContent()">W-L${standingsSort==='wl'?' ▼':''}</th>
-        <th style="text-align:right;cursor:pointer;${standingsSort==='fp'?'color:var(--accent1)':''}" onclick="standingsSort='fp';renderFantasyRunContent()">FP${standingsSort==='fp'?' ▼':''}</th>
-      </tr></thead>
-      <tbody>
-        ${standings.map((s,i)=>`
-        <tr class="${s.m.id===myId?'me':''}">
-          <td class="rank">${i===0?'👑':(i+1)}</td>
-          <td>
-            <div style="display:flex;align-items:center;gap:8px">
-              ${userAvatar(s.m,24,8)}
-              <span class="team-name">${userLink(s.m.id,teamLabel(s.m))}</span>
-              ${s.m.id===myId?'<span style="font-family:var(--pixel);font-size:5px;color:var(--accent1)">YOU</span>':''}
-            </div>
-          </td>
-          <td class="record" style="text-align:center;font-family:var(--pixel);font-size:7px">${s.record||'0-0'}</td>
-          <td class="fp-total" style="text-align:right">${s.fp.toFixed(1)}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>
-  <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);text-align:center;margin-top:8px">TAP W-L OR FP TO SORT · FP = ${run.name.toUpperCase()} RUN TOTAL</div>`;
+  const wi=getCurrentWeekIndex(currentRun), nW=((leagueState.schedule||{})[currentRun]||[]).length;
+  const ord=i=>['1ST','2ND','3RD'][i]||(i+1)+'TH';
+  const sortH=(k,label,align)=>`<span class="hs-sort${standingsSort===k?' on':''}" style="text-align:${align}" onclick="standingsSort='${k}';renderFantasyRunContent()">${label}${standingsSort===k?' ▼':''}</span>`;
+  el.innerHTML=`<div style="height:10px"></div>
+  <div class="hs">
+    <div class="hs-title">${run.name.toUpperCase()} RUN STANDINGS</div>
+    <div class="hs-sub">${fmtRunDate(run.start).toUpperCase()} – ${fmtRunDate(run.end).toUpperCase()}${wi>=0&&wi<nW?` · WEEK ${wi+1} OF ${nW}`:''}</div>
+    <div class="hs-head"><span>RANK</span><span>TEAM</span><span></span>${sortH('wl','W-L','center')}${sortH('fp','FP','right')}</div>
+    ${standings.map((s,i)=>`<div class="hs-row${i===0?' first':''}${s.m.id===myId?' me':''}" onclick="showUserProfile('${s.m.id}')">
+      <span class="rk">${ord(i)}</span>
+      <span class="av">${avatarEl(s.m.display_name, s.m.color||'#4a9eff', 24, 8, s.m.icon||null, s.m.photo||null)}</span>
+      <span class="nm">${teamLabel(s.m).toUpperCase()}</span>
+      <span class="wl">${s.record||'0-0'}</span>
+      <span class="sc">${s.fp.toFixed(1)}</span></div>`).join('')}
+    <div class="hs-foot">TAP W-L OR FP TO SORT · TAP A TEAM FOR ITS PROFILE</div>
+  </div>`;
 }
 let standingsSort = 'wl';
 

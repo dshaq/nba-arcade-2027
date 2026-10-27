@@ -1192,8 +1192,10 @@ function showPlayerCard(playerName, initialTab, opts) {
   if(opts !== undefined) playerCardOpts = {name:playerName, ...opts};
   else if(playerCardOpts.name !== playerName) playerCardOpts = {};
   const actions = playerCardOpts.actions || [];
-  openPlayerCardName = playerName;
+  // Remove the old card first: its remove() clears openPlayerCardName when it matches,
+  // which broke the ‹ › arrows whenever the same card was redrawn (OPP column, live refresh)
   document.getElementById('player-card-modal')?.remove();
+  openPlayerCardName = playerName;
 
   // PLAYERS is BDL-driven (current-season teams/positions). Use it as primary source.
   const pArr  = PLAYERS.find(pl=>pl.name===playerName) || PLAYERS.find(pl=>normName(pl.name)===normName(playerName));
@@ -1246,11 +1248,10 @@ function showPlayerCard(playerName, initialTab, opts) {
     const t = String(g.team || teamAbbr); if(!t) return '—';
     const sd = _teamSchedCache[t]?._val;
     if(!sd){
-      if(_teamSchedCache[t] || !_oppSchedTried.has(t)){ needSched.add(t); return '…'; }
+      if(_teamSchedCache[t] || !_oppSchedTried.has(t)){ needSched.add(t); return `<span data-opp-team="${t}" data-opp-date="${g.date}">…</span>`; }
       return '—';
     }
-    const m = sd.games.find(x => new Date(x.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'')===String(g.date));
-    return m ? (m.home?'vs. ':'@ ')+m.opp : '—';
+    return oppFromSched(sd, g.date);
   };
   const gameRow = (g, i) => {
     const pending = g._pending && !g._live;
@@ -1344,17 +1345,22 @@ function showPlayerCard(playerName, initialTab, opts) {
   modal.remove = ()=>{ if(openPlayerCardName===playerName) openPlayerCardName=null; origRemove(); };
   document.body.appendChild(modal);
   // Older games need the team's schedule for the OPP column: fetch, then redraw this card
+  // Fill those cells in place when the schedule arrives (no redraw, so taps aren't lost)
   if(activeTab==='stats' && needSched.size){
-    Promise.all([...needSched].map(t=>{ _oppSchedTried.add(t); return getTeamSchedule(t); })).then(()=>{
-      if(openPlayerCardName===playerName && document.body.contains(modal)){
-        const sc = modal.querySelector('.top-sheet-body')?.scrollTop||0;
-        showPlayerCard(playerName,'stats');
-        const b = document.querySelector('#player-card-modal .top-sheet-body'); if(b) b.scrollTop = sc;
-      }
-    });
+    for(const t of needSched){
+      _oppSchedTried.add(t);
+      Promise.resolve(getTeamSchedule(t)).then(sd=>{
+        if(!document.body.contains(modal)) return;
+        modal.querySelectorAll(`[data-opp-team="${t}"]`).forEach(c=>{ c.textContent = sd ? oppFromSched(sd, c.dataset.oppDate) : '—'; });
+      }).catch(()=>{});
+    }
   }
 }
 const _oppSchedTried = new Set();
+function oppFromSched(sd, date){
+  const m = sd?.games?.find(x => new Date(x.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'')===String(date));
+  return m ? (m.home?'vs. ':'@ ')+m.opp : '—';
+}
 
 // ── ESPN TEAM ID MAP ─────────────────────────────────────────────────────────
 const ESPN_TO_ABBR = {
@@ -1646,7 +1652,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102616;
+const APP_BUILD = 2026102618;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;

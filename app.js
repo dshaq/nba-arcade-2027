@@ -1659,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102806;
+const APP_BUILD = 2026102807;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge';
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -7129,7 +7129,7 @@ function bbRender(){
       ? (BB.COLORWAYS[ch]||[['Original',{}]]).map(([n,o])=>[n, {...BB.fresh(ch),...o}])
       : BB.TEAMS.map(tm=>[tm[0], BB.teamPick(ch,tm)]);
     P.innerHTML = `<div class="bb-strip">${list.map(([n,p],i)=>{ const t=BB.token(ch,p); return bbTile(`data-${_bb.mode==='styles'?'way':'team'}="${i}"`, n.toUpperCase(), t===curTok, taken.get(t)); }).join('')}</div>
-      <p class="bb-hint">${_bb.mode==='styles'?'Swipe for more. Pick one, then tweak it in Custom.':'All 30 teams. Swipe for more.'}</p>`;
+      <p class="bb-hint">${_bb.mode==='styles'?'Swipe or use the arrows for more. Pick one, then tweak it in Custom.':'All 30 teams. Swipe or use the arrows for more.'}</p>`;
     P.querySelectorAll('.bb-strip canvas').forEach((cv,i)=>BB.draw(cv, list[i][1], ch));
   } else {
     const parts = C.parts; if(!_bb.part || !parts.find(p=>p[0]===_bb.part)) _bb.part = parts[0][0];
@@ -7139,6 +7139,32 @@ function bbRender(){
     P.innerHTML = `<div class="bb-chips">${parts.map(([pk,l])=>`<button type="button" class="bb-chip${pk===k?' on':''}" data-part="${pk}">${l}</button>`).join('')}</div>
       <div class="bb-sw">${pal.map(([nm],i)=>`<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}</div>`;
   }
+  bbStrips();
+}
+// Side-scrolling strips: arrows (mouse users can't swipe) + mouse wheel scrolls sideways
+function bbStrips(){
+  document.querySelectorAll('#avatar-modal .bb-strip').forEach(st=>{
+    let wrap = st.parentNode;
+    if(!wrap.classList.contains('bb-sc')){
+      wrap = document.createElement('div'); wrap.className = 'bb-sc';
+      st.parentNode.insertBefore(wrap, st); wrap.appendChild(st);
+      wrap.insertAdjacentHTML('beforeend', `<button type="button" class="bb-arr l" aria-label="Scroll left" tabindex="-1">‹</button><button type="button" class="bb-arr r" aria-label="Scroll right" tabindex="-1">›</button>`);
+      const step = d => st.scrollBy({left: d*Math.max(120, st.clientWidth*0.8), behavior:'smooth'});
+      wrap.querySelector('.l').onclick = e=>{ e.stopPropagation(); step(-1); };
+      wrap.querySelector('.r').onclick = e=>{ e.stopPropagation(); step(1); };
+      st.addEventListener('wheel', e=>{ if(Math.abs(e.deltaY) > Math.abs(e.deltaX) && st.scrollWidth > st.clientWidth){ e.preventDefault(); st.scrollBy({left:e.deltaY}); } }, {passive:false});
+      st.addEventListener('scroll', ()=>bbArrowState(wrap, st), {passive:true});
+    }
+    // keep the picked tile in view, then show/hide the arrows
+    const on = st.querySelector('.bb-tile.on');
+    if(on && (on.offsetLeft < st.scrollLeft || on.offsetLeft+on.offsetWidth > st.scrollLeft+st.clientWidth)) st.scrollLeft = on.offsetLeft - 8;
+    bbArrowState(wrap, st);
+  });
+}
+function bbArrowState(wrap, st){
+  const max = st.scrollWidth - st.clientWidth;
+  wrap.querySelector('.l').hidden = st.scrollLeft <= 2;
+  wrap.querySelector('.r').hidden = st.scrollLeft >= max - 2;
 }
 function bbClick(e){
   const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb) return;

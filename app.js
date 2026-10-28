@@ -1659,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102804;
+const APP_BUILD = 2026102805;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge';
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -3080,12 +3080,31 @@ function planEligible(mid, list){
   const roster = ((leagueState.rosters||{})[mid]||[]).map(String), ir = String(getIrSlot(mid)??'');
   return list.filter(id=>roster.includes(String(id)) && String(id)!==ir).slice(0, ACTIVE_SIZE);
 }
+// A saved plan can name a player who has since been dropped (plans are made days ahead).
+// Each departed player's slot goes to someone in the current Active lineup who isn't in the
+// plan, newest waiver pickups first, so a pickup doesn't sit on the bench by accident.
+function fillPlan(mid, list){
+  const ids = list.map(x=>isNaN(x)?x:Number(x));
+  const out = planEligible(mid, ids);
+  const want = Math.min(ACTIVE_SIZE, ids.length);
+  if(out.length >= want) return out;
+  // This week's pickups (newest first), then the current Active lineup
+  const weekAgo = new Date(Date.now()-7*86400000).toISOString();
+  const adds = ((leagueState.waiverLog||{})[mid]||[]).filter(e=>e.type==='add' && (e.ts||'') >= weekAgo).reverse().map(e=>isNaN(e.pid)?e.pid:Number(e.pid));
+  const cur = ((leagueState.active||{})[mid]||[]).map(x=>isNaN(x)?x:Number(x));
+  for(const id of planEligible(mid, [...new Set([...adds, ...cur])]).concat(planEligible(mid, cur))){
+    if(out.length >= want) break;
+    if(!out.map(String).includes(String(id))) out.push(id);
+  }
+  return out;
+}
 // The lineup that will be active on a FUTURE day (latest plan on or before it, else today's)
 function plannedLineup(mid, ymd){
   const plans = (leagueState.lineupPlans||{})[mid] || {};
   const t = todayYmd();
   const key = Object.keys(plans).filter(k=>k>t && k<=ymd).sort().pop();
-  const base = key ? plans[key] : ((leagueState.active||{})[mid] || autoActiveFor(mid));
+  if(key) return fillPlan(mid, plans[key]);
+  const base = (leagueState.active||{})[mid] || autoActiveFor(mid);
   return planEligible(mid, base.map(x=>isNaN(x)?x:Number(x)));
 }
 async function savePlan(mid, ymd, list){
@@ -3145,7 +3164,7 @@ async function applyLineupPlans(){
   for(const [mid, plans] of Object.entries(leagueState.lineupPlans)){
     const due = Object.keys(plans||{}).filter(k=>k<=t).sort();
     if(!due.length) continue;
-    const day = due[due.length-1], list = planEligible(mid, plans[day].map(x=>isNaN(x)?x:Number(x)));
+    const day = due[due.length-1], list = fillPlan(mid, plans[day]);
     const since = etMidnightIso(day);
     if(!leagueState.activeLog) leagueState.activeLog = {};
     const log = leagueState.activeLog[mid] || (leagueState.activeLog[mid] = []);
@@ -3166,6 +3185,26 @@ async function applyLineupPlans(){
     }
     due.forEach(k=>delete plans[k]);
     changed = true;
+  }
+  // Oct 28: plans applied overnight before the rule above left a team one short (a dropped
+  // player's slot sat empty). Fill it once, unless the manager has changed the lineup since.
+  if(t==='20261028'){
+    const since = etMidnightIso(t);
+    for(const [mid, log] of Object.entries(leagueState.activeLog||{})){
+      const last = log[log.length-1], act = (leagueState.active||{})[mid];
+      if(!last?.plan || last.ts !== since || !Array.isArray(act) || act.length >= ACTIVE_SIZE) continue;
+      const prev = [...log].reverse().find(e=>e.ts < since && !e.plan);
+      if(!prev || prev.active.length < ACTIVE_SIZE) continue;
+      const saveActive = leagueState.active[mid];
+      leagueState.active[mid] = prev.active;            // fill from the lineup they had going into today
+      const next = fillPlan(mid, [...act, '__departed__']);
+      leagueState.active[mid] = saveActive;
+      if(next.length <= act.length) continue;
+      leagueState.active[mid] = next;
+      leagueState.inactive[mid] = ((leagueState.rosters||{})[mid]||[]).filter(id=>!next.map(String).includes(String(id)) && String(id)!==String(getIrSlot(mid)??''));
+      log.push({ts:new Date().toISOString(), active:[...next], repair:true});
+      changed = true;
+    }
   }
   if(changed){ _applyingPlans = true; try{ await saveLeagueState(); } finally { _applyingPlans = false; } }
 }

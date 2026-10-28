@@ -1659,13 +1659,35 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102803;
+const APP_BUILD = 2026102804;
 let _staleReloading = false;
+const PENDING_MERGE_KEY = 'nba-pending-merge';
+// After an update reload: put back the changes the old tab couldn't save (merged over whatever
+// everyone else saved since), then save them.
+async function restorePendingMerge(){
+  let p = null; try{ p = JSON.parse(localStorage.getItem(PENDING_MERGE_KEY)||'null'); }catch(e){}
+  if(!p) return;
+  try{ localStorage.removeItem(PENDING_MERGE_KEY); }catch(e){}
+  if(!leagueState || Date.now()-(p.at||0) > 6*3600*1000 || (p.uid && p.uid!==currentUser?.id)) return;
+  try{
+    const merged = merge3(JSON.parse(p.base), JSON.parse(p.local), JSON.parse(JSON.stringify(leagueState)));
+    if(JSON.stringify(merged) === JSON.stringify(leagueState)) return;
+    _replaceLeagueState(merged);
+    await saveLeagueState();
+    if(_lastSaveOk){ await syncManagersToState(); toast('Your changes from before the update were saved'); }
+  }catch(e){ console.warn('[build] restoring unsaved changes failed', e); }
+}
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
   if(!_staleReloading){
     _staleReloading = true;
     console.warn('[build] this tab runs old code (', APP_BUILD, '<', remote.minBuild, ') — reloading');
+    // Keep any change this tab hasn't saved yet; the updated code merges it back in after the reload
+    try{
+      const local = JSON.stringify(leagueState);
+      if(_leagueBaseJson && local !== _leagueBaseJson)
+        localStorage.setItem(PENDING_MERGE_KEY, JSON.stringify({base:_leagueBaseJson, local, at:Date.now(), uid:currentUser?.id||null}));
+    }catch(e){ console.warn('[build] could not keep unsaved changes', e); }
     try{ toast('NBA Arcade was updated — reloading…'); }catch(e){}
     setTimeout(()=>location.reload(), 1200);
   }
@@ -3209,11 +3231,14 @@ function showScreen(screen){
 
 // ── HOME SCREEN ──────────────────────────────────────────────────────────────
 // ── HOMEPAGE SCOREBOARD: 16-bit gym-style LED board, one game, dropdown ──────
-let SB_EVENTS = [], sbEventId = null;
+let SB_EVENTS = [], sbEventId = null, SB_LAST_NIGHT = [];  // SB_LAST_NIGHT: last night's finals (picker only)
 function setScoreboardEvents(evs){
   const seen=new Set(); evs=evs.filter(e=>!seen.has(e.id)&&seen.add(e.id));
   const order = ev => { const st=ev.competitions?.[0]?.status?.type?.state; return st==='in'?0:st==='pre'?1:2; };
-  SB_EVENTS = [...evs].sort((a,b)=> order(a)-order(b) || String(a.date).localeCompare(String(b.date)));
+  const today = [...evs].sort((a,b)=> order(a)-order(b) || String(a.date).localeCompare(String(b.date)));
+  const ids = new Set(today.map(e=>e.id));
+  // Last night's finals ride along at the end so they can still be picked from the menu
+  SB_EVENTS = [...today, ...SB_LAST_NIGHT.filter(e=>!ids.has(e.id)).map(e=>({...e, _lastNight:true}))];
   if(!SB_EVENTS.some(e=>e.id===sbEventId)) sbEventId = SB_EVENTS[0]?.id || null;
   renderScoreboard();
 }
@@ -3362,31 +3387,25 @@ function topFantasyPlayer(eventId, team){
 function renderScoreboard(){
   const el = document.getElementById('scoreboard-container'); if(!el) return;
   const sel = document.getElementById('sb-select-wrap');
-  if(!SB_EVENTS.length){
-    if(sel) sel.innerHTML = `<span style="font-family:var(--pixel);font-size:6px;color:var(--text3)">🏀 NO NBA GAMES TODAY</span>`;
-    renderDykBoard(el);
-    return;
-  }
+  const todayEvs = SB_EVENTS.filter(e=>!e._lastNight), lastNight = SB_EVENTS.filter(e=>e._lastNight);
   // Before the day's first tip-off the board shows "Did You Know?" tips, unless a game was picked
-  const anyStarted = SB_EVENTS.some(e=>{ const st=e.competitions?.[0]?.status?.type?.state; return st==='in'||st==='post'; });
-  if(!anyStarted && !sbUserPicked){
-    if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
-      <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
-      ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev); return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${g.tip}</option>`; }).join('')}
-    </select>`;
+  const anyStarted = todayEvs.some(e=>{ const st=e.competitions?.[0]?.status?.type?.state; return st==='in'||st==='post'; });
+  // Game picker: today's games, then last night's finals
+  const opt = ev => { const g=scoreboardInfo(ev);
+    const sc = g.final ? ` ${g.away?.score??''}-${g.home?.score??''}` : '';
+    const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${boardClock(g).trim()}`) : g.final ? 'FINAL'+sc : g.tip;
+    return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${status}</option>`; };
+  if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
+    <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
+    ${todayEvs.length ? `<optgroup label="TODAY">${todayEvs.map(opt).join('')}</optgroup>` : `<option value="" disabled>NO NBA GAMES TODAY</option>`}
+    ${lastNight.length ? `<optgroup label="LAST NIGHT">${lastNight.map(opt).join('')}</optgroup>` : ''}
+    ${!anyStarted ? `<option value="dyk">★ DID YOU KNOW?</option>` : ''}
+  </select>`;
+  if(!SB_EVENTS.length || (!anyStarted && !sbUserPicked)){
     renderDykBoard(el);
     return;
   }
   stopDykTimer();
-  // Game picker: label always reads "Select NBA Scoreboard"
-  if(sel) sel.innerHTML = `<select class="sb-select" aria-label="Select NBA Scoreboard" onchange="if(this.value){selectScoreboardGame(this.value);}this.value='';">
-    <option value="" selected>VIEW TODAY'S NBA SCORES/SCHEDULE</option>
-    ${SB_EVENTS.map(ev=>{ const g=scoreboardInfo(ev);
-      const status = g.live ? (g.half?'HALFTIME':`${g.per==='OT'?'OT':'Q'+g.per} ${boardClock(g).trim()}`) : g.final ? 'FINAL' : g.tip;
-      return `<option value="${ev.id}">${g.awayAb} @ ${g.homeAb} · ${status}</option>`; }).join('')}
-  </select>`;
-
-  if(!anyStarted) sel?.querySelector('select')?.insertAdjacentHTML('beforeend', `<option value="dyk">★ DID YOU KNOW?</option>`);
   const ev = SB_EVENTS.find(e=>e.id===sbEventId) || SB_EVENTS[0];
   const g = scoreboardInfo(ev);
   const RED = '#ff3b30', AMBER = '#ffb000';
@@ -7687,7 +7706,7 @@ async function fetchAndRenderTicker(){
   const yesterdayET = new Date(Date.now()-86400000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 
   const showYesterday = etHour < 9;
-  const datesToFetch  = showYesterday ? [yesterdayET] : [todayET, yesterdayET];
+  const datesToFetch  = [todayET, yesterdayET];  // the home scoreboard needs today's slate even in the morning
   const fmt = d => d.slice(0,10).replace(/-/g,'');
 
   // Always fetch ESPN for accurate ISO game times (BDL /games has no time field)
@@ -7908,8 +7927,12 @@ function buildTickerDraftHtml(){
 function renderTicker(events, todayDate, showYesterday){
   // Homepage scoreboard: today's games (or yesterday's finals before any today)
   const etDay = ev => ev.date ? new Date(ev.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}) : '';
-  const todays = events.filter(ev=>etDay(ev)===todayDate);
-  setScoreboardEvents(todays.length && !showYesterday ? todays : events.filter(ev=>etDay(ev)!==todayDate));
+  const isLive = ev => ev.competitions?.[0]?.status?.type?.state==='in';
+  const todays = events.filter(ev=>etDay(ev)===todayDate || isLive(ev));   // + last night's late games still on after midnight
+  // Today's games always; last night's finals stay pickable from the menu (the board itself shows
+  // "Did You Know?" until the first tip-off)
+  SB_LAST_NIGHT = events.filter(ev=>etDay(ev)!==todayDate && ev.competitions?.[0]?.status?.type?.state==='post');
+  setScoreboardEvents(todays);
 
   const el = document.getElementById('game-ticker');
   const track = document.getElementById('ticker-track');
@@ -8065,6 +8088,7 @@ async function boot(){
       const isFirstLogin = event==='SIGNED_IN' || event==='INITIAL_SESSION';
       await loadManagerProfile();
       await loadLeagueState();
+      await restorePendingMerge();
       await migrateAvatarFromDevice();
       await shrinkLeaguePhotos();
       await freezeDefaultLineups();

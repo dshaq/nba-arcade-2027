@@ -5647,7 +5647,10 @@ function renderQuickStats(){
 // ── FANTASY SCREEN ───────────────────────────────────────────────────────────
 let currentFantasyTab = 'standings';
 
-function switchFantasyTab(tab){
+// refresh=true: a background redraw (new stats, someone else's save) of the tab you're already
+// on. Keeps your filters, search and schedule week instead of starting the tab over.
+function switchFantasyTab(tab, refresh=false){
+  if(refresh && tab!==currentFantasyTab) refresh = false;
   currentFantasyTab = tab;
   document.querySelectorAll('.fantasy-sub-tab').forEach(t=>{
     t.classList.toggle('active', t.dataset.tab === tab);
@@ -5659,9 +5662,12 @@ function switchFantasyTab(tab){
     renderFantasyRunContent(); // render immediately with cached data
     syncManagersToState().then(()=>renderFantasyRunContent()); // re-render with fresh data
   }
-  else if(tab==='schedule'){ scheduleWeekOffset=0; renderFantasySchedule(); }
+  else if(tab==='schedule'){ if(!refresh) scheduleWeekOffset=0; renderFantasySchedule(); }
   else if(tab==='roster') renderRostersScreen();
-  else if(tab==='waivers'){ resetWaiverFilters(); renderWaiversPane(); }
+  else if(tab==='waivers'){
+    if(refresh && document.getElementById('waiver-player-list')) renderWaiverPlayerList();   // just the list: dropdowns and search stay as they are
+    else { resetWaiverFilters(); renderWaiversPane(); }
+  }
   else if(tab==='draft') renderFantasyDraftPane();
 }
 
@@ -5714,7 +5720,7 @@ function switchRun(runId){
 
 function renderFantasyScreen(){
   renderRunBar();
-  switchFantasyTab(currentFantasyTab);
+  switchFantasyTab(currentFantasyTab, true);
 }
 
 let draftFilter = { availability:'available', team:'all', sort:'fp', rookie:false };

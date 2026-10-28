@@ -1659,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102802;
+const APP_BUILD = 2026102803;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -2131,24 +2131,26 @@ function applyBdlPlayers(bdlPlayers){
 
 // ── BDL SEASON AVERAGES → projected FP ───────────────────────────────────────
 const BDL_AVG_CACHE_KEY = 'bdl_avgs_cache_v3'; // v3: name aliases
-const BDL_AVG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const BDL_AVG_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours (new days' box scores are added on the next load)
 
+// This season's per-game averages for every player, built from BDL box scores.
+// (BDL's /season_averages now takes one player per call, so a list of ids just errors.)
+// Running totals are kept on the device and only the days since the last load are fetched,
+// so a normal day costs a few requests. Averages need 3+ games before they replace projections.
+const BDL_SEASON = 2026, BDL_SEASON_START = '2026-10-20';
+const BDL_TOTALS_KEY = 'bdl_totals_2026_v1';
 async function loadBdlSeasonAverages(){
   if(!bdlKey) return;
-
-  // Check cache first
   try{
     const cached = JSON.parse(localStorage.getItem(BDL_AVG_CACHE_KEY)||'null');
-    if(cached && (Date.now()-cached.ts) < BDL_AVG_CACHE_TTL){
+    if(cached && cached.season===BDL_SEASON && (Date.now()-cached.ts) < BDL_AVG_CACHE_TTL){
       applyBdlSeasonAverages(cached.averages);
       return;
     }
   }catch(e){}
 
-  // Collect BDL player IDs for all players we have in PLAYERS
-  // We need the BDL id — get it from PLAYER_INFO if applyBdlPlayers already ran,
-  // or match by name against the cached players list.
-  let bdlIdMap = {}; // bdlId → PLAYERS name
+  // BDL player id → PLAYERS name
+  const bdlIdMap = {};
   try{
     const pc = JSON.parse(localStorage.getItem(BDL_CACHE_KEY)||'null');
     if(pc && pc.players){
@@ -2156,69 +2158,69 @@ async function loadBdlSeasonAverages(){
       pc.players.forEach(p=>{ byName[p.name]=p; byNorm[normName(p.name)]=p; });
       PLAYERS.forEach(p=>{
         const bdl = byName[p.name] || byNorm[normName(p.name)];
-        if(bdl) bdlIdMap[bdl.bdlId ?? bdl.id] = p.name;  // cache uses bdlId field
+        if(bdl) bdlIdMap[bdl.bdlId ?? bdl.id] = p.name;
       });
     }
   }catch(e){}
-
   if(Object.keys(bdlIdMap).length === 0){
     console.warn('BDL season avgs: no player IDs available yet, skipping');
+    _bdlAvgsResolve?.();
     return;
   }
 
-  // Fetch season averages — BDL supports up to 100 player_ids[] per request
-  const ids = Object.keys(bdlIdMap);
-  const CHUNK = 100;
-  const averages = {};
-  try{
-    for(let i=0; i<ids.length; i+=CHUNK){
-      const chunk = ids.slice(i, i+CHUNK);
-      const params = { season: 2025, per_page: 100 };
-      chunk.forEach(id => { params['player_ids[]'] = params['player_ids[]'] ? [...params['player_ids[]'], id] : [id]; });
-      const res = await bdlFetch('/season_averages', params);
-      if(!res?.data) continue;
-      for(const avg of res.data){
-        const playerName = bdlIdMap[String(avg.player_id)];
-        if(!playerName) continue;
-        // Run through league calcFP formula
-        const fp = calcFP({
-          pts: avg.pts||0,
-          reb: avg.reb||0,
-          ast: avg.ast||0,
-          stl: avg.stl||0,
-          blk: avg.blk||0,
-          fgm: avg.fgm||0,
-          fga: avg.fga||0,
-          ftm: avg.ftm||0,
-          fta: avg.fta||0,
-          to:  avg.turnover||0,
-          flagrant: 0,
-          technical: 0
-        });
-        averages[playerName] = {
-          fpPG: Math.round(fp * 10) / 10,   // 1 decimal place
-          gp:   avg.games_played||0,
-          // raw per-game stats so PLAYERS entries stay current
-          pts:  avg.pts||0,
-          reb:  avg.reb||0,
-          ast:  avg.ast||0,
-          stl:  avg.stl||0,
-          blk:  avg.blk||0,
-          fg3m: avg.fg3m||0,
-          ftm:  avg.ftm||0,
-        };
+  // Only finished days: everything through yesterday (ET)
+  // (before 4 AM ET the previous night's late games may still be on, so count back one more day)
+  const etYmd = d => new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(d);
+  const yesterday = etYmd(new Date(Date.now() - 28*3600*1000));
+  let store = null;
+  try{ store = JSON.parse(localStorage.getItem(BDL_TOTALS_KEY)||'null'); }catch(e){}
+  if(!store || store.season!==BDL_SEASON) store = {season:BDL_SEASON, through:null, totals:{}};
+  const nextDay = d => { const x = new Date(d+'T12:00:00Z'); x.setUTCDate(x.getUTCDate()+1); return x.toISOString().slice(0,10); };
+  const from = store.through ? nextDay(store.through) : BDL_SEASON_START;
+  if(from <= yesterday){
+    const fresh = {}; let cursor = 0, ok = true;
+    try{
+      for(let page=0; page<200; page++){
+        const params = {'seasons[]':BDL_SEASON, start_date:from, end_date:yesterday, per_page:100};
+        if(cursor) params.cursor = cursor;
+        const res = await bdlFetch('/stats', params);
+        if(!res?.data){ ok = false; break; }
+        for(const r of res.data){
+          if(r.game?.postseason) continue;
+          const [mm,ss] = String(r.min||'0').split(':'); const min = (+mm||0)+((+ss||0)/60);
+          if(min<=0) continue;
+          const id = r.player?.id ?? r.player_id; if(id==null) continue;
+          const t = fresh[id] ||= {gp:0,min:0,pts:0,reb:0,ast:0,stl:0,blk:0,fgm:0,fga:0,ftm:0,fta:0,fg3m:0,to:0};
+          t.gp++; t.min+=min; t.pts+=r.pts||0; t.reb+=r.reb||0; t.ast+=r.ast||0; t.stl+=r.stl||0; t.blk+=r.blk||0;
+          t.fgm+=r.fgm||0; t.fga+=r.fga||0; t.ftm+=r.ftm||0; t.fta+=r.fta||0; t.fg3m+=r.fg3m||0; t.to+=r.turnover||0;
+        }
+        cursor = res.meta?.next_cursor; if(!cursor) break;
       }
+    }catch(e){ ok = false; console.warn('BDL season avgs: stats fetch failed', e); }
+    // All-or-nothing, so a half-loaded day is never counted twice
+    if(ok){
+      for(const [id,t] of Object.entries(fresh)){
+        const T = store.totals[id] ||= {gp:0,min:0,pts:0,reb:0,ast:0,stl:0,blk:0,fgm:0,fga:0,ftm:0,fta:0,fg3m:0,to:0};
+        for(const k of Object.keys(t)) T[k] += t[k];
+      }
+      store.through = yesterday;
+      try{ localStorage.setItem(BDL_TOTALS_KEY, JSON.stringify(store)); }catch(e){}
     }
-  }catch(e){
-    console.warn('BDL season averages fetch failed:', e);
-    return;
   }
 
-  // Cache result
-  try{
-    localStorage.setItem(BDL_AVG_CACHE_KEY, JSON.stringify({ts: Date.now(), averages}));
-  }catch(e){}
-
+  const averages = {};
+  for(const [id,T] of Object.entries(store.totals)){
+    const playerName = bdlIdMap[String(id)]; if(!playerName || !T.gp) continue;
+    const g = T.gp, avg = k => T[k]/g;
+    const fp = calcFP({pts:avg('pts'),reb:avg('reb'),ast:avg('ast'),stl:avg('stl'),blk:avg('blk'),fgm:avg('fgm'),fga:avg('fga'),ftm:avg('ftm'),fta:avg('fta'),to:avg('to'),flagrant:0,technical:0});
+    averages[playerName] = {
+      fpPG: Math.round(fp*10)/10, gp: g,
+      pts: avg('pts'), reb: avg('reb'), ast: avg('ast'), stl: avg('stl'), blk: avg('blk'),
+      fg3m: avg('fg3m'), ftm: avg('ftm'), min: avg('min'),
+    };
+  }
+  if(!Object.keys(averages).length){ _bdlAvgsResolve?.(); return; }
+  try{ localStorage.setItem(BDL_AVG_CACHE_KEY, JSON.stringify({ts: Date.now(), season:BDL_SEASON, averages})); }catch(e){}
   applyBdlSeasonAverages(averages);
 }
 

@@ -1659,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102801;
+const APP_BUILD = 2026102802;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -3829,6 +3829,10 @@ const DUEL_STAT_TEMPLATES = [
 // ── DAILY THEMES ── starting Mon Oct 26 every weekday has its own duel type.
 // Before that date: player duels only (no team duels until the custom logos are ready).
 const DUEL_THEMES_START = '2026-10-26';
+// Hand-picked player duels by date: [pid1, pid2] (PLAYERS ids)
+const DUEL_PLAYER_PLANS = {
+  '2026-10-28': [601, 1402],   // Wet Wednesday: Donovan Mitchell vs Austin Reaves, both 3.0 3PM/game this season
+};
 const TEAM_DUELS_START = '2026-10-27';
 const DUEL_THEMES = {
   1:{ name:'MONSTER MONDAY',        stat:'pra',     prompt:'Who has more points + rebounds + assists tonight?' },
@@ -3854,20 +3858,32 @@ async function loadCurrentSeasonShooting(players){
   players.forEach(p=>{ const b = byNorm[normName(p.name)]; const id = b && (b.bdlId ?? b.id); if(id!=null) idMap[id] = p; });
   const ids = Object.keys(idMap);
   const mins = v => { if(v==null) return 0; if(typeof v==='number') return v; const [m,sec]=String(v).split(':'); return (+m||0)+((+sec||0)/60); };
+  // BDL's /season_averages only takes ONE player per call now (a list returns an error, which
+  // left every themed 3PM/FTM duel with no data). Add up this season's box scores instead.
+  const agg = {}; let gotAny = false;
   for(let i=0;i<ids.length;i+=100){
+    const chunk = ids.slice(i,i+100); let cursor = 0, ok = true;
     try{
-      const chunk = ids.slice(i,i+100);
-      const res = await bdlFetch('/season_averages', {season:2026, per_page:100, 'player_ids[]':chunk});
-      if(!res?.data || !res.data.length) continue;   // no data at all → don't judge anyone
-      _curSeasonLoaded = true;
-      // A player BDL returns nothing for hasn't played this season
-      chunk.forEach(id=>{ const p=idMap[id]; p.gpNow = 0; p.minNow = 0; });
-      for(const a of res.data){
-        const p = idMap[String(a.player_id)]; if(!p) continue;
-        p.gpNow = a.games_played||0; p.minNow = mins(a.min); p.tpgNow = a.fg3m||0; p.ftpgNow = a.ftm||0;
+      for(let page=0; page<30; page++){
+        const params = {'seasons[]':2026, per_page:100, 'player_ids[]':chunk}; if(cursor) params.cursor = cursor;
+        const res = await bdlFetch('/stats', params);
+        if(!res?.data){ ok = false; break; }
+        for(const r of res.data){
+          if(r.game?.postseason) continue;
+          const m = mins(r.min); if(m<=0) continue;
+          const a = agg[r.player?.id ?? r.player_id] ||= {gp:0, min:0, tpm:0, ftm:0};
+          a.gp++; a.min += m; a.tpm += r.fg3m||0; a.ftm += r.ftm||0;
+        }
+        cursor = res.meta?.next_cursor; if(!cursor) break;
       }
-    }catch(e){ console.warn('[duel] current-season averages fetch failed', e); }
+    }catch(e){ ok = false; console.warn('[duel] current-season stats fetch failed', e); }
+    if(!ok) continue;                 // couldn't load this batch → don't judge these players
+    gotAny = true;
+    chunk.forEach(id=>{ const p = idMap[id], a = agg[id];
+      p.gpNow = a ? a.gp : 0; p.minNow = a ? a.min/a.gp : 0;
+      p.tpgNow = a ? a.tpm/a.gp : 0; p.ftpgNow = a ? a.ftm/a.gp : 0; });
   }
+  if(gotAny) _curSeasonLoaded = true;
 }
 // Duel players must be in the rotation THIS season: played and averaging 22+ minutes.
 // (Last season's scoring alone picked Tre Mann, who now barely plays.) If this season's
@@ -3920,6 +3936,9 @@ function themedDuel(dateKey, theme, seed, eligible, matchups){
     }
     return null;
   }
+  // Commissioner-picked players for this date (both must be eligible today)
+  const pp = DUEL_PLAYER_PLANS[dateKey];
+  const planned = pp && pp.map(id=>eligible.find(p=>String(p.id)===String(id)));
   const cfg = {
     pra:      { pool:p=>p.ppg>=18,                         val:p=>p.ppg+p.rpg+p.apg, maxDiff:4,   maxPpg:6 },
     tpm:      { pool:p=>duelTpg(p)>=1.8 && p.ppg>=14,     val:duelTpg,          maxDiff:0.4, maxPpg:8 },
@@ -3930,7 +3949,7 @@ function themedDuel(dateKey, theme, seed, eligible, matchups){
     pts:      { pool:p=>p.ppg>=18,                         val:p=>p.ppg,             maxDiff:3,   maxPpg:3 },
   }[theme.stat];
   if(!cfg) return null;
-  const pair = pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff, cfg.maxPpg)
+  const pair = (planned && planned.every(Boolean) ? planned : null) || pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff, cfg.maxPpg)
             || pickDuelPair(seed, eligible.filter(cfg.pool), cfg.val, cfg.maxDiff*2.5, cfg.maxPpg*2);
   if(!pair) return null;
   const avgs = (theme.stat==='tpm'||theme.stat==='ftm') ? {avg1:+cfg.val(pair[0]).toFixed(1), avg2:+cfg.val(pair[1]).toFixed(1)} : {};
@@ -4229,6 +4248,23 @@ async function ensureTodaysDuel(){
         leagueState.duels[today] = duel;
         await saveLeagueState();
         if(typeof renderHomeScreen==='function' && currentScreen==='home') renderHomeScreen();
+      }
+    } finally { _duelEnsureInProgress = false; }
+    return;
+  }
+  // A theme day that fell back to a plain points duel (e.g. this season's 3PM numbers
+  // didn't load): rebuild it as the themed duel while nobody has picked and it's before lock.
+  if(ex && !ex.theme && ex.type!=='team' && duelThemeFor(today) && ex.result==null && !Object.keys(ex.picks||{}).length
+     && !(ex.lockAt && Date.now() >= new Date(ex.lockAt).getTime()) && !_duelEnsureInProgress){
+    _duelEnsureInProgress = true;
+    try{
+      const duel = await autoGenerateDuel(today);
+      const cur = leagueState.duels[today];
+      if(duel?.theme && cur && !cur.theme && !Object.keys(cur.picks||{}).length){
+        leagueState.duels[today] = duel;
+        await saveLeagueState();
+        if(typeof renderHomeScreen==='function' && currentScreen==='home') renderHomeScreen();
+        if(currentScreen==='duel') renderDuelScreen();
       }
     } finally { _duelEnsureInProgress = false; }
     return;

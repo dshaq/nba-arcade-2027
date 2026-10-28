@@ -1659,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102805;
+const APP_BUILD = 2026102806;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge';
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -6383,6 +6383,7 @@ function renderRostersScreen(){
             : (isActive!==moverActive ? `<button class="btn btn-sm move-btn here" onclick="swapActiveBench('${rostersViewId}',${rostersMovePid},${pid})">HERE</button>` : '');
         } else {
           actionBtns = `<button class="move-btn rc-mv" aria-label="Move ${p.name.replace(/"/g,'&quot;')}" onclick="rostersMovePid=${pid};renderRostersScreen()">⇅</button>
+             ${isOut&&irPid&&String(irPid)!==String(pid)?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="executeIrSwap('${rostersViewId}',${irPid},${pid})">⇄ IR</button>`:''}
              ${isOut&&!irPid?`<button class="btn btn-sm btn-secondary" style="font-size:5px;padding:4px 6px;min-height:24px;background:rgba(128,90,213,0.15);border-color:#805ad5;color:#805ad5" onclick="putOnIR('${rostersViewId}',${pid})">→ IR</button>`:''}`;
         }
       }
@@ -6742,6 +6743,14 @@ function openIrReturnDropPicker(mid, irPid){
   const m = document.createElement('div');
   m.id = 'ir-return-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
   m.onclick = e=>{ if(e.target===m) m.remove(); };
+  // Players listed OUT can simply trade places with the IR player: no drop needed
+  const outs = roster.filter(id=>{ const p=getPlayer(id); return p && injuryInfo(p.name)?.isOut && !isPlayerLocked(p); });
+  const swapRows = outs.map(id=>{ const p=getPlayer(id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="min-width:0"><div style="font-family:var(--pixel);font-size:6.5px;color:var(--text1)">${p.name}${injuryBadgeHtml(p.name)}</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:3px">${p.pos} · ${p.team} · goes to IR</div></div>
+      <button onclick="executeIrSwap('${mid}',${irPid},${id})" style="font-family:var(--pixel);font-size:5.5px;padding:7px 10px;border-radius:8px;cursor:pointer;background:#805ad5;border:1px solid #805ad5;color:#fff;white-space:nowrap">⇄ SWAP</button>
+    </div>`; }).join('');
   const rows = roster.map(id=>{
     const p = getPlayer(id); if(!p) return '';
     const fp = playerTotalFP(id), locked = topFP>0 && fp>=topFP;
@@ -6757,10 +6766,39 @@ function openIrReturnDropPicker(mid, irPid){
       <div style="font-family:var(--pixel);font-size:7px;color:#805ad5">MOVE OFF IR</div>
       <button onclick="document.getElementById('ir-return-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
     </div>
-    <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:1.8;margin-bottom:8px">Your roster is full. Choose a player to drop to make room for <span style="color:#805ad5">${ret.name}</span>.</div>
+    ${swapRows ? `<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:1.8;margin-bottom:4px">Swap <span style="color:#805ad5">${ret.name}</span> with a player who's OUT. He goes to IR and ${ret.name} takes his spot.</div>
+    ${swapRows}
+    <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);line-height:1.8;margin:14px 0 8px">— OR DROP A PLAYER TO MAKE ROOM —</div>`
+    : `<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text2);line-height:1.8;margin-bottom:8px">Your roster is full. Choose a player to drop to make room for <span style="color:#805ad5">${ret.name}</span>.</div>`}
     ${rows}
   </div>`;
   document.body.appendChild(m);
+}
+// IR player comes off to the bench; an OUT player takes the IR slot. Nobody is dropped.
+async function executeIrSwap(mid, irPid, outPid){
+  const back = getPlayer(irPid), hurt = getPlayer(outPid);
+  document.getElementById('ir-return-modal')?.remove();
+  if(String(getIrSlot(mid))!==String(irPid)){ toast('That player is no longer on IR'); renderRostersScreen(); return; }
+  if(!hurt || !injuryInfo(hurt.name)?.isOut){ toast('Only players listed OUT can go on IR'); return; }
+  if(isPlayerLocked(hurt)){ toast(`🔒 ${hurt.name}'s game has started`); return; }
+  if(!leagueState.ir) leagueState.ir = {};
+  if(!leagueState.active) leagueState.active = {};
+  if(!leagueState.inactive) leagueState.inactive = {};
+  const wasActive = (leagueState.active[mid]||[]).map(String).includes(String(outPid));
+  leagueState.ir[mid] = outPid;
+  // He takes the hurt player's spot: Active if the hurt player was active, else the bench
+  leagueState.active[mid] = (leagueState.active[mid]||[]).map(id=>String(id)===String(outPid) ? irPid : id);
+  leagueState.inactive[mid] = (leagueState.inactive[mid]||[]).filter(id=>String(id)!==String(outPid) && String(id)!==String(irPid));
+  if(!wasActive) leagueState.inactive[mid].push(irPid);
+  if(wasActive){
+    if(!leagueState.activeLog) leagueState.activeLog = {};
+    (leagueState.activeLog[mid] ||= []).push({ts:new Date().toISOString(), active:[...leagueState.active[mid]]});
+  }
+  await saveLeagueState();
+  if(!_lastSaveOk){ renderRostersScreen(); return; }
+  toast(`${hurt.name} → IR · ${back?.name||'Player'} ${wasActive?'into his Active spot':'to the bench'}`);
+  renderRostersScreen();
+  if(typeof renderLineupPreview==='function') renderLineupPreview();
 }
 async function executeIrReturn(mid, irPid, dropPid){
   const ret = getPlayer(irPid), gone = getPlayer(dropPid);

@@ -1633,6 +1633,18 @@ function dedupePlayerStats(){
 // changed the same key, mine wins. Arrays (e.g. an active lineup) are one value.
 let _leagueBaseJson = null;
 let _leagueStateQueue = Promise.resolve(); // serializes saves and pulls
+// Run a save/pull in the queue, but never let one stuck network call block the queue: a phone
+// that wakes from the background can leave a request hanging forever, and every save after it
+// would silently wait behind it. After `ms` the queue moves on (the stuck call is abandoned).
+let _saveTimedOut = false;
+function queueLeagueOp(fn, ms, label){
+  _leagueStateQueue = _leagueStateQueue.then(()=>{
+    let timer;
+    const timeout = new Promise(res=>{ timer = setTimeout(()=>{ console.warn(`[${label}] timed out after ${ms/1000}s, moving on`); if(label==='saveLeagueState'){ _lastSaveOk = false; _saveTimedOut = true; } res(); }, ms); });
+    return Promise.race([Promise.resolve().then(fn).finally(()=>clearTimeout(timer)), timeout]);
+  }).catch(e=>console.warn(`[${label}]`, e));
+  return _leagueStateQueue;
+}
 
 function _isPlainObj(x){ return x!==null && typeof x==='object' && !Array.isArray(x); }
 function _jsonEq(a,b){ return a===b || JSON.stringify(a)===JSON.stringify(b); }
@@ -1659,7 +1671,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102807;
+const APP_BUILD = 2026102808;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge';
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -1719,7 +1731,7 @@ async function fetchRemoteLeagueState(){
 
 // Bring in everyone else's saved changes without losing my unsaved ones.
 function pullLeagueState(){
-  _leagueStateQueue = _leagueStateQueue.then(async ()=>{
+  return queueLeagueOp(async ()=>{
     if(!leagueState || !_leagueBaseJson) return;
     const startJson = JSON.stringify(leagueState);
     const r = await fetchRemoteLeagueStateIfChanged();
@@ -1731,8 +1743,7 @@ function pullLeagueState(){
     _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, merged));
     _leagueBaseJson = JSON.stringify(remote);
     _leagueTs = r.ts;
-  }).catch(e=>console.warn('[pullLeagueState]', e));
-  return _leagueStateQueue;
+  }, 15000, 'pullLeagueState');
 }
 
 async function loadLeagueState(){
@@ -1891,8 +1902,8 @@ let _lastSaveOk = false; // did the most recent saveLeagueState() land?
 // Merge-safe AND race-safe: the write only lands if nobody else saved since we read
 // (updated_at must still match). If someone did, re-read, re-merge and try again.
 function saveLeagueState(){
-  _leagueStateQueue = _leagueStateQueue.then(async ()=>{
-    _lastSaveOk = false;
+  return queueLeagueOp(async ()=>{
+    _lastSaveOk = false; _saveTimedOut = false;
     if(_staleReloading) return;
     logActiveChanges();
     for(let attempt=0; attempt<6; attempt++){
@@ -1934,8 +1945,7 @@ function saveLeagueState(){
     }
     console.warn('[saveLeagueState] gave up after repeated conflicts');
     showSaveFailed('conflict');
-  }).catch(e=>console.warn('[saveLeagueState]', e));
-  return _leagueStateQueue;
+  }, 25000, 'saveLeagueState');
 }
 // Loud warning when a change didn't reach the server, so nobody thinks it saved
 function showSaveFailed(why){
@@ -7187,18 +7197,35 @@ function bbClick(e){
   else if(d.act==='save'){ saveAvatarChoice(); return; }
   bbRender();
 }
+function bbStatus(msg, kind){
+  const btn = document.querySelector('#avatar-modal [data-act=save]');
+  if(btn){ btn.disabled = kind==='busy'; btn.textContent = kind==='busy' ? 'SAVING…' : kind==='ok' ? 'SAVED ✓' : 'SAVE'; }
+  let el = document.getElementById('bb-msg');
+  if(!el){ const bar = document.querySelector('#avatar-modal .bb-bar'); if(!bar) return; bar.insertAdjacentHTML('beforebegin','<div id="bb-msg" class="bb-msg" role="status"></div>'); el = document.getElementById('bb-msg'); }
+  el.textContent = msg || ''; el.className = 'bb-msg' + (kind==='err' ? ' err' : '');
+}
+let _bbSaving = false;
 async function saveAvatarChoice(){
-  if(!_bb) return;
+  if(!_bb || _bbSaving) return;
   const {mid, ch, pick} = _bb, tok = BB.token(ch, pick);
   const owner = bbTaken(mid).get(tok);
-  if(owner){ toast(`${owner.display_name} already has that exact look. Change a color!`, 3000); return; }
+  if(owner){ bbStatus(`${owner.display_name} already has this exact look. Change a color and save again.`, 'err'); return; }
+  _bbSaving = true; bbStatus('', 'busy');
+  try{ await _saveAvatarChoice(mid, ch, pick, tok); } finally { _bbSaving = false; }
+}
+async function _saveAvatarChoice(mid, ch, pick, tok){
   if(!leagueState.prefs) leagueState.prefs = {};
   leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), avatar:{ball:tok, at:new Date().toISOString()}};
   const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid));
   if(m){ m.photo = tok; m.icon = null; m._customAvatar = true; }
   if(myProfile && String(mid)===String(getMyId())){ myProfile.photo = tok; myProfile.icon = null; try{ localStorage.removeItem(`avatar-${mid}`); }catch(e){} }
   await saveLeagueState();
-  if(!_lastSaveOk){ toast('Could not save. Try again.'); return; }
+  if(!_lastSaveOk){
+    bbStatus(_saveTimedOut ? 'The connection stalled and it did NOT save. Tap SAVE to try again.' : 'It did NOT save. Tap SAVE to try again.', 'err');
+    return;
+  }
+  bbStatus('', 'ok');
+  await new Promise(r=>setTimeout(r, 450));
   document.getElementById('avatar-modal')?.remove();
   renderProfileScreen(); updateUserChip();
   if(currentScreen==='home') renderHomeScreen();

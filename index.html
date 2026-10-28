@@ -1383,6 +1383,44 @@ img{display:block;}
 /* ── Rosters: big-portrait rows ── */
 /* Teams Tuesday art: soft glow hides the 1px white edge on the cut-outs */
 .duel-art{filter:drop-shadow(0 0 1.5px color-mix(in srgb,var(--accent1) 65%,transparent)) drop-shadow(0 0 5px color-mix(in srgb,var(--accent1) 25%,transparent));}
+/* Baller Builder (pixel ball avatars) */
+.av-ball{display:block;flex-shrink:0;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35))}
+.is-ball{border-color:transparent!important;border-radius:0!important;image-rendering:pixelated}
+.bb-box{max-width:420px;width:calc(100% - 20px);max-height:92vh;overflow-y:auto;padding:14px 12px!important}
+.bb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bb-title{font-family:var(--pixel);font-size:8px;color:var(--accent3);letter-spacing:.08em}
+.bb-x{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px}
+.bb-for{display:flex;align-items:center;gap:8px;font-family:var(--pixel);font-size:6px;color:var(--text3);margin-bottom:10px}
+.bb-for select{flex:1;min-width:0;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:5px;padding:6px;font-size:13px}
+.bb-strip{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px;scroll-snap-type:x proximity}
+.bb-strip::-webkit-scrollbar{display:none}
+.bb-tile{flex:0 0 auto;width:66px;background:var(--bg3);border:2px solid var(--border);border-radius:8px;padding:5px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--text3);scroll-snap-align:start}
+.bb-tile canvas{width:48px;height:48px;image-rendering:pixelated}
+.bb-tile span{font-family:var(--pixel);font-size:4.5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px}
+.bb-tile.on{border-color:var(--accent3);color:var(--accent3)}
+.bb-tile.taken{opacity:.35;cursor:not-allowed}
+.bb-stage{position:relative;margin:6px 0 10px;border:3px solid #050410;border-radius:10px;box-shadow:0 0 0 2px var(--border);height:170px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+ background:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1.4px) 0 0/6px 6px,radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--accent1) 22%,#14122a),#0b0a18 72%)}
+.bb-stage::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
+#bb-hero{width:140px;height:140px;image-rendering:pixelated;animation:bbBob 1.6s steps(2,end) infinite;filter:drop-shadow(0 7px 0 rgba(0,0,0,.35))}
+@keyframes bbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.bb-tag{position:absolute;left:9px;top:9px;font-family:var(--pixel);font-size:5px;color:#8c88b8;line-height:1.9;z-index:1}
+.bb-tag b{color:#4adfff;font-weight:normal}
+.bb-seg{display:flex;background:var(--bg3);border:2px solid var(--border);border-radius:8px;padding:3px;gap:3px;margin-bottom:10px}
+.bb-seg button{flex:1;font-family:var(--pixel);font-size:6.5px;padding:9px 4px;border-radius:5px;border:0;background:transparent;color:var(--text3);cursor:pointer}
+.bb-seg button.on{background:var(--accent1);color:#04121a}
+.bb-panel{min-height:120px}
+.bb-hint{font-family:var(--pixel);font-size:5px;line-height:1.7;color:var(--text3);margin:6px 2px 0}
+.bb-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.bb-chip{font-family:var(--pixel);font-size:5.5px;padding:7px 8px;border-radius:5px;border:2px solid var(--border);background:transparent;color:var(--text3);cursor:pointer}
+.bb-chip.on{border-color:var(--accent3);color:var(--accent3)}
+.bb-sw{display:flex;flex-wrap:wrap;gap:8px}
+.bb-sw button{width:36px;height:36px;border-radius:6px;border:2px solid #000;cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12)}
+.bb-sw button.on{outline:3px solid var(--accent3);outline-offset:2px}
+.bb-bar{display:flex;gap:8px;margin-top:12px}
+.bb-bar button{flex:1;font-family:var(--pixel);font-size:7px;padding:12px 6px;border-radius:6px;cursor:pointer;border:2px solid var(--border);background:var(--bg3);color:var(--text1)}
+.bb-bar button.primary{background:var(--accent3);border-color:var(--accent3);color:#1a1200}
+@media (prefers-reduced-motion:reduce){#bb-hero{animation:none}}
 .rc-wrap{margin:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .rc-sec{display:flex;align-items:center;justify-content:space-between;font-family:var(--pixel);font-size:6px;letter-spacing:.12em;padding:0 10px;height:24px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg) 55%,transparent);}
 .rc-sec:first-child{border-top:none;}
@@ -1722,7 +1760,7 @@ html[data-theme="neon"]{
     <div class="profile-header">
       <div class="profile-avatar-wrap" style="position:relative;width:64px;margin:0 auto 12px;">
         <div class="profile-avatar" id="profile-avatar" style="margin:0;"></div>
-        <button onclick="openAvatarEditor()" style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent1);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;padding:0;" title="Change avatar">📷</button>
+        <button onclick="openAvatarEditor()" style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent1);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;padding:0;" title="Build your Baller">✏️</button>
       </div>
       <div class="profile-name" id="profile-name-display"></div>
       <div class="profile-email" id="profile-email-display"></div>
@@ -1848,6 +1886,7 @@ html[data-theme="neon"]{
 <!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
 <script src="players-db.js"></script>
+<script src="balls.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

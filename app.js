@@ -1104,6 +1104,7 @@ function showUserProfile(mid, tab='profile'){
         <div style="font-family:var(--pixel);font-size:9px;color:var(--text1)">${m.team_name||m.display_name}</div>
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);margin-top:5px">${m.display_name}</div>
       </div>
+      ${bbIsComm() ? `<button type="button" onclick="document.getElementById('user-profile-modal').remove();openAvatarEditor('${m.id}')" style="font-family:var(--pixel);font-size:5.5px;padding:6px 10px;border-radius:5px;border:1px solid var(--accent3);background:transparent;color:var(--accent3);cursor:pointer">🎨 SET BALLER</button>` : ''}
       <button onclick="document.getElementById('user-profile-modal').remove()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</button>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);margin:8px 16px 0;flex-shrink:0">
@@ -1526,6 +1527,12 @@ function userAvatar(m, size=22, fontSize=7){
   return userLink(m.id, avatarEl(m.display_name, m.color||'#4a9eff', size, fontSize, m.icon||null, m.photo||null));
 }
 function avatarEl(name,color,size=22,fontSize=7,icon=null,photo=null){
+  // Pixel ball characters stand on their own: no circle, no background color
+  if(window.BB && BB.isBall(photo)){
+    const u = BB.url(photo);
+    if(u) return `<img src="${u}" alt="" class="av-ball" style="width:${size}px;height:${size}px">`;
+    photo = null;
+  }
   if(photo){
     return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color} url(${photo}) center/cover;flex-shrink:0"></div>`;
   }
@@ -1652,7 +1659,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102622;
+const APP_BUILD = 2026102801;
 let _staleReloading = false;
 function handleStaleClient(remote){
   if(!remote || !(remote.minBuild > APP_BUILD)) return false;
@@ -1832,7 +1839,8 @@ async function syncManagersToState(){
     // Avatar picks saved in the league (same on every device) win over the managers table
     for(const m of leagueState.managers){
       const av = leagueState.prefs?.[m.id]?.avatar;
-      if(av){ m.photo = av.photo||null; m.icon = av.photo ? null : (av.icon||null); if(av.color) m.color = av.color; m._customAvatar = true; }
+      if(av?.ball){ m.photo = av.ball; m.icon = null; m._customAvatar = true; }
+      else if(av){ m.photo = av.photo||null; m.icon = av.photo ? null : (av.icon||null); if(av.color) m.color = av.color; m._customAvatar = true; }
     }
     uniqueManagerColors(leagueState.managers);
     if(myProfile){
@@ -3217,6 +3225,7 @@ let sbUserPicked = false;
 // A neon pixel basketball lights up in 4 spots, left → right → back, like an old
 // ballpark sign; tips about site features rotate underneath. Tap a tip to go there.
 const DYK_TIPS = [
+  {t:'NEW! Build your Baller: pick a pixel character, then a style, your team\'s colors or your own. Profile → tap ✏️ on your avatar.', go:()=>dykGoProfile(null, true)},
   {t:'Pick your colors! Profile → Color Theme has Arcade Night, Hardwood, Pocket Green and Neon Lights.', go:()=>dykGoProfile('theme-picker')},
   {t:'Set your lineup for the whole week: on Rosters, tap a day at the top to plan it ahead.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
   {t:'Your Active 8 stays put until you change it. No need to confirm it every day.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
@@ -3227,12 +3236,11 @@ const DYK_TIPS = [
   {t:'The Transaction Log on Waivers lists every add and drop in the league.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
   {t:'Daily Duel picks lock when the game tips off. Get yours in early!', go:()=>showScreen('duel')},
   {t:'Teams Tuesday: tap a team on the Duel card to see its results so far.', go:()=>showScreen('duel')},
-  {t:'New photo or icon? Tap the 📷 on your Profile avatar.', go:()=>dykGoProfile(null, true)},
   {t:'Tap STANDINGS up top for the NBA East and West standings.', go:()=>showNbaStandings()},
   {t:'Talk trash in the league chat: the 💬 button at the top.', go:()=>openChat()},
   {t:'Tap a match-up under Current Match-ups for its box score.', go:()=>document.getElementById('home-matchups-container')?.scrollIntoView({behavior:'smooth',block:'start'})},
 ];
-let dykIdx = Math.floor(Math.random()*DYK_TIPS.length), _dykTimer = null;
+let dykIdx = 0, _dykTimer = null;
 function dykGoProfile(id, avatar){
   showScreen('profile');
   if(avatar){ openAvatarEditor(); return; }
@@ -6805,20 +6813,21 @@ function renderProfileScreen(){
   const color=myProfile.color||'#4a9eff';
   const name=myProfile.display_name||'Player';
   const avatarEl=document.getElementById('profile-avatar');
-  avatarEl.style.background=color;
-  if(myProfile.photo){
+  if(paintBallBox(avatarEl, myProfile.photo)){
+  } else if(myProfile.photo){
+    avatarEl.style.background=color;
     avatarEl.style.backgroundImage=`url(${myProfile.photo})`;
     avatarEl.style.backgroundSize='cover';
     avatarEl.style.backgroundPosition='center';
     avatarEl.textContent='';
     avatarEl.style.fontSize='';
   } else if(myProfile.icon){
-    avatarEl.style.backgroundImage='';
+    avatarEl.style.background=color;
     avatarEl.style.fontSize='28px';
     avatarEl.style.color='inherit';
     avatarEl.textContent=myProfile.icon;
   } else {
-    avatarEl.style.backgroundImage='';
+    avatarEl.style.background=color;
     avatarEl.style.fontSize='';
     avatarEl.style.color='#000';
     avatarEl.textContent=initials(name);
@@ -6918,51 +6927,131 @@ const AVATAR_ICONS=[
 ];
 const PICKER_COLORS=['#4a9eff','#00d4aa','#f5a623','#e94560','#7b2fff','#00c49a','#ff6b6b','#ffd93d','#06b6d4','#84cc16'];
 
-function openAvatarEditor(){
-  const myId=getMyId();
-  const curIcon=myProfile?.icon||null;
-  const curColor=myProfile?.color||'#4a9eff';
-  let modal=document.getElementById('avatar-modal');
-  if(modal) modal.remove();
-  modal=document.createElement('div');
-  modal.id='avatar-modal';
-  modal.className='modal-overlay';
-  modal.style.display='flex';
-  modal.innerHTML=`
-    <div class="modal-box" style="max-width:340px;width:calc(100% - 32px);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div style="font-family:var(--pixel);font-size:7px;color:var(--accent3)">CUSTOMIZE AVATAR</div>
-        <button onclick="document.getElementById('avatar-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+// ── BALLER BUILDER: the avatar editor ───────────────────────────────────────
+// Pick one of the pixel ball characters, then a style, team colors or custom colors.
+// Saved as a short token in prefs[mid].avatar.ball (see balls.js). Two managers can
+// share a character but not the exact same look. The commissioner can set anyone's.
+let _bb = null;
+function bbIsComm(){ return !!(myProfile?.is_commissioner || myProfile?.email===COMMISSIONER_EMAIL); }
+function bbTaken(mid){
+  const t = new Map();
+  for(const [id,p] of Object.entries(leagueState?.prefs||{})){
+    if(String(id)!==String(mid) && p?.avatar?.ball) t.set(p.avatar.ball, (leagueState.managers||[]).find(m=>String(m.id)===String(id)));
+  }
+  return t;
+}
+function bbStyleName(ch, pick){
+  const tok = BB.token(ch, pick);
+  const w = (BB.COLORWAYS[ch]||[]).find(([,o])=>BB.token(ch,{...BB.fresh(ch),...o})===tok); if(w) return w[0];
+  const t = BB.TEAMS.find(tm=>BB.token(ch,BB.teamPick(ch,tm))===tok); if(t) return t[0];
+  return 'Custom';
+}
+function openAvatarEditor(forMid){
+  if(!window.BB){ toast('Avatar art is still loading'); return; }
+  const myId = getMyId(), isComm = bbIsComm();
+  const mid = (isComm && forMid) ? forMid : myId; if(!mid) return;
+  const saved = BB.parse(leagueState?.prefs?.[mid]?.avatar?.ball);
+  const ch = saved?.ch || BB.ORDER[0], pick = saved?.pick || BB.fresh(ch);
+  _bb = {mid, ch, pick, style: bbStyleName(ch, pick), mode:'styles', part:null, taken: bbTaken(mid)};
+  document.getElementById('avatar-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'avatar-modal'; modal.className = 'modal-overlay'; modal.style.display = 'flex';
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  const mgrs = [...(leagueState?.managers||[])].sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
+  modal.innerHTML = `
+    <div class="modal-box bb-box">
+      <div class="bb-head">
+        <div class="bb-title">CHOOSE YOUR BALLER</div>
+        <button type="button" class="bb-x" onclick="document.getElementById('avatar-modal').remove()" aria-label="Close">✕</button>
       </div>
-      <!-- Live preview -->
-      <div style="display:flex;justify-content:center;margin-bottom:16px">
-        <div id="avatar-preview" style="width:56px;height:56px;border-radius:50%;background:${curColor};display:flex;align-items:center;justify-content:center;font-size:26px;border:3px solid var(--border);transition:all .2s">
-          ${curIcon||`<span style="font-family:var(--pixel);font-size:12px;color:#000">${initials(myProfile?.display_name||'?')}</span>`}
-        </div>
-      </div>
-      <!-- Photo upload -->
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">UPLOAD PHOTO</div>
-      <label style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;margin-bottom:16px">
-        <span style="font-size:18px">📸</span>
-        <div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">CHOOSE IMAGE</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3);margin-top:2px">JPG or PNG · max 2MB</div>
-        </div>
-        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="avatarPickPhoto(this)"/>
-      </label>
-      <!-- Icon grid -->
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">— OR PICK AN ICON —</div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px" id="icon-grid">
-        ${AVATAR_ICONS.map(ic=>`<div onclick="avatarPickIcon('${ic}')" data-icon="${ic}" style="aspect-ratio:1;border-radius:6px;background:var(--bg3);border:2px solid ${ic===curIcon?'var(--accent1)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:border-color .1s">${ic}</div>`).join('')}
-      </div>
-      <!-- Color row -->
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:8px">PICK A COLOR</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="color-row">
-        ${PICKER_COLORS.map(c=>`<div onclick="avatarPickColor('${c}')" data-color="${c}" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===curColor?'#fff':'transparent'};transition:transform .1s,border-color .1s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></div>`).join('')}
-      </div>
-      <button class="btn btn-primary btn-full" onclick="saveAvatarChoice()">SAVE AVATAR</button>
+      ${isComm ? `<label class="bb-for">FOR <select onchange="openAvatarEditor(this.value)">${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(mid)?'selected':''}>${leagueState.prefs?.[m.id]?.avatar?.ball?'✓ ':'· '}${escHtmlBB(m.display_name)}</option>`).join('')}</select></label>` : ''}
+      <div class="bb-strip" id="bb-chars"></div>
+      <div class="bb-stage"><div class="bb-tag">CHARACTER · <b id="bb-who"></b><br>STYLE · <b id="bb-style"></b></div><canvas id="bb-hero" aria-label="Avatar preview"></canvas></div>
+      <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button></div>
+      <div class="bb-panel" id="bb-panel"></div>
+      <div class="bb-bar"><button type="button" data-act="rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary">SAVE</button></div>
     </div>`;
+  modal.querySelector('.bb-box').addEventListener('click', bbClick);
   document.body.appendChild(modal);
+  bbRender();
+}
+function escHtmlBB(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function bbTile(attr, label, on, takenBy){
+  return `<button type="button" class="bb-tile${on?' on':''}${takenBy?' taken':''}" ${attr} ${takenBy?`disabled title="${escHtmlBB(takenBy.display_name)} has this look"`:''}><canvas></canvas><span>${takenBy?'TAKEN':label}</span></button>`;
+}
+function bbRender(){
+  if(!_bb || !document.getElementById('bb-panel')) return;
+  const {ch, pick, taken} = _bb, C = BB.CHARS[ch];
+  BB.draw(document.getElementById('bb-hero'), pick, ch);
+  document.getElementById('bb-who').textContent = C.name;
+  document.getElementById('bb-style').textContent = _bb.style.toUpperCase();
+  const strip = document.getElementById('bb-chars');
+  strip.innerHTML = BB.ORDER.map(c=>bbTile(`data-c="${c}"`, BB.CHARS[c].name, c===ch)).join('');
+  strip.querySelectorAll('[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); });
+  document.querySelectorAll('.bb-seg button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===_bb.mode); b.setAttribute('aria-selected', b.dataset.mode===_bb.mode); });
+  const P = document.getElementById('bb-panel'), curTok = BB.token(ch, pick);
+  if(_bb.mode==='styles' || _bb.mode==='teams'){
+    const list = _bb.mode==='styles'
+      ? (BB.COLORWAYS[ch]||[['Original',{}]]).map(([n,o])=>[n, {...BB.fresh(ch),...o}])
+      : BB.TEAMS.map(tm=>[tm[0], BB.teamPick(ch,tm)]);
+    P.innerHTML = `<div class="bb-strip">${list.map(([n,p],i)=>{ const t=BB.token(ch,p); return bbTile(`data-${_bb.mode==='styles'?'way':'team'}="${i}"`, n.toUpperCase(), t===curTok, taken.get(t)); }).join('')}</div>
+      <p class="bb-hint">${_bb.mode==='styles'?'Swipe for more. Pick one, then tweak it in Custom.':'All 30 teams. Swipe for more.'}</p>`;
+    P.querySelectorAll('.bb-strip canvas').forEach((cv,i)=>BB.draw(cv, list[i][1], ch));
+  } else {
+    const parts = C.parts; if(!_bb.part || !parts.find(p=>p[0]===_bb.part)) _bb.part = parts[0][0];
+    const k = _bb.part, label = parts.find(p=>p[0]===k)[1], pal = BB.PALETTES[k];
+    const swc = i => { const c=pal[i][1]; return c ? (c[Math.floor(c.length*.6)]||c[0]) : (BB.ORIG[ch]?.[k]||'#888'); };
+    const isOn = i => pick[k]===i || (pick[k]==null && !pal[i][1]);
+    P.innerHTML = `<div class="bb-chips">${parts.map(([pk,l])=>`<button type="button" class="bb-chip${pk===k?' on':''}" data-part="${pk}">${l}</button>`).join('')}</div>
+      <div class="bb-sw">${pal.map(([nm],i)=>`<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}</div>`;
+  }
+}
+function bbClick(e){
+  const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb) return;
+  const d = t.dataset, ch = _bb.ch;
+  if(d.c){ _bb.ch = d.c; _bb.pick = BB.fresh(d.c); _bb.style = 'Original'; _bb.part = null; }
+  else if(d.mode){ _bb.mode = d.mode; }
+  else if(d.way){ const w = BB.COLORWAYS[ch][+d.way]; _bb.pick = {...BB.fresh(ch), ...w[1]}; _bb.style = w[0]; }
+  else if(d.team){ const tm = BB.TEAMS[+d.team]; _bb.pick = BB.teamPick(ch, tm); _bb.style = tm[0]; }
+  else if(d.part){ _bb.part = d.part; }
+  else if(d.k){ _bb.pick = {..._bb.pick, [d.k]: +d.i}; _bb.style = bbStyleName(ch, _bb.pick); }
+  else if(d.act==='rand'){
+    const c = BB.ORDER[Math.floor(Math.random()*BB.ORDER.length)], W = BB.COLORWAYS[c]||[];
+    for(let n=0; n<20; n++){
+      let p, nm;
+      if(Math.random()<.5 && W.length){ const w = W[Math.floor(Math.random()*W.length)]; p = {...BB.fresh(c), ...w[1]}; nm = w[0]; }
+      else { const tm = BB.TEAMS[Math.floor(Math.random()*BB.TEAMS.length)]; p = BB.teamPick(c, tm); nm = tm[0]; }
+      if(!_bb.taken.has(BB.token(c,p))){ _bb.ch = c; _bb.pick = p; _bb.style = nm; _bb.part = null; break; }
+    }
+  }
+  else if(d.act==='save'){ saveAvatarChoice(); return; }
+  bbRender();
+}
+async function saveAvatarChoice(){
+  if(!_bb) return;
+  const {mid, ch, pick} = _bb, tok = BB.token(ch, pick);
+  const owner = bbTaken(mid).get(tok);
+  if(owner){ toast(`${owner.display_name} already has that exact look. Change a color!`, 3000); return; }
+  if(!leagueState.prefs) leagueState.prefs = {};
+  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), avatar:{ball:tok, at:new Date().toISOString()}};
+  const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid));
+  if(m){ m.photo = tok; m.icon = null; m._customAvatar = true; }
+  if(myProfile && String(mid)===String(getMyId())){ myProfile.photo = tok; myProfile.icon = null; try{ localStorage.removeItem(`avatar-${mid}`); }catch(e){} }
+  await saveLeagueState();
+  if(!_lastSaveOk){ toast('Could not save. Try again.'); return; }
+  document.getElementById('avatar-modal')?.remove();
+  renderProfileScreen(); updateUserChip();
+  if(currentScreen==='home') renderHomeScreen();
+  toast(String(mid)===String(getMyId()) ? 'Baller saved!' : `Saved for ${m?.display_name||'them'}`);
+}
+// Profile and top-bar avatar boxes: a ball character fills the box with no circle or color
+function paintBallBox(el, photo){
+  const ball = !!(window.BB && BB.isBall(photo) && BB.url(photo));
+  el.classList.toggle('is-ball', ball);
+  if(!ball) return false;
+  el.style.background = `transparent url(${BB.url(photo)}) center/contain no-repeat`;
+  el.textContent = ''; el.style.fontSize = '';
+  return true;
 }
 
 function avatarPickIcon(icon){
@@ -6985,37 +7074,6 @@ function avatarPickColor(color){
 }
 let modal_pendingIcon=null;
 let modal_pendingColor=null;
-
-async function saveAvatarChoice(){
-  const myId=getMyId();
-  if(!myId) return;
-  const photo=modal_pendingPhoto??null;
-  const icon=photo?null:(modal_pendingIcon??myProfile?.icon??null);
-  const color=modal_pendingColor??myProfile?.color??'#4a9eff';
-  const updates={color};
-  if(icon !== undefined) updates.icon=icon||null;
-  // The avatar lives in the league data so every device shows the same one
-  if(!leagueState.prefs) leagueState.prefs = {};
-  const keepPhoto = photo || (icon ? null : (myProfile?.photo||null));
-  leagueState.prefs[myId] = {...(leagueState.prefs[myId]||{}), avatar:{photo:keepPhoto, icon:keepPhoto?null:(icon||null), color, at:new Date().toISOString()}};
-  const managers=leagueState.managers||[];
-  const m=managers.find(m=>m.id===myId);
-  if(m){ m.color=color; if(icon!==undefined) m.icon=icon; if(photo) m.photo=photo; m._customAvatar=true; }
-  if(myProfile){ myProfile.color=color; if(icon!==undefined) myProfile.icon=icon; if(photo) myProfile.photo=photo; }
-  // Persist avatar locally so it survives reload even if Supabase write is slow
-  try{
-    const localKey=`avatar-${myId}`;
-    localStorage.setItem(localKey, JSON.stringify({photo:photo||myProfile?.photo||null, icon:icon||null, color}));
-  }catch(e){}
-  await saveLeagueState();
-  await db.from('managers').update(updates).eq('id',myId).then(({error})=>{ if(error) console.warn('Avatar save error',error); });
-  modal_pendingIcon=null; modal_pendingColor=null; modal_pendingPhoto=null;
-  document.getElementById('avatar-modal')?.remove();
-  renderProfileScreen();
-  updateUserChip();
-  toast('Avatar saved!');
-}
-
 
 function avatarPickPhoto(input){
   const file = input.files[0];
@@ -7428,20 +7486,21 @@ function updateUserChip(){
   if(!myProfile) return;
   const el=document.getElementById('chip-avatar');
   if(el){
-    el.style.background=myProfile.color||'#4a9eff';
-    if(myProfile.photo){
+    if(paintBallBox(el, myProfile.photo)){
+    } else if(myProfile.photo){
+      el.style.background=myProfile.color||'#4a9eff';
       el.style.backgroundImage=`url(${myProfile.photo})`;
       el.style.backgroundSize='cover';
       el.style.backgroundPosition='center';
       el.textContent='';
       el.style.fontSize='';
     } else if(myProfile.icon){
-      el.style.backgroundImage='';
+      el.style.background=myProfile.color||'#4a9eff';
       el.style.fontSize='18px';
       el.style.color='inherit';
       el.textContent=myProfile.icon;
     } else {
-      el.style.backgroundImage='';
+      el.style.background=myProfile.color||'#4a9eff';
       el.style.fontSize='';
       el.style.color='#000';
       el.textContent=initials(myProfile.display_name||'?');

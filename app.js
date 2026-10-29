@@ -3630,8 +3630,23 @@ function renderHomeScreen(){
   renderScoreboard();
   renderNewsBanner();
   renderDuelCard();
-  renderHomeMatchups();
-  renderQuickStats();
+  // Someone who joined mid-run isn't in the fantasy league yet: no match-ups or fantasy stats
+  const runNow = getCurrentRun()?.id, mid = getMyId();
+  const outOfRun = !!(mid && runNow && !inFantasyRun(mid, runNow));
+  const blk = document.getElementById('home-fantasy-block'), wait = document.getElementById('home-fantasy-wait');
+  if(blk) blk.style.display = outOfRun ? 'none' : '';
+  if(wait){
+    wait.style.display = outOfRun ? '' : 'none';
+    if(outOfRun){
+      const next = DRAFT_WINDOWS.find(d=>d.run>runNow && new Date(d.end)>new Date());
+      const when = next ? new Date(next.start).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase() : '';
+      wait.innerHTML = `<div class="card" style="margin:10px 14px;padding:14px;text-align:center;font-family:var(--pixel);line-height:1.9">
+        <div style="font-size:7px;color:var(--accent3);margin-bottom:6px">🏀 FANTASY STARTS AT THE NEXT DRAFT</div>
+        <div style="font-size:5.5px;color:var(--text2)">The ${RUNS.find(r=>r.id===runNow)?.name||'current'} run was already underway when you joined.${next?` You're in for the ${next.label}${when?` (${when})`:''}.`:''} Until then: Daily Duel and the Weekly Line-up Challenge are all yours.</div>
+      </div>`;
+    }
+  }
+  if(!outOfRun){ renderHomeMatchups(); renderQuickStats(); }
 }
 
 // ── DUEL SCREEN ──────────────────────────────────────────────────────────────

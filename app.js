@@ -33,7 +33,25 @@ const AVATAR_COLORS = ['#00ff88','#fec419','#ff6600','#ff3366','#2cb50d','#cc44f
                        '#4a9eff','#e94560','#f5a623','#7b2fff'];
 
 // ── SUPABASE CLIENT ─────────────────────────────────────────────────────────
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// Two guards against requests that hang forever (seen as "connection stalled" on saves):
+// 1) Supabase's sign-in bookkeeping uses a browser-wide lock; on a tab that slept or sat open
+//    for hours that lock can get stuck, and then EVERY request waits on it. Use our own lock
+//    that never waits more than a few seconds for a stuck holder.
+// 2) Any single network call gives up after 20s (so a retry can go through) instead of hanging.
+const _authLocks = {};
+async function _authLock(name, acquireTimeout, fn){
+  const prev = _authLocks[name] || Promise.resolve();
+  let release; const mine = new Promise(r=>release=r);
+  _authLocks[name] = prev.then(()=>mine, ()=>mine);
+  await Promise.race([prev.catch(()=>{}), new Promise(r=>setTimeout(r, 4000))]);
+  try{ return await fn(); } finally { release(); }
+}
+function _fetchWithTimeout(input, init={}){
+  const ac = new AbortController(), t = setTimeout(()=>ac.abort(), 20000);
+  if(init.signal){ if(init.signal.aborted) ac.abort(); else init.signal.addEventListener('abort', ()=>ac.abort(), {once:true}); }
+  return fetch(input, {...init, signal:ac.signal}).finally(()=>clearTimeout(t));
+}
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth:{ lock:_authLock }, global:{ fetch:_fetchWithTimeout } });
 
 // ── APP STATE ───────────────────────────────────────────────────────────────
 let currentUser    = null;   // Supabase user object
@@ -7533,6 +7551,7 @@ async function _saveAvatarChoice(mid, ch, pick, tok){
   if(m){ m.photo = tok; m.icon = null; m._customAvatar = true; }
   if(myProfile && String(mid)===String(getMyId())){ myProfile.photo = tok; myProfile.icon = null; try{ localStorage.removeItem(`avatar-${mid}`); }catch(e){} }
   await saveLeagueState();
+  if(!_lastSaveOk && _saveTimedOut){ bbStatus('Slow connection… trying again', 'busy'); await saveLeagueState(); }
   if(!_lastSaveOk){
     bbStatus(_saveTimedOut ? 'The connection stalled and it did NOT save. Tap SAVE to try again.' : 'It did NOT save. Tap SAVE to try again.', 'err');
     return;

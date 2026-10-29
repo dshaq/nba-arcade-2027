@@ -1477,7 +1477,7 @@ body[data-fnav="dock"] .fantasy-sub-tab.active{border-color:var(--accent2);backg
 body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 #fantasy-screen.hub-open .fantasy-sub-pane{display:none!important}
 .fantasy-backbar{position:sticky;top:var(--topbar-h,52px);z-index:40;display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--border);font-family:var(--pixel);font-size:6px;color:var(--text2)}
-.fantasy-backbar[hidden],#fantasy-hub[hidden]{display:none}
+.fantasy-backbar[hidden],#fantasy-hub[hidden],#fnav-section[hidden]{display:none}
 .fantasy-backbar button{background:var(--bg3);border:1px solid var(--accent1);color:var(--accent1);border-radius:12px;padding:6px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer}
 .fhub{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px 20px}
 .fhub-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;font-family:var(--pixel);color:var(--text2);min-height:112px}
@@ -1892,8 +1892,10 @@ html[data-theme="neon"]{
     <div class="section-label" style="padding-top:20px">COLOR THEME</div>
     <div class="card" style="padding:0;overflow:hidden"><div class="theme-pick" id="theme-picker"></div></div>
 
-    <div class="section-label" style="padding-top:20px">FANTASY NAVIGATION · TEST</div>
+    <div id="fnav-section" hidden>
+    <div class="section-label" style="padding-top:20px">FANTASY NAVIGATION · TEST <span style="color:var(--text3)">(ONLY YOU &amp; DAN SEE THIS)</span></div>
     <div class="card" style="padding:10px"><div id="fnav-picker" class="fnav-pick"></div></div>
+    </div>
 
     <div class="section-label" style="padding-top:20px">FANTASY STANDINGS</div>
     <div class="card" style="padding:0;overflow:hidden" id="profile-fantasy-standings">

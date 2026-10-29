@@ -5932,7 +5932,10 @@ const FANTASY_NAVS = [
 ];
 const FANTASY_TAB_META = {standings:['🏆','STANDINGS'], schedule:['📅','SCHEDULE'], roster:['👥','ROSTERS'], waivers:['🔄','WAIVERS'], draft:['🎯','DRAFT']};
 let fantasyHubOpen = false;
-function fantasyNav(){ try{ return localStorage.getItem('nba-fnav') || 'classic'; }catch(e){ return 'classic'; } }
+// Only Dave (commissioner) and Danny G (manager 2) see and use the test styles for now
+const FNAV_TESTERS = ['2'];
+function isFnavTester(){ return bbIsComm() || FNAV_TESTERS.includes(String(getMyId())); }
+function fantasyNav(){ if(!isFnavTester()) return 'classic'; try{ return localStorage.getItem('nba-fnav') || 'classic'; }catch(e){ return 'classic'; } }
 function setFantasyNav(id){
   try{ localStorage.setItem('nba-fnav', id); }catch(e){}
   renderFantasyNavPicker();
@@ -5942,6 +5945,8 @@ function setFantasyNav(id){
 }
 function renderFantasyNavPicker(){
   const el = document.getElementById('fnav-picker'); if(!el) return;
+  const sec = document.getElementById('fnav-section'); if(sec) sec.hidden = !isFnavTester();
+  if(!isFnavTester()) return;
   const cur = fantasyNav();
   el.innerHTML = FANTASY_NAVS.map(n=>`<button type="button" class="fnav-opt${n.id===cur?' on':''}" onclick="setFantasyNav('${n.id}')"><b>${n.name.toUpperCase()}</b><span>${n.desc}</span>${n.id===cur?'<i>✓ IN USE</i>':''}</button>`).join('')
     + `<button type="button" class="fnav-try" onclick="showScreen('fantasy')">TRY IT ON THE FANTASY PAGE ›</button>`;

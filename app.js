@@ -1212,6 +1212,7 @@ async function loadWeekGames(){
       const time = iso ? new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : '';
       (map[dk] ||= []).push({home:g.home_team?.abbreviation, away:g.visitor_team?.abbreviation, time});
     }
+    if(!Object.keys(map).length){ setTimeout(loadWeekGames, 2*60*1000); return; }   // BDL hiccup: try again soon, not in an hour
     WEEK_GAMES = map; _weekGamesFor = key;
   }catch(e){ console.warn('[loadWeekGames]', e); }
 }
@@ -1303,7 +1304,8 @@ function showPlayerCard(playerName, initialTab, opts) {
   }
   // This matchup week (Mon–Sun): played games + placeholders for the rest
   const wsKey = ymd(currentWeekStart());
-  const sched = teamWeekGames(teamAbbr);
+  const weKey = ymd(new Date(currentWeekStart().getTime()+6*86400000));
+  const sched = teamWeekGames(teamAbbr).filter(g=>g.date>=wsKey && g.date<=weKey);   // this week only (WEEK_GAMES may still hold last week on Monday)
   const weekRows = sched.map(g=>({...(byDate[g.date]||{}), date:g.date, _sched:g, _pending:!byDate[g.date]}));
   for(const d of Object.keys(byDate)) if(d>=wsKey && !sched.some(g=>g.date===d)) weekRows.push({...byDate[d]});
   // Played (and live) games newest first; games still to come sit underneath, soonest first
@@ -1423,6 +1425,12 @@ function showPlayerCard(playerName, initialTab, opts) {
   const origRemove = modal.remove.bind(modal);
   modal.remove = ()=>{ if(openPlayerCardName===playerName) openPlayerCardName=null; origRemove(); };
   document.body.appendChild(modal);
+  // This week's schedule not loaded yet (just opened the site, or a new week began):
+  // load it, then redraw so the remaining games show as rows
+  if(_weekGamesFor !== ymd(currentWeekStart()) && !_pcardWeekRetry.has(playerName)){
+    _pcardWeekRetry.add(playerName);
+    loadWeekGames().then(()=>{ if(openPlayerCardName===playerName && _weekGamesFor===ymd(currentWeekStart())) showPlayerCard(playerName, activeTab); });
+  }
   // Older games need the team's schedule for the OPP column: fetch, then redraw this card
   // Fill those cells in place when the schedule arrives (no redraw, so taps aren't lost)
   if(activeTab==='stats' && needSched.size){
@@ -1435,7 +1443,7 @@ function showPlayerCard(playerName, initialTab, opts) {
     }
   }
 }
-const _oppSchedTried = new Set();
+const _oppSchedTried = new Set(), _pcardWeekRetry = new Set();
 function oppFromSched(sd, date){
   const m = sd?.games?.find(x => new Date(x.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'')===String(date));
   return m ? (m.home?'vs. ':'@ ')+m.opp : '—';
@@ -1523,6 +1531,15 @@ function estimateFpPG(p){
   return Math.round(fp * 10) / 10;
 }
 
+// This season's (2026-27) FP per game for a pool/projection name: real average once he
+// has 3+ games (BDL_STATS), else an estimate from his current per-game stats, else the
+// preseason projection. All on the league's FP formula.
+function seasonFpPG(name, fallback){
+  const cur = wlcFindPlayer(name), b = BDL_STATS[cur?.name||name];
+  if(b?.fpPG != null) return +b.fpPG;
+  if(cur){ const e = estimateFpPG(cur); if(e) return Math.round(e*10)/10; }
+  return fallback ?? null;
+}
 // Get the best available projected FP/G for a player (PLAYERS entry).
 // Priority: BDL live season averages (BDL_STATS) → PLAYERS_DB curated fpPG → estimated from stats
 function getPlayerProjFP(player){
@@ -1632,9 +1649,45 @@ async function doSignIn(){
   const pass =document.getElementById('signin-password').value;
   setLoginMsg('Signing in…','');
   const {data,error}=await db.auth.signInWithPassword({email,password:pass});
-  if(error){ setLoginMsg(error.message,'error'); return; }
+  if(error){
+    if(/confirm/i.test(error.message)){
+      setLoginMsg('Your email isn\'t confirmed yet. Tap the link in the email we sent, or resend it below.','error');
+      showResendConfirm(email);
+    } else setLoginMsg(error.message,'error');
+    return;
+  }
   // onAuthStateChange handles the rest
 }
+// The confirmation email's link must come back to this site (not Supabase's default page)
+const SITE_URL = 'https://nba-arcade.vercel.app/';
+function confirmRedirectUrl(){ return /^https?:/.test(location.origin) && !/localhost|127\.0\.0\.1/.test(location.origin) ? location.origin + '/' : SITE_URL; }
+function showResendConfirm(email){
+  const msg = document.getElementById('login-msg'); if(!msg || !email) return;
+  document.getElementById('resend-confirm')?.remove();
+  msg.insertAdjacentHTML('afterend', `<button id="resend-confirm" type="button" class="btn btn-secondary btn-full" style="margin-top:8px;font-size:6px">RESEND CONFIRMATION EMAIL</button>`);
+  document.getElementById('resend-confirm').onclick = async ()=>{
+    const {error} = await db.auth.resend({type:'signup', email, options:{emailRedirectTo:confirmRedirectUrl()}});
+    setLoginMsg(error ? error.message : 'Sent! Check your email (and spam) for the new link.', error?'error':'success');
+  };
+}
+// Arriving from the confirmation email: supabase-js signs you in from the link itself.
+// If the link was bad or expired, say so instead of a blank page.
+function handleAuthLinkArrival(){
+  const p = new URLSearchParams((location.hash||'').replace(/^#/,'') + '&' + (location.search||'').replace(/^\?/,''));
+  if(p.get('error') || p.get('error_code')){
+    const expired = /expired|otp/i.test(p.get('error_code')+' '+p.get('error_description'));
+    setTimeout(()=>{ try{
+      switchLoginTab('signin');
+      setLoginMsg(expired ? 'That confirmation link expired. Enter your email and password, then tap RESEND below.' : 'That link didn\'t work: ' + (p.get('error_description')||'').replace(/\+/g,' '), 'error');
+      const em = document.getElementById('signin-email');
+      if(em) em.addEventListener('change', ()=>showResendConfirm(em.value.trim()), {once:true});
+    }catch(e){} }, 300);
+    history.replaceState(null, '', location.pathname);
+    return;
+  }
+  if(p.get('type')==='signup' || p.get('access_token')) window._justConfirmed = true;
+}
+handleAuthLinkArrival();
 
 async function doSignUp(){
   const name  =document.getElementById('signup-name').value.trim();
@@ -1648,7 +1701,7 @@ async function doSignUp(){
 
   const {data,error}=await db.auth.signUp({
     email, password:pass,
-    options:{ data:{ display_name:name } }
+    options:{ data:{ display_name:name }, emailRedirectTo: confirmRedirectUrl() }
   });
   if(error){ setLoginMsg(error.message,'error'); return; }
   setLoginMsg('Account created! Check your email to confirm.','success');
@@ -4103,7 +4156,7 @@ function themedDuel(dateKey, theme, seed, eligible, matchups){
     'stl+blk':{ pool:p=>(p.spg+p.bpg)>=1.5 && p.ppg>=14,  val:p=>p.spg+p.bpg,       maxDiff:0.4, maxPpg:10 },
     ftm:      { pool:p=>duelFtpg(p)>=3 && p.ppg>=18,      val:duelFtpg,         maxDiff:0.7, maxPpg:6 },
     dd:       { pool:p=>p.rpg>=7.5 && p.ppg>=14,          val:p=>p.ppg+p.rpg,       maxDiff:4,   maxPpg:8 },
-    fp:       { pool:p=>p.ppg>=18,                         val:p=>+getPlayerProjFP(p)||0, maxDiff:4, maxPpg:6 },
+    fp:       { pool:p=>p.ppg>=18,                         val:p=>+(seasonFpPG(p.name) ?? getPlayerProjFP(p))||0, maxDiff:4, maxPpg:6 },
     pts:      { pool:p=>p.ppg>=18,                         val:p=>p.ppg,             maxDiff:3,   maxPpg:3 },
   }[theme.stat];
   if(!cfg) return null;
@@ -4678,7 +4731,7 @@ function getDuelStatDisplay(p, statType, duel, side){
     case 'ast':     return `${p.apg} APG · ${p.team}`;
     case 'reb+ast': return `${p.rpg} REB ${p.apg} AST · ${p.team}`;
     case 'stl+blk': return `${p.spg} STL ${p.bpg} BLK · ${p.team}`;
-    case 'fp':      return `${(+getPlayerProjFP(p)).toFixed(1)} FP/G · ${p.team}`;
+    case 'fp':      return `${(+(seasonFpPG(p.name) ?? getPlayerProjFP(p))).toFixed(1)} FP/G · ${p.team}`;
     default:        return `${p.ppg} PPG · ${p.team}`;
   }
 }
@@ -6746,6 +6799,7 @@ function renderWaiverPlayerList(){
           ? `<div class="rc-own" onclick="event.stopPropagation();showUserProfile('${owner.id}')" title="${teamLabel(owner).replace(/"/g,'&quot;')}">${avatarEl(owner.display_name, owner.color||'#4a9eff', 22, 7, owner.icon||null, owner.photo||null)}<span>TAKEN</span></div>`
           : allRostered.has(p.id) ? `<div class="rc-own"><span>TAKEN</span></div>`
           : canAdd ? `<button class="move-btn rc-mv rc-add" aria-label="Add ${p.name.replace(/"/g,'&quot;')}" onclick="confirmAdd('${mid}',${p.id})">+<span>ADD</span></button>` : '';
+        const scoutBtn = (!owner && !allRostered.has(p.id) && mid) ? scoutBtnHtml(p.id) : '';
         return `
         <div class="rc${owner||allRostered.has(p.id)?' taken':''}${isLiveNow?' live':''}">
           <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${portEl}</div>
@@ -6754,13 +6808,65 @@ function renderWaiverPlayerList(){
             ${line2}
           </div>
           <div class="rc-fp"><b class="${tot>0?'':'z'}">${tot.toFixed(1)}</b><i>${liveFp!=null?`<span class="lv">+${liveFp.toFixed(1)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
-          <div class="rc-act">${act}</div>
+          <div class="rc-act">${act}${scoutBtn}</div>
         </div>`;
       }).join('')}
       ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3);border-top:1px solid var(--border)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
     </div>`;
 }
 
+// ── SCOUTING LIST (each manager's own watchlist) ── prefs[mid].scout = [pid, ...]
+function myScoutList(){ const mid=getMyId(); return (mid && leagueState?.prefs?.[mid]?.scout) || []; }
+function scoutBtnHtml(pid){
+  const on = myScoutList().map(String).includes(String(pid));
+  return `<button type="button" class="rc-scout${on?' on':''}" onclick="event.stopPropagation();toggleScout(${pid})" aria-label="${on?'Remove from':'Add to'} scouting list">${on?'✓ SCOUTED':'+ SCOUT'}</button>`;
+}
+async function toggleScout(pid){
+  const mid = getMyId(); if(!mid) return;
+  if(!leagueState.prefs) leagueState.prefs = {};
+  const cur = myScoutList().map(String), on = cur.includes(String(pid));
+  const next = on ? myScoutList().filter(x=>String(x)!==String(pid)) : [...myScoutList(), pid];
+  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), scout: next};
+  if(document.getElementById('waiver-player-list')) renderWaiverPlayerList();
+  const sb = document.querySelector('[onclick="showScoutingList()"]'); if(sb) sb.textContent = `🔭 SCOUTING${next.length?` (${next.length})`:''}`;
+  if(document.getElementById('scout-modal')) showScoutingList();
+  await saveLeagueState();
+  if(!_lastSaveOk){ toast('Not saved. Try again.'); return; }
+  toast(on ? 'Removed from your scouting list' : `${playerShortName(getPlayer(pid)?.name||'Player')} added to your scouting list`);
+}
+function showScoutingList(){
+  const mid = getMyId(), ids = myScoutList();
+  const rows = ids.map(id=>getPlayer(+id)||getPlayer(id)).filter(Boolean).map(p=>{
+    const tot = playerTotalFP(p.id), gp = playerGamesPlayed(p.id), avg = gp ? tot/gp : null;
+    const owner = rosterOwnerOf(p.id);
+    const canAdd = !owner && mid && inFantasyRun(mid) && canWaiver(mid);
+    const port = playerPortraits[p.name];
+    return `<div class="rc${owner?' taken':''}">
+      <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${port?`<img src="${port}" loading="lazy" onerror="this.style.display='none'">`:''}</div>
+      <div class="rc-info"><div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${injuryBadgeHtml(p.name)}</div>
+        <div class="rc-meta">${p.pos||''} · ${p.team||''}${owner?` · <span style="color:var(--accent4)">ON ${escHtmlBB(teamLabel(owner)).toUpperCase()}</span>`:''}</div></div>
+      <div class="rc-fp"><b class="${tot>0?'':'z'}">${tot.toFixed(1)}</b><i>AVG ${avg==null?'—':avg.toFixed(1)}</i></div>
+      <div class="rc-act">${canAdd?`<button class="move-btn rc-mv rc-add" aria-label="Add ${p.name.replace(/"/g,'&quot;')}" onclick="document.getElementById('scout-modal').remove();confirmAdd('${mid}',${p.id})">+<span>ADD</span></button>`:''}
+        <button type="button" class="rc-scout on" onclick="toggleScout(${p.id})" aria-label="Remove from scouting list">✕ REMOVE</button></div>
+    </div>`;
+  }).join('');
+  document.getElementById('scout-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'scout-modal'; m.className = 'top-sheet-overlay';
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  m.innerHTML = `<div class="top-sheet" style="max-height:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">🔭 SCOUTING LIST</div>
+      <button onclick="document.getElementById('scout-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+    </div>
+    <div class="top-sheet-body" style="padding:10px 0 16px">
+      ${rows ? `<div class="rc-wrap"><div class="rc-sec act"><span>YOUR SCOUTED PLAYERS · ${ids.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP · AVG</span></div>${rows}</div>
+        <div style="padding:10px 16px 0;font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3)">Only you see your list. Total and average FP are for the whole season.</div>`
+      : `<div class="empty-state" style="padding:36px 20px"><div class="icon">🔭</div><div class="label">NOBODY SCOUTED YET<br/><span style="color:var(--text3);font-size:5px;line-height:2">TAP + SCOUT ON ANY UNROSTERED PLAYER IN WAIVERS</span></div></div>`}
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
 function renderWaiversPane(){
   const el=document.getElementById('waivers-content');
   if(!el) return;
@@ -6776,7 +6882,8 @@ function renderWaiversPane(){
     <div style="padding:10px 14px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);line-height:1.6">ADD/DROPS LEFT FOR CURRENT MATCH-UP: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
-        <button onclick="showTransactionLog()" style="flex-shrink:0;margin-left:8px;background:var(--bg3);border:1px solid var(--border);color:var(--accent1);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">TRANSACTION LOG</button>
+        <button onclick="showScoutingList()" style="flex-shrink:0;margin-left:8px;background:var(--bg3);border:1px solid var(--accent3);color:var(--accent3);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">🔭 SCOUTING${myScoutList().length?` (${myScoutList().length})`:''}</button>
+        <button onclick="showTransactionLog()" style="flex-shrink:0;margin-left:6px;background:var(--bg3);border:1px solid var(--border);color:var(--accent1);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">TRANSACTION LOG</button>
       </div>
       <div id="waiver-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('waiver')}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
@@ -8330,6 +8437,7 @@ async function boot(){
         renderHomeScreen();
         startPolling();
         maybeShowWeekResults();
+        if(window._justConfirmed){ window._justConfirmed = false; toast('Email confirmed! Welcome to NBA Arcade 🏀', 3500); }
       }
     } else {
       showLogin();
@@ -8606,7 +8714,7 @@ function showWlcLockedInSplash(picks, wk){
   const pool = week.pool || [];
   const order = [...picks].sort((a,b)=>(pool.find(p=>p.n===b)?.tier||0)-(pool.find(p=>p.n===a)?.tier||0));
   const spent = wlcPickCostFor(picks, pool);
-  const proj = order.reduce((a,n)=>a+(+(pool.find(p=>p.n===n)?.fpPG)||0),0);
+  const proj = order.reduce((a,n)=>a+(+seasonFpPG(n, pool.find(p=>p.n===n)?.fpPG)||0),0);
   const lock = week.tipoffTime ? new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET' : '';
   const cards = order.map((n,i)=>{
     const pp = pool.find(p=>p.n===n) || {}; const cur = wlcFindPlayer(n);
@@ -8754,7 +8862,8 @@ function generateWlcProposal(forDate){
   const theme = themes[weekNum % themes.length];
   // Projections file teams can be stale; use each player's current team, and
   // skip anyone not on an active roster
-  const db = PLAYERS_DB.map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {...p, t:cur.team||p.t} : null; }).filter(Boolean);
+  // Ranked by this season's FP/G (not the preseason projections)
+  const db = PLAYERS_DB.map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {...p, t:cur.team||p.t, fpPG:seasonFpPG(p.n, p.fpPG)} : null; }).filter(Boolean);
   let eligible = db.filter(theme.filter);
   // Need at least 25; if not enough, broaden to top ranked
   if(eligible.length < WLC_POOL_SIZE){
@@ -8932,7 +9041,7 @@ function renderWlcScreen(){
   const cost = wlcPickCost(picks);
   const tb = document.getElementById('top-bar');
   if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
-  html += `<div class="wlc-proj-note">The listed "FP/G" is based on projections. Will soon be updated to reflect current stats.</div>`;
+  html += `<div class="wlc-proj-note">"FP/G" is each player's average this 2026-27 season (a projection until he's played 3 games).</div>`;
   html += wlcPreviewHtml(pool, picks);
   html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks, window._wlcPreview);
   const canSave = picks.length>=1 && picks.length<=WLC_TEAM_SIZE && cost<=WLC_SALARY_CAP;
@@ -8948,6 +9057,37 @@ function renderWlcScreen(){
 }
 // After lock: line chart of the week so far. X = Mon..Sun, Y = each entry's score
 // (sum of its players' average FP per game) as of the end of that day.
+// Line color = the main color of the manager's avatar; when two are too alike, one of them
+// takes another color from its avatar (eyes, horns…) or a nearby distinct shade.
+const _hex2rgb = h => [1,3,5].map(i=>parseInt(String(h).slice(i,i+2),16));
+function _colorDist(a,b){ const [r1,g1,b1]=_hex2rgb(a), [r2,g2,b2]=_hex2rgb(b), rm=(r1+r2)/2;
+  return Math.sqrt((2+rm/256)*(r1-r2)**2 + 4*(g1-g2)**2 + (2+(255-rm)/256)*(b1-b2)**2); }
+const _visible = h => { const [r,g,b]=_hex2rgb(h); const l=.3*r+.59*g+.11*b; return l>=55; };
+function avatarColorCandidates(m){
+  const out = [];
+  const r = window.BB && BB.isBall(m.photo) ? BB.parse(m.photo) : null;
+  if(r){
+    const partColor = k => { const v=r.pick[k];
+      if(v==null) return BB.ORIG[r.ch]?.[k];
+      if(typeof v==='string') return v;
+      const pal = BB.PALETTES[k]?.[v]?.[1]; return pal ? pal[Math.min(2,pal.length-1)] : BB.ORIG[r.ch]?.[k]; };
+    for(const [k] of BB.CHARS[r.ch].parts){ const c = partColor(k); if(c && /^#[0-9a-f]{6}$/i.test(c)) out.push(c.toLowerCase()); }
+  }
+  if(m.color) out.push(String(m.color).toLowerCase());
+  return out.filter(_visible).map(c=>{ const [rr,gg,bb]=_hex2rgb(c); const l=.3*rr+.59*gg+.11*bb; return l<90 ? BB.mix(c,'w',.35) : c; });
+}
+function assignLineColors(mgrs){
+  const SPARE = ['#ff5c6c','#ffb020','#ffe14d','#7ee36b','#2ae8b8','#4adfff','#5b8cff','#b07cff','#ff7ad9','#f2f2f7','#c8a26e','#9aa4b8'];
+  const taken = [], out = {};
+  for(const m of mgrs){
+    const cands = avatarColorCandidates(m);
+    const minD = c => taken.length ? Math.min(...taken.map(t=>_colorDist(t,c))) : 999;
+    let pick = cands.find(c=>minD(c) >= 110);
+    if(!pick) pick = [...cands, ...SPARE].sort((x,y)=>minD(y)-minD(x))[0] || '#4a9eff';
+    taken.push(pick); out[m.id] = pick;
+  }
+  return out;
+}
 function wlcChartHtml(wk, week){
   const [ws] = wlcWeekRange(wk), today = etDateStr();
   const days = [...Array(7)].map((_,i)=>{ const d=statDateObj(ws); d.setDate(d.getDate()+i);
@@ -8961,6 +9101,9 @@ function wlcChartHtml(wk, week){
     const vals = shown.map(d=>+slots.reduce((a,sl)=>{ const g=sl.games.filter(x=>x.date<=d); return a + (g.length ? g.reduce((t,x)=>t+(+x.st.fp||0),0)/g.length : 0); },0).toFixed(1));
     return {m, vals, now: vals[vals.length-1] ?? 0};
   }).sort((a,b)=>b.now-a.now);
+  const colors = assignLineColors(series.map(s=>s.m));
+  series.forEach((s,k)=>{ s.c = colors[s.m.id]; s.rank = 1 + series.filter(x=>x.now > s.now).length; });
+  window._wchSeries = series;
   const W=340, H=190, L=30, R=10, T=12, B=22;
   const max = Math.max(10, ...series.flatMap(s=>s.vals));
   const step = max>200 ? 50 : max>100 ? 25 : max>40 ? 10 : 5;
@@ -8970,25 +9113,42 @@ function wlcChartHtml(wk, week){
     return `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="wch-grid"/><text x="${L-5}" y="${y(v)+2}" text-anchor="end" class="wch-ax">${v}</text>`; }).join('');
   const xl = ['MON','TUE','WED','THU','FRI','SAT','SUN'].map((t,i)=>`<text x="${x(i)}" y="${H-6}" text-anchor="middle" class="wch-ax${days[i]===today?' now':''}">${t}</text>`).join('');
   const lines = series.map((s,k)=>{ const pts = s.vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-    return `<g class="wch-s" data-k="${k}" style="--c:${s.m.color||'#4a9eff'}"><polyline points="${pts}"/>${s.vals.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i===s.vals.length-1?3:1.8}"/>`).join('')}</g>`; }).join('');
-  const legend = series.map((s,k)=>`<button type="button" class="wch-lg" data-k="${k}" style="--c:${s.m.color||'#4a9eff'}" onclick="wlcChartFocus(${k})">
-      <span class="rk">${k+1}</span><span class="sw"></span>${avatarEl(s.m.display_name, s.m.color||'#4a9eff', 16, 5, s.m.icon||null, s.m.photo||null)}<span class="nm">${escHtmlBB(teamLabel(s.m)||s.m.display_name)}</span><b>${s.now.toFixed(1)}</b></button>`).join('');
+    return `<g class="wch-s" data-k="${k}" style="--c:${s.c}"><polyline points="${pts}"/>${s.vals.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i===s.vals.length-1?3:1.8}"/>`).join('')}</g>`; }).join('');
+  const key = series.map((s,k)=>`<button type="button" class="wch-av" data-k="${k}" style="--c:${s.c}" onclick="wlcChartFocus(${k})" aria-label="${escHtmlBB(s.m.display_name)}">${avatarEl(s.m.display_name, s.m.color||'#4a9eff', 30, 8, s.m.icon||null, s.m.photo||null)}</button>`).join('');
   return `<div class="wch">
     <div class="wch-head"><span><span style="color:#ffd93d">${wlcThemeName(week, wk).toUpperCase()}</span> · AVG FP</span><span class="wch-lock">🔒 PICKS LOCKED</span></div>
     ${series.length ? `<svg viewBox="0 0 ${W} ${H}" class="wch-svg" role="img" aria-label="Weekly Line-up Challenge scores by day">${grid}${xl}${lines}</svg>
-    <div class="wch-legend">${legend}</div>
-    <div class="wch-note">Each line is a team's score: its players' average FP per game, as of the end of each day. Tap a team to highlight it.</div>`
+    <div class="wch-key">${key}</div>
+    <div class="wch-note">Select a User's avatar image to view more detail.</div>`
     : '<div class="wch-note" style="padding:20px 0;text-align:center">NO LINEUPS THIS WEEK</div>'}
     ${week.testers?'<div class="wlc-banner-test">🧪 TEST — ONLY TESTERS SEE THIS</div>':''}
   </div>`;
 }
 let _wchFocus = null;
 function wlcChartFocus(k){
-  _wchFocus = _wchFocus===k ? null : k;
+  _wchFocus = k;
   document.querySelectorAll('.wch').forEach(c=>{
-    c.classList.toggle('focus', _wchFocus!=null);
-    c.querySelectorAll('[data-k]').forEach(e=>e.classList.toggle('on', +e.dataset.k===_wchFocus));
+    c.classList.add('focus');
+    c.querySelectorAll('[data-k]').forEach(e=>e.classList.toggle('on', +e.dataset.k===k));
   });
+  const s = (window._wchSeries||[])[k]; if(!s) return;
+  const ord = n => n + (['th','st','nd','rd'][(n%100-20)%10] || ['th','st','nd','rd'][n%100] || 'th');
+  document.getElementById('wch-pop')?.remove();
+  const m = document.createElement('div');
+  m.id = 'wch-pop'; m.className = 'modal-overlay'; m.style.display = 'flex'; m.style.alignItems = 'center';
+  const close = ()=>{ m.remove(); _wchFocus = null; document.querySelectorAll('.wch').forEach(c=>{ c.classList.remove('focus'); c.querySelectorAll('[data-k]').forEach(e=>e.classList.remove('on')); }); };
+  m.onclick = e=>{ if(e.target===m) close(); };
+  m.innerHTML = `<div class="modal-box wch-popbox" style="--c:${s.c}">
+    <div class="wch-pop-av">${avatarEl(s.m.display_name, s.m.color||'#4a9eff', 88, 22, s.m.icon||null, s.m.photo||null)}</div>
+    <div class="wch-pop-nm">${escHtmlBB(s.m.display_name)}</div>
+    <div class="wch-pop-stats">
+      <div><span>PLACE</span><b>${ord(s.rank)}</b></div>
+      <div><span>AVG FP</span><b>${s.now.toFixed(1)}</b></div>
+    </div>
+    <button type="button" class="btn btn-secondary btn-full" style="margin-top:12px;font-size:6px">CLOSE</button>
+  </div>`;
+  m.querySelector('button').onclick = close;
+  document.body.appendChild(m);
 }
 function wlcStartOver(){
   window._wlcCurrentPicks = [];
@@ -9099,7 +9259,7 @@ function wlcOpenPlayer(poolName){
 }
 function wlcClearPreview(){ window._wlcPreview = null; renderWlcScreen(); }
 
-// Season averages for the preview: BDL 2025-26 averages when loaded, else the
+// Season averages for the preview: this season's (2026-27) averages when loaded, else the
 // player's stored averages / projection
 function wlcPreviewStats(name){
   const cur = wlcFindPlayer(name);
@@ -9108,7 +9268,7 @@ function wlcPreviewStats(name){
   const f = v => (v==null||isNaN(v)) ? '—' : (+v).toFixed(1);
   return {
     pts: f(b?.pts ?? cur?.ppg), reb: f(b?.reb ?? cur?.rpg), ast: f(b?.ast ?? cur?.apg),
-    fp: f(b?.fpPG ?? db?.fpPG ?? (cur ? estimateFpPG(cur) : null)),
+    fp: f(seasonFpPG(name, db?.fpPG)),
   };
 }
 
@@ -9197,7 +9357,7 @@ function openWlcSwapModal(fromName){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:var(--pixel);font-size:6.5px">${p.n}</div>
-        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${p.t} · ${p.fpPG} FP/G</div>
+        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${p.t} · ${(+seasonFpPG(p.n, p.fpPG)||0).toFixed(1)} FP/G</div>
       </div>
       <button onclick="doWlcSwap(${JSON.stringify(fromName).replace(/"/g,'&quot;')},${JSON.stringify(p.n).replace(/"/g,'&quot;')})" style="background:var(--accent2);border:none;border-radius:4px;color:var(--bg);font-family:var(--pixel);font-size:5.5px;padding:6px 10px;cursor:pointer">SELECT</button>
     </div>`).join('');

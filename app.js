@@ -864,10 +864,20 @@ function userLink(mid, text){
   return `<span class="user-link" onclick="event.stopPropagation();showUserProfile('${mid}')" style="cursor:pointer">${text}</span>`;
 }
 
+// Managers playing a fantasy run = the teams in its schedule. Someone who signs up mid-run
+// (e.g. Ben Powell during the Fall run) plays Duels and the Weekly Challenge until the next draft.
+function runManagers(runId=currentRun){
+  const all = leagueState?.managers||[];
+  const sched = (leagueState?.schedule||{})[runId];
+  if(!Array.isArray(sched) || !sched.length) return all;
+  const ids = new Set(sched.flat().flatMap(mu=>[mu?.home, mu?.away]).filter(x=>x!=null).map(String));
+  return ids.size ? all.filter(m=>ids.has(String(m.id))) : all;
+}
+const inFantasyRun = (mid, runId=currentRun) => runManagers(runId).some(m=>String(m.id)===String(mid));
 function fantasyStandings(runId){
   fillMatchupResults();
   const schedule = (leagueState.schedule||{})[runId] || [];
-  return (leagueState.managers||[]).map(m=>{
+  return runManagers(runId).map(m=>{
     let wins=0, losses=0, ties=0;
     schedule.forEach(week=>week.forEach(mu=>{
       if(!mu.winner || (mu.home!==m.id && mu.away!==m.id)) return;
@@ -2988,6 +2998,7 @@ function showTransactionLog(tab){
 }
 
 async function addPlayer(mid, pid){
+  if(!inFantasyRun(mid)){ toast('You join fantasy at the next run\'s draft'); return false; }
   if(!canWaiver(mid)){ toast('No add/drops remaining this week!'); return false; }
   const roster=(leagueState.rosters||{})[mid]||[];
   if(roster.includes(pid)){ toast('Already on roster'); return false; }
@@ -5611,7 +5622,7 @@ function renderQuickStats(){
   const topP=mvp ? mvp.p : null;
 
   // Compute standings rank
-  const allMgrs=leagueState.managers||[];
+  const allMgrs=runManagers(currentRun);
   const runSchedule=(leagueState.schedule||{})[currentRun]||[];
   const mgrStats=allMgrs.map(m=>{
     let w=0,l=0;
@@ -6214,7 +6225,7 @@ function renderFantasyRunContent(){
 
   // Build standings for this run
   fillMatchupResults();
-  const standings=managers.map(m=>{
+  const standings=runManagers(currentRun).map(m=>{
     const schedule=(leagueState.schedule||{})[currentRun]||[];
     let wins=0,losses=0,ties=0;
     schedule.forEach(week=>week.forEach(matchup=>{
@@ -6286,11 +6297,11 @@ let rostersMovePid = null;
 let lineupMovePid = null;     // same MOVE / HERE flow on the Home "My Lineup" card    // ESPN-style MOVE: the player being moved (others show HERE to swap)
 
 function renderRostersScreen(){
-  const managers=leagueState.managers||[];
+  const managers=runManagers(currentRun);
   const myId=getMyId();
-  // Default to my own roster
+  // Default to my own roster (or the first team, for someone not in this run)
   if(!rostersViewId || !managers.find(m=>m.id===rostersViewId)){
-    rostersViewId=myId||managers[0]?.id||null;
+    rostersViewId=(managers.find(m=>m.id===myId)?myId:null)||managers[0]?.id||null;
   }
   const tabsEl=document.getElementById('rosters-manager-tabs');
   const contentEl=document.getElementById('rosters-content');
@@ -7023,7 +7034,7 @@ function renderProfileScreen(){
     if(runLbl) runLbl.textContent=`Total ${RUNS.find(r=>r.id===currentRun)?.name||'Run'} FP`;
     // Compute standings rank for current run
     if(standEl){
-      const allMgrs=leagueState.managers||[];
+      const allMgrs=runManagers(currentRun);
       const runSchedule=(leagueState.schedule||{})[currentRun]||[];
       const mgrStats=allMgrs.map(m=>{
         let w=0,l=0,t=0;

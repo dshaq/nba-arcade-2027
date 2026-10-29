@@ -1020,17 +1020,30 @@ function weekResultsData(runId, idx){
       for(const row of rows) if(row.fp>0 && (!player || row.fp > player.fp)) player = {p:row.p, fp:row.fp, m:mgr(id)};
     }
   }
-  return {week, r, team, player, mgr};
+  // Best waiver pick-up: a player added off waivers during this week, by the FP he earned
+  // for that team (while Active) from the day he was added through Sunday
+  let pickup = null;
+  const ids = new Set(week.flatMap(mu=>[mu.home, mu.away]).map(String));
+  for(const [mid, log] of Object.entries(leagueState.waiverLog||{})){
+    if(!ids.has(String(mid))) continue;
+    for(const e of log||[]){
+      const d = String(e.date||'');
+      if(e.type!=='add' || d<r.from || d>r.to) continue;
+      const row = teamRowsForRange(mid, d, r.to, false).find(x=>String(x.p.id)===String(e.pid));
+      if(row && row.fp>0 && (!pickup || row.fp > pickup.fp)) pickup = {p:row.p, fp:row.fp, m:mgr(mid)};
+    }
+  }
+  return {week, r, team, player, pickup, mgr};
 }
 function showWeekResults(runId, idx, onClose){
   const run = RUNS.find(x=>x.id===runId);
-  const {week, r, team, player, mgr} = weekResultsData(runId, idx);
+  const {week, r, team, player, pickup, mgr} = weekResultsData(runId, idx);
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
   document.getElementById('week-results-modal')?.remove();
   const m = document.createElement('div');
   m.id = 'week-results-modal'; m.className = 'top-sheet-overlay';
   const port = pl => portraitUrl(pl.team, pl.name);
-  const award = (title, color, art, name, sub, fp) => `<div class="wr-award" style="--ac:${color}">
+  const award = (title, color, art, name, sub, fp, wide) => `<div class="wr-award${wide?' wide':''}" style="--ac:${color}">
       <div class="wr-award-title">${title}</div>
       <div class="wr-award-art">${art}</div>
       <div class="wr-award-name">${name}</div>
@@ -1047,6 +1060,7 @@ function showWeekResults(runId, idx, onClose){
       <div class="wr-awards">
         ${team ? award('TEAM OF THE WEEK', '#ffd93d', avatarEl(team.m.display_name, team.m.color||'#4a9eff', 72, 20, team.m.icon||null, team.m.photo||null), teamLabel(team.m), team.m.display_name, team.fp) : ''}
         ${player ? award('PLAYER OF THE WEEK', '#39ff6a', `<img src="${port(player.p)}" onerror="this.style.visibility='hidden'">`, player.p.name, teamLabel(player.m), player.fp) : ''}
+        ${pickup ? award('BEST WAIVER PICK-UP', '#4adfff', `<img src="${port(pickup.p)}" onerror="this.style.visibility='hidden'">`, pickup.p.name, teamLabel(pickup.m), pickup.fp, true) : ''}
       </div>
       <div class="section-label" style="padding:16px 0 6px">FINAL SCORES</div>
       <div class="card" style="padding:0;overflow:hidden;margin:0">
@@ -2652,6 +2666,11 @@ function fpColsHtml(tot, gp, size){
   const avg = gp ? (tot/gp).toFixed(1) : '—';
   return `<div class="fpc${size==='sm'?' sm':''}"><span class="fpc-tot${tot>0?'':' zero'}">${(+tot).toFixed(1)}</span><span class="fpc-avg">${avg}</span></div>`;
 }
+// Match-up box: FP this week + the player's FULL-SEASON average per game
+function fpColsPairSmHtml(weekFp, pid){
+  const gp = playerGamesPlayed(pid), avg = gp ? playerTotalFP(pid)/gp : null;
+  return `<div class="fpc sm"><span class="fpc-tot${weekFp>0?'':' zero'}">${(+weekFp).toFixed(1)}</span><span class="fpc-avg">${avg==null?'—':avg.toFixed(1)}</span></div>`;
+}
 // Value + per-game average given explicitly (WEEK mode: week FP + season avg)
 function fpColsPairHtml(val, avg){
   return `<div class="fpc"><span class="fpc-tot${val>0?'':' zero'}">${(+val).toFixed(1)}</span><span class="fpc-avg">${avg==null?'—':(+avg).toFixed(1)}</span></div>`;
@@ -3403,7 +3422,7 @@ function showScreen(screen){
   if(nb) nb.classList.add('active');
   // Re-render active screen
   if(screen==='home') renderHomeScreen();
-  else if(screen==='fantasy') renderFantasyScreen();
+  else if(screen==='fantasy'){ if(fantasyNav()==='hub') fantasyHubOpen = true; renderFantasyScreen(); }
   else if(screen==='roster') renderRosterScreen();
   else if(screen==='wlc') renderWlcScreen();
   else if(screen==='duel') renderDuelScreen();
@@ -3434,19 +3453,20 @@ let sbUserPicked = false;
 // ballpark sign; tips about site features rotate underneath. Tap a tip to go there.
 const DYK_TIPS = [
   {t:'NEW! Build your Baller: pick a pixel character, then a style, your team\'s colors or your own. Profile → tap ✏️ on your avatar.', go:()=>dykGoProfile(null, true)},
-  {t:'Pick your colors! Profile → Color Theme has Arcade Night, Hardwood, Pocket Green and Neon Lights.', go:()=>dykGoProfile('theme-picker')},
-  {t:'Set your lineup for the whole week: on Rosters, tap a day at the top to plan it ahead.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
-  {t:'Your Active 8 stays put until you change it. No need to confirm it every day.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
-  {t:'Tap any player\'s name to open his card, then use ‹ › to flip through the list.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Pick your color theme! Profile → Color Theme includes Arcade Night, Hardwood, Pocket Green and Neon Lights. More will be added throughout the season.', go:()=>dykGoProfile('theme-picker')},
+  {t:'Set your lineup for the whole week: on Rosters, tap a day at the top to plan ahead. Remember to monitor for injuries!', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Tap any player\'s name to open his card, then use ‹ › to flip through the list of players in that section.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
   {t:'A player\'s card shows every game this season, with the opponent for each.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
-  {t:'Flip the Rosters FP columns between this WEEK and the whole FALL run.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
+  {t:'Flip the Rosters\' FP columns to alternate between totals for the CURRENT WEEK and the entire FALL RUN.', go:()=>{ showScreen('fantasy'); switchFantasyTab('roster'); }},
   {t:'Waivers: the Hide Out/Inj button hides players who are hurt.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
-  {t:'The Transaction Log on Waivers lists every add and drop in the league.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
+  {t:'The TRANSACTION LOG on the Waivers page lists every add and drop across the Fantasy League.', go:()=>{ showScreen('fantasy'); switchFantasyTab('waivers'); }},
   {t:'Daily Duel picks lock when the game tips off. Get yours in early!', go:()=>showScreen('duel')},
-  {t:'Teams Tuesday: tap a team on the Duel card to see its results so far.', go:()=>showScreen('duel')},
-  {t:'Tap STANDINGS up top for the NBA East and West standings.', go:()=>showNbaStandings()},
+  {t:'Daily Duel: to help inform your pick, tap the player or team icon to view their recent statistics and results.', go:()=>showScreen('duel')},
+  {t:'Tap NBA STANDINGS up top to view the current NBA standings.', go:()=>showNbaStandings()},
   {t:'Talk trash in the league chat: the 💬 button at the top.', go:()=>openChat()},
   {t:'Tap a match-up under Current Match-ups for its box score.', go:()=>document.getElementById('home-matchups-container')?.scrollIntoView({behavior:'smooth',block:'start'})},
+  {t:'Everything can be clicked! Select player icons, user icons, scores, etc. to access more information about each.', go:()=>document.getElementById('home-matchups-container')?.scrollIntoView({behavior:'smooth',block:'start'})},
+  {t:'The FALL RUN ends on December 27. In the preceding week, there will be another draft and you will pick a brand new team for the WINTER RUN.', go:()=>{ showScreen('fantasy'); switchFantasyTab('draft'); }},
 ];
 let dykIdx = 0, _dykTimer = null;
 function dykGoProfile(id, avatar){
@@ -3744,6 +3764,23 @@ function renderWlcHomeBanner(){
   </div>`;
 }
 
+// "OPTIMIZE LINE-UP!": a bench player has a game today (not started yet) while an Active
+// player has no game today. Tapping it opens my roster.
+function lineupNeedsOptimizing(mid){
+  if(!mid || !leagueState) return false;
+  const games = todayGamesCache || {}; if(!Object.keys(games).length) return false;
+  const roster = ((leagueState.rosters||{})[mid]||[]).map(String), ir = String(getIrSlot(mid)??'');
+  const active = ((leagueState.active||{})[mid] || autoActiveFor(mid)).map(String);
+  const plays = id => { const p=getPlayer(+id)||getPlayer(id); return p && games[(p.team||'').toUpperCase()]; };
+  const out = id => { const p=getPlayer(+id)||getPlayer(id); return p && injuryInfo(p.name)?.isOut; };
+  const benchReady = roster.some(id=>id!==ir && !active.includes(id) && plays(id) && !plays(id).isLive && !plays(id).isFinal && !out(id));
+  const activeIdle = active.some(id=>roster.includes(id) && !plays(id));
+  return benchReady && activeIdle;
+}
+function renderOptimizeAlert(outOfRun){
+  const el = document.getElementById('optimize-alert'); if(!el) return;
+  el.hidden = !!outOfRun || !lineupNeedsOptimizing(getMyId());
+}
 function renderHomeScreen(){
   renderWlcHomeBanner();
   renderScoreboard();
@@ -3760,6 +3797,7 @@ function renderHomeScreen(){
   }
   renderSignupNotice();
   if(!outOfRun){ renderHomeMatchups(); renderQuickStats(); }
+  renderOptimizeAlert(outOfRun);
 }
 
 // ── DUEL SCREEN ──────────────────────────────────────────────────────────────
@@ -3786,20 +3824,7 @@ function renderDuelScreen(){
     ? `<div style="background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);border-radius:var(--radius);padding:8px 12px;margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">⚡ STREAKS & LEADERBOARD COUNT STARTING OCT 20 WHEN THE SEASON TIPS OFF</div>`
     : '';
 
-  // Leaderboard
-  const lbRows = rows.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);':''}">
-      <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${userAvatar(m,28,8)}
-      <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
-        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${m.totalCorrect} correct all-time</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:var(--pixel);font-size:10px;color:${m.streak>0?'var(--accent3)':'var(--text3)'}">${m.streak>0?`🔥 ${m.streak}`:'—'}</div>
-        <div style="font-size:9px;color:var(--text3)">streak</div>
-      </div>
-    </div>`).join('');
+  const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14) : '';
 
   el.innerHTML = `
     <div style="padding:12px 0 80px">
@@ -3807,7 +3832,7 @@ function renderDuelScreen(){
       ${seasonNote}
       <div class="section-label" style="margin-top:16px">LEADERBOARD</div>
       <div class="card" style="padding:0;overflow:hidden">
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY STREAK · TIEBREAK: ALL-TIME CORRECT · STARTS OCT 20</div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · STARTS OCT 20</div>
         ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
       </div>
     </div>`;
@@ -5001,34 +5026,44 @@ function renderDuelCard(){
   </div>`;
 }
 
+
+// Every manager's Duel record, replayed from the settled duels (same rules as the streaks):
+// picked = decided duels they picked (voids/pushes don't count), best = longest streak ever
+function duelRecords(){
+  const duels = leagueState.duels || {}, out = {};
+  const dates = Object.keys(duels).filter(d=>{ const r=duels[d]?.result; return r!==null && r!==undefined && new Date(d) >= NBA_SEASON_START; }).sort();
+  for(const d of dates){
+    const duel = duels[d], prev = prevDuelDateKey(d);
+    for(const [mid, pick] of Object.entries(duel.picks||{})){
+      const r = out[mid] ||= {picked:0, correct:0, run:0, best:0, last:null};
+      if(duel.result==='void' || duel.result==='push'){ if(r.last!==prev) r.run = 0; r.last = d; continue; }
+      r.picked++;
+      if(String(pick)===String(duel.result)){ r.correct++; r.run = (r.last===prev ? r.run : 0) + 1; r.best = Math.max(r.best, r.run); }
+      else r.run = 0;
+      r.last = d;
+    }
+  }
+  return out;
+}
+// Leaderboard rows: # · avatar · name · % CORRECT · ALL-TIME STREAK · CURRENT STREAK
+function duelLeaderboardHtml(padX){
+  const recs = duelRecords(), streaks = leagueState.duelStreaks || {}, myId = getMyId();
+  const rows = (leagueState.managers||[]).map(m=>{
+    const r = recs[m.id] || {picked:0, correct:0, best:0};
+    const cur = liveDuelStreak(streaks[m.id]);
+    return {m, cur, best:Math.max(r.best, cur, streaks[m.id]?.longest||0), pct: r.picked ? r.correct/r.picked : null, picked:r.picked};
+  }).sort((a,b)=> b.cur-a.cur || (b.pct??-1)-(a.pct??-1) || b.best-a.best);
+  const cell = (v, hot) => `<div class="dlb-c${hot?' hot':''}">${v}</div>`;
+  return `<div class="dlb-head" style="padding:8px ${padX}px"><span></span><span></span><span>USER</span><span>% CORRECT</span><span>ALL-TIME STREAK</span><span>CURRENT STREAK</span></div>` +
+    rows.map((x,i)=>`<div class="dlb-row${String(x.m.id)===String(myId)?' me':''}" style="padding:9px ${padX}px">
+      <span class="dlb-rk">${i+1}</span>${userAvatar(x.m,26,8)}
+      <div class="dlb-nm">${userLink(x.m.id, escHtmlBB(x.m.display_name))}${String(x.m.id)===String(myId)?' ★':''}</div>
+      ${cell(x.pct==null?'—':Math.round(x.pct*100)+'%')}${cell(x.best||'—')}${cell(x.cur>0?'🔥 '+x.cur:'—', x.cur>0)}
+    </div>`).join('');
+}
 // Duel leaderboard modal
 function showDuelLeaderboard(){
-  const managers = leagueState.managers || [];
-  const streaks = leagueState.duelStreaks || {};
-  const today = todayKey();
-  const yesterday = getPrevDateKey(today);
-
-  const rows = managers.map(m=>{
-    const s = streaks[m.id] || {streak:0, totalCorrect:0, lastDate:null};
-    const live = liveDuelStreak(s);
-    return {...m, streak:live, totalCorrect:s.totalCorrect||0};
-  }).sort((a,b)=>b.streak!==a.streak?b.streak-a.streak:b.totalCorrect-a.totalCorrect);
-
-  const myId = getMyId();
-  let rowsHtml = rows.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${m.id===myId?'background:rgba(0,212,170,.05);margin:0 -16px;padding-left:16px;padding-right:16px;':''}">
-      <span style="font-family:var(--pixel);font-size:8px;color:var(--text3);width:20px">${i+1}</span>
-      ${userAvatar(m,28,8)}
-      <div style="flex:1">
-        <div style="font-family:var(--pixel);font-size:6.5px;color:${m.id===myId?'var(--accent2)':'var(--text2)'}">${userLink(m.id,teamLabel(m))}${m.id===myId?' ★':''}</div>
-        <div style="font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text3)">${m.totalCorrect} correct all-time</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:var(--pixel);font-size:10px;color:${m.streak>0?'var(--accent3)':'var(--text3)'}">${m.streak>0?`🔥 ${m.streak}`:'—'}</div>
-        <div style="font-size:9px;color:var(--text3)">streak</div>
-      </div>
-    </div>`).join('');
-
+  const rowsHtml = (leagueState.managers||[]).length ? duelLeaderboardHtml(0) : '';
   let modal = document.getElementById('duel-lb-modal');
   if(modal) modal.remove();
   modal = document.createElement('div');
@@ -5041,7 +5076,7 @@ function showDuelLeaderboard(){
         <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">⚡ DUEL LEADERBOARD</div>
         <button onclick="document.getElementById('duel-lb-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:10px;">RANKED BY STREAK · TIEBREAK: ALL-TIME CORRECT</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-bottom:6px;">RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT</div>
       ${rowsHtml || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
     </div>`;
   document.body.appendChild(modal);
@@ -5467,7 +5502,7 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
       ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
         <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
         <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${x.p.pos} · ${x.p.team}</div></div>
-        <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsHtml(x.fp, x.gp, 'sm')}</div>
+        <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsPairSmHtml(x.fp, x.p.id)}</div>
       </div>`).join('') || '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
     </div>`;
   };
@@ -5793,6 +5828,8 @@ let currentFantasyTab = 'standings';
 function switchFantasyTab(tab, refresh=false){
   if(refresh && tab!==currentFantasyTab) refresh = false;
   currentFantasyTab = tab;
+  if(!refresh){ fantasyHubOpen = false; }
+  applyFantasyNav();
   document.querySelectorAll('.fantasy-sub-tab').forEach(t=>{
     t.classList.toggle('active', t.dataset.tab === tab);
   });
@@ -5861,8 +5898,80 @@ function switchRun(runId){
 
 function renderFantasyScreen(){
   renderRunBar();
+  applyFantasyNav();
+  if(fantasyNav()==='hub' && fantasyHubOpen){ renderFantasyHub(); return; }
   switchFantasyTab(currentFantasyTab, true);
 }
+
+// ── FANTASY NAVIGATION STYLES (test) ── chosen per browser on Profile.
+// classic: today's text tabs · sticky: same tabs, pinned under the top bar while you scroll
+// dock: big icon tabs, pinned · hub: a home screen of tiles; each opens a section with a back bar
+const FANTASY_NAVS = [
+  {id:'classic', name:'Classic', desc:'Today\'s tabs'},
+  {id:'sticky',  name:'Sticky Tabs', desc:'Tabs stay pinned while you scroll'},
+  {id:'dock',    name:'Icon Dock', desc:'Big icon buttons, pinned'},
+  {id:'hub',     name:'Fantasy Hub', desc:'Tiles with your info; tap one to open it'},
+];
+const FANTASY_TAB_META = {standings:['🏆','STANDINGS'], schedule:['📅','SCHEDULE'], roster:['👥','ROSTERS'], waivers:['🔄','WAIVERS'], draft:['🎯','DRAFT']};
+let fantasyHubOpen = false;
+function fantasyNav(){ try{ return localStorage.getItem('nba-fnav') || 'classic'; }catch(e){ return 'classic'; } }
+function setFantasyNav(id){
+  try{ localStorage.setItem('nba-fnav', id); }catch(e){}
+  renderFantasyNavPicker();
+  toast(`Fantasy navigation: ${FANTASY_NAVS.find(n=>n.id===id)?.name}`);
+  fantasyHubOpen = id==='hub';
+  applyFantasyNav();
+}
+function renderFantasyNavPicker(){
+  const el = document.getElementById('fnav-picker'); if(!el) return;
+  const cur = fantasyNav();
+  el.innerHTML = FANTASY_NAVS.map(n=>`<button type="button" class="fnav-opt${n.id===cur?' on':''}" onclick="setFantasyNav('${n.id}')"><b>${n.name.toUpperCase()}</b><span>${n.desc}</span>${n.id===cur?'<i>✓ IN USE</i>':''}</button>`).join('')
+    + `<button type="button" class="fnav-try" onclick="showScreen('fantasy')">TRY IT ON THE FANTASY PAGE ›</button>`;
+}
+function applyFantasyNav(){
+  const mode = fantasyNav();
+  document.body.dataset.fnav = mode;
+  const tb = document.getElementById('top-bar'); if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
+  // icon labels for the dock
+  document.querySelectorAll('.fantasy-sub-tab').forEach(t=>{
+    const meta = FANTASY_TAB_META[t.dataset.tab]; if(!meta) return;
+    t.innerHTML = mode==='dock' ? `<span class="fst-ic">${meta[0]}</span><span>${meta[1]}</span>` : meta[1];
+  });
+  const hub = document.getElementById('fantasy-hub'), back = document.getElementById('fantasy-backbar');
+  const showHub = mode==='hub' && fantasyHubOpen;
+  if(hub) hub.hidden = !showHub;
+  if(back){ back.hidden = !(mode==='hub' && !fantasyHubOpen);
+    const meta = FANTASY_TAB_META[currentFantasyTab]||['','']; back.innerHTML = `<button type="button" onclick="openFantasyHub()">‹ FANTASY HUB</button><span>${meta[0]} ${meta[1]}</span>`; }
+  document.getElementById('fantasy-screen')?.classList.toggle('hub-open', showHub);
+}
+function openFantasyHub(){ fantasyHubOpen = true; renderFantasyScreen(); appScrollTop(); }
+function renderFantasyHub(){
+  const el = document.getElementById('fantasy-hub'); if(!el) return;
+  applyFantasyNav();
+  const mid = getMyId(), me = (leagueState?.managers||[]).find(m=>String(m.id)===String(mid));
+  const inRun = mid && inFantasyRun(mid);
+  const st = fantasyStandings(currentRun), rank = st.findIndex(x=>String(x.id)===String(mid))+1, rec = st.find(x=>String(x.id)===String(mid));
+  const wk = getCurrentWeekIndex(currentRun), sched = (leagueState.schedule||{})[currentRun]||[];
+  const mu = inRun ? (sched[wk]||[]).find(x=>String(x.home)===String(mid)||String(x.away)===String(mid)) : null;
+  const oppId = mu ? (String(mu.home)===String(mid) ? mu.away : mu.home) : null;
+  const opp = (leagueState.managers||[]).find(m=>String(m.id)===String(oppId));
+  const myFp = mid ? managerFP(mid) : 0, oppFp = oppId ? managerFP(oppId) : 0;
+  const used = mid ? waiverUsedThisWeek(mid) : 0;
+  const nd = nextDraftAfter(currentRun) || DRAFT_WINDOWS.find(d=>d.run===currentRun);
+  const when = nd ? new Date(nd.start).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase() : '';
+  const act = mid ? ((leagueState.active||{})[mid]||[]).length : 0;
+  const tile = (tab, big, sub, extra='') => `<button type="button" class="fhub-tile" onclick="switchFantasyTab('${tab}');appScrollTop()">
+      <span class="fh-ic">${FANTASY_TAB_META[tab][0]}</span><span class="fh-t">${FANTASY_TAB_META[tab][1]}</span>
+      <span class="fh-big">${big}</span><span class="fh-sub">${sub}</span>${extra}</button>`;
+  el.innerHTML = `<div class="fhub">
+    ${tile('standings', rank && inRun ? ordinal(rank) : '—', rec && inRun ? `${rec.wins}-${rec.losses}${rec.ties?'-'+rec.ties:''} · ${rec.fp.toFixed(0)} FP` : 'League table')}
+    ${tile('schedule', `WEEK ${wk+1}`, mu ? `vs ${escHtmlBB(teamLabel(opp)||'?')} · ${myFp.toFixed(0)}–${oppFp.toFixed(0)}` : 'All match-ups')}
+    ${tile('roster', inRun ? `${act}/${ACTIVE_SIZE}` : '—', inRun ? 'ACTIVE' : 'Every team\'s roster', inRun && lineupNeedsOptimizing(mid) ? '<span class="fh-alert">⚠ OPTIMIZE LINE-UP!</span>' : '')}
+    ${tile('waivers', inRun ? `${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}` : '—', inRun ? 'ADDS LEFT THIS WEEK' : 'Free agents', myScoutList().length ? `<span class="fh-note">🔭 ${myScoutList().length} SCOUTED</span>` : '')}
+    ${tile('draft', nd ? when : '—', nd ? nd.label : 'Draft board')}
+  </div>`;
+}
+
 
 let draftFilter = { availability:'available', team:'all', sort:'fp', rookie:false };
 let draftSearchQuery = '';
@@ -6795,18 +6904,20 @@ function renderWaiverPlayerList(){
         const line2=isLiveNow
           ? `<div class="rc-led">${p.team} ${tg.myScore}-${tg.oppScore} ${tg.opponent}${tg.period?` · Q${tg.period}`:''}</div>`
           : `<div class="rc-meta">${p.pos} · ${p.team}${gi?` · ${gi}`:''}</div>`;
-        const act = owner
+        const ownEl = owner
           ? `<div class="rc-own" onclick="event.stopPropagation();showUserProfile('${owner.id}')" title="${teamLabel(owner).replace(/"/g,'&quot;')}">${avatarEl(owner.display_name, owner.color||'#4a9eff', 22, 7, owner.icon||null, owner.photo||null)}<span>TAKEN</span></div>`
-          : allRostered.has(p.id) ? `<div class="rc-own"><span>TAKEN</span></div>`
+          : allRostered.has(p.id) ? `<div class="rc-own"><span>TAKEN</span></div>` : '';
+        const act = (owner || allRostered.has(p.id)) ? ''
           : canAdd ? `<button class="move-btn rc-mv rc-add" aria-label="Add ${p.name.replace(/"/g,'&quot;')}" onclick="confirmAdd('${mid}',${p.id})">+<span>ADD</span></button>` : '';
         const scoutBtn = (!owner && !allRostered.has(p.id) && mid) ? scoutBtnHtml(p.id) : '';
         return `
-        <div class="rc${owner||allRostered.has(p.id)?' taken':''}${isLiveNow?' live':''}">
+        <div class="rc wv${owner||allRostered.has(p.id)?' taken':''}${isLiveNow?' live':''}">
           <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${portEl}</div>
           <div class="rc-info">
             <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${injuryBadgeHtml(p.name)}</div>
             ${line2}
           </div>
+          <div class="rc-ownslot">${ownEl}</div>
           <div class="rc-fp"><b class="${tot>0?'':'z'}">${tot.toFixed(1)}</b><i>${liveFp!=null?`<span class="lv">+${liveFp.toFixed(1)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
           <div class="rc-act">${act}${scoutBtn}</div>
         </div>`;
@@ -7153,6 +7264,7 @@ function renderThemePicker(){
 
 function renderProfileScreen(){
   renderThemePicker();
+  renderFantasyNavPicker();
   fillMatchupResults();
   if(!myProfile) return;
   const color=myProfile.color||'#4a9eff';
@@ -8072,6 +8184,7 @@ async function fetchAndRenderTicker(){
   renderTicker(espnEvents, todayET, showYesterday);
   // todayGamesCache is now populated — redraw lineup views so game info/scores are current
   renderLineupPreview();
+  try{ renderOptimizeAlert(); }catch(e){}
   renderMyRosterList();
 
   // Auto-settle team-win duels now that todayGamesCache is populated with final scores
@@ -9543,15 +9656,13 @@ function renderWlcStandings(container){
           ${m.display_name}${isMe?' ★':''}
         </span>
       </div>
-      <span class="wlc-standings-wins">${m.wins} ${m.wins===1?'Win':'Wins'}</span>
-      <span class="wlc-standings-tries">${m.tries} ${m.tries===1?'Try':'Tries'}</span>
-      <span class="wlc-standings-fp">${m.totalFP.toFixed(1)} FP</span>
+      <span class="wlc-standings-pct">${m.tries ? Math.round(100*m.wins/m.tries)+'%' : '—'}</span>
     </div>`;
   });
 
   container.innerHTML = `
     ${currentHtml}
-    <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);padding:0 0 8px">SEASON STANDINGS</div>
+    <div style="display:flex;justify-content:space-between;font-family:var(--pixel);font-size:6px;color:var(--text3);padding:0 12px 8px 0"><span>SEASON STANDINGS</span><span>WINNING %</span></div>
     <div class="wlc-standings-table" style="padding:0">
       ${seasonHtml || '<div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO RESULTS YET</div>'}
     </div>`;

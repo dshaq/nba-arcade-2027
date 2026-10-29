@@ -951,6 +951,7 @@ img{display:block;}
 .wr-title{font-family:var(--pixel);font-size:12px;color:#ffd93d;text-shadow:2px 2px 0 #000,0 0 10px rgba(255,217,61,.5);margin-top:8px;}
 .wr-sub{font-family:var(--pixel);font-size:5.5px;color:var(--text3);margin-top:6px;}
 .wr-awards{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.wr-award.wide{grid-column:1/-1;}
 .wr-award{border:3px solid var(--ac);border-radius:8px;background:var(--panel);padding:10px 6px;text-align:center;box-shadow:0 0 12px color-mix(in srgb,var(--ac) 35%,transparent);min-width:0;}
 .wr-award-title{font-family:var(--pixel);font-size:5px;color:var(--ac);margin-bottom:8px;}
 .wr-award-art{width:72px;height:72px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden;}
@@ -1430,6 +1431,7 @@ img{display:block;}
 .bb-bar button{flex:1;font-family:var(--pixel);font-size:7px;padding:12px 6px;border-radius:6px;cursor:pointer;border:2px solid var(--border);background:var(--bg3);color:var(--text1)}
 .bb-bar button.primary{background:var(--accent3);border-color:var(--accent3);color:#1a1200}
 @media (prefers-reduced-motion:reduce){#bb-hero{animation:none}}
+.wlc-standings-pct{font-family:var(--pixel);font-size:8px;color:var(--accent2);min-width:44px;text-align:right}
 .wch{margin:0 14px 12px;padding:12px 10px 10px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-family:var(--pixel)}
 .wch-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:6px;color:var(--text1);margin:0 2px 8px;letter-spacing:.04em}
 .wch-lock{color:var(--text3)}
@@ -1455,6 +1457,45 @@ img{display:block;}
 .wch-pop-stats span{font-size:5px;color:var(--text3)}
 .wch-pop-stats b{font-size:11px;color:var(--c);font-weight:normal}
 .wch-note{font-size:5px;line-height:1.8;color:var(--text3);margin-top:8px}
+.dlb-head,.dlb-row{display:grid;grid-template-columns:18px 28px minmax(0,1fr) 46px 50px 50px;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.dlb-head{font-family:var(--pixel);font-size:4.5px;line-height:1.5;color:var(--text3);letter-spacing:.04em}
+.dlb-head span:nth-child(n+4){text-align:center}
+.dlb-row.me{background:rgba(0,212,170,.05)}
+.dlb-rk{font-family:var(--pixel);font-size:8px;color:var(--text3)}
+.dlb-nm{font-family:var(--pixel);font-size:6.5px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlb-row.me .dlb-nm{color:var(--accent2)}
+.dlb-c{font-family:var(--pixel);font-size:7px;color:var(--text2);text-align:center}
+.dlb-c.hot{color:var(--accent3)}
+
+/* ── Fantasy navigation styles (test) ── */
+body[data-fnav="sticky"] .fantasy-sub-tabs,
+body[data-fnav="dock"] .fantasy-sub-tabs{position:sticky;top:var(--topbar-h,52px);z-index:40;box-shadow:0 6px 10px -6px rgba(0,0,0,.6)}
+body[data-fnav="dock"] .fantasy-sub-tabs{justify-content:space-between;gap:4px;padding:6px 8px;background:color-mix(in srgb,var(--bg) 92%,transparent)}
+body[data-fnav="dock"] .fantasy-sub-tab{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px 7px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);font-size:4.5px}
+body[data-fnav="dock"] .fantasy-sub-tab .fst-ic{font-size:16px;line-height:1}
+body[data-fnav="dock"] .fantasy-sub-tab.active{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,var(--bg3));color:var(--accent2)}
+body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
+#fantasy-screen.hub-open .fantasy-sub-pane{display:none!important}
+.fantasy-backbar{position:sticky;top:var(--topbar-h,52px);z-index:40;display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--border);font-family:var(--pixel);font-size:6px;color:var(--text2)}
+.fantasy-backbar[hidden],#fantasy-hub[hidden]{display:none}
+.fantasy-backbar button{background:var(--bg3);border:1px solid var(--accent1);color:var(--accent1);border-radius:12px;padding:6px 10px;font-family:var(--pixel);font-size:5.5px;cursor:pointer}
+.fhub{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px 20px}
+.fhub-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;font-family:var(--pixel);color:var(--text2);min-height:112px}
+.fhub-tile:first-child{grid-column:1/-1}
+.fhub-tile:hover{border-color:var(--accent1)}
+.fh-ic{font-size:18px;line-height:1}
+.fh-t{font-size:6px;color:var(--text3);letter-spacing:.06em}
+.fh-big{font-size:14px;color:var(--accent3)}
+.fh-sub{font-size:5px;line-height:1.7;color:var(--text2)}
+.fh-alert{font-size:5px;color:#ff3b5c}
+.fh-note{font-size:5px;color:var(--accent3)}
+.fnav-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fnav-opt{display:flex;flex-direction:column;gap:5px;text-align:left;background:var(--bg3);border:2px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;font-family:var(--pixel);color:var(--text2)}
+.fnav-opt b{font-size:6px;font-weight:normal;color:var(--text1)}
+.fnav-opt span{font-size:5px;line-height:1.7;color:var(--text3)}
+.fnav-opt i{font-style:normal;font-size:5px;color:var(--accent2)}
+.fnav-opt.on{border-color:var(--accent2)}
+.fnav-try{grid-column:1/-1;background:none;border:1px dashed var(--accent1);color:var(--accent1);border-radius:8px;padding:9px;font-family:var(--pixel);font-size:5.5px;cursor:pointer}
 .rc-wrap{margin:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .rc-sec{display:flex;align-items:center;justify-content:space-between;font-family:var(--pixel);font-size:6px;letter-spacing:.12em;padding:0 10px;height:24px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg) 55%,transparent);}
 .rc-sec:first-child{border-top:none;}
@@ -1484,6 +1525,9 @@ img{display:block;}
 .rc-scout{font-family:var(--pixel);font-size:4.5px;padding:4px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;white-space:nowrap;line-height:1.2}
 .rc-scout:hover{border-color:var(--accent3);color:var(--accent3)}
 .rc-scout.on{border-color:var(--accent3);color:var(--accent3)}
+.rc.wv{grid-template-columns:60px minmax(0,1fr) 34px auto 58px;}
+.rc.wv .rc-act{width:58px;align-items:center}
+.rc-ownslot{display:flex;justify-content:center}
 .rc-own{display:flex;flex-direction:column;align-items:center;gap:3px;width:34px;cursor:pointer;}
 .rc-own span{font-family:var(--pixel);font-size:4px;color:var(--text3);}
 .rc.taken .rc-pt img{filter:saturate(.5) brightness(.8);} .rc.taken .rc-nm{color:var(--text2);}
@@ -1578,8 +1622,15 @@ html[data-theme="neon"]{
 .pcard-nav.l{left:8px;} .pcard-nav.r{right:8px;}
 .pcard-count{position:absolute;top:12px;left:12px;z-index:4;font-family:var(--pixel);font-size:5.5px;color:#fff;background:rgba(0,0,0,.5);padding:4px 6px;border-radius:4px;}
 
+.optimize-alert{background:none;border:none;padding:4px 0;font-family:var(--pixel);font-size:5.5px;color:#ff3b5c;cursor:pointer;text-shadow:0 0 6px rgba(255,59,92,.5);animation:optBlink 1.6s steps(2,end) infinite;white-space:nowrap}
+.optimize-alert[hidden]{display:none}
+@keyframes optBlink{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.optimize-alert{animation:none}}
 .sb-side-btn{flex-shrink:0;margin-left:4px;font-family:var(--pixel);font-size:5px;line-height:1.5;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 6px;cursor:pointer;min-height:28px;}
 .sb-side-btn.standings{color:var(--accent1);border-color:var(--accent1);}
+#sb-select-wrap{align-items:stretch}
+#sb-select-wrap .sb-select{height:auto;align-self:stretch}
+#sb-select-wrap > span{align-self:center}
 
 /* Weekly Line-up Challenge entries: portrait cards */
 .wlc-entry{padding:12px 10px;}
@@ -1701,9 +1752,9 @@ html[data-theme="neon"]{
     <div id="wlc-home-banner" style="display:none"></div>
 
     <!-- Scoreboard (replaces the old ticker) -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px">
+    <div style="display:flex;align-items:stretch;justify-content:space-between;padding:8px 14px 4px">
       <div id="sb-select-wrap" style="flex:1;min-width:0;display:flex;margin-right:6px"></div>
-      <button class="sb-side-btn standings" onclick="showNbaStandings()">STANDINGS</button>
+      <button class="sb-side-btn standings" onclick="showNbaStandings()">NBA<br>STANDINGS</button>
       <button class="sb-side-btn" onclick="showSiteOverview()">HOW TO<br>PLAY</button>
     </div>
     <div id="scoreboard-container"></div>
@@ -1717,7 +1768,9 @@ html[data-theme="neon"]{
     <!-- This week's match-ups (whole league, mine first) -->
     <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;padding-top:8px;padding-bottom:6px">
       <span>⚔️ CURRENT MATCH-UPS</span>
-      <button class="btn btn-sm btn-secondary" onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE MY LINE-UP</button>
+      <span style="display:flex;align-items:center;gap:8px">
+      <button type="button" id="optimize-alert" class="optimize-alert" hidden onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')">⚠ OPTIMIZE LINE-UP!</button>
+      <button class="btn btn-sm btn-secondary" onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE MY LINE-UP</button></span>
     </div>
     <div id="home-matchups-container"></div>
 
@@ -1741,6 +1794,8 @@ html[data-theme="neon"]{
       <div class="fantasy-sub-tab" data-tab="waivers" onclick="switchFantasyTab('waivers')">WAIVERS</div>
       <div class="fantasy-sub-tab" data-tab="draft" onclick="switchFantasyTab('draft')">DRAFT</div>
     </div>
+    <div id="fantasy-backbar" class="fantasy-backbar" hidden></div>
+    <div id="fantasy-hub" hidden></div>
 
     <!-- STANDINGS pane -->
     <div class="fantasy-sub-pane active" id="fantasy-pane-standings">
@@ -1836,6 +1891,9 @@ html[data-theme="neon"]{
 
     <div class="section-label" style="padding-top:20px">COLOR THEME</div>
     <div class="card" style="padding:0;overflow:hidden"><div class="theme-pick" id="theme-picker"></div></div>
+
+    <div class="section-label" style="padding-top:20px">FANTASY NAVIGATION · TEST</div>
+    <div class="card" style="padding:10px"><div id="fnav-picker" class="fnav-pick"></div></div>
 
     <div class="section-label" style="padding-top:20px">FANTASY STANDINGS</div>
     <div class="card" style="padding:0;overflow:hidden" id="profile-fantasy-standings">

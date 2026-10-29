@@ -1230,7 +1230,9 @@ function showPlayerCard(playerName, initialTab, opts) {
   const sched = teamWeekGames(teamAbbr);
   const weekRows = sched.map(g=>({...(byDate[g.date]||{}), date:g.date, _sched:g, _pending:!byDate[g.date]}));
   for(const d of Object.keys(byDate)) if(d>=wsKey && !sched.some(g=>g.date===d)) weekRows.push({...byDate[d]});
-  weekRows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  // Played (and live) games newest first; games still to come sit underneath, soonest first
+  weekRows.sort((a,b)=> (a._pending?1:0)-(b._pending?1:0)
+    || (a._pending ? String(a.date).localeCompare(String(b.date)) : String(b.date).localeCompare(String(a.date))));
   const earlier = Object.values(byDate).filter(g=>String(g.date)<wsKey).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const hasGames = weekRows.length + earlier.length > 0;
   const activeTab = initialTab || (hasGames ? 'stats' : 'profile');

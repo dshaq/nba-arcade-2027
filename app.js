@@ -864,6 +864,72 @@ function userLink(mid, text){
   return `<span class="user-link" onclick="event.stopPropagation();showUserProfile('${mid}')" style="cursor:pointer">${text}</span>`;
 }
 
+// ── FANTASY SIGN-UPS for a future run ──
+// leagueState.fantasySignups = { [runId]: { [mid]: {at} } }. Someone who isn't in the current
+// run can save a spot for the next one; the commissioner sees the list (Home notice + panel).
+function nextDraftAfter(runId){ return DRAFT_WINDOWS.find(d=>d.run>runId && new Date(d.end)>new Date()) || null; }
+function fantasySignupCardHtml(runNow, mid){
+  const run = RUNS.find(r=>r.id===runNow), next = nextDraftAfter(runNow);
+  const nextRun = next && RUNS.find(r=>r.id===next.run);
+  const when = next ? new Date(next.start).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase() : '';
+  const signed = next && leagueState.fantasySignups?.[next.run]?.[mid];
+  const body = !next
+    ? `The ${run?.name||'current'} fantasy run is underway with the teams from its draft.`
+    : signed
+      ? `<span style="color:var(--accent2)">✓ You're on the list for the ${nextRun?.name} run.</span> The commissioner will see it before the ${next.label} (${when}).
+         <div style="margin-top:8px"><button type="button" onclick="fantasySignup(${next.run}, false)" style="background:none;border:none;color:var(--text3);font-family:var(--pixel);font-size:5px;text-decoration:underline;cursor:pointer">TAKE ME OFF THE LIST</button></div>`
+      : `The ${run?.name||'current'} run is underway with the teams from its draft. Want a team in the ${nextRun?.name} run? The ${next.label} is ${when}.
+         <div style="margin-top:10px"><button type="button" class="btn btn-sm btn-primary" onclick="fantasySignup(${next.run}, true)" style="font-size:6px;padding:8px 14px">SAVE MY SPOT</button></div>`;
+  return `<div class="card" style="margin:10px 14px;padding:14px;text-align:center;font-family:var(--pixel);line-height:1.9">
+    <div style="font-size:7px;color:var(--accent3);margin-bottom:6px">🏀 NBA FANTASY</div>
+    <div style="font-size:5.5px;color:var(--text2)">${body}</div>
+  </div>`;
+}
+async function fantasySignup(runId, on){
+  const mid = getMyId(); if(!mid) return;
+  if(!leagueState.fantasySignups) leagueState.fantasySignups = {};
+  const list = leagueState.fantasySignups[runId] ||= {};
+  if(on) list[mid] = {at:new Date().toISOString()}; else delete list[mid];
+  await saveLeagueState();
+  if(!_lastSaveOk){ toast('Not saved. Try again.'); return; }
+  toast(on ? 'Spot saved! The commissioner will see it.' : 'Taken off the list');
+  renderHomeScreen();
+}
+// Commissioner: Home notice for sign-ups they haven't seen yet
+function renderSignupNotice(){
+  let el = document.getElementById('home-signup-notice');
+  if(!bbIsComm()){ if(el) el.remove(); return; }
+  const seen = new Set(leagueState.prefs?.[getMyId()]?.seenSignups || []);
+  const fresh = [];
+  for(const [run, list] of Object.entries(leagueState.fantasySignups||{}))
+    for(const [mid] of Object.entries(list||{})) if(!seen.has(`${run}:${mid}`)) fresh.push({run:+run, mid});
+  if(!fresh.length){ if(el) el.remove(); return; }
+  if(!el){ const anchor = document.getElementById('duel-card-container'); if(!anchor) return;
+    anchor.insertAdjacentHTML('beforebegin','<div id="home-signup-notice"></div>'); el = document.getElementById('home-signup-notice'); }
+  const nm = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name || 'Someone';
+  el.innerHTML = `<div class="card" style="margin:8px 14px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-family:var(--pixel);border-color:var(--accent3)">
+    <div style="flex:1;min-width:0;font-size:5.5px;line-height:1.9;color:var(--text2)"><span style="color:var(--accent3)">📝 FANTASY SIGN-UP${fresh.length>1?'S':''}</span><br>
+      ${fresh.map(f=>`${escHtmlBB(nm(f.mid))} wants a team in the ${RUNS.find(r=>r.id===f.run)?.name||''} run`).join('<br>')}</div>
+    <button type="button" class="btn btn-sm btn-secondary" style="font-size:5.5px;padding:6px 10px;flex-shrink:0" onclick="markSignupsSeen()">GOT IT</button>
+  </div>`;
+}
+async function markSignupsSeen(){
+  const me = getMyId(); if(!me) return;
+  const all = []; for(const [run, list] of Object.entries(leagueState.fantasySignups||{})) for(const mid of Object.keys(list||{})) all.push(`${run}:${mid}`);
+  if(!leagueState.prefs) leagueState.prefs = {};
+  leagueState.prefs[me] = {...(leagueState.prefs[me]||{}), seenSignups: all};
+  document.getElementById('home-signup-notice')?.remove();
+  await saveLeagueState();
+}
+function renderAdminSignupsSection(){
+  const nm = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id))?.display_name || id;
+  const runs = RUNS.filter(r=>Object.keys(leagueState.fantasySignups?.[r.id]||{}).length);
+  return `<div class="section-label" style="padding:12px 0 8px">FANTASY SIGN-UPS (FUTURE RUNS)</div>
+  <div class="card" style="margin:0;font-family:var(--pixel);font-size:6px;line-height:2;color:var(--text2)">
+    ${runs.length ? runs.map(r=>`<div><span style="color:var(--accent3)">${r.name.toUpperCase()}:</span> ${Object.entries(leagueState.fantasySignups[r.id]).map(([id,v])=>`${escHtmlBB(nm(id))} <span style="color:var(--text3)">(${new Date(v.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})})</span>`).join(', ')}</div>`).join('')
+      : '<span style="color:var(--text3)">Nobody yet. People who aren\'t in the current run can tap SAVE MY SPOT on their Home screen.</span>'}
+  </div>`;
+}
 // Managers playing a fantasy run = the teams in its schedule. Someone who signs up mid-run
 // (e.g. Ben Powell during the Fall run) plays Duels and the Weekly Challenge until the next draft.
 function runManagers(runId=currentRun){
@@ -3637,15 +3703,9 @@ function renderHomeScreen(){
   if(blk) blk.style.display = outOfRun ? 'none' : '';
   if(wait){
     wait.style.display = outOfRun ? '' : 'none';
-    if(outOfRun){
-      const next = DRAFT_WINDOWS.find(d=>d.run>runNow && new Date(d.end)>new Date());
-      const when = next ? new Date(next.start).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase() : '';
-      wait.innerHTML = `<div class="card" style="margin:10px 14px;padding:14px;text-align:center;font-family:var(--pixel);line-height:1.9">
-        <div style="font-size:7px;color:var(--accent3);margin-bottom:6px">🏀 FANTASY STARTS AT THE NEXT DRAFT</div>
-        <div style="font-size:5.5px;color:var(--text2)">The ${RUNS.find(r=>r.id===runNow)?.name||'current'} run was already underway when you joined.${next?` You're in for the ${next.label}${when?` (${when})`:''}.`:''} Until then: Daily Duel and the Weekly Line-up Challenge are all yours.</div>
-      </div>`;
-    }
+    if(outOfRun) wait.innerHTML = fantasySignupCardHtml(runNow, mid);
   }
+  renderSignupNotice();
   if(!outOfRun){ renderHomeMatchups(); renderQuickStats(); }
 }
 
@@ -7425,6 +7485,7 @@ async function renderAdminContent(){
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
   </div>
 
+  ${renderAdminSignupsSection()}
   ${renderAdminRosterEditorSection()}
   ${renderAdminLineupOverrideSection()}
   ${renderAdminLineupFixSection()}

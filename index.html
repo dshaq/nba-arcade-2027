@@ -1638,7 +1638,7 @@ html[data-theme="neon"]{
 <div id="app" style="display:none">
   <!-- Top bar -->
   <div id="top-bar">
-    <div class="logo" style="white-space:nowrap">NBA <span>ARCADE</span></div>
+    <div class="logo" role="link" tabindex="0" title="Home" style="white-space:nowrap;cursor:pointer" onclick="showScreen('home');appScrollTop()" onkeydown="if(event.key==='Enter'){showScreen('home');appScrollTop()}">NBA <span>ARCADE</span></div>
     <div id="user-chip">
       <button id="chat-btn" onclick="openChat()" title="League Chat">
         💬

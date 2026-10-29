@@ -1430,6 +1430,28 @@ img{display:block;}
 .bb-bar button{flex:1;font-family:var(--pixel);font-size:7px;padding:12px 6px;border-radius:6px;cursor:pointer;border:2px solid var(--border);background:var(--bg3);color:var(--text1)}
 .bb-bar button.primary{background:var(--accent3);border-color:var(--accent3);color:#1a1200}
 @media (prefers-reduced-motion:reduce){#bb-hero{animation:none}}
+.wch{margin:0 14px 12px;padding:12px 10px 10px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-family:var(--pixel)}
+.wch-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:6px;color:var(--text1);margin:0 2px 8px;letter-spacing:.04em}
+.wch-lock{color:var(--text3)}
+.wch-svg{width:100%;height:auto;display:block;overflow:visible}
+.wch-grid{stroke:var(--border);stroke-width:.6}
+.wch-ax{font-family:var(--pixel);font-size:6px;fill:var(--text3)}
+.wch-ax.now{fill:var(--accent3)}
+.wch-s polyline{fill:none;stroke:var(--c);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;transition:opacity .15s}
+.wch-s circle{fill:var(--c);stroke:var(--card);stroke-width:1}
+.wch.focus .wch-s{opacity:.15}
+.wch.focus .wch-s.on{opacity:1}
+.wch.focus .wch-s.on polyline{stroke-width:3}
+.wch-legend{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:8px}
+.wch-lg{display:flex;align-items:center;gap:5px;min-width:0;background:none;border:1px solid transparent;border-radius:6px;padding:4px;cursor:pointer;color:var(--text2);font-family:var(--pixel);font-size:5px;text-align:left}
+.wch-lg .rk{color:var(--text3);width:10px}
+.wch-lg .sw{width:10px;height:3px;border-radius:2px;background:var(--c);flex-shrink:0}
+.wch-lg .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wch-lg b{color:var(--text1);font-weight:normal}
+.wch.focus .wch-lg{opacity:.45}
+.wch.focus .wch-lg.on{opacity:1;border-color:var(--c)}
+.wch-note{font-size:5px;line-height:1.8;color:var(--text3);margin-top:8px}
+@media (max-width:360px){.wch-legend{grid-template-columns:1fr}}
 .rc-wrap{margin:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .rc-sec{display:flex;align-items:center;justify-content:space-between;font-family:var(--pixel);font-size:6px;letter-spacing:.12em;padding:0 10px;height:24px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--bg) 55%,transparent);}
 .rc-sec:first-child{border-top:none;}

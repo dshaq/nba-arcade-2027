@@ -1408,7 +1408,7 @@ img{display:block;}
 .bb-stage{position:relative;margin:6px 0 10px;border:3px solid #050410;border-radius:10px;box-shadow:0 0 0 2px var(--border);height:170px;display:flex;align-items:center;justify-content:center;overflow:hidden;
  background:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1.4px) 0 0/6px 6px,radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--accent1) 22%,#14122a),#0b0a18 72%)}
 .bb-stage::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
-#bb-hero{width:140px;height:140px;image-rendering:pixelated;animation:bbBob 1.6s steps(2,end) infinite;filter:drop-shadow(0 7px 0 rgba(0,0,0,.35))}
+#bb-hero{width:140px;height:140px;image-rendering:pixelated;transform-origin:50% 100%;animation:bbBob 1.6s steps(2,end) infinite;filter:drop-shadow(0 7px 0 rgba(0,0,0,.35))}
 @keyframes bbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .bb-tag{position:absolute;left:9px;top:9px;font-family:var(--pixel);font-size:5px;color:#8c88b8;line-height:1.9;z-index:1}
 .bb-tag b{color:#4adfff;font-weight:normal}

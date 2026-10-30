@@ -1659,7 +1659,10 @@ function avatarEl(name,color,size=22,fontSize=7,icon=null,photo=null){
   // Pixel ball characters stand on their own: no circle, no background color
   if(window.BB && BB.isBall(photo)){
     const u = BB.url(photo);
-    if(u) return `<img src="${u}" alt="" class="av-ball" style="width:${size}px;height:${size}px">`;
+    // Characters with a crown/horns are drawn bigger so every body matches; the extras
+    // reach above the box without taking more room in the row
+    const pc = BB.parse(photo)?.ch, k = pc ? BB.fit(pc) : 1, s = Math.round(size*k), d = s - size;
+    if(u) return `<img src="${u}" alt="" class="av-ball" style="width:${s}px;height:${s}px;${d?`margin:${-d}px ${-Math.round(d/2)}px 0;`:''}">`;
     photo = null;
   }
   if(photo){
@@ -7473,6 +7476,7 @@ function bbRender(){
   if(!_bb || !document.getElementById('bb-panel')) return;
   const {ch, pick, taken} = _bb, C = BB.CHARS[ch];
   BB.draw(document.getElementById('bb-hero'), pick, ch);
+  document.getElementById('bb-hero').style.scale = BB.fit(ch);
   document.getElementById('bb-who').textContent = C.name;
   document.getElementById('bb-style').textContent = _bb.style.toUpperCase();
   const strip = document.getElementById('bb-chars');

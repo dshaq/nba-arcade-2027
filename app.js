@@ -879,6 +879,24 @@ function teamLabel(m){ return m ? (m.team_name || m.display_name || '') : ''; }
 
 // Wrap a name so tapping it opens that manager's User Profile.
 // stopPropagation: many rows (e.g. matchup cards) have their own click handlers.
+// Tapping a team's avatar or name in a match-up opens that team's full roster (Rosters tab).
+// Someone who isn't in the current run has no roster, so they get their User Profile instead.
+function openTeamRoster(mid){
+  const m = runManagers(currentRun).find(x=>String(x.id)===String(mid));
+  if(!m){ showUserProfile(mid); return; }
+  ['matchup-detail-modal','user-profile-modal','week-results-modal'].forEach(id=>document.getElementById(id)?.remove());
+  rostersViewId = m.id; rostersDropMode = false; rostersMovePid = null;
+  currentFantasyTab = 'roster';
+  if(currentScreen!=='fantasy') showScreen('fantasy');
+  switchFantasyTab('roster');
+  appScrollTop();
+  // bring that team's pill into view in the team picker
+  setTimeout(()=>{ const on=[...document.querySelectorAll('#rosters-manager-tabs button')].find(b=>b.style.background.includes('accent1')); on?.scrollIntoView({block:'nearest', inline:'center'}); }, 30);
+}
+function rosterLink(mid, html){
+  if(mid===undefined || mid===null) return html;
+  return `<span class="user-link" onclick="event.stopPropagation();openTeamRoster('${mid}')" style="cursor:pointer">${html}</span>`;
+}
 function userLink(mid, text){
   if(mid===undefined || mid===null) return text;
   return `<span class="user-link" onclick="event.stopPropagation();showUserProfile('${mid}')" style="cursor:pointer">${text}</span>`;
@@ -5493,12 +5511,12 @@ function renderMatchupCard(){
     <div class="matchup-body">
       <div class="matchup-team">
         <span class="fp${myLeading?' leading':''}">${myFP.toFixed(1)}</span>
-        <div class="name">${userLink(mid,myName)}</div>
+        <div class="name">${rosterLink(mid,myName)}</div>
       </div>
       <div class="matchup-vs">VS</div>
       <div class="matchup-team">
         <span class="fp${!myLeading?' leading':''}">${oppFP.toFixed(1)}</span>
-        <div class="name" style="color:${oppColor}">${userLink(oppId,oppName)}</div>
+        <div class="name" style="color:${oppColor}">${rosterLink(oppId,oppName)}</div>
       </div>
     </div>
   </div>`;
@@ -5528,7 +5546,7 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
   const col = (m, rows) => {
     const shown = rows.filter(x=>x.fp!==0 || x.status==='active' || isFuture);
     return `<div>
-      <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:4px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${teamLabel(m).toUpperCase()}</div>
+      <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:4px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${rosterLink(m.id, teamLabel(m).toUpperCase())}</div>
       ${fpColsHead('', 'sm')}
       ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
         <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
@@ -5550,12 +5568,12 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
       <div style="display:flex;align-items:center;justify-content:space-around;padding:12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:12px">
         <div style="text-align:center">
           <div style="font-family:var(--pixel);font-size:16px;color:${!isFuture&&aLead?'var(--accent2)':'var(--text2)'}">${isFuture?'—':fpA.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:${A.color||'var(--text3)'};margin-top:4px">${userLink(A.id,teamLabel(A))}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${A.color||'var(--text3)'};margin-top:4px">${rosterLink(A.id,teamLabel(A))}</div>
         </div>
         <div style="font-family:var(--pixel);font-size:8px;color:var(--text3)">VS</div>
         <div style="text-align:center">
           <div style="font-family:var(--pixel);font-size:16px;color:${!isFuture&&!aLead?'var(--accent2)':'var(--text2)'}">${isFuture?'—':fpB.toFixed(1)}</div>
-          <div style="font-family:var(--pixel);font-size:5.5px;color:${B.color||'var(--text3)'};margin-top:4px">${userLink(B.id,teamLabel(B))}</div>
+          <div style="font-family:var(--pixel);font-size:5.5px;color:${B.color||'var(--text3)'};margin-top:4px">${rosterLink(B.id,teamLabel(B))}</div>
         </div>
       </div>
     </div>
@@ -6401,7 +6419,7 @@ function scheduleRowsHtml(week, wi, isCurrent, isPast){
   const managers=leagueState.managers||[];
   const myId=getMyId();
   const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
-  const side=(m,r)=>`<div class="vs-side${r?' r':''}">${avatarEl(m.display_name, m.color||'#4a9eff', 26, 8, m.icon||null, m.photo||null)}<div class="vs-n">${userLink(m.id, teamLabel(m).toUpperCase())}</div></div>`;
+  const side=(m,r)=>`<div class="vs-side${r?' r':''}">${rosterLink(m.id, avatarEl(m.display_name, m.color||'#4a9eff', 26, 8, m.icon||null, m.photo||null))}<div class="vs-n">${rosterLink(m.id, teamLabel(m).toUpperCase())}</div></div>`;
   return week.map(matchup=>{
     const h=getM(matchup.home), a=getM(matchup.away);
     const isMine=matchup.home===myId||matchup.away===myId;
@@ -6551,12 +6569,12 @@ function renderWeekMatchups(runId){
       <div class="matchup-body" style="padding:10px">
         <div class="matchup-team">
           <span class="fp" style="font-size:14px;${hFP>aFP?'color:var(--accent2)':''}">${hFP.toFixed(1)}</span>
-          <div class="name" style="color:${h.color}">${userLink(h.id,teamLabel(h))}</div>
+          <div class="name" style="color:${h.color}">${rosterLink(h.id,teamLabel(h))}</div>
         </div>
         <div class="matchup-vs" style="font-size:7px">VS</div>
         <div class="matchup-team">
           <span class="fp" style="font-size:14px;${aFP>hFP?'color:var(--accent2)':''}">${aFP.toFixed(1)}</span>
-          <div class="name" style="color:${a.color}">${userLink(a.id,teamLabel(a))}</div>
+          <div class="name" style="color:${a.color}">${rosterLink(a.id,teamLabel(a))}</div>
         </div>
       </div>
     </div>`;

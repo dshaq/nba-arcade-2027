@@ -9223,10 +9223,29 @@ function applyWlcPoolTweaks(weekKey, pool){
   return out;
 }
 
+// Hand-picked weeks: theme + 25 players in tier order (first 5 = $5 ... last 5 = $1).
+// Generating that week proposes this pool; it still goes through the usual approve step.
+const WLC_SET_POOLS = {
+  '2026-11-02': {theme:'Rookie Class', names:[
+    'Cameron Boozer','Yaxel Lendeborg','Caleb Wilson','Keaton Wagler','Darius Acuff Jr.',
+    'AJ Dybantsa','Meleek Thomas','Trevon Brazile','Darryn Peterson','Mikel Brown Jr.',
+    'Allen Graves','Aday Mara','Kingston Flemings','Baba Miller','Brayden Burries',
+    'Morez Johnson Jr.','Dailyn Swain','Sergio de Larrea','Emanuel Sharp','Chris Cenac Jr.',
+    'Hannes Steinbach','Tobi Lawal','Tarris Reed Jr.','Christian Anderson','Bennett Stirtz']},
+};
+function setWlcPool(wk){
+  const set = WLC_SET_POOLS[wk]; if(!set) return null;
+  const pool = set.names.map(n=>{ const cur = wlcFindPlayer(n), db = PLAYERS_DB.find(p=>normName(p.n)===normName(n));
+    const name = cur?.name || n;
+    return {...(db||{}), n:name, t:cur?.team||db?.t||'', fpPG:seasonFpPG(name, db?.fpPG ?? (cur ? estimateFpPG(cur) : 0))}; });
+  return { weekKey: wk, theme: set.theme, pool: assignTiers(pool) };
+}
+
 // Generate a WLC week proposal (commissioner-facing)
 // Called by commissioner to create next week's pool; auto-picks theme
 function generateWlcProposal(forDate){
   const wk = wlcWeekKey(forDate);
+  const preset = setWlcPool(wk); if(preset) return preset;
   // Suggest a theme based on week number (cycle through themes)
   // Parse week keys as local noon to avoid UTC boundary issues
   const parseWkDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d,12); };

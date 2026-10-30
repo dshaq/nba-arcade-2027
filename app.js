@@ -1113,7 +1113,9 @@ function wlcResultsData(wk){
     for(let k=i; k<n; k++){ if(cost+val[k].salary>WLC_SALARY_CAP) continue; pick.push(k); go(k+1, cost+val[k].salary, sum+val[k].avg); pick.pop(); }
   })(0, 0, 0);
   // Overlooked: the best $1-$2 player (by FP/G) nobody picked
-  const overlooked = val.filter(v=>v.salary<=2 && v.gp && !count[v.n]).sort((a,b)=>b.avg-a.avg)[0] || null;
+  // (no $1-$2 player qualifies? try $3, then $4, then $5, so someone is always listed)
+  const unpicked = val.filter(v=>v.gp && !count[v.n]).sort((a,b)=>b.avg-a.avg);
+  const overlooked = unpicked.find(v=>v.salary<=2) || unpicked.find(v=>v.salary===3) || unpicked.find(v=>v.salary===4) || unpicked[0] || null;
   // Biggest Game: the winning line-up's best single game
   let bigGame = null;
   for(const w of winners){ const l = lineups.find(([id])=>String(id)===String(w.id))?.[1]; if(!l) continue;
@@ -1134,20 +1136,20 @@ function wlcResultsHtml(D){
   const dShort = d => statDateObj(d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).toUpperCase();
   const pct = W && D.best?.sum ? Math.round(100*W.fp/D.best.sum) : null;
   // Row 1: Winner | % of Optimal | Biggest Game
-  const row1 = W ? `<div class="wlr-top">
-      <div class="wlr-cell" style="--ac:#ffd93d"><div class="wr-award-title">${D.winners.length>1?'WINNERS':'WINNER'}</div>
+  const row1 = W ? `<div class="wlr-winbox"><div class="wlr-wintag">🏆 THIS WEEK'S WINNER</div><div class="wlr-top">
+      <div class="wlr-cell"><div class="wr-award-title">${D.winners.length>1?'WINNERS':'WINNER'}</div>
         <div class="wlr-wins">${D.winners.map(w=>`<span title="${escHtmlBB(w.m.display_name)}">${avatarEl(w.m.display_name, w.m.color||'#4a9eff', D.winners.length>1?34:48, 12, w.m.icon||null, w.m.photo||null)}</span>`).join('')}</div>
         <div class="wlr-cname">${D.winners.map(w=>escHtmlBB(w.m.display_name)).join(' & ')}</div>
         <div class="wlr-big">${W.fp.toFixed(1)}<small>FP/G</small></div></div>
-      <div class="wlr-cell" style="--ac:#b36bff"><div class="wr-award-title">OF OPTIMAL</div>
+      <div class="wlr-cell"><div class="wr-award-title">% OF OPTIMAL LINEUP</div>
         <div class="wlr-ring" style="--p:${pct||0}"><b>${pct==null?'—':pct+'%'}</b></div>
-        <div class="wlr-csub">${W.fp.toFixed(1)} OF ${D.best ? D.best.sum.toFixed(1) : '—'}</div></div>
-      <div class="wlr-cell" style="--ac:#ff9f1c"><div class="wr-award-title">BIGGEST GAME</div>
+        <div class="wlr-csub">${W.fp.toFixed(1)} FP OF ${D.best ? D.best.sum.toFixed(1)+' FP' : '—'}</div></div>
+      <div class="wlr-cell"><div class="wr-award-title">BIGGEST GAME</div>
         ${D.bigGame ? `<div class="wlr-gimg" onclick="${pcardOnclick(pName(D.bigGame.name))}">${img(D.bigGame.name)}</div>
         <div class="wlr-cname">${escHtmlBB(playerShortName(pName(D.bigGame.name)))}</div>
         <div class="wlr-csub">${dShort(D.bigGame.date)}</div>
         <div class="wlr-big">${D.bigGame.fp.toFixed(1)}<small>FP</small></div>` : '<div class="wlr-csub">—</div>'}</div>
-    </div>` : '';
+    </div>__WINLINEUP__</div>` : '';
   const wl = W ? ((leagueState.wlc?.lineups||{})[D.wk]||{})[W.id] : null;
   const head = (t, sub, c) => `<div class="wlr-head" style="--ac:${c}"><span>${t}</span>${sub?`<b>${sub}</b>`:''}</div>`;
   // Row 3: Popular Kid | Overlooked
@@ -1157,10 +1159,10 @@ function wlcResultsHtml(D){
       <div class="wr-award-name">${escHtmlBB(pName(n))}</div><div class="wr-award-sub">${sub}</div></div>`;
   const row3 = (D.pop || D.overlooked) ? `<div class="wr-awards" style="margin-top:14px">
       ${D.pop ? kid('POPULAR KID', '#ff5fbf', D.pop.name, `${Math.round(100*D.pop.n/D.pop.of)}%`, `PICKED BY ${D.pop.n} OF ${D.pop.of}${D.pop.info?.gp?` · ${D.pop.info.avg.toFixed(1)} FP/G`:''}`) : '<div></div>'}
-      ${D.overlooked ? kid('OVERLOOKED', '#39ff6a', D.overlooked.n, D.overlooked.avg.toFixed(1), `$${D.overlooked.salary} · NOBODY PICKED HIM · FP/G`) : ''}
+      ${D.overlooked ? kid('OVERLOOKED', '#39ff6a', D.overlooked.n, D.overlooked.avg.toFixed(1), `$${D.overlooked.salary} · FP/G · NOBODY PICKED HIM`) : ''}
     </div>` : '';
-  return `${row1}
-    ${wl ? head('WINNING LINE-UP', `${W.fp.toFixed(1)} FP/G`, '#ffd93d') + wlcCardsGridHtml(W.id, D.wk, false) : ''}
+  const winLineup = wl ? `<div class="wlr-sub"><span>WINNING LINE-UP</span><b>${W.fp.toFixed(1)} FP/G</b></div>` + wlcCardsGridHtml(W.id, D.wk, false) : '';
+  return `${row1.replace('__WINLINEUP__', winLineup)}
     ${row3}
     ${D.best ? head('OPTIMAL LINE-UP', `${D.best.sum.toFixed(1)} FP/G · $${WLC_SALARY_CAP} CAP`, '#b36bff') + wlcResultCardsHtml([...D.best.list].sort((a,b)=>b.salary-a.salary)) + '<div class="wlr-note">The best 5 anyone could have picked under the cap this week.</div>' : ''}
     ${head('FINAL STANDINGS', '', '#4adfff')}
@@ -1212,12 +1214,6 @@ function showWeekResults(runId, idx, onClose, opts={}){
         ${team ? award('TEAM OF THE WEEK', '#ffd93d', avatarEl(team.m.display_name, team.m.color||'#4a9eff', 72, 20, team.m.icon||null, team.m.photo||null), teamLabel(team.m), team.m.display_name, team.fp) : ''}
         ${player ? award('PLAYER OF THE WEEK', '#39ff6a', `<img src="${port(player.p)}" onerror="this.style.visibility='hidden'">`, player.p.name, teamLabel(player.m), player.fp) : ''}
       </div>
-      ${pickups.length ? `<div class="wr-rowhead" style="--ac:#4adfff">${pickups.length>1?'BEST PICK-UPS':'BEST PICK-UP'}</div>
-      <div class="wr-awards">${pickups.map((x,i)=>award(`#${i+1} PICK-UP`, '#4adfff', `<img src="${port(x.p)}" onerror="this.style.visibility='hidden'">`, x.p.name, `ADDED BY ${escHtmlBB(teamLabel(x.m)).toUpperCase()}`, x.fp, pickups.length===1)).join('')}</div>` : ''}
-      ${letdown || surprise ? `<div class="wr-awards" style="margin-top:8px">
-        ${letdown ? swing('BIGGEST LETDOWN', '#ff5c6c', letdown) : ''}
-        ${surprise ? swing('NICEST SURPRISE', '#39ff6a', surprise) : ''}
-      </div>` : ''}
       <div class="section-label" style="padding:16px 0 6px">FINAL SCORES</div>
       <div class="card" style="padding:0;overflow:hidden;margin:0">
         ${week.map(mu=>{ const h=mgr(mu.home), a=mgr(mu.away); const hw=mu.winner===mu.home, aw=mu.winner===mu.away;
@@ -1230,6 +1226,12 @@ function showWeekResults(runId, idx, onClose, opts={}){
           </div>`; }).join('')}
       </div>
       <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:8px;text-align:center">TAP A MATCH-UP FOR ITS BOX SCORE</div>
+      ${letdown || surprise ? `<div class="wr-awards" style="margin-top:16px">
+        ${letdown ? swing('BIGGEST LETDOWN', '#ff5c6c', letdown) : ''}
+        ${surprise ? swing('NICEST SURPRISE', '#39ff6a', surprise) : ''}
+      </div>` : ''}
+      ${pickups.length ? `<div class="wr-rowhead" style="--ac:#4adfff">${pickups.length>1?'BEST PICK-UPS':'BEST PICK-UP'}</div>
+      <div class="wr-awards">${pickups.map((x,i)=>award(`#${i+1} PICK-UP`, '#4adfff', `<img src="${port(x.p)}" onerror="this.style.visibility='hidden'">`, x.p.name, `ADDED BY ${escHtmlBB(teamLabel(x.m)).toUpperCase()}`, x.fp, pickups.length===1)).join('')}</div>` : ''}
       </div>
     </div>
     <div class="top-sheet-actions"><button class="btn btn-primary btn-full" id="wr-continue">CONTINUE ▶</button></div>

@@ -5695,7 +5695,10 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
   const aLead = fpA>=fpB;
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const status = isFuture ? 'UPCOMING' : isCurrent ? 'THIS WEEK' : 'FINAL';
-  const tag = {active:'', bench:' <span style="color:var(--text3);font-size:4.5px">BENCH</span>', ir:' <span style="color:#805ad5;font-size:4.5px">IR</span>', dropped:' <span style="color:var(--text3);font-size:4.5px">DROPPED</span>'};
+  // The tag is where the player is NOW (a player benched or dropped today still keeps the
+  // points from the days he was Active), so say how many of his games counted
+  const tag = {active:'', bench:' <span style="color:var(--text3);font-size:4.5px">NOW BENCH</span>', ir:' <span style="color:#805ad5;font-size:4.5px">IR</span>', dropped:' <span style="color:var(--text3);font-size:4.5px">DROPPED</span>'};
+  const counted = x => isFuture ? '' : x.gp ? ` · <span style="color:var(--accent2)">${x.gp} GAME${x.gp===1?'':'S'} COUNTED</span>` : (x.status!=='active' ? ' · NOT COUNTED' : '');
   const col = (m, rows) => {
     const shown = rows.filter(x=>x.fp!==0 || x.status==='active' || isFuture);
     return `<div>
@@ -5703,7 +5706,7 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
       ${fpColsHead('', 'sm')}
       ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
         <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3)">${x.p.pos} · ${x.p.team}</div></div>
+        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.6">${x.p.pos} · ${x.p.team}${counted(x)}</div></div>
         <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsPairSmHtml(x.fp, x.p.id)}</div>
       </div>`).join('') || '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
     </div>`;

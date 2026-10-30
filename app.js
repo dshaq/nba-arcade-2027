@@ -5699,20 +5699,29 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
   const aLead = fpA>=fpB;
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const status = isFuture ? 'UPCOMING' : isCurrent ? 'THIS WEEK' : 'FINAL';
-  // The tag is where the player is NOW (a player benched or dropped today still keeps the
-  // points from the days he was Active), so say how many of his games counted
-  const tag = {active:'', bench:' <span style="color:var(--text3);font-size:4.5px">NOW BENCH</span>', ir:' <span style="color:#805ad5;font-size:4.5px">IR</span>', dropped:' <span style="color:var(--text3);font-size:4.5px">DROPPED</span>'};
-  const counted = x => isFuture ? '' : x.gp ? ` · <span style="color:var(--accent2)">${x.gp} GAME${x.gp===1?'':'S'} COUNTED</span>` : (x.status!=='active' ? ' · NOT COUNTED' : '');
+  // Each row says where the player is NOW and how many of his games counted: a player
+  // benched or dropped later in the week keeps the points from the days he was Active.
+  const now = {active:'', bench:'NOW ON BENCH', ir:'NOW ON IR', dropped:'DROPPED'};
+  const countLine = x => {
+    if(isFuture) return '';
+    const st = now[x.status] ? `<span style="color:${x.status==='ir'?'#b794f4':'var(--text3)'}">${now[x.status]}</span>` : '';
+    const c = x.gp ? `<span style="color:var(--accent2)">${x.gp} GAME${x.gp===1?'':'S'} COUNTED</span>` : '<span style="color:var(--text3)">NOT COUNTED</span>';
+    return `<div style="font-family:var(--pixel);font-size:4.5px;line-height:1.7">${st}${st?' · ':''}${c}</div>`;
+  };
+  const row = x => `<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}</div>
+        <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);line-height:1.7">${x.p.pos} · ${x.p.team}</div>${countLine(x)}</div>
+        <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsPairSmHtml(x.fp, x.p.id)}</div>
+      </div>`;
   const col = (m, rows) => {
     const shown = rows.filter(x=>x.fp!==0 || x.status==='active' || isFuture);
+    const act = shown.filter(x=>x.status==='active'), rest = shown.filter(x=>x.status!=='active');
     return `<div>
       <div style="font-family:var(--pixel);font-size:5.5px;color:${m.color||'var(--accent1)'};margin-bottom:4px;padding-bottom:4px;border-bottom:2px solid ${m.color||'var(--accent1)'}">${rosterLink(m.id, teamLabel(m).toUpperCase())}</div>
       ${fpColsHead('', 'sm')}
-      ${shown.map(x=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div style="min-width:0"><div onclick="${pcardOnclick(x.p.name)}" style="cursor:pointer;font-family:var(--pixel);font-size:6px;color:var(--text1)">${playerShortName(x.p.name)}${tag[x.status]}</div>
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);line-height:1.6">${x.p.pos} · ${x.p.team}${counted(x)}</div></div>
-        <div style="display:flex;align-items:center;gap:3px;white-space:nowrap">${x.isLive?'<span style="color:var(--accent4);font-family:var(--pixel);font-size:4.5px">LIVE</span>':''}${fpColsPairSmHtml(x.fp, x.p.id)}</div>
-      </div>`).join('') || '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
+      ${act.map(row).join('')}
+      ${rest.length ? `<div style="font-family:var(--pixel);font-size:4.5px;line-height:1.7;color:var(--accent3);padding:8px 0 3px">${isFuture?'BENCH / IR':'NO LONGER ACTIVE · POINTS FROM WHEN THEY WERE'}</div>${rest.map(row).join('')}` : ''}
+      ${shown.length ? '' : '<div style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">NO PLAYERS</div>'}
     </div>`;
   };
   document.getElementById('matchup-detail-modal')?.remove();

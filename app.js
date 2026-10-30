@@ -40,11 +40,13 @@ const AVATAR_COLORS = ['#00ff88','#fec419','#ff6600','#ff3366','#2cb50d','#cc44f
 // 2) Any single network call gives up after 20s (so a retry can go through) instead of hanging.
 const _authLocks = {};
 async function _authLock(name, acquireTimeout, fn){
-  const prev = _authLocks[name] || Promise.resolve();
+  // Wait (at most 3s) only for whoever holds it right now — never for a whole chain of
+  // earlier waiters, so one stuck holder can't slow every later request.
+  const holder = _authLocks[name];
+  if(holder) await Promise.race([holder, new Promise(r=>setTimeout(r, 3000))]);
   let release; const mine = new Promise(r=>release=r);
-  _authLocks[name] = prev.then(()=>mine, ()=>mine);
-  await Promise.race([prev.catch(()=>{}), new Promise(r=>setTimeout(r, 4000))]);
-  try{ return await fn(); } finally { release(); }
+  _authLocks[name] = mine;
+  try{ return await fn(); } finally { release(); if(_authLocks[name]===mine) delete _authLocks[name]; }
 }
 function _fetchWithTimeout(input, init={}){
   const ac = new AbortController(), t = setTimeout(()=>ac.abort(), 20000);
@@ -1799,11 +1801,11 @@ let _leagueStateQueue = Promise.resolve(); // serializes saves and pulls
 // Run a save/pull in the queue, but never let one stuck network call block the queue: a phone
 // that wakes from the background can leave a request hanging forever, and every save after it
 // would silently wait behind it. After `ms` the queue moves on (the stuck call is abandoned).
-let _saveTimedOut = false;
+let _saveTimedOut = false, _lastStallStep = '';
 function queueLeagueOp(fn, ms, label){
   _leagueStateQueue = _leagueStateQueue.then(()=>{
     let timer;
-    const timeout = new Promise(res=>{ timer = setTimeout(()=>{ console.warn(`[${label}] timed out after ${ms/1000}s, moving on`); if(label==='saveLeagueState'){ _lastSaveOk = false; _saveTimedOut = true; } res(); }, ms); });
+    const timeout = new Promise(res=>{ timer = setTimeout(()=>{ console.warn(`[${label}] timed out after ${ms/1000}s, moving on${label==='saveLeagueState'?` — stuck while ${_saveStep} for ${((Date.now()-_saveStepAt)/1000).toFixed(0)}s`:''}`); if(label==='saveLeagueState'){ _lastSaveOk = false; _saveTimedOut = true; _lastStallStep = _saveStep; } res(); }, ms); });
     return Promise.race([Promise.resolve().then(fn).finally(()=>clearTimeout(timer)), timeout]);
   }).catch(e=>console.warn(`[${label}]`, e));
   return _leagueStateQueue;
@@ -2064,21 +2066,28 @@ function logActiveChanges(){
 let _lastSaveOk = false; // did the most recent saveLeagueState() land?
 // Merge-safe AND race-safe: the write only lands if nobody else saved since we read
 // (updated_at must still match). If someone did, re-read, re-merge and try again.
+// What the current save is doing, for the "didn't save" message and the console
+let _saveStep = '', _saveStepAt = 0;
+const _setSaveStep = st => { _saveStep = st; _saveStepAt = Date.now(); };
 function saveLeagueState(){
+  _setSaveStep('waiting for an earlier sync to finish');
   return queueLeagueOp(async ()=>{
-    _lastSaveOk = false; _saveTimedOut = false;
+    _lastSaveOk = false; _saveTimedOut = false; const _t0 = Date.now();
     if(_staleReloading) return;
     logActiveChanges();
     for(let attempt=0; attempt<6; attempt++){
       const startJson = JSON.stringify(leagueState);
+      _setSaveStep(`checking for others' changes (try ${attempt+1})`);
       const r = await fetchRemoteLeagueStateIfChanged();
       if(r && handleStaleClient(r.state)) return;
+      _setSaveStep('merging');
       const toWrite = (r && _leagueBaseJson)
         ? merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), r.state)
         : JSON.parse(startJson);
       toWrite.minBuild = Math.max(+toWrite.minBuild||0, APP_BUILD);
       const json = JSON.stringify(toWrite);
       let error, landed = true, newTs = null;
+      _setSaveStep(`uploading ${Math.round(json.length/1024)} KB (try ${attempt+1})`);
       if(r && r.ts){
         const res = await db.from('leagues').update({state:json}).eq('id',LEAGUE_KEY).eq('updated_at', r.ts).select('updated_at');
         error = res.error; landed = !error && (res.data||[]).length > 0;
@@ -2104,6 +2113,7 @@ function saveLeagueState(){
       _leagueBaseJson = json;
       _leagueTs = newTs;   // null (unknown) → next pull/save downloads the row
       _lastSaveOk = true;
+      console.info(`[saveLeagueState] saved in ${((Date.now()-_t0)/1000).toFixed(1)}s (try ${attempt+1}, ${Math.round(json.length/1024)} KB)`);
       return;
     }
     console.warn('[saveLeagueState] gave up after repeated conflicts');
@@ -7558,7 +7568,7 @@ async function _saveAvatarChoice(mid, ch, pick, tok){
   await saveLeagueState();
   if(!_lastSaveOk && _saveTimedOut){ bbStatus('Slow connection… trying again', 'busy'); await saveLeagueState(); }
   if(!_lastSaveOk){
-    bbStatus(_saveTimedOut ? 'The connection stalled and it did NOT save. Tap SAVE to try again.' : 'It did NOT save. Tap SAVE to try again.', 'err');
+    bbStatus(_saveTimedOut ? `The connection stalled and it did NOT save (stuck while ${_lastStallStep}). Tap SAVE to try again.` : 'It did NOT save. Tap SAVE to try again.', 'err');
     return;
   }
   bbStatus('', 'ok');

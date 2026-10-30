@@ -7634,6 +7634,31 @@ function bbAnimTick(){
   } else if(kind && now >= _bb.nextFx){ _bb.fxStart = now; _bb.fx = kind==='blink' ? {blink:true} : {[kind]:0}; dirty = true; }
   if(dirty) bbDrawHero();
 }
+// Side-scrolling strips: arrows (mouse users can't swipe) + mouse wheel scrolls sideways
+function bbStrips(){
+  document.querySelectorAll('#avatar-modal .bb-strip').forEach(st=>{
+    let wrap = st.parentNode;
+    if(!wrap.classList.contains('bb-sc')){
+      wrap = document.createElement('div'); wrap.className = 'bb-sc';
+      st.parentNode.insertBefore(wrap, st); wrap.appendChild(st);
+      wrap.insertAdjacentHTML('beforeend', `<button type="button" class="bb-arr l" aria-label="Scroll left" tabindex="-1">‹</button><button type="button" class="bb-arr r" aria-label="Scroll right" tabindex="-1">›</button>`);
+      const step = d => st.scrollBy({left: d*Math.max(120, st.clientWidth*0.8), behavior:'smooth'});
+      wrap.querySelector('.l').onclick = e=>{ e.stopPropagation(); step(-1); };
+      wrap.querySelector('.r').onclick = e=>{ e.stopPropagation(); step(1); };
+      st.addEventListener('wheel', e=>{ if(Math.abs(e.deltaY) > Math.abs(e.deltaX) && st.scrollWidth > st.clientWidth){ e.preventDefault(); st.scrollBy({left:e.deltaY}); } }, {passive:false});
+      st.addEventListener('scroll', ()=>bbArrowState(wrap, st), {passive:true});
+    }
+    // keep the picked tile in view, then show/hide the arrows
+    const on = st.querySelector('.bb-tile.on');
+    if(on && (on.offsetLeft < st.scrollLeft || on.offsetLeft+on.offsetWidth > st.scrollLeft+st.clientWidth)) st.scrollLeft = on.offsetLeft - 8;
+    bbArrowState(wrap, st);
+  });
+}
+function bbArrowState(wrap, st){
+  const max = st.scrollWidth - st.clientWidth;
+  wrap.querySelector('.l').hidden = st.scrollLeft <= 2;
+  wrap.querySelector('.r').hidden = st.scrollLeft >= max - 2;
+}
 function bbToColor(){
   if(_bb.stage!=='color'){ _bb.pick = BB.fresh(_bb.ch); _bb.style = 'Original'; }
   _bb.stage = 'color'; _bb.mode = 'styles'; _bb.part = null; bbFlash(); bbRender(false);

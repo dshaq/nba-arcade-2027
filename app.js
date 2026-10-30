@@ -7534,7 +7534,8 @@ function bbRender(slide){
   if(color) _bb.shown = pick;
   else if(_bb.shownCh!==ch || _bb.lastStage==='color'){ _bb.shown = BB.fresh(ch); _bb.cycleIdx = 0; _bb.cycleAt = Date.now()+1800; }
   _bb.shownCh = ch; _bb.lastStage = _bb.stage;
-  bbDrawHero(false);
+  if(_bb.fxCh !== ch){ _bb.fx = {}; _bb.fxStart = 0; _bb.fxCh = ch; _bb.nextFx = Date.now() + 1200; }
+  bbDrawHero();
   if(slide){ hero.classList.remove('swap'); void hero.offsetWidth; hero.classList.add('swap'); }
   document.getElementById('bb-who').textContent = C.name;
   document.getElementById('bb-style').textContent = color && _bb.style!=='Original' ? _bb.style.toUpperCase() : '';
@@ -7572,7 +7573,7 @@ function bbRender(slide){
   bbStrips();
 }
 function bbStageOnly(){
-  _bb.shown = _bb.pick; bbDrawHero(false);
+  _bb.shown = _bb.pick; bbDrawHero();
   document.getElementById('bb-style').textContent = _bb.style!=='Original' ? _bb.style.toUpperCase() : '';
 }
 // One line of personality for each Baller (shown in the stage's open space)
@@ -7589,63 +7590,49 @@ function bbLeagueHtml(ch){
   return `<span class="bs-lg-t">IN YOUR LEAGUE</span><span class="bs-lg-av">${users.slice(0,6).map(x=>`<img src="${BB.url(x.tok)}" alt="" title="${escHtmlBB(x.m.display_name)}">`).join('')}${users.length>6?`<i>+${users.length-6}</i>`:''}</span>`;
 }
 // Size the hero so the tallest Baller (crown, horns) still fits the stage while he bobs
-function bbDrawHero(blink){
+const BB_PAD = {jack:9};   // extra room above/right of Jack for his smoke
+function bbDrawHero(){
   const hero = document.getElementById('bb-hero'), st = document.getElementById('bs-stage'); if(!hero || !_bb) return;
-  const ch = _bb.shownCh || _bb.ch, k = BB.fit(ch);
-  BB.draw(hero, _bb.shown || _bb.pick, ch, 1, {blink});
+  const ch = _bb.shownCh || _bb.ch, k = BB.fit(ch), pad = BB_PAD[ch]||0, S = BB.size(ch), fx = _bb.fx||{};
+  BB.draw(hero, _bb.shown || _bb.pick, ch, 1, {blink:fx.blink, shine:fx.shine, smoke:fx.smoke, pad});
   if(st){ const avail = st.clientHeight - 8 - 7 - 10;   // bottom gap, bob, headroom
-    hero.style.width = Math.max(60, Math.min(160, st.clientWidth*0.48, avail/k)) + 'px'; }
+    const w = Math.max(60, Math.min(160, st.clientWidth*0.48, avail/k));
+    hero.style.width = (w*(S+pad)/S) + 'px'; }
+  hero.style.transformOrigin = `${(S/2)/(S+pad)*100}% 100%`;
   hero.style.scale = k;
-  document.querySelector('#avatar-modal .bs-box')?.style.setProperty('--bc', bbMainColor(ch, _bb.shown || _bb.pick));
+  // the stage keeps the Baller's own color while his styles flip by on the roster
+  const tint = _bb.stage==='color' ? (_bb.shown || _bb.pick) : BB.fresh(ch);
+  document.querySelector('#avatar-modal .bs-box')?.style.setProperty('--bc', bbMainColor(ch, tint));
 }
-// Idle animation on the stage: a blink every few seconds, and on the roster the Baller
-// flips through his styles so you can see his colors before picking him
+// Idle animation on the stage: a blink every few seconds (Jake's glasses shine, Jack puffs
+// smoke instead), and on the roster the Baller slowly shows off his styles
 let _bbAnim = null;
 function bbAnimStart(){
   if(_bbAnim) return;
   if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  _bb.nextBlink = Date.now() + 1500;
-  _bbAnim = setInterval(bbAnimTick, 90);
+  _bb.fx = {}; _bb.nextFx = Date.now() + 1500;
+  _bbAnim = setInterval(bbAnimTick, 70);
 }
 function bbAnimTick(){
   if(!_bb || !document.getElementById('bs-stage')){ clearInterval(_bbAnim); _bbAnim = null; return; }
-  const now = Date.now(), ch = _bb.shownCh || _bb.ch;
+  const now = Date.now(), ch = _bb.shownCh || _bb.ch, fx = _bb.fx || (_bb.fx = {});
+  let dirty = false;
   if(_bb.stage==='roster' && now >= (_bb.cycleAt||0)){
     const W = BB.COLORWAYS[ch] || [];
-    if(W.length > 1){ _bb.cycleIdx = ((_bb.cycleIdx||0) + 1) % W.length; _bb.shown = {...BB.fresh(ch), ...W[_bb.cycleIdx][1]}; bbDrawHero(!!_bb.blinkUntil); }
-    _bb.cycleAt = now + 1300;
+    if(W.length > 1){ _bb.cycleIdx = ((_bb.cycleIdx||0) + 1) % W.length; _bb.shown = {...BB.fresh(ch), ...W[_bb.cycleIdx][1]}; dirty = true; }
+    _bb.cycleAt = now + 3200;
   }
-  if(_bb.blinkUntil && now >= _bb.blinkUntil){
-    _bb.blinkUntil = 0; bbDrawHero(false);
-    _bb.nextBlink = now + (Math.random() < .25 ? 220 : 2400 + Math.random()*2200);   // now and then a double blink
-  } else if(!_bb.blinkUntil && now >= (_bb.nextBlink||0) && BB.canBlink(ch)){
-    _bb.blinkUntil = now + 140; bbDrawHero(true);
-  }
-}
-// Side-scrolling strips: arrows (mouse users can't swipe) + mouse wheel scrolls sideways
-function bbStrips(){
-  document.querySelectorAll('#avatar-modal .bb-strip').forEach(st=>{
-    let wrap = st.parentNode;
-    if(!wrap.classList.contains('bb-sc')){
-      wrap = document.createElement('div'); wrap.className = 'bb-sc';
-      st.parentNode.insertBefore(wrap, st); wrap.appendChild(st);
-      wrap.insertAdjacentHTML('beforeend', `<button type="button" class="bb-arr l" aria-label="Scroll left" tabindex="-1">‹</button><button type="button" class="bb-arr r" aria-label="Scroll right" tabindex="-1">›</button>`);
-      const step = d => st.scrollBy({left: d*Math.max(120, st.clientWidth*0.8), behavior:'smooth'});
-      wrap.querySelector('.l').onclick = e=>{ e.stopPropagation(); step(-1); };
-      wrap.querySelector('.r').onclick = e=>{ e.stopPropagation(); step(1); };
-      st.addEventListener('wheel', e=>{ if(Math.abs(e.deltaY) > Math.abs(e.deltaX) && st.scrollWidth > st.clientWidth){ e.preventDefault(); st.scrollBy({left:e.deltaY}); } }, {passive:false});
-      st.addEventListener('scroll', ()=>bbArrowState(wrap, st), {passive:true});
-    }
-    // keep the picked tile in view, then show/hide the arrows
-    const on = st.querySelector('.bb-tile.on');
-    if(on && (on.offsetLeft < st.scrollLeft || on.offsetLeft+on.offsetWidth > st.scrollLeft+st.clientWidth)) st.scrollLeft = on.offsetLeft - 8;
-    bbArrowState(wrap, st);
-  });
-}
-function bbArrowState(wrap, st){
-  const max = st.scrollWidth - st.clientWidth;
-  wrap.querySelector('.l').hidden = st.scrollLeft <= 2;
-  wrap.querySelector('.r').hidden = st.scrollLeft >= max - 2;
+  const kind = BB.FX[ch] || (BB.canBlink(ch) ? 'blink' : null);
+  if(_bb.fxCh !== ch){ _bb.fxCh = ch; _bb.fx = {}; _bb.fxStart = 0; _bb.nextFx = now + 1200; dirty = true; }
+  const len = {blink:140, shine:650, smoke:1900}[kind];
+  if(kind && _bb.fxStart){
+    const t = (now - _bb.fxStart) / len;
+    if(t >= 1){ _bb.fx = {}; _bb.fxStart = 0;
+      _bb.nextFx = now + (kind==='blink' ? (Math.random() < .25 ? 220 : 2400 + Math.random()*2200) : 2600 + Math.random()*2400); }
+    else _bb.fx = kind==='blink' ? {blink:true} : {[kind]: t};
+    dirty = true;
+  } else if(kind && now >= _bb.nextFx){ _bb.fxStart = now; _bb.fx = kind==='blink' ? {blink:true} : {[kind]:0}; dirty = true; }
+  if(dirty) bbDrawHero();
 }
 function bbToColor(){
   if(_bb.stage!=='color'){ _bb.pick = BB.fresh(_bb.ch); _bb.style = 'Original'; }

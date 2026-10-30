@@ -1055,7 +1055,7 @@ function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%
 // ── WEEKLY RESULTS POP-UP ────────────────────────────────────────────────────
 // The most recent finished matchup week across runs: {runId, idx, range} or null
 function latestFinishedWeek(today){
-  today = today || ymd(new Date());
+  today = today || ymd(etWallNow());
   let best = null;
   for(const run of RUNS){
     const sched = (leagueState?.schedule||{})[run.id]||[];
@@ -1764,6 +1764,12 @@ function fmtRunDate(s){ return parseLocalDate(s).toLocaleDateString('en-US',{mon
 function todayStr(){ return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,''); } // ET date, YYYYMMDD
 // ── MATCHUP WEEKS: Monday–Sunday ─────────────────────────────────────────────
 // One definition used everywhere: FP totals, the schedule, records, profiles.
+// ── LEAGUE CLOCK ─────────────────────────────────────────────────────────────
+// The league runs on US Eastern time: match-up weeks, lineup days, lock times and the
+// Weekly Challenge all turn over by the Eastern calendar, wherever someone is. Never use a
+// device's own date for league logic: use etWallNow() (a Date whose year/month/day/hour read
+// as Eastern wall-clock time) or the YYYYMMDD Eastern date helpers (todayYmd, etDateStr).
+function etWallNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); }
 function mondayOf(d){
   const x=new Date(d); x.setHours(0,0,0,0);
   const dow=x.getDay(); x.setDate(x.getDate()-(dow===0?6:dow-1));
@@ -1783,7 +1789,7 @@ function runWeekCount(runId){
   const run=RUNS.find(r=>r.id===runId);
   return Math.round((mondayOf(runEndDate(run))-mondayOf(runStartDate(run)))/(7*864e5))+1;
 }
-function currentWeekStart(){ return mondayOf(new Date()); }
+function currentWeekStart(){ return mondayOf(etWallNow()); }
 
 // A team's FP over a date range from saved stats (only games he was Active for)
 function teamFPForDates(mid, from, to, byDate){
@@ -1803,7 +1809,7 @@ function fillMatchupResults(){
     const k=`${e.pid}_${e.date}`; if(seen.has(k)) continue; seen.add(k);
     (byDate[String(e.date)] ||= []).push(e);
   }
-  const today=ymd(new Date());
+  const today=ymd(etWallNow());
   for(const run of RUNS){
     const sched=(leagueState?.schedule||{})[run.id]||[];
     sched.forEach((week,idx)=>{
@@ -3607,12 +3613,12 @@ async function swapActiveBench(mid, a, b){
 
 // ── CURRENT RUN LOGIC ────────────────────────────────────────────────────────
 function getCurrentRun(){
-  const today=new Date();
+  const today=etWallNow();
   for(const run of RUNS){
     if(today>=runStartDate(run) && today<=runEndDate(run)) return run;
   }
   // Return nearest upcoming run
-  const upcoming=RUNS.find(r=>new Date(r.start)>today);
+  const upcoming=RUNS.find(r=>parseLocalDate(r.start)>today);
   return upcoming || RUNS[RUNS.length-1];
 }
 
@@ -5921,7 +5927,7 @@ function findMyMatchup(mid, runId){
 
 function getCurrentWeekIndex(runId){
   const run=RUNS.find(r=>r.id===runId); if(!run) return -1;
-  const now=new Date();
+  const now=etWallNow();
   if(now<mondayOf(runStartDate(run))) return -1;
   return Math.round((mondayOf(now)-mondayOf(runStartDate(run)))/(7*864e5));
 }
@@ -6105,7 +6111,7 @@ function renderRunBar(){
   const el=document.getElementById('run-bar'); if(!el) return;
   const run=RUNS.find(r=>r.id===currentRun); if(!run) return;
   const total=runWeekCount(run.id), cur=getCurrentWeekIndex(run.id);
-  const now=new Date(), ended=now>runEndDate(run);
+  const now=etWallNow(), ended=now>runEndDate(run);
   const end=runEndDate(run).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
   const startTxt=runStartDate(run).toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const left = cur<0 ? `STARTS ${startTxt.toUpperCase()}` : ended ? 'RUN COMPLETE' : `WEEK ${cur+1} OF ${total}`;
@@ -6660,7 +6666,7 @@ function renderFantasyRunContent(){
   const now = new Date();
   const draftStart = draftWindow ? new Date(draftWindow.start) : null;
   const draftEnd = draftWindow ? new Date(draftWindow.end) : null;
-  const draftIsToday = draftStart && draftStart.toDateString() === now.toDateString();
+  const draftIsToday = draftStart && etDateStr(draftStart) === etDateStr(now);
   const draftIsComing = draftStart && now < draftStart;
   const draftIsLive = draftStart && draftEnd && now >= draftStart && now <= draftEnd;
   if(!hasDraftHappened){
@@ -9096,7 +9102,7 @@ function assignTiers(pool){
 // exists — or the commissioner is generating it — that next week is "current".
 function _wlcRealWeek(w){ return w && !w.testers; }
 function wlcSundayNextKey(){
-  const now = new Date();
+  const now = etWallNow();
   if(now.getDay() !== 0) return null;
   const cur = _wlcWeekKeyRaw(), nxt = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 12);
   const nk = _wlcWeekKeyRaw(nxt);
@@ -9115,7 +9121,7 @@ function _wlcWeekKeyRaw(date){
   // Use local date to avoid UTC midnight boundary issues
   let d;
   if(!date){
-    d = new Date();
+    d = etWallNow();
   } else if(typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)){
     // Parse YYYY-MM-DD as local noon to avoid UTC/local day boundary bugs
     const [y,m,day] = date.split('-').map(Number);
@@ -9611,7 +9617,7 @@ function renderWlcScreen(){
 
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const [ws, we] = wlcWeekRange(wk);
-  const lockAt = (!locked && week.tipoffTime) ? ' · LOCKS ' + new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}).toUpperCase() : '';
+  const lockAt = (!locked && week.tipoffTime) ? ' · LOCKS ' + new Date(week.tipoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase() + ' ET' : '';
   const lockTxt = locked ? '🔒 PICKS LOCKED' : '<span class="nw">MAKE PICKS BEFORE</span> <span class="nw">MONDAY\'S FIRST TIP-OFF</span>';
   const tabBtn = (id,label) => `<button onclick="window._wlcTab='${id}';renderWlcScreen()" style="flex:1;padding:9px;background:none;border:none;font-family:var(--pixel);font-size:6px;cursor:pointer;color:${tab===id?'var(--accent2)':'var(--text3)'};border-bottom:${tab===id?'2px solid var(--accent2)':'none'}">${label}</button>`;
 

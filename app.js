@@ -5705,7 +5705,7 @@ function showMatchupDetail(homeId, awayId, runId, weekIdx){
   const countLine = x => {
     if(isFuture) return '';
     const st = now[x.status] ? `<span style="color:${x.status==='ir'?'#b794f4':'var(--text3)'}">${now[x.status]}</span>` : '';
-    const c = x.gp ? `<span style="color:var(--accent2)">${x.gp} GAME${x.gp===1?'':'S'} COUNTED</span>` : '<span style="color:var(--text3)">NOT COUNTED</span>';
+    const c = x.gp ? `<span style="color:var(--accent2)">${x.gp} GAME${x.gp===1?'':'S'} COUNTED</span>` : `<span style="color:var(--text3)">${x.status==='active'?'NO GAMES YET':'NOT COUNTED'}</span>`;
     return `<div style="font-family:var(--pixel);font-size:4.5px;line-height:1.7">${st}${st?' · ':''}${c}</div>`;
   };
   const row = x => `<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)">

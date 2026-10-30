@@ -1672,6 +1672,8 @@ html[data-theme="neon"]{
 
 .optimize-alert{background:none;border:none;padding:4px 0;font-family:var(--pixel);font-size:5.5px;color:#ff3b5c;cursor:pointer;text-shadow:0 0 6px rgba(255,59,92,.5);animation:optBlink 1.6s steps(2,end) infinite;white-space:nowrap}
 .optimize-alert[hidden]{display:none}
+.ir-tip{margin:2px 14px 8px;padding:8px 10px;border:1px solid #805ad5;border-radius:6px;background:rgba(128,90,213,.12);font-family:var(--pixel);font-size:5.5px;line-height:1.8;color:var(--text2)}
+.ir-tip b{color:#c4a8ff;font-weight:normal} .ir-tip span{color:var(--accent1);cursor:pointer;text-decoration:underline}
 @keyframes optBlink{50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.optimize-alert{animation:none}}
 .sb-side-btn{flex-shrink:0;margin-left:4px;font-family:var(--pixel);font-size:5px;line-height:1.5;background:var(--bg3);border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:5px 6px;cursor:pointer;min-height:28px;}
@@ -1817,7 +1819,7 @@ html[data-theme="neon"]{
     <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;padding-top:8px;padding-bottom:6px">
       <span>⚔️ CURRENT MATCH-UPS</span>
       <span style="display:flex;align-items:center;gap:8px">
-      <button type="button" id="optimize-alert" class="optimize-alert" hidden onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')">⚠ OPTIMIZE LINE-UP!</button>
+      <button type="button" id="optimize-alert" class="optimize-alert" hidden onclick="rostersViewId=getMyId();rostersDay=null;rostersDropMode=false;showScreen('fantasy');switchFantasyTab('roster')">⚠ OPTIMIZE LINE-UP!</button>
       <button class="btn btn-sm btn-secondary" onclick="rostersViewId=getMyId();showScreen('fantasy');switchFantasyTab('roster')" style="font-size:5.5px;padding:5px 10px;min-height:28px">MANAGE MY LINE-UP</button></span>
     </div>
     <div id="home-matchups-container"></div>

@@ -3826,9 +3826,22 @@ function lineupNeedsOptimizing(mid){
   const activeIdle = active.some(id=>roster.includes(id) && !plays(id));
   return benchReady && activeIdle;
 }
+// Open IR spot + a player listed OUT on the roster: he could go on IR, freeing a spot for a pickup
+function irSuggestion(mid){
+  if(!mid || !leagueState || getIrSlot(mid)) return null;
+  const roster = (leagueState.rosters||{})[mid]||[];
+  for(const id of roster){ const p = getPlayer(id); if(p && injuryInfo(p.name)?.isOut) return p; }
+  return null;
+}
+function lineupAlertText(mid){
+  const opt = lineupNeedsOptimizing(mid), ir = irSuggestion(mid);
+  return opt && ir ? '⚠ OPTIMIZE LINE-UP + IR!' : opt ? '⚠ OPTIMIZE LINE-UP!' : ir ? '⚠ OPEN IR SPOT!' : '';
+}
 function renderOptimizeAlert(outOfRun){
   const el = document.getElementById('optimize-alert'); if(!el) return;
-  el.hidden = !!outOfRun || !lineupNeedsOptimizing(getMyId());
+  const mid = getMyId(), txt = outOfRun ? '' : lineupAlertText(mid), ir = !outOfRun && irSuggestion(mid);
+  el.hidden = !txt; el.textContent = txt;
+  el.title = ir ? `${ir.name} is OUT and your IR spot is open. Move him to IR and pick up someone.` : '';
 }
 function renderHomeScreen(){
   renderWlcHomeBanner();
@@ -6020,7 +6033,7 @@ function renderFantasyHub(){
   el.innerHTML = `<div class="fhub">
     ${tile('standings', rank && inRun ? ordinal(rank) : '—', rec && inRun ? `${rec.wins}-${rec.losses}${rec.ties?'-'+rec.ties:''} · ${rec.fp.toFixed(0)} FP` : 'League table')}
     ${tile('schedule', `WEEK ${wk+1}`, mu ? `vs ${escHtmlBB(teamLabel(opp)||'?')} · ${myFp.toFixed(0)}–${oppFp.toFixed(0)}` : 'All match-ups')}
-    ${tile('roster', inRun ? `${act}/${ACTIVE_SIZE}` : '—', inRun ? 'ACTIVE' : 'Every team\'s roster', inRun && lineupNeedsOptimizing(mid) ? '<span class="fh-alert">⚠ OPTIMIZE LINE-UP!</span>' : '')}
+    ${tile('roster', inRun ? `${act}/${ACTIVE_SIZE}` : '—', inRun ? 'ACTIVE' : 'Every team\'s roster', inRun && lineupAlertText(mid) ? `<span class="fh-alert">${lineupAlertText(mid)}</span>` : '')}
     ${tile('waivers', inRun ? `${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}` : '—', inRun ? 'ADDS LEFT THIS WEEK' : 'Free agents', myScoutList().length ? `<span class="fh-note">🔭 ${myScoutList().length} SCOUTED</span>` : '')}
     ${tile('draft', nd ? when : '—', nd ? nd.label : 'Draft board')}
   </div>`;
@@ -6744,6 +6757,8 @@ function renderRostersScreen(){
     </div>
     ${isMyRoster ? dayStripHtml(rostersViewId, weekDays, viewDay, todayD) : ''}
     ${rostersDropMode&&isMyRoster ? `<div style="padding:4px 14px 6px;font-family:var(--pixel);font-size:5.5px;color:#ffd93d">⚠ SELECT A PLAYER TO DROP FROM YOUR ROSTER</div>` : ''}
+    ${(()=>{ const sug = isMyRoster && !isFutureDay && !isPastDay && !rostersDropMode ? irSuggestion(rostersViewId) : null;
+      return sug ? `<div class="ir-tip">⚠ <b>${escHtmlBB(playerShortName(sug.name))}</b> IS OUT AND YOUR IR SPOT IS OPEN. TAP <b>→ IR</b> ON HIS ROW, THEN PICK UP A PLAYER IN <span onclick="switchFantasyTab('waivers')">WAIVERS ›</span></div>` : ''; })()}
     ${(()=>{
       if(!isMyRoster || rostersMovePid==null || !getPlayer(rostersMovePid)) return '';
       if(isFutureDay){

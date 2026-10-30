@@ -48,10 +48,29 @@ async function _authLock(name, acquireTimeout, fn){
   _authLocks[name] = mine;
   try{ return await fn(); } finally { release(); if(_authLocks[name]===mine) delete _authLocks[name]; }
 }
-function _fetchWithTimeout(input, init={}){
-  const ac = new AbortController(), t = setTimeout(()=>ac.abort(), 20000);
-  if(init.signal){ if(init.signal.aborted) ac.abort(); else init.signal.addEventListener('abort', ()=>ac.abort(), {once:true}); }
-  return fetch(input, {...init, signal:ac.signal}).finally(()=>clearTimeout(t));
+// Small calls (the "has anyone saved?" check, sign-in token refresh) give up after 8s and
+// are tried again right away on a fresh request; a hung connection after a tab sleeps is the
+// usual cause and a second try nearly always goes straight through. Big downloads get 25s.
+let _lastNetHang = '';
+function _netKind(url){
+  if(/\/auth\/v1\/token/.test(url)) return 'sign-in refresh';
+  if(/select=updated_at(&|$)/.test(url)) return 'save check';
+  return '';
+}
+async function _fetchWithTimeout(input, init={}){
+  const url = typeof input==='string' ? input : (input?.url||''), small = _netKind(url);
+  const tries = small ? 3 : 1, ms = small ? 8000 : 25000;
+  for(let i=0; i<tries; i++){
+    const ac = new AbortController(); let timedOut = false;
+    const t = setTimeout(()=>{ timedOut = true; ac.abort(); }, ms);
+    if(init.signal){ if(init.signal.aborted) ac.abort(); else init.signal.addEventListener('abort', ()=>ac.abort(), {once:true}); }
+    try{ return await fetch(input, {...init, signal:ac.signal, ...(small && i>0 ? {cache:'no-store'} : {})}); }
+    catch(e){
+      if(!timedOut || i===tries-1){ if(timedOut) _lastNetHang = small || 'download'; throw e; }
+      console.warn(`[net] ${small} hung ${ms/1000}s, trying again (${i+2}/${tries})`);
+    }
+    finally{ clearTimeout(t); }
+  }
 }
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth:{ lock:_authLock }, global:{ fetch:_fetchWithTimeout } });
 
@@ -2283,7 +2302,7 @@ function saveLeagueState(){
     }
     console.warn('[saveLeagueState] gave up after repeated conflicts');
     showSaveFailed('conflict');
-  }, 25000, 'saveLeagueState');
+  }, 45000, 'saveLeagueState');
 }
 // Loud warning when a change didn't reach the server, so nobody thinks it saved
 function showSaveFailed(why){
@@ -7996,7 +8015,7 @@ async function _saveAvatarChoice(mid, ch, pick, tok){
   await saveLeagueState();
   if(!_lastSaveOk && _saveTimedOut){ bbStatus('Slow connection… trying again', 'busy'); await saveLeagueState(); }
   if(!_lastSaveOk){
-    bbStatus(_saveTimedOut ? `The connection stalled and it did NOT save (stuck while ${_lastStallStep}). Tap SAVE to try again.` : 'It did NOT save. Tap SAVE to try again.', 'err');
+    bbStatus(_saveTimedOut ? `The connection stalled and it did NOT save (stuck while ${_lastStallStep}${_lastNetHang?`; the ${_lastNetHang} didn't answer`:''}). Tap SAVE to try again.` : 'It did NOT save. Tap SAVE to try again.', 'err');
     return;
   }
   bbStatus('', 'ok');

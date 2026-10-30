@@ -7840,11 +7840,14 @@ function bbRender(slide){
     const parts = C.parts; if(!_bb.part || !parts.find(p=>p[0]===_bb.part)) _bb.part = parts[0][0];
     const k = _bb.part, label = parts.find(p=>p[0]===k)[1], pal = BB.PALETTES[k];
     const swc = i => { const c=pal[i][1]; return c ? (c[Math.floor(c.length*.6)]||c[0]) : (BB.ORIG[ch]?.[k]||'#888888'); };
-    const isOn = i => pick[k]===i || (pick[k]==null && !pal[i][1]);
+    // A swatch that looks the same as the Original (e.g. Jack's black face and "Black") is shown once
+    const near = (a,b) => { const x=[1,3,5].map(j=>parseInt(a.slice(j,j+2),16)), y=[1,3,5].map(j=>parseInt(b.slice(j,j+2),16)); return x.every((v,j)=>Math.abs(v-y[j])<28); };
+    const origI = pal.findIndex(p=>!p[1]), dup = i => origI>=0 && i!==origI && /^#[0-9a-f]{6}$/i.test(swc(i)) && /^#[0-9a-f]{6}$/i.test(swc(origI)) && near(swc(i), swc(origI));
+    const isOn = i => pick[k]===i || (pick[k]==null && !pal[i][1]) || (i===origI && typeof pick[k]==='number' && dup(pick[k]));
     const hex = typeof pick[k]==='string' ? pick[k] : null;
     const hexNow = hex || swc(typeof pick[k]==='number' ? pick[k] : 0);
     P.innerHTML = `<div class="bb-chips">${parts.map(([pk,l])=>`<button type="button" class="bb-chip${pk===k?' on':''}" data-part="${pk}">${l}</button>`).join('')}</div>
-      <div class="bb-sw">${pal.map(([nm],i)=>`<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}
+      <div class="bb-sw">${pal.map(([nm],i)=>dup(i) ? '' : `<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}
         <label class="bs-any${hex?' on':''}" title="Any color" style="${hex?`background:${hex}`:''}">${hex?'':'＋'}<input type="color" id="bs-anycolor" value="${/^#[0-9a-f]{6}$/i.test(hexNow)?hexNow:'#888888'}" aria-label="${label}: any color"></label></div>
       <p class="bb-hint">Pick a part, then a swatch. ＋ opens a full color picker for any color.</p>`;
     const inp = document.getElementById('bs-anycolor');

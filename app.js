@@ -921,6 +921,8 @@ function fantasySignupCardHtml(runNow, mid){
   return `<div class="card" style="margin:10px 14px;padding:14px;text-align:center;font-family:var(--pixel);line-height:1.9">
     <div style="font-size:7px;color:var(--accent3);margin-bottom:6px">🏀 NBA FANTASY</div>
     <div style="font-size:5.5px;color:var(--text2)">${body}</div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-sm btn-secondary" onclick="showScreen('fantasy');switchFantasyTab('waivers');appScrollTop()" style="font-size:5.5px;padding:7px 12px">👀 BROWSE ALL PLAYERS</button>
+      <div style="font-size:4.5px;color:var(--text3);margin-top:6px">Open any player's card and start your Scouting Report.</div></div>
   </div>`;
 }
 async function fantasySignup(runId, on){
@@ -7079,7 +7081,7 @@ function renderWaiverPlayerList(){
   const mid=getMyId();
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   const query=waiverSearchQuery.toLowerCase();
-  const canAdd=mid && canWaiver(mid) && getMyRoster().length<effectiveRosterSize(mid);
+  const canAdd=mid && inFantasyRun(mid) && canWaiver(mid) && getMyRoster().length<effectiveRosterSize(mid);
 
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -7283,6 +7285,18 @@ function renderWaiversPane(){
   const mid=getMyId();
   const used=mid?waiverUsedThisWeek(mid):0;
   const layout = waiverLayout();
+  const outOfRun = !!(mid && !inFantasyRun(mid));
+  const browseNote = outOfRun ? `<div class="wv-browse">👀 <b>PLAYER DIRECTORY</b><br>You're not in the ${escHtmlBB((RUNS.find(r=>r.id===currentRun)?.name||'current').toUpperCase())} RUN, but you can browse every player, open their cards and build your Scouting Report for the next draft.</div>` : '';
+  if(outOfRun){
+    el.innerHTML = `<div style="padding:10px 14px 0">${browseNote}
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button onclick="showScoutingList()" style="background:var(--bg3);border:1px solid var(--accent3);color:var(--accent3);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">🔭 SCOUTING REPORT${myScoutList().length?` (${myScoutList().length})`:''}</button></div>
+      <div id="waiver-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('waiver')}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>${waiverTeamSelectHtml('wv-team')}</div>
+      ${waiverSearchHtml().replace('class="wv-search"','class="wv-search" style="margin-bottom:8px"')}
+    </div><div id="waiver-player-list"></div>`;
+    renderWaiverPlayerList();
+    return;
+  }
   if(layout!=='classic'){
     const hadFocus = document.activeElement?.id==='waiver-search';
     el.innerHTML = `<div class="wv-wrap">${waiverLayoutPickerHtml()}${waiverLayoutHtml(layout, WAIVER_WEEKLY-used)}</div><div id="waiver-player-list"></div>`;

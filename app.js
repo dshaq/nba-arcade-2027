@@ -7159,7 +7159,7 @@ async function toggleScout(pid){
   if(document.getElementById('scout-modal')) showScoutingList();
   await saveLeagueState();
   if(!_lastSaveOk){ toast('Not saved. Try again.'); return; }
-  toast(on ? 'Removed from your scouting list' : `${playerShortName(getPlayer(pid)?.name||'Player')} added to your scouting list`);
+  toast(on ? 'Removed from your Scouting Report' : `${playerShortName(getPlayer(pid)?.name||'Player')} added to your Scouting Report`);
 }
 function showScoutingList(){
   const mid = getMyId(), ids = myScoutList();

@@ -7444,62 +7444,101 @@ function openAvatarEditor(forMid){
   const myId = getMyId(), isComm = bbIsComm();
   const mid = (isComm && forMid) ? forMid : myId; if(!mid) return;
   const saved = BB.parse(leagueState?.prefs?.[mid]?.avatar?.ball);
-  const ch = saved?.ch || BB.ORDER[0], pick = saved?.pick || BB.fresh(ch);
-  _bb = {mid, ch, pick, style: bbStyleName(ch, pick), mode:'styles', part:null, taken: bbTaken(mid)};
+  const ch = saved?.ch && BB.CHARS[saved.ch] ? saved.ch : BB.ORDER[0], pick = saved?.pick || BB.fresh(ch);
+  // Someone with a Baller lands on the color screen with their look; a first-timer starts on the roster
+  _bb = {mid, ch, pick, style: bbStyleName(ch, pick), stage: saved ? 'color' : 'roster', mode:'styles', part:null, taken: bbTaken(mid)};
   document.getElementById('avatar-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'avatar-modal'; modal.className = 'modal-overlay'; modal.style.display = 'flex';
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
   const mgrs = [...(leagueState?.managers||[])].sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
+  const N = BB.ORDER.length, fill = (6 - N % 6) % 6;
   modal.innerHTML = `
-    <div class="modal-box bb-box">
+    <div class="modal-box bb-box bs-box">
       <div class="bb-head">
-        <div class="bb-title">CHOOSE YOUR BALLER</div>
+        <div class="bs-title">SELECT YOUR BALLER</div>
         <button type="button" class="bb-x" onclick="document.getElementById('avatar-modal').remove()" aria-label="Close">✕</button>
       </div>
       ${isComm ? `<label class="bb-for">FOR <select onchange="openAvatarEditor(this.value)">${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(mid)?'selected':''}>${leagueState.prefs?.[m.id]?.avatar?.ball?'✓ ':'· '}${escHtmlBB(m.display_name)}</option>`).join('')}</select></label>` : ''}
-      <div class="bb-strip" id="bb-chars"></div>
-      <div class="bb-stage"><div class="bb-tag">CHARACTER · <b id="bb-who"></b><br>STYLE · <b id="bb-style"></b></div><canvas id="bb-hero" aria-label="Avatar preview"></canvas></div>
-      <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button></div>
-      <div class="bb-panel" id="bb-panel"></div>
-      <div class="bb-bar"><button type="button" data-act="rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary">SAVE</button></div>
+      <div class="bs-stage" id="bs-stage">
+        <div class="bs-1p">1P</div>
+        <canvas id="bb-hero" aria-label="Avatar preview"></canvas>
+        <div class="bs-bio"><div class="bs-style" id="bb-style"></div><div class="bs-name" id="bb-who"></div></div>
+        <div class="bs-flash" id="bs-flash"></div>
+      </div>
+      <div id="bs-roster">
+        <div class="bs-rhead"><span>ROSTER · <b>${N} BALLERS</b></span><span>TAP AGAIN TO PICK</span></div>
+        <div class="bs-grid" role="listbox" aria-label="Characters">${BB.ORDER.map(c=>`<button type="button" class="bs-tile" role="option" data-c="${c}" aria-label="${escHtmlBB(BB.CHARS[c].name)}"><span class="in"></span><canvas></canvas></button>`).join('')}${'<div class="bs-tile locked" aria-hidden="true"><span class="in"></span><span class="q">?</span></div>'.repeat(fill)}</div>
+        <div class="bb-bar"><button type="button" data-act="pick" class="primary bs-go">PICK ${'▶'}</button></div>
+      </div>
+      <div id="bs-pad" hidden>
+        <div class="bs-padhead"><span>NOW MAKE IT YOURS</span><button type="button" data-act="roster">◀ ROSTER</button></div>
+        <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button></div>
+        <div class="bb-panel" id="bb-panel"></div>
+        <div class="bb-bar"><button type="button" data-act="rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary bs-go">SAVE ▶</button></div>
+      </div>
     </div>`;
   modal.querySelector('.bb-box').addEventListener('click', bbClick);
   document.body.appendChild(modal);
-  bbRender();
+  modal.querySelectorAll('.bs-tile[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); });
+  bbRender(false);
 }
 function escHtmlBB(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function bbTile(attr, label, on, takenBy){
   return `<button type="button" class="bb-tile${on?' on':''}${takenBy?' taken':''}" ${attr} ${takenBy?`disabled title="${escHtmlBB(takenBy.display_name)} has this look"`:''}><canvas></canvas><span>${takenBy?'TAKEN':label}</span></button>`;
 }
-function bbRender(){
+function bbMainColor(ch, p){
+  const v = p?.ball; if(typeof v==='string') return v;
+  if(typeof v==='number'){ const pal = BB.PALETTES.ball?.[v]?.[1]; if(pal) return pal[Math.floor(pal.length/2)]; }
+  return BB.ORIG[ch]?.ball || '#ff6a1a';
+}
+function bbFlash(){ const f = document.getElementById('bs-flash'); if(!f) return; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+// Draws the stage (and, on the color screen, the Styles / Teams / Custom panel)
+function bbRender(slide){
   if(!_bb || !document.getElementById('bb-panel')) return;
-  const {ch, pick, taken} = _bb, C = BB.CHARS[ch];
-  BB.draw(document.getElementById('bb-hero'), pick, ch);
-  document.getElementById('bb-hero').style.scale = BB.fit(ch);
+  const {ch, pick, taken} = _bb, C = BB.CHARS[ch], color = _bb.stage==='color';
+  const hero = document.getElementById('bb-hero'), shown = color ? pick : BB.fresh(ch);
+  BB.draw(hero, shown, ch);
+  hero.style.scale = BB.fit(ch);
+  if(slide){ hero.classList.remove('swap'); void hero.offsetWidth; hero.classList.add('swap'); }
   document.getElementById('bb-who').textContent = C.name;
-  document.getElementById('bb-style').textContent = _bb.style.toUpperCase();
-  const strip = document.getElementById('bb-chars');
-  strip.innerHTML = BB.ORDER.map(c=>bbTile(`data-c="${c}"`, BB.CHARS[c].name, c===ch)).join('');
-  strip.querySelectorAll('[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); });
-  document.querySelectorAll('.bb-seg button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===_bb.mode); b.setAttribute('aria-selected', b.dataset.mode===_bb.mode); });
+  document.getElementById('bb-style').textContent = color ? _bb.style.toUpperCase() : 'ORIGINAL';
+  document.querySelector('#avatar-modal .bs-box').style.setProperty('--bc', bbMainColor(ch, shown));
+  document.querySelectorAll('#avatar-modal .bs-tile[data-c]').forEach(t=>{ const on = t.dataset.c===ch; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
+  document.getElementById('bs-roster').hidden = color;
+  document.getElementById('bs-pad').hidden = !color;
+  if(!color) return;
+  document.querySelectorAll('#avatar-modal .bb-seg button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===_bb.mode); b.setAttribute('aria-selected', b.dataset.mode===_bb.mode); });
   const P = document.getElementById('bb-panel'), curTok = BB.token(ch, pick);
   if(_bb.mode==='styles' || _bb.mode==='teams'){
     const list = _bb.mode==='styles'
       ? (BB.COLORWAYS[ch]||[['Original',{}]]).map(([n,o])=>[n, {...BB.fresh(ch),...o}])
       : BB.TEAMS.map(tm=>[tm[0], BB.teamPick(ch,tm)]);
-    P.innerHTML = `<div class="bb-strip">${list.map(([n,p],i)=>{ const t=BB.token(ch,p); return bbTile(`data-${_bb.mode==='styles'?'way':'team'}="${i}"`, n.toUpperCase(), t===curTok, taken.get(t)); }).join('')}</div>
-      <p class="bb-hint">${_bb.mode==='styles'?'Swipe or use the arrows for more. Pick one, then tweak it in Custom.':'All 30 teams. Swipe or use the arrows for more.'}</p>`;
+    P.innerHTML = `<div class="bb-strip">${list.map(([n,p],i)=>{ const t=BB.token(ch,p); return bbTile(`data-${_bb.mode==='styles'?'way':'team'}="${i}"`, escHtmlBB(n.toUpperCase()), t===curTok, taken.get(t)); }).join('')}</div>
+      <p class="bb-hint">${_bb.mode==='styles'?'Swipe or use the arrows for more. Pick one, then tweak any part in Custom.':'All 30 teams. Swipe or use the arrows for more.'}</p>`;
     P.querySelectorAll('.bb-strip canvas').forEach((cv,i)=>BB.draw(cv, list[i][1], ch));
   } else {
     const parts = C.parts; if(!_bb.part || !parts.find(p=>p[0]===_bb.part)) _bb.part = parts[0][0];
     const k = _bb.part, label = parts.find(p=>p[0]===k)[1], pal = BB.PALETTES[k];
-    const swc = i => { const c=pal[i][1]; return c ? (c[Math.floor(c.length*.6)]||c[0]) : (BB.ORIG[ch]?.[k]||'#888'); };
+    const swc = i => { const c=pal[i][1]; return c ? (c[Math.floor(c.length*.6)]||c[0]) : (BB.ORIG[ch]?.[k]||'#888888'); };
     const isOn = i => pick[k]===i || (pick[k]==null && !pal[i][1]);
+    const hex = typeof pick[k]==='string' ? pick[k] : null;
+    const hexNow = hex || swc(typeof pick[k]==='number' ? pick[k] : 0);
     P.innerHTML = `<div class="bb-chips">${parts.map(([pk,l])=>`<button type="button" class="bb-chip${pk===k?' on':''}" data-part="${pk}">${l}</button>`).join('')}</div>
-      <div class="bb-sw">${pal.map(([nm],i)=>`<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}</div>`;
+      <div class="bb-sw">${pal.map(([nm],i)=>`<button type="button" data-k="${k}" data-i="${i}" class="${isOn(i)?'on':''}" title="${nm}" aria-label="${label} ${nm}" style="background:${swc(i)}"></button>`).join('')}
+        <label class="bs-any${hex?' on':''}" title="Any color" style="${hex?`background:${hex}`:''}">${hex?'':'＋'}<input type="color" id="bs-anycolor" value="${/^#[0-9a-f]{6}$/i.test(hexNow)?hexNow:'#888888'}" aria-label="${label}: any color"></label></div>
+      <p class="bb-hint">Pick a part, then a swatch. ＋ opens a full color picker for any color.</p>`;
+    const inp = document.getElementById('bs-anycolor');
+    inp.addEventListener('input', e=>{ _bb.pick = {..._bb.pick, [k]: e.target.value}; _bb.style = bbStyleName(ch, _bb.pick); bbStageOnly(); });
+    inp.addEventListener('change', ()=>bbRender(false));
   }
   bbStrips();
+}
+function bbStageOnly(){
+  const {ch, pick} = _bb;
+  BB.draw(document.getElementById('bb-hero'), pick, ch);
+  document.getElementById('bb-style').textContent = _bb.style.toUpperCase();
+  document.querySelector('#avatar-modal .bs-box').style.setProperty('--bc', bbMainColor(ch, pick));
 }
 // Side-scrolling strips: arrows (mouse users can't swipe) + mouse wheel scrolls sideways
 function bbStrips(){
@@ -7526,32 +7565,61 @@ function bbArrowState(wrap, st){
   wrap.querySelector('.l').hidden = st.scrollLeft <= 2;
   wrap.querySelector('.r').hidden = st.scrollLeft >= max - 2;
 }
+function bbToColor(){
+  if(_bb.stage!=='color'){ _bb.pick = BB.fresh(_bb.ch); _bb.style = 'Original'; }
+  _bb.stage = 'color'; _bb.mode = 'styles'; _bb.part = null; bbFlash(); bbRender(false);
+}
+function bbRandomFor(c){
+  const W = BB.COLORWAYS[c]||[];
+  for(let n=0; n<20; n++){
+    let p, nm;
+    if(Math.random()<.5 && W.length){ const w = W[Math.floor(Math.random()*W.length)]; p = {...BB.fresh(c), ...w[1]}; nm = w[0]; }
+    else { const tm = BB.TEAMS[Math.floor(Math.random()*BB.TEAMS.length)]; p = BB.teamPick(c, tm); nm = tm[0]; }
+    if(!_bb.taken.has(BB.token(c,p))) return [p, nm];
+  }
+  return null;
+}
 function bbClick(e){
   const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb) return;
   const d = t.dataset, ch = _bb.ch;
-  if(d.c){ _bb.ch = d.c; _bb.pick = BB.fresh(d.c); _bb.style = 'Original'; _bb.part = null; }
+  if(d.c){
+    if(d.c===ch){ bbToColor(); return; }           // tap the highlighted Baller again to pick him
+    _bb.ch = d.c; _bb.pick = BB.fresh(d.c); _bb.style = 'Original'; _bb.part = null; bbRender(true); return;
+  }
+  else if(d.act==='pick'){ bbToColor(); return; }
+  else if(d.act==='roster'){ _bb.stage = 'roster'; bbRender(true); return; }
   else if(d.mode){ _bb.mode = d.mode; }
-  else if(d.way){ const w = BB.COLORWAYS[ch][+d.way]; _bb.pick = {...BB.fresh(ch), ...w[1]}; _bb.style = w[0]; }
-  else if(d.team){ const tm = BB.TEAMS[+d.team]; _bb.pick = BB.teamPick(ch, tm); _bb.style = tm[0]; }
+  else if(d.way){ const w = BB.COLORWAYS[ch][+d.way]; _bb.pick = {...BB.fresh(ch), ...w[1]}; _bb.style = w[0]; bbFlash(); }
+  else if(d.team){ const tm = BB.TEAMS[+d.team]; _bb.pick = BB.teamPick(ch, tm); _bb.style = tm[0]; bbFlash(); }
   else if(d.part){ _bb.part = d.part; }
   else if(d.k){ _bb.pick = {..._bb.pick, [d.k]: +d.i}; _bb.style = bbStyleName(ch, _bb.pick); }
-  else if(d.act==='rand'){
-    const c = BB.ORDER[Math.floor(Math.random()*BB.ORDER.length)], W = BB.COLORWAYS[c]||[];
-    for(let n=0; n<20; n++){
-      let p, nm;
-      if(Math.random()<.5 && W.length){ const w = W[Math.floor(Math.random()*W.length)]; p = {...BB.fresh(c), ...w[1]}; nm = w[0]; }
-      else { const tm = BB.TEAMS[Math.floor(Math.random()*BB.TEAMS.length)]; p = BB.teamPick(c, tm); nm = tm[0]; }
-      if(!_bb.taken.has(BB.token(c,p))){ _bb.ch = c; _bb.pick = p; _bb.style = nm; _bb.part = null; break; }
-    }
-  }
+  else if(d.act==='rand'){ const r = bbRandomFor(ch); if(r){ [_bb.pick, _bb.style] = r; _bb.part = null; bbFlash(); } }
   else if(d.act==='save'){ saveAvatarChoice(); return; }
-  bbRender();
+  bbRender(false);
+}
+// Keyboard: arrows move the roster cursor like a joystick, Enter picks, Esc steps back / closes
+document.addEventListener('keydown', e=>{
+  const modal = document.getElementById('avatar-modal');
+  if(!modal || !_bb || !modal.querySelector('.bs-box')) return;
+  if(e.target.tagName==='INPUT' || e.target.tagName==='SELECT') return;
+  if(e.key==='Escape'){ e.preventDefault(); if(_bb.stage==='color'){ _bb.stage='roster'; bbRender(true); } else modal.remove(); return; }
+  if(_bb.stage!=='roster') return;
+  const i = BB.ORDER.indexOf(_bb.ch), mv = {ArrowLeft:-1, ArrowRight:1, ArrowUp:-6, ArrowDown:6}[e.key];
+  if(mv!=null){ e.preventDefault(); const nx = i + mv; if(nx>=0 && nx<BB.ORDER.length){ _bb.ch = BB.ORDER[nx]; _bb.pick = BB.fresh(_bb.ch); _bb.style='Original'; bbRender(true); } }
+  else if(e.key==='Enter' && !e.target.closest?.('button')){ e.preventDefault(); bbToColor(); }
+});
+// After a good save: a quick "LOCKED IN" moment on the stage before the window closes
+async function bbLockedIn(){
+  const st = document.getElementById('bs-stage'); if(!st) return;
+  bbFlash();
+  st.insertAdjacentHTML('beforeend', `<div class="bs-locked"><b>${escHtmlBB(BB.CHARS[_bb.ch].name)}!</b><span>LOCKED IN</span></div>`);
+  await new Promise(r=>setTimeout(r, 1000));
 }
 function bbStatus(msg, kind){
   const btn = document.querySelector('#avatar-modal [data-act=save]');
-  if(btn){ btn.disabled = kind==='busy'; btn.textContent = kind==='busy' ? 'SAVING…' : kind==='ok' ? 'SAVED ✓' : 'SAVE'; }
+  if(btn){ btn.disabled = kind==='busy'; btn.textContent = kind==='busy' ? 'SAVING…' : kind==='ok' ? 'SAVED ✓' : 'SAVE ▶'; }
   let el = document.getElementById('bb-msg');
-  if(!el){ const bar = document.querySelector('#avatar-modal .bb-bar'); if(!bar) return; bar.insertAdjacentHTML('beforebegin','<div id="bb-msg" class="bb-msg" role="status"></div>'); el = document.getElementById('bb-msg'); }
+  if(!el){ const bar = document.querySelector('#bs-pad .bb-bar'); if(!bar) return; bar.insertAdjacentHTML('beforebegin','<div id="bb-msg" class="bb-msg" role="status"></div>'); el = document.getElementById('bb-msg'); }
   el.textContent = msg || ''; el.className = 'bb-msg' + (kind==='err' ? ' err' : '');
 }
 let _bbSaving = false;
@@ -7576,7 +7644,7 @@ async function _saveAvatarChoice(mid, ch, pick, tok){
     return;
   }
   bbStatus('', 'ok');
-  await new Promise(r=>setTimeout(r, 450));
+  await bbLockedIn();
   document.getElementById('avatar-modal')?.remove();
   renderProfileScreen(); updateUserChip();
   if(currentScreen==='home') renderHomeScreen();

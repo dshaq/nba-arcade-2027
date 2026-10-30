@@ -1060,7 +1060,7 @@ function weekResultsData(runId, idx){
   }
   // Best waiver pick-up: a player added off waivers during this week, by the FP he earned
   // for that team (while Active) from the day he was added through Sunday
-  let pickup = null;
+  const pickups = [];
   const ids = new Set(week.flatMap(mu=>[mu.home, mu.away]).map(String));
   for(const [mid, log] of Object.entries(leagueState.waiverLog||{})){
     if(!ids.has(String(mid))) continue;
@@ -1068,10 +1068,24 @@ function weekResultsData(runId, idx){
       const d = String(e.date||'');
       if(e.type!=='add' || d<r.from || d>r.to) continue;
       const row = teamRowsForRange(mid, d, r.to, false).find(x=>String(x.p.id)===String(e.pid));
-      if(row && row.fp>0 && (!pickup || row.fp > pickup.fp)) pickup = {p:row.p, fp:row.fp, m:mgr(mid)};
+      if(row && row.fp>0 && !pickups.some(x=>String(x.p.id)===String(row.p.id) && String(x.m.id)===String(mid))) pickups.push({p:row.p, fp:row.fp, m:mgr(mid)});
     }
   }
-  return {week, r, team, player, pickup, mgr};
+  pickups.sort((a,b)=>b.fp-a.fp);
+  // Biggest Letdown (a 20+ FP/G player who fell furthest below his season average this week)
+  // and Nicest Surprise (an under-15 FP/G player who rose furthest above it).
+  // Season average = every game through the end of this week.
+  let letdown = null, surprise = null;
+  for(const [pid, lines] of statsByPid()){
+    const season = lines.filter(x=>String(x.date)<=r.to), wk = season.filter(x=>String(x.date)>=r.from);
+    if(!wk.length || season.length < 3) continue;
+    const p = getPlayer(+pid) || getPlayer(pid); if(!p) continue;
+    const sAvg = season.reduce((a,x)=>a+(+x.fp||0),0)/season.length, wAvg = wk.reduce((a,x)=>a+(+x.fp||0),0)/wk.length, diff = wAvg - sAvg;
+    const own = rosterOwnerOf(p.id);
+    if(sAvg >= 20 && diff < 0 && (!letdown || diff < letdown.diff)) letdown = {p, sAvg, wAvg, diff, gp:wk.length, m:own};
+    if(sAvg < 15 && diff > 0 && (!surprise || diff > surprise.diff)) surprise = {p, sAvg, wAvg, diff, gp:wk.length, m:own};
+  }
+  return {week, r, team, player, pickup:pickups[0]||null, pickups:pickups.slice(0,2), letdown, surprise, mgr};
 }
 // ── WEEKLY LINE-UP CHALLENGE RESULTS (second tab of the Results screen) ──
 // Winner, the winning line-up, the most-picked player, and the best line-up anyone could
@@ -1098,7 +1112,14 @@ function wlcResultsData(wk){
     if(pick.length===WLC_TEAM_SIZE){ if(!best || sum>best.sum) best = {sum, list:pick.map(k=>val[k])}; return; }
     for(let k=i; k<n; k++){ if(cost+val[k].salary>WLC_SALARY_CAP) continue; pick.push(k); go(k+1, cost+val[k].salary, sum+val[k].avg); pick.pop(); }
   })(0, 0, 0);
-  return {week, wk, scores, winners, pop: popName ? {name:popName, n:popN, of:lineups.length, info:val.find(v=>v.n===popName)} : null, best};
+  // Overlooked: the best $1-$2 player (by FP/G) nobody picked
+  const overlooked = val.filter(v=>v.salary<=2 && v.gp && !count[v.n]).sort((a,b)=>b.avg-a.avg)[0] || null;
+  // Biggest Game: the winning line-up's best single game
+  let bigGame = null;
+  for(const w of winners){ const l = lineups.find(([id])=>String(id)===String(w.id))?.[1]; if(!l) continue;
+    for(const sl of wlcSlots(l.picks, l.swaps, wk)) for(const g of sl.games){ const fp = +g.st.fp||0;
+      if(!bigGame || fp > bigGame.fp) bigGame = {name:g.player, date:g.date, fp}; } }
+  return {week, wk, scores, winners, pop: popName ? {name:popName, n:popN, of:lineups.length, info:val.find(v=>v.n===popName)} : null, best, overlooked, bigGame};
 }
 function wlcResultCardsHtml(list){
   return `<div class="we-cards">${list.map(x=>{ const pl = wlcFindPlayer(x.n), nm = pl?.name || x.n;
@@ -1108,28 +1129,46 @@ function wlcResultCardsHtml(list){
 }
 function wlcResultsHtml(D){
   if(!D) return '<div class="empty-state" style="padding:36px 16px"><div class="icon">🔮</div><div class="label">NO LINE-UP CHALLENGE THIS WEEK</div></div>';
-  const W = D.winners[0];
-  const winHtml = W ? `<div class="wr-award wide wlr-win" style="--ac:#ffd93d">
-      <div class="wr-award-title">${D.winners.length>1?'WINNERS (TIE)':'WINNER'}</div>
-      <div class="wlr-winrow">${D.winners.map(w=>`<span class="wlr-who">${avatarEl(w.m.display_name, w.m.color||'#4a9eff', 56, 16, w.m.icon||null, w.m.photo||null)}<b>${escHtmlBB(w.m.display_name)}</b></span>`).join('')}</div>
-      <div class="wr-award-fp">${W.fp.toFixed(1)}<span> FP/G</span></div></div>` : '';
-  const pool = D.week.pool||[], wl = W ? ((leagueState.wlc?.lineups||{})[D.wk]||{})[W.id] : null;
-  const pop = D.pop ? `<div class="wr-award wlr-pop" style="--ac:#ff5fbf">
-      <div class="wr-award-title">POPULAR KID</div>
-      <div class="wlr-pop-art" onclick="${pcardOnclick(wlcFindPlayer(D.pop.name)?.name||D.pop.name)}"><img src="${portraitUrl(wlcFindPlayer(D.pop.name)?.team, wlcFindPlayer(D.pop.name)?.name||D.pop.name)}" onerror="this.style.visibility='hidden'"><span>${Math.round(100*D.pop.n/D.pop.of)}%</span></div>
-      <div class="wr-award-name">${escHtmlBB(wlcFindPlayer(D.pop.name)?.name||D.pop.name)}</div>
-      <div class="wr-award-sub">PICKED BY ${D.pop.n} OF ${D.pop.of}${D.pop.info?.gp?` · ${D.pop.info.avg.toFixed(1)} FP/G`:''}</div></div>` : '';
-  const sec = (t, sub) => `<div class="section-label wlr-sec" style="padding:16px 0 6px"><span>${t}</span>${sub?`<span>${sub}</span>`:''}</div>`;
-  return `${winHtml}
-    ${wl ? sec('WINNING LINE-UP', `${W.fp.toFixed(1)} FP/G`) + wlcCardsGridHtml(W.id, D.wk, false) : ''}
-    ${pop ? `<div style="margin-top:14px">${pop}</div>` : ''}
-    ${D.best ? sec('OPTIMAL LINE-UP', `${D.best.sum.toFixed(1)} FP/G · $${WLC_SALARY_CAP} CAP`) + wlcResultCardsHtml([...D.best.list].sort((a,b)=>b.salary-a.salary)) + '<div class="wlr-note">The best 5 anyone could have picked under the cap this week.</div>' : ''}
-    ${sec('FINAL STANDINGS')}
-    <div class="card" style="padding:0;overflow:hidden;margin:0">${D.scores.map((x,i)=>`<div class="wlr-row${D.winners.includes(x)?' w':''}"><span class="wlr-rk">${ordinal(1+D.scores.filter(y=>y.fp>x.fp).length)}</span>${avatarEl(x.m.display_name, x.m.color||'#4a9eff', 22, 7, x.m.icon||null, x.m.photo||null)}<span class="wlr-nm">${escHtmlBB(x.m.display_name)}</span><span class="wlr-fp">${x.fp.toFixed(1)}</span></div>`).join('')}</div>`;
+  const W = D.winners[0], pl = n => wlcFindPlayer(n), pName = n => pl(n)?.name || n;
+  const img = n => `<img src="${portraitUrl(pl(n)?.team, pName(n))}" onerror="this.style.visibility='hidden'">`;
+  const dShort = d => statDateObj(d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).toUpperCase();
+  const pct = W && D.best?.sum ? Math.round(100*W.fp/D.best.sum) : null;
+  // Row 1: Winner | % of Optimal | Biggest Game
+  const row1 = W ? `<div class="wlr-top">
+      <div class="wlr-cell" style="--ac:#ffd93d"><div class="wr-award-title">${D.winners.length>1?'WINNERS':'WINNER'}</div>
+        <div class="wlr-wins">${D.winners.map(w=>`<span title="${escHtmlBB(w.m.display_name)}">${avatarEl(w.m.display_name, w.m.color||'#4a9eff', D.winners.length>1?34:48, 12, w.m.icon||null, w.m.photo||null)}</span>`).join('')}</div>
+        <div class="wlr-cname">${D.winners.map(w=>escHtmlBB(w.m.display_name)).join(' & ')}</div>
+        <div class="wlr-big">${W.fp.toFixed(1)}<small>FP/G</small></div></div>
+      <div class="wlr-cell" style="--ac:#b36bff"><div class="wr-award-title">OF OPTIMAL</div>
+        <div class="wlr-ring" style="--p:${pct||0}"><b>${pct==null?'—':pct+'%'}</b></div>
+        <div class="wlr-csub">${W.fp.toFixed(1)} OF ${D.best ? D.best.sum.toFixed(1) : '—'}</div></div>
+      <div class="wlr-cell" style="--ac:#ff9f1c"><div class="wr-award-title">BIGGEST GAME</div>
+        ${D.bigGame ? `<div class="wlr-gimg" onclick="${pcardOnclick(pName(D.bigGame.name))}">${img(D.bigGame.name)}</div>
+        <div class="wlr-cname">${escHtmlBB(playerShortName(pName(D.bigGame.name)))}</div>
+        <div class="wlr-csub">${dShort(D.bigGame.date)}</div>
+        <div class="wlr-big">${D.bigGame.fp.toFixed(1)}<small>FP</small></div>` : '<div class="wlr-csub">—</div>'}</div>
+    </div>` : '';
+  const wl = W ? ((leagueState.wlc?.lineups||{})[D.wk]||{})[W.id] : null;
+  const head = (t, sub, c) => `<div class="wlr-head" style="--ac:${c}"><span>${t}</span>${sub?`<b>${sub}</b>`:''}</div>`;
+  // Row 3: Popular Kid | Overlooked
+  const kid = (title, c, n, big, sub) => `<div class="wr-award" style="--ac:${c}">
+      <div class="wr-award-title">${title}</div>
+      <div class="wlr-pop-art" onclick="${pcardOnclick(pName(n))}">${img(n)}<span>${big}</span></div>
+      <div class="wr-award-name">${escHtmlBB(pName(n))}</div><div class="wr-award-sub">${sub}</div></div>`;
+  const row3 = (D.pop || D.overlooked) ? `<div class="wr-awards" style="margin-top:14px">
+      ${D.pop ? kid('POPULAR KID', '#ff5fbf', D.pop.name, `${Math.round(100*D.pop.n/D.pop.of)}%`, `PICKED BY ${D.pop.n} OF ${D.pop.of}${D.pop.info?.gp?` · ${D.pop.info.avg.toFixed(1)} FP/G`:''}`) : '<div></div>'}
+      ${D.overlooked ? kid('OVERLOOKED', '#39ff6a', D.overlooked.n, D.overlooked.avg.toFixed(1), `$${D.overlooked.salary} · NOBODY PICKED HIM · FP/G`) : ''}
+    </div>` : '';
+  return `${row1}
+    ${wl ? head('WINNING LINE-UP', `${W.fp.toFixed(1)} FP/G`, '#ffd93d') + wlcCardsGridHtml(W.id, D.wk, false) : ''}
+    ${row3}
+    ${D.best ? head('OPTIMAL LINE-UP', `${D.best.sum.toFixed(1)} FP/G · $${WLC_SALARY_CAP} CAP`, '#b36bff') + wlcResultCardsHtml([...D.best.list].sort((a,b)=>b.salary-a.salary)) + '<div class="wlr-note">The best 5 anyone could have picked under the cap this week.</div>' : ''}
+    ${head('FINAL STANDINGS', '', '#4adfff')}
+    <div class="card" style="padding:0;overflow:hidden;margin:0">${D.scores.map(x=>`<div class="wlr-row${D.winners.includes(x)?' w':''}"><span class="wlr-rk">${ordinal(1+D.scores.filter(y=>y.fp>x.fp).length)}</span>${avatarEl(x.m.display_name, x.m.color||'#4a9eff', 22, 7, x.m.icon||null, x.m.photo||null)}<span class="wlr-nm">${escHtmlBB(x.m.display_name)}</span><span class="wlr-fp">${x.fp.toFixed(1)}</span></div>`).join('')}</div>`;
 }
 function showWeekResults(runId, idx, onClose, opts={}){
   const run = RUNS.find(x=>x.id===runId);
-  const {week, r, team, player, pickup, mgr} = weekResultsData(runId, idx);
+  const {week, r, team, player, pickups, letdown, surprise, mgr} = weekResultsData(runId, idx);
   // The Line-up Challenge week that matches this fantasy week (preview: falls back to this week so far)
   const keyOf = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   let wlcWk = keyOf(r.mon), wlcD = wlcResultsData(wlcWk), wlcSoFar = false;
@@ -1145,6 +1184,15 @@ function showWeekResults(runId, idx, onClose, opts={}){
       <div class="wr-award-name">${name}</div>
       <div class="wr-award-sub">${sub}</div>
       <div class="wr-award-fp">${fp.toFixed(1)}<span> FP</span></div>
+    </div>`;
+  // Season average vs. this week, for the Letdown / Surprise cards
+  const swing = (title, color, x) => `<div class="wr-award wr-swing" style="--ac:${color}">
+      <div class="wr-award-title">${title}</div>
+      <div class="wr-award-art" onclick="${pcardOnclick(x.p.name)}"><img src="${port(x.p)}" onerror="this.style.visibility='hidden'"></div>
+      <div class="wr-award-name">${x.p.name}</div>
+      <div class="wr-award-sub">${x.m ? escHtmlBB(teamLabel(x.m)) : 'FREE AGENT'}</div>
+      <div class="wr-swing-nums"><span>SEASON<b>${x.sAvg.toFixed(1)}</b></span><i>→</i><span>WEEK<b>${x.wAvg.toFixed(1)}</b></span></div>
+      <div class="wr-award-fp">${x.diff>0?'+':''}${x.diff.toFixed(1)}<span> FP/G</span></div>
     </div>`;
   m.innerHTML = `<div class="top-sheet">
     <div class="top-sheet-body" style="padding-top:16px">
@@ -1163,8 +1211,13 @@ function showWeekResults(runId, idx, onClose, opts={}){
       <div class="wr-awards">
         ${team ? award('TEAM OF THE WEEK', '#ffd93d', avatarEl(team.m.display_name, team.m.color||'#4a9eff', 72, 20, team.m.icon||null, team.m.photo||null), teamLabel(team.m), team.m.display_name, team.fp) : ''}
         ${player ? award('PLAYER OF THE WEEK', '#39ff6a', `<img src="${port(player.p)}" onerror="this.style.visibility='hidden'">`, player.p.name, teamLabel(player.m), player.fp) : ''}
-        ${pickup ? award('BEST WAIVER PICK-UP', '#4adfff', `<img src="${port(pickup.p)}" onerror="this.style.visibility='hidden'">`, pickup.p.name, teamLabel(pickup.m), pickup.fp, true) : ''}
       </div>
+      ${pickups.length ? `<div class="wr-rowhead" style="--ac:#4adfff">${pickups.length>1?'BEST PICK-UPS':'BEST PICK-UP'}</div>
+      <div class="wr-awards">${pickups.map((x,i)=>award(`#${i+1} PICK-UP`, '#4adfff', `<img src="${port(x.p)}" onerror="this.style.visibility='hidden'">`, x.p.name, `ADDED BY ${escHtmlBB(teamLabel(x.m)).toUpperCase()}`, x.fp, pickups.length===1)).join('')}</div>` : ''}
+      ${letdown || surprise ? `<div class="wr-awards" style="margin-top:8px">
+        ${letdown ? swing('BIGGEST LETDOWN', '#ff5c6c', letdown) : ''}
+        ${surprise ? swing('NICEST SURPRISE', '#39ff6a', surprise) : ''}
+      </div>` : ''}
       <div class="section-label" style="padding:16px 0 6px">FINAL SCORES</div>
       <div class="card" style="padding:0;overflow:hidden;margin:0">
         ${week.map(mu=>{ const h=mgr(mu.home), a=mgr(mu.away); const hw=mu.winner===mu.home, aw=mu.winner===mu.away;
@@ -1910,14 +1963,25 @@ function queueLeagueOp(fn, ms, label){
 
 function _isPlainObj(x){ return x!==null && typeof x==='object' && !Array.isArray(x); }
 function _jsonEq(a,b){ return a===b || JSON.stringify(a)===JSON.stringify(b); }
-function merge3(base, local, remote){
+// Lists where two devices can each add or remove items (a scouting list): merge them as
+// sets, so an add on one device and an add on another both survive
+const SET_MERGE_KEYS = new Set(['scout']);
+function _setMerge3(base, local, remote){
+  const b = new Set((base||[]).map(String)), l = (local||[]), r = (remote||[]);
+  const removed = new Set([...b].filter(x=>!l.map(String).includes(x) || !r.map(String).includes(x)));
+  const out = [], seen = new Set();
+  for(const v of [...l, ...r]){ const k = String(v); if(seen.has(k) || (removed.has(k))) continue; seen.add(k); out.push(v); }
+  return out;
+}
+function merge3(base, local, remote, key){
   if(_jsonEq(local, base)) return remote;   // I didn't touch it
   if(_jsonEq(remote, base)) return local;   // nobody else touched it
+  if(key && SET_MERGE_KEYS.has(key) && Array.isArray(local) && Array.isArray(remote)) return _setMerge3(base, local, remote);
   if(_isPlainObj(local) && _isPlainObj(remote)){
     const b = _isPlainObj(base) ? base : {};
     const out = {};
     for(const k of new Set([...Object.keys(b), ...Object.keys(local), ...Object.keys(remote)])){
-      const v = merge3(b[k], local[k], remote[k]);
+      const v = merge3(b[k], local[k], remote[k], k);
       if(v !== undefined) out[k] = v;       // undefined = deleted
     }
     return out;
@@ -7112,22 +7176,115 @@ function showScoutingList(){
   m.onclick = e=>{ if(e.target===m) m.remove(); };
   m.innerHTML = `<div class="top-sheet" style="max-height:none">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">🔭 SCOUTING LIST</div>
+      <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">🔭 SCOUTING REPORT</div>
       <button onclick="document.getElementById('scout-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
     </div>
     <div class="top-sheet-body" style="padding:10px 0 16px">
-      ${rows ? `<div class="rc-wrap"><div class="rc-sec act"><span>YOUR SCOUTED PLAYERS · ${ids.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP · AVG</span></div>${rows}</div>
+      ${rows ? `<div class="rc-wrap"><div class="rc-sec act"><span>YOUR SCOUTING REPORT · ${ids.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP · AVG</span></div>${rows}</div>
         <div style="padding:10px 16px 0;font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3)">Only you see your list. Total and average FP are for the whole season.</div>`
       : `<div class="empty-state" style="padding:36px 20px"><div class="icon">🔭</div><div class="label">NOBODY SCOUTED YET<br/><span style="color:var(--text3);font-size:5px;line-height:2">TAP + SCOUT ON ANY UNROSTERED PLAYER IN WAIVERS</span></div></div>`}
     </div>
   </div>`;
   document.body.appendChild(m);
 }
+// ── WAIVERS LAYOUT TEST (commissioner + testers only): three ways to arrange the controls ──
+const WAIVER_LAYOUTS = [
+  {id:'classic', name:'Today'},
+  {id:'bar',     name:'A · Control Bar'},
+  {id:'sheet',   name:'B · Filter Sheet'},
+  {id:'cards',   name:'C · Two Panels'},
+];
+function waiverLayout(){ if(!isFnavTester()) return 'classic'; try{ return localStorage.getItem('nba-wvl') || 'classic'; }catch(e){ return 'classic'; } }
+function setWaiverLayout(id){ try{ localStorage.setItem('nba-wvl', id); }catch(e){} renderWaiversPane(); }
+function wvSet(js){ try{ (new Function('waiverFilter', js))(waiverFilter); }catch(e){} renderWaiversPane(); }
+function waiverLayoutPickerHtml(){
+  if(!isFnavTester()) return '';
+  const cur = waiverLayout();
+  return `<div class="wvl-pick"><span>🧪 LAYOUT TEST</span>${WAIVER_LAYOUTS.map(l=>`<button type="button" class="${l.id===cur?'on':''}" onclick="setWaiverLayout('${l.id}')">${l.name}</button>`).join('')}</div>`;
+}
+function waiverPipsHtml(left){
+  return `<span class="wv-pips" title="${left} of ${WAIVER_WEEKLY} add/drops left this match-up">${[...Array(WAIVER_WEEKLY)].map((_,i)=>`<i class="${i<left?'on':''}"></i>`).join('')}</span>`;
+}
+function waiverTeamSelectHtml(cls){
+  return `<select class="${cls||''}" aria-label="NBA team" onchange="waiverFilter.team=this.value;renderWaiversPane()">
+    <option value="all" ${waiverFilter.team==='all'?'selected':''}>All Teams</option>
+    ${NBA_TEAMS_LIST.map(t=>`<option value="${t}" ${waiverFilter.team===t?'selected':''}>${t} — ${NBA_TEAMS[t]||t}</option>`).join('')}</select>`;
+}
+function waiverSearchHtml(){
+  return `<input type="text" id="waiver-search" class="wv-search" placeholder="Search players..." value="${escHtmlBB(waiverSearchQuery)}" oninput="waiverSearchQuery=this.value;renderWaiverPlayerList()"/>`;
+}
+const wvSeg = (opts) => `<div class="wv-seg">${opts.map(([label,on,js])=>`<button type="button" class="${on?'on':''}" onclick="wvSet(${JSON.stringify(js).replace(/"/g,'&quot;')})">${label}</button>`).join('')}</div>`;
+let _wvSheetOpen = false;
+function waiverActiveFilterCount(){ return (waiverFilter.availability==='all'?1:0) + (waiverFilter.hideOut?1:0) + (waiverFilter.sort==='alpha'?1:0) + (waiverFilter.team!=='all'?1:0); }
+function waiverLayoutHtml(layout, left){
+  const avail = waiverFilter.availability==='all' ? 'all' : 'available', sort = waiverFilter.sort==='alpha' ? 'alpha' : 'fp';
+  const nScout = myScoutList().length;
+  const showSeg = wvSeg([['AVAILABLE', avail==='available', "waiverFilter.availability='available'"], ['ALL PLAYERS', avail==='all', "waiverFilter.availability='all'"]]);
+  const sortSeg = wvSeg([['FP ↓', sort==='fp', "waiverFilter.sort='fp'"], ['A–Z', sort==='alpha', "waiverFilter.sort='alpha'"]]);
+  const outChip = `<button type="button" class="wv-chip warn${waiverFilter.hideOut?' on':''}" onclick="wvSet('waiverFilter.hideOut=!waiverFilter.hideOut')">${waiverFilter.hideOut?'✓ ':''}HIDE OUT/INJ</button>`;
+  if(layout==='bar') return `
+    <div class="wv-status">
+      <div class="wv-left"><span>ADD/DROPS LEFT</span>${waiverPipsHtml(left)}<b>${left}/${WAIVER_WEEKLY}</b></div>
+      <div class="wv-btns"><button type="button" class="wv-btn gold" onclick="showScoutingList()">🔭 SCOUTING REPORT${nScout?` <em>${nScout}</em>`:''}</button><button type="button" class="wv-btn" onclick="showTransactionLog()">📜 TRANSACTIONS</button></div>
+    </div>
+    <div class="wv-findrow">${waiverSearchHtml()}${waiverTeamSelectHtml('wv-team')}</div>
+    <div class="wv-ctl">${showSeg}${outChip}<span class="wv-grow"></span>${sortSeg}</div>`;
+  if(layout==='sheet'){
+    const chips = [
+      avail==='all' ? ['ALL PLAYERS', "waiverFilter.availability='available'"] : null,
+      waiverFilter.hideOut ? ['NO OUT/INJ', 'waiverFilter.hideOut=false'] : null,
+      waiverFilter.team!=='all' ? [waiverFilter.team, "waiverFilter.team='all'"] : null,
+      sort==='alpha' ? ['A–Z', "waiverFilter.sort='fp'"] : null,
+    ].filter(Boolean);
+    const n = chips.length;
+    return `
+    <div class="wv-top">
+      <div class="wv-left">${waiverPipsHtml(left)}<span>${left} ADD/DROP${left===1?'':'S'} LEFT</span></div>
+      <button type="button" class="wv-ic gold" onclick="showScoutingList()" aria-label="Scouting Report">🔭${nScout?`<em>${nScout}</em>`:''}<small>SCOUTING</small></button>
+      <button type="button" class="wv-ic" onclick="showTransactionLog()" aria-label="Transactions">📜<small>LOG</small></button>
+    </div>
+    <div class="wv-findrow">${waiverSearchHtml()}<button type="button" class="wv-filt${n?' on':''}" onclick="_wvSheetOpen=!_wvSheetOpen;renderWaiversPane()">⚙ FILTERS${n?` (${n})`:''}</button></div>
+    ${n ? `<div class="wv-chips">${chips.map(([t,js])=>`<button type="button" class="wv-chip on" onclick="wvSet(${JSON.stringify(js).replace(/"/g,'&quot;')})">${t} ✕</button>`).join('')}<span class="wv-note">${avail==='available'?'AVAILABLE':''} · ${sort==='fp'?'BEST FP FIRST':''}</span></div>`
+      : `<div class="wv-chips"><span class="wv-note">SHOWING AVAILABLE PLAYERS · BEST FP FIRST</span></div>`}
+    ${_wvSheetOpen ? `<div class="wv-drawer">
+      <div class="wv-drow"><span>SHOW</span>${showSeg}</div>
+      <div class="wv-drow"><span>INJURIES</span>${outChip}</div>
+      <div class="wv-drow"><span>NBA TEAM</span>${waiverTeamSelectHtml('wv-team')}</div>
+      <div class="wv-drow"><span>SORT</span>${sortSeg}</div>
+      <button type="button" class="wv-done" onclick="_wvSheetOpen=false;renderWaiversPane()">DONE</button>
+    </div>` : ''}`;
+  }
+  // cards: "My moves" and "Find players" panels
+  return `
+    <div class="wv-panel">
+      <div class="wv-ptitle">MY MOVES</div>
+      <div class="wv-moves">
+        <div class="wv-meter"><b>${left}</b><span>OF ${WAIVER_WEEKLY}<br>ADD/DROPS LEFT</span>${waiverPipsHtml(left)}</div>
+        <button type="button" class="wv-btn gold" onclick="showScoutingList()">🔭 SCOUTING<br>REPORT${nScout?` <em>${nScout}</em>`:''}</button>
+        <button type="button" class="wv-btn" onclick="showTransactionLog()">📜 TRANS-<br>ACTIONS</button>
+      </div>
+    </div>
+    <div class="wv-panel">
+      <div class="wv-ptitle">FIND PLAYERS</div>
+      ${waiverSearchHtml()}
+      <div class="wv-grid2"><div><span>SHOW</span>${showSeg}</div><div><span>SORT</span>${sortSeg}</div></div>
+      <div class="wv-grid2"><div><span>NBA TEAM</span>${waiverTeamSelectHtml('wv-team')}</div><div><span>INJURIES</span>${outChip}</div></div>
+    </div>`;
+}
+
 function renderWaiversPane(){
   const el=document.getElementById('waivers-content');
   if(!el) return;
   const mid=getMyId();
   const used=mid?waiverUsedThisWeek(mid):0;
+  const layout = waiverLayout();
+  if(layout!=='classic'){
+    const hadFocus = document.activeElement?.id==='waiver-search';
+    el.innerHTML = `<div class="wv-wrap">${waiverLayoutPickerHtml()}${waiverLayoutHtml(layout, WAIVER_WEEKLY-used)}</div><div id="waiver-player-list"></div>`;
+    if(hadFocus){ const i=document.getElementById('waiver-search'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); }
+    renderWaiverPlayerList();
+    return;
+  }
 
   const teamDropdown=`<select onchange="waiverFilter.team=this.value;renderWaiverPlayerList()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--pixel);font-size:5.5px;cursor:pointer;flex:1;min-width:0">
     <option value="all" ${waiverFilter.team==='all'?'selected':''}>All Teams</option>
@@ -7136,6 +7293,7 @@ function renderWaiversPane(){
 
   el.innerHTML=`
     <div style="padding:10px 14px 0">
+      ${waiverLayoutPickerHtml()}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-family:var(--pixel);font-size:6px;color:var(--text3);line-height:1.6">ADD/DROPS LEFT FOR CURRENT MATCH-UP: <span style="color:var(--accent1)">${WAIVER_WEEKLY-used}/${WAIVER_WEEKLY}</span></div>
         <button onclick="showScoutingList()" style="flex-shrink:0;margin-left:8px;background:var(--bg3);border:1px solid var(--accent3);color:var(--accent3);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">🔭 SCOUTING${myScoutList().length?` (${myScoutList().length})`:''}</button>

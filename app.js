@@ -2918,6 +2918,12 @@ function snapshotActiveLineups(dateStr){
 // Return the active lineup for a manager at a given game date (YYYYMMDD).
 // Uses activeLog (most accurate), falls back to activeSnapshots, then
 // falls back to current active/inactive (for pre-log data).
+const _etDayCache = new Map();
+function _etDayOfTs(ts){
+  let d = _etDayCache.get(ts); if(d) return d;
+  d = new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  _etDayCache.set(ts, d); return d;
+}
 function activeLineupOnDate(mid, dateStr){
   // Commissioner-confirmed lineup for this date always wins (used to repair history)
   const ov = (leagueState.lineupOverrides||{})[dateStr]?.[mid];
@@ -2925,17 +2931,11 @@ function activeLineupOnDate(mid, dateStr){
   // Try the append-only log first — find last entry on or before game date
   const log = (leagueState.activeLog||{})[mid];
   if(log && log.length > 0){
-    // Game is considered to count at start of that calendar day (midnight ET)
-    // Log entries have ISO timestamps; compare to end of the game date
-    const gameDateEnd = new Date(
-      parseInt(dateStr.slice(0,4)),
-      parseInt(dateStr.slice(4,6))-1,
-      parseInt(dateStr.slice(6,8)),
-      23, 59, 59
-    );
-    // Walk backwards to find latest log entry before or on game date
+    // A log entry belongs to the Eastern-time day it was made on. Compare ET dates, not the
+    // device's own clock: on a phone in Central or Pacific time, "11:59 PM that day" lands after
+    // the next midnight-ET lineup and every day picked up the NEXT day's lineup.
     for(let i = log.length-1; i >= 0; i--){
-      if(new Date(log[i].ts) <= gameDateEnd) return log[i].active;
+      if(_etDayOfTs(log[i].ts) <= dateStr) return log[i].active;
     }
     // All log entries are after game date — lineup hadn't been touched yet,
     // so use the very first log entry as the "original" lineup

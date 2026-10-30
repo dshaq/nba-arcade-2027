@@ -80,9 +80,30 @@ function fit(ch){
   const want=Math.round(body/BODY_SHARE), S=Math.max(D.w, D.h, want);
   return _fit[ch] = {S, k: Math.min(1.3, S/want)};
 }
-function draw(cv,p,ch,scale=1){ const D=CHARS[ch].data, S=fit(ch).S, ox=Math.floor((S-D.w)/2), oy=S-D.h;
+// Blink: each eye closes to a dark line, the rest of the eye takes the body color.
+// Eyes = the eyes / pupils / glint cells (Hops also his fixed black eye ring), split left and right.
+const _eyes = {};
+function eyeInfo(ch){
+  if(ch in _eyes) return _eyes[ch];
+  if(ch==='nova') return _eyes[ch]=null;   // her G cells are mask shine, not eyes
+  const D=CHARS[ch].data, L=ch==='hops'?'EPGF':'EPG';
+  const cells=D.cells.filter(c=>L.includes(c[2]) && (ch!=='hops' || c[1]<=6));
+  const side=[cells.filter(c=>c[0]<D.w/2), cells.filter(c=>c[0]>=D.w/2)];
+  if(side.some(g=>g.length<2)) return _eyes[ch]=null;
+  const map=new Map();
+  for(const g of side){ const ys=g.map(c=>c[1]), lo=Math.min(...ys), hi=Math.max(...ys), line=Math.round(lo+(hi-lo)*.6);
+    for(const c of g) map.set(c[0]+','+c[1], c[1]===line ? 'line' : 'lid'); }
+  return _eyes[ch]=map;
+}
+const canBlink = ch => !!eyeInfo(ch);
+function draw(cv,p,ch,scale=1,opt){ const D=CHARS[ch].data, S=fit(ch).S, ox=Math.floor((S-D.w)/2), oy=S-D.h;
   cv.width=S*scale; cv.height=S*scale; const c=cv.getContext('2d');
-  for(const cell of D.cells){ c.fillStyle=colorFor(cell,p,ch); c.fillRect((cell[0]+ox)*scale,(cell[1]+oy)*scale,scale,scale); } }
+  const eyes = opt?.blink ? eyeInfo(ch) : null;
+  const lid = eyes ? colorFor(D.cells.find(x=>x[2]==='B' && x[3]===2) || D.cells.find(x=>x[2]==='B'), p, ch) : null;
+  for(const cell of D.cells){
+    const e = eyes && eyes.get(cell[0]+','+cell[1]);
+    c.fillStyle = e==='line' ? '#0c0a10' : e==='lid' ? lid : colorFor(cell,p,ch);
+    c.fillRect((cell[0]+ox)*scale,(cell[1]+oy)*scale,scale,scale); } }
 function token(ch,p){ return 'ball:'+ch+':'+CHARS[ch].parts.map(([k])=>{ const v=p[k]; return v==null?'':(typeof v==='number'?'p'+v:String(v).replace('#','').toLowerCase()); }).join(','); }
 function parse(tok){
   const m=/^ball:([a-z]+):(.*)$/.exec(tok||''); if(!m||!CHARS[m[1]]) return null;
@@ -98,5 +119,5 @@ function url(tok){
   const u=cv.toDataURL('image/png'); _urls.set(tok,u); return u;
 }
 const isBall = s => typeof s==='string' && s.startsWith('ball:');
-window.BB = {fit: ch=>fit(ch).k, CHARS, ORDER:Object.keys(CHARS), PALETTES, COLORWAYS, TEAMS:BB_TEAMS, ORIG, fresh, teamPick, colorFor, draw, token, parse, url, isBall, mix};
+window.BB = {fit: ch=>fit(ch).k, canBlink, CHARS, ORDER:Object.keys(CHARS), PALETTES, COLORWAYS, TEAMS:BB_TEAMS, ORIG, fresh, teamPick, colorFor, draw, token, parse, url, isBall, mix};
 })();

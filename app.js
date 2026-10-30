@@ -7496,7 +7496,7 @@ function openAvatarEditor(forMid){
       <div class="bs-stage" id="bs-stage">
         <div class="bs-1p">1P</div>
         <canvas id="bb-hero" aria-label="Avatar preview"></canvas>
-        <div class="bs-bio"><div class="bs-style" id="bb-style"></div><div class="bs-name" id="bb-who"></div></div>
+        <div class="bs-bio"><div class="bs-tag" id="bs-tag"></div><div class="bs-league" id="bs-league"></div><div class="bs-name" id="bb-who"></div><div class="bs-style" id="bb-style"></div></div>
         <div class="bs-flash" id="bs-flash"></div>
       </div>
       <div id="bs-roster">
@@ -7508,7 +7508,7 @@ function openAvatarEditor(forMid){
         <div class="bs-padhead"><span>NOW MAKE IT YOURS</span><button type="button" data-act="roster">◀ ROSTER</button></div>
         <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button></div>
         <div class="bb-panel" id="bb-panel"></div>
-        <div class="bb-bar"><button type="button" data-act="rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary bs-go">SAVE ▶</button></div>
+        <div class="bb-bar"><button type="button" data-act="rand" class="bs-go bs-rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary bs-go">SAVE ▶</button></div>
       </div>
     </div>`;
   modal.querySelector('.bb-box').addEventListener('click', bbClick);
@@ -7530,13 +7530,17 @@ function bbFlash(){ const f = document.getElementById('bs-flash'); if(!f) return
 function bbRender(slide){
   if(!_bb || !document.getElementById('bb-panel')) return;
   const {ch, pick, taken} = _bb, C = BB.CHARS[ch], color = _bb.stage==='color';
-  const hero = document.getElementById('bb-hero'), shown = color ? pick : BB.fresh(ch);
-  BB.draw(hero, shown, ch);
-  hero.style.scale = BB.fit(ch);
+  const hero = document.getElementById('bb-hero');
+  if(color) _bb.shown = pick;
+  else if(_bb.shownCh!==ch || _bb.lastStage==='color'){ _bb.shown = BB.fresh(ch); _bb.cycleIdx = 0; _bb.cycleAt = Date.now()+1800; }
+  _bb.shownCh = ch; _bb.lastStage = _bb.stage;
+  bbDrawHero(false);
   if(slide){ hero.classList.remove('swap'); void hero.offsetWidth; hero.classList.add('swap'); }
   document.getElementById('bb-who').textContent = C.name;
-  document.getElementById('bb-style').textContent = color ? _bb.style.toUpperCase() : 'ORIGINAL';
-  document.querySelector('#avatar-modal .bs-box').style.setProperty('--bc', bbMainColor(ch, shown));
+  document.getElementById('bb-style').textContent = color && _bb.style!=='Original' ? _bb.style.toUpperCase() : '';
+  document.getElementById('bs-tag').textContent = BB_TAGLINES[ch] || '';
+  document.getElementById('bs-league').innerHTML = bbLeagueHtml(ch);
+  bbAnimStart();
   document.querySelectorAll('#avatar-modal .bs-tile[data-c]').forEach(t=>{ const on = t.dataset.c===ch; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
   document.getElementById('bs-roster').hidden = color;
   document.getElementById('bs-pad').hidden = !color;
@@ -7568,10 +7572,55 @@ function bbRender(slide){
   bbStrips();
 }
 function bbStageOnly(){
-  const {ch, pick} = _bb;
-  BB.draw(document.getElementById('bb-hero'), pick, ch);
-  document.getElementById('bb-style').textContent = _bb.style.toUpperCase();
-  document.querySelector('#avatar-modal .bs-box').style.setProperty('--bc', bbMainColor(ch, pick));
+  _bb.shown = _bb.pick; bbDrawHero(false);
+  document.getElementById('bb-style').textContent = _bb.style!=='Original' ? _bb.style.toUpperCase() : '';
+}
+// One line of personality for each Baller (shown in the stage's open space)
+const BB_TAGLINES = {
+  jalen:'Mean mug. Meaner jumper.', hops:'Leaps first. Asks later.', jake:'Too cool to box out.',
+  bolt:'Runs on batteries and buckets.', lars:'Charges the lane. Literally.', karl:'Now you see him. Now he scored.',
+  hoot:'Sees the pass before you do.', bee:'Stings on the fast break.', jack:'King of the fourth quarter.',
+  zorp:'Range from another galaxy.', gabe:'Unbothered. Still drops 30.', nova:'Steals in the night.'
+};
+// Who in the league already plays as this Baller (their own colors)
+function bbLeagueHtml(ch){
+  const users = (leagueState?.managers||[]).map(m=>({m, tok:leagueState.prefs?.[m.id]?.avatar?.ball})).filter(x=>x.tok && BB.parse(x.tok)?.ch===ch && String(x.m.id)!==String(_bb.mid));
+  if(!users.length) return '<span class="bs-lg-t">NO ONE IN YOUR LEAGUE YET</span>';
+  return `<span class="bs-lg-t">IN YOUR LEAGUE</span><span class="bs-lg-av">${users.slice(0,6).map(x=>`<img src="${BB.url(x.tok)}" alt="" title="${escHtmlBB(x.m.display_name)}">`).join('')}${users.length>6?`<i>+${users.length-6}</i>`:''}</span>`;
+}
+// Size the hero so the tallest Baller (crown, horns) still fits the stage while he bobs
+function bbDrawHero(blink){
+  const hero = document.getElementById('bb-hero'), st = document.getElementById('bs-stage'); if(!hero || !_bb) return;
+  const ch = _bb.shownCh || _bb.ch, k = BB.fit(ch);
+  BB.draw(hero, _bb.shown || _bb.pick, ch, 1, {blink});
+  if(st){ const avail = st.clientHeight - 8 - 7 - 10;   // bottom gap, bob, headroom
+    hero.style.width = Math.max(60, Math.min(160, st.clientWidth*0.48, avail/k)) + 'px'; }
+  hero.style.scale = k;
+  document.querySelector('#avatar-modal .bs-box')?.style.setProperty('--bc', bbMainColor(ch, _bb.shown || _bb.pick));
+}
+// Idle animation on the stage: a blink every few seconds, and on the roster the Baller
+// flips through his styles so you can see his colors before picking him
+let _bbAnim = null;
+function bbAnimStart(){
+  if(_bbAnim) return;
+  if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  _bb.nextBlink = Date.now() + 1500;
+  _bbAnim = setInterval(bbAnimTick, 90);
+}
+function bbAnimTick(){
+  if(!_bb || !document.getElementById('bs-stage')){ clearInterval(_bbAnim); _bbAnim = null; return; }
+  const now = Date.now(), ch = _bb.shownCh || _bb.ch;
+  if(_bb.stage==='roster' && now >= (_bb.cycleAt||0)){
+    const W = BB.COLORWAYS[ch] || [];
+    if(W.length > 1){ _bb.cycleIdx = ((_bb.cycleIdx||0) + 1) % W.length; _bb.shown = {...BB.fresh(ch), ...W[_bb.cycleIdx][1]}; bbDrawHero(!!_bb.blinkUntil); }
+    _bb.cycleAt = now + 1300;
+  }
+  if(_bb.blinkUntil && now >= _bb.blinkUntil){
+    _bb.blinkUntil = 0; bbDrawHero(false);
+    _bb.nextBlink = now + (Math.random() < .25 ? 220 : 2400 + Math.random()*2200);   // now and then a double blink
+  } else if(!_bb.blinkUntil && now >= (_bb.nextBlink||0) && BB.canBlink(ch)){
+    _bb.blinkUntil = now + 140; bbDrawHero(true);
+  }
 }
 // Side-scrolling strips: arrows (mouse users can't swipe) + mouse wheel scrolls sideways
 function bbStrips(){

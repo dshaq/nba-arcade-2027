@@ -4982,13 +4982,13 @@ function getDuelStatDisplay(p, statType, duel, side){
     case 'dd':      return `${f1(p.ppg)} PTS ${f1(p.rpg)} REB · ${p.team}`;
     case 'parlay':  return `${side===1?duel.line1:duel.line2}+ PTS & ${side===1?duel.team1:duel.team2} WIN`;
     // Uppercase, with a space between every number and its label: "1 STL 0.2 BLK · SAC"
-    case 'pts':     return `${p.ppg} PPG · ${p.team}`;
-    case 'reb':     return `${p.rpg} RPG · ${p.team}`;
-    case 'ast':     return `${p.apg} APG · ${p.team}`;
-    case 'reb+ast': return `${p.rpg} REB ${p.apg} AST · ${p.team}`;
-    case 'stl+blk': return `${p.spg} STL ${p.bpg} BLK · ${p.team}`;
+    case 'pts':     return `${f1(p.ppg)} PPG · ${p.team}`;
+    case 'reb':     return `${f1(p.rpg)} RPG · ${p.team}`;
+    case 'ast':     return `${f1(p.apg)} APG · ${p.team}`;
+    case 'reb+ast': return `${f1(p.rpg)} REB ${f1(p.apg)} AST · ${p.team}`;
+    case 'stl+blk': return `${f1(p.spg)} STL ${f1(p.bpg)} BLK · ${p.team}`;
     case 'fp':      return `${(+(seasonFpPG(p.name) ?? getPlayerProjFP(p))).toFixed(1)} FP/G · ${p.team}`;
-    default:        return `${p.ppg} PPG · ${p.team}`;
+    default:        return `${f1(p.ppg)} PPG · ${p.team}`;
   }
 }
 

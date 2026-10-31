@@ -4058,15 +4058,22 @@ function renderDuelScreen(){
 
   const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14) : '';
 
+  // Two tabs like the Weekly Challenge: Current (today's duel + yesterday's recap) and Standings
+  if(!window._duelTab) window._duelTab = 'current';
+  const tab = window._duelTab;
+  const tabBtn = (id,label) => `<button onclick="window._duelTab='${id}';renderDuelScreen()" style="flex:1;padding:9px;background:none;border:none;font-family:var(--pixel);font-size:6px;cursor:pointer;color:${tab===id?'var(--accent2)':'var(--text3)'};border-bottom:${tab===id?'2px solid var(--accent2)':'none'}">${label}</button>`;
+  const recap = duelRecapHtml(yesterday);
   el.innerHTML = `
     <div style="padding:12px 0 80px">
-      <div id="duel-card-container-screen" style="padding:0 14px 4px"></div>
-      ${seasonNote}
-      <div class="section-label" style="margin-top:16px">LEADERBOARD</div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · STARTS OCT 20</div>
-        ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
-      </div>
+      <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('current','CURRENT')}${tabBtn('standings','STANDINGS')}</div>
+      ${tab==='current' ? `
+        <div id="duel-card-container-screen" style="padding:0 14px 4px"></div>
+        ${recap ? `<div class="section-label" style="margin-top:14px">YESTERDAY'S DUEL</div><div style="padding:0 14px">${recap}</div>` : ''}` : `
+        ${seasonNote}
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · STARTS OCT 20</div>
+          ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
+        </div>`}
     </div>`;
 
   // Render duel card into screen container using shared renderDuelCard logic
@@ -5025,8 +5032,7 @@ function duelTonightEntry(p){
 }
 
 // Render the duel card on the home screen
-// ── DUEL RECAP: yesterday's duel — the winner and who called it ──
-// Preview: only the commissioner and testers see it on Home for now.
+// ── DUEL RECAP: yesterday's duel — the winner and who called it (Duel tab › Current) ──
 function duelRecapHtml(dateKey){
   const duel = (leagueState.duels||{})[dateKey];
   if(!duel || duel.result===null || duel.result===undefined) return '';
@@ -5070,8 +5076,7 @@ function duelRecapHtml(dateKey){
   </div>`;
 }
 function renderDuelRecap(){
-  const el = document.getElementById('duel-recap-container'); if(!el) return;
-  el.innerHTML = isFnavTester() ? duelRecapHtml(getPrevDateKey(todayKey())) : '';
+  const el = document.getElementById('duel-recap-container'); if(el) el.innerHTML = '';   // the recap lives on the Duel tab
 }
 function renderDuelCard(){
   const el=document.getElementById('duel-card-container');

@@ -7100,11 +7100,13 @@ function renderAvailablePlayers(){
 // ── WAIVERS PANE ─────────────────────────────────────────────────────────────
 // NBA_TEAMS_LIST: sorted array of abbreviations derived from NBA_TEAMS object above
 const NBA_TEAMS_LIST = Object.keys(NBA_TEAMS).sort();
-let waiverFilter = { availability:'available', team:'all', sort:'fp', hideOut:false };
+let waiverFilter = { availability:'available', team:'all', sort:'fp', hideOut:false, rookie:false };
+// Rookie = BDL years_experience 0, or drafted in 2026 when that isn't known
+function isRookie(p){ return !!p && (p.yearsExp === 0 || (p.yearsExp == null && p.draftYear === 2026)); }
 let waiverSearchQuery = '';
 
 function resetWaiverFilters(){
-  waiverFilter = { availability:'available', team:'all', sort:'fp' };
+  waiverFilter = { availability:'available', team:'all', sort:'fp', hideOut:false, rookie:false };
   waiverSearchQuery = '';
 }
 
@@ -7121,6 +7123,7 @@ function renderWaiverPlayerList(){
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
     if(waiverFilter.team!=='all' && p.team!==waiverFilter.team) return false;
     if(waiverFilter.hideOut && isOutOrInjured(p.name)) return false;
+    if(waiverFilter.rookie && !isRookie(p)) return false;
     if(query && !p.name.toLowerCase().includes(query) && !p.team.toLowerCase().includes(query) && !p.pos.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -7164,7 +7167,7 @@ function renderWaiverPlayerList(){
         <div class="rc wv${owner||allRostered.has(p.id)?' taken':''}${isLiveNow?' live':''}">
           <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${portEl}</div>
           <div class="rc-info">
-            <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${injuryBadgeHtml(p.name)}</div>
+            <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${isRookie(p)?'<span class="rk-badge">R</span>':''}${injuryBadgeHtml(p.name)}</div>
             ${line2}
           </div>
           <div class="rc-act">${act}</div>
@@ -7235,11 +7238,11 @@ const WAIVER_LAYOUTS = [
   {id:'sheet',   name:'B · Filter Sheet'},
   {id:'cards',   name:'C · Two Panels'},
 ];
-function waiverLayout(){ if(!isFnavTester()) return 'classic'; try{ return localStorage.getItem('nba-wvl') || 'classic'; }catch(e){ return 'classic'; } }
+function waiverLayout(){ return 'bar'; }   // the league picked A · Control Bar (Oct 30)
 function setWaiverLayout(id){ try{ localStorage.setItem('nba-wvl', id); }catch(e){} renderWaiversPane(); }
 function wvSet(js){ try{ (new Function('waiverFilter', js))(waiverFilter); }catch(e){} renderWaiversPane(); }
 function waiverLayoutPickerHtml(){
-  if(!isFnavTester()) return '';
+  return '';
   const cur = waiverLayout();
   return `<div class="wvl-pick"><span>🧪 LAYOUT TEST</span>${WAIVER_LAYOUTS.map(l=>`<button type="button" class="${l.id===cur?'on':''}" onclick="setWaiverLayout('${l.id}')">${l.name}</button>`).join('')}</div>`;
 }
@@ -7262,14 +7265,16 @@ function waiverLayoutHtml(layout, left){
   const nScout = myScoutList().length;
   const showSeg = wvSeg([['AVAILABLE', avail==='available', "waiverFilter.availability='available'"], ['ALL PLAYERS', avail==='all', "waiverFilter.availability='all'"]]);
   const sortSeg = wvSeg([['FP ↓', sort==='fp', "waiverFilter.sort='fp'"], ['A–Z', sort==='alpha', "waiverFilter.sort='alpha'"]]);
-  const outChip = `<button type="button" class="wv-chip warn${waiverFilter.hideOut?' on':''}" onclick="wvSet('waiverFilter.hideOut=!waiverFilter.hideOut')">${waiverFilter.hideOut?'✓ ':''}HIDE OUT/INJ</button>`;
+  const outChip = `<button type="button" class="wv-chip warn${waiverFilter.hideOut?' on':''}" onclick="wvSet('waiverFilter.hideOut=!waiverFilter.hideOut')">${waiverFilter.hideOut?'✓ ':''}HIDE OUT/INJ</button>`
+    + `<button type="button" class="wv-chip gold${waiverFilter.rookie?' on':''}" onclick="wvSet('waiverFilter.rookie=!waiverFilter.rookie')">${waiverFilter.rookie?'✓ ':'🌟 '}ROOKIES</button>`;
   if(layout==='bar') return `
     <div class="wv-status">
-      <div class="wv-left"><span>ADD/DROPS LEFT</span>${waiverPipsHtml(left)}<b>${left}/${WAIVER_WEEKLY}</b></div>
+      ${left==null ? '<div class="wv-left"></div>' : `<div class="wv-left"><span>ADD/DROPS LEFT</span>${waiverPipsHtml(left)}<b>${left}/${WAIVER_WEEKLY}</b></div>`}
       <div class="wv-btns"><button type="button" class="wv-btn gold" onclick="showScoutingList()">🔭 SCOUTING REPORT${nScout?` <em>${nScout}</em>`:''}</button><button type="button" class="wv-btn" onclick="showTransactionLog()">📜 TRANSACTIONS</button></div>
     </div>
     <div class="wv-findrow">${waiverSearchHtml()}${waiverTeamSelectHtml('wv-team')}</div>
-    <div class="wv-ctl">${showSeg}${outChip}<span class="wv-grow"></span>${sortSeg}</div>`;
+    <div class="wv-ctl">${showSeg}<span class="wv-grow"></span>${sortSeg}</div>
+    <div class="wv-ctl"><span class="wv-flab">FILTERS</span>${outChip}</div>`;
   if(layout==='sheet'){
     const chips = [
       avail==='all' ? ['ALL PLAYERS', "waiverFilter.availability='available'"] : null,
@@ -7322,18 +7327,13 @@ function renderWaiversPane(){
   const outOfRun = !!(mid && !inFantasyRun(mid));
   const browseNote = outOfRun ? `<div class="wv-browse">👀 <b>PLAYER DIRECTORY</b><br>You're not in the ${escHtmlBB((RUNS.find(r=>r.id===currentRun)?.name||'current').toUpperCase())} RUN, but you can browse every player, open their cards and build your Scouting Report for the next draft.</div>` : '';
   if(outOfRun){
-    el.innerHTML = `<div style="padding:10px 14px 0">${browseNote}
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button onclick="showScoutingList()" style="background:var(--bg3);border:1px solid var(--accent3);color:var(--accent3);border-radius:12px;padding:5px 10px;font-family:var(--pixel);font-size:5px;cursor:pointer">🔭 SCOUTING REPORT${myScoutList().length?` (${myScoutList().length})`:''}</button></div>
-      <div id="waiver-filter-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">${filterRowHtml('waiver')}</div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3);flex-shrink:0">NBA TEAM</span>${waiverTeamSelectHtml('wv-team')}</div>
-      ${waiverSearchHtml().replace('class="wv-search"','class="wv-search" style="margin-bottom:8px"')}
-    </div><div id="waiver-player-list"></div>`;
+    el.innerHTML = `<div class="wv-wrap">${browseNote}${waiverLayoutHtml('bar', null)}</div><div id="waiver-player-list"></div>`;
     renderWaiverPlayerList();
     return;
   }
   if(layout!=='classic'){
     const hadFocus = document.activeElement?.id==='waiver-search';
-    el.innerHTML = `<div class="wv-wrap">${waiverLayoutPickerHtml()}${waiverLayoutHtml(layout, WAIVER_WEEKLY-used)}</div><div id="waiver-player-list"></div>`;
+    el.innerHTML = `<div class="wv-wrap">${waiverLayoutHtml(layout, WAIVER_WEEKLY-used)}</div><div id="waiver-player-list"></div>`;
     if(hadFocus){ const i=document.getElementById('waiver-search'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); }
     renderWaiverPlayerList();
     return;

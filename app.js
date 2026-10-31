@@ -4016,6 +4016,7 @@ function renderHomeScreen(){
   renderWlcHomeBanner();
   renderScoreboard();
   renderNewsBanner();
+  renderDuelRecap();
   renderDuelCard();
   // Someone who joined mid-run isn't in the fantasy league yet: no match-ups or fantasy stats
   const runNow = getCurrentRun()?.id, mid = getMyId();
@@ -5024,6 +5025,54 @@ function duelTonightEntry(p){
 }
 
 // Render the duel card on the home screen
+// ── DUEL RECAP: yesterday's duel — the winner and who called it ──
+// Preview: only the commissioner and testers see it on Home for now.
+function duelRecapHtml(dateKey){
+  const duel = (leagueState.duels||{})[dateKey];
+  if(!duel || duel.result===null || duel.result===undefined) return '';
+  const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id));
+  const picks = Object.entries(duel.picks||{}).filter(([,v])=>v===1||v===2);
+  const push = duel.result==='tie' || duel.result==='push';
+  const right = picks.filter(([,v])=>!push && v===duel.result).map(([id])=>mgr(id)).filter(Boolean);
+  const wrong = picks.filter(([,v])=>!push && v!==duel.result).map(([id])=>mgr(id)).filter(Boolean);
+  const n1 = picks.filter(([,v])=>v===1).length, n2 = picks.length - n1, pc1 = picks.length ? Math.round(100*n1/picks.length) : 0;
+  const statLbl = (typeof DUEL_STAT_LABEL!=='undefined' && DUEL_STAT_LABEL[duel.stat]) || String(duel.stat||'').toUpperCase();
+  const isTeam = duel.type==='team';
+  const side = n => {
+    const won = !push && duel.result===n, score = n===1 ? duel.score1 : duel.score2;
+    let art, name;
+    if(isTeam){ const ab = n===1?duel.team1:duel.team2; name = ab; art = `<div class="dr-team">${ab}</div>`; }
+    else { const p = getPlayer(n===1?duel.pid1:duel.pid2); name = p ? playerShortName(p.name).toUpperCase() : '?';
+      art = p ? `<img src="${portraitUrl(p.team, p.name)}" onerror="this.style.visibility='hidden'">` : ''; }
+    return `<div class="dr-side${won?' win':''}${!push&&!won?' lose':''}">
+      ${won?'<div class="dr-crown">👑 WINNER</div>':''}
+      <div class="dr-art">${art}</div>
+      <div class="dr-name">${escHtmlBB(name)}</div>
+      <div class="dr-score">${score ?? '—'}<small>${statLbl}</small></div>
+    </div>`;
+  };
+  const me = String(getMyId()), myPick = (duel.picks||{})[me];
+  const ds = id => (leagueState.duelStreaks||{})[id] || {};
+  const mine = myPick==null ? `<div class="dr-you">You sat this one out.</div>`
+    : push ? `<div class="dr-you">Push: streaks hold.</div>`
+    : myPick===duel.result ? `<div class="dr-you ok">✓ YOU CALLED IT${ds(me).streak?` · 🔥 ${ds(me).streak} IN A ROW`:''}</div>`
+    : `<div class="dr-you no">✗ NOT THIS TIME · STREAK RESET</div>`;
+  const who = (list, cls) => list.length ? list.map(m=>`<span class="dr-who ${cls}" title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}<b>${escHtmlBB(m.display_name)}</b>${cls==='ok'&&ds(m.id).streak>1?`<i>🔥${ds(m.id).streak}</i>`:''}</span>`).join('') : `<span class="dr-none">${cls==='ok'?'NOBODY. OUCH.':'NOBODY!'}</span>`;
+  const day = new Date(dateKey+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
+  return `<div class="dr-card">
+    <div class="dr-head"><span>⚡ DUEL RECAP</span><span>${day}</span></div>
+    <div class="dr-theme">${escHtmlBB(duel.theme||'')}</div>
+    <div class="dr-vs">${side(1)}<div class="dr-mid">VS</div>${side(2)}</div>
+    ${picks.length ? `<div class="dr-split"><span style="width:${pc1}%"></span></div><div class="dr-splitlbl"><span>${pc1}% PICKED</span><span>${100-pc1}% PICKED</span></div>` : ''}
+    ${mine}
+    ${push ? '' : `<div class="dr-lab ok">GOT IT RIGHT · ${right.length}</div><div class="dr-row">${who(right,'ok')}</div>
+    <div class="dr-lab no">MISSED · ${wrong.length}</div><div class="dr-row">${who(wrong,'no')}</div>`}
+  </div>`;
+}
+function renderDuelRecap(){
+  const el = document.getElementById('duel-recap-container'); if(!el) return;
+  el.innerHTML = isFnavTester() ? duelRecapHtml(getPrevDateKey(todayKey())) : '';
+}
 function renderDuelCard(){
   const el=document.getElementById('duel-card-container');
   if(!el) return;

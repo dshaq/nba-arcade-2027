@@ -1630,6 +1630,30 @@ body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 #scout-modal .rc-act .rc-scout{width:100%;text-align:center}
 .wv-browse{margin:0;padding:10px 12px;border:1px solid var(--accent1);border-radius:10px;background:color-mix(in srgb,var(--accent1) 8%,transparent);font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2)}
 .wv-browse b{font-weight:normal;color:var(--accent1)}
+.dr-card{margin:0 14px 12px;padding:12px 12px 14px;border:2px solid #b36bff;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,#b36bff 12%,var(--card)),var(--card));font-family:var(--pixel);box-shadow:0 0 14px rgba(179,107,255,.25)}
+.dr-head{display:flex;justify-content:space-between;font-size:6px;color:#c9a2ff;letter-spacing:.1em}
+.dr-theme{text-align:center;font-size:8px;color:#ffd93d;margin:10px 0 10px;letter-spacing:.06em}
+.dr-vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px}
+.dr-mid{font-size:9px;color:#b36bff;align-self:center}
+.dr-side{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:16px 4px 8px;border-radius:10px;border:2px solid transparent}
+.dr-side.win{border-color:#ffd93d;background:color-mix(in srgb,#ffd93d 10%,transparent);box-shadow:0 0 12px rgba(255,217,61,.3)}
+.dr-side.lose{opacity:.5;filter:grayscale(.6)}
+.dr-crown{position:absolute;top:-8px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:5px;color:#1a1200;background:#ffd93d;padding:3px 6px;border-radius:4px}
+.dr-art{width:60px;height:60px;border-radius:8px;overflow:hidden;background:var(--bg3)}
+.dr-art img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.dr-team{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.dr-name{font-size:6.5px;color:#fff}
+.dr-score{font-size:16px;color:#ffd93d;display:flex;flex-direction:column;align-items:center;gap:3px}
+.dr-side.lose .dr-score{color:var(--text2)} .dr-score small{font-size:4.5px;color:var(--text3)}
+.dr-split{height:6px;border-radius:3px;background:#4adfff;overflow:hidden;margin:12px 2px 4px} .dr-split span{display:block;height:100%;background:#ff5fbf}
+.dr-splitlbl{display:flex;justify-content:space-between;font-size:4.5px;color:var(--text3);margin:0 2px}
+.dr-you{text-align:center;font-size:6px;color:var(--text2);margin:12px 0 4px} .dr-you.ok{color:var(--accent2)} .dr-you.no{color:#ff5c6c}
+.dr-lab{font-size:5px;letter-spacing:.1em;margin:12px 0 6px} .dr-lab.ok{color:var(--accent2)} .dr-lab.no{color:#ff5c6c}
+.dr-row{display:flex;flex-wrap:wrap;gap:10px}
+.dr-who{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:40px;position:relative}
+.dr-who b{font-weight:normal;font-size:4.5px;color:var(--text2);max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-who.no{opacity:.45} .dr-who i{position:absolute;top:-4px;right:-6px;font-style:normal;font-size:5px;color:#ffb020}
+.dr-none{font-size:5px;color:var(--text3)}
 .wvl-pick{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:0 0 10px;padding:7px 8px;border:1px dashed #ffd93d;border-radius:8px;font-family:var(--pixel);}
 .wvl-pick span{font-size:5px;color:#ffd93d;margin-right:2px}
 .wvl-pick button{font-family:var(--pixel);font-size:5px;padding:5px 7px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer}
@@ -1918,6 +1942,7 @@ html[data-theme="neon"]{
     <div id="scoreboard-container"></div>
 
     <!-- Daily Duel -->
+    <div id="duel-recap-container"></div>
     <div id="duel-card-container"></div>
 
     <!-- Not in this fantasy run (joined mid-run): a note instead of match-ups and stats -->

@@ -4018,6 +4018,7 @@ function renderHomeScreen(){
   renderNewsBanner();
   renderDuelRecap();
   renderDuelCard();
+  renderFuturesDuel();
   // Someone who joined mid-run isn't in the fantasy league yet: no match-ups or fantasy stats
   const runNow = getCurrentRun()?.id, mid = getMyId();
   const outOfRun = !!(mid && runNow && !inFantasyRun(mid, runNow));
@@ -4068,6 +4069,7 @@ function renderDuelScreen(){
       <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('current','CURRENT')}${tabBtn('standings','STANDINGS')}</div>
       ${tab==='current' ? `
         <div id="duel-card-container-screen" style="padding:0 14px 4px"></div>
+        <div class="fd-slot" style="padding:0 14px"></div>
         ${recap ? `<div class="section-label" style="margin-top:14px">YESTERDAY'S DUEL</div><div style="padding:0 14px">${recap}</div>` : ''}` : `
         ${seasonNote}
         <div class="card" style="padding:0;overflow:hidden">
@@ -4076,6 +4078,7 @@ function renderDuelScreen(){
         </div>`}
     </div>`;
 
+  renderFuturesDuel();
   // Render duel card into screen container using shared renderDuelCard logic
   const screenCardEl = document.getElementById('duel-card-container-screen');
   if(screenCardEl){
@@ -4318,8 +4321,15 @@ const DUEL_THEMES = {
   6:{ name:'STOCKS SATURDAY 📈',    stat:'stl+blk', prompt:'Who records the most steals + blocks today?' },
   0:{ name:'SWISH SUNDAY',          stat:'pts',     prompt:'Who scores the most points today?' },
 };
+// NBA Cup nights: the duel is a team pick from one of that night's games
+const NBA_CUP_DAYS = ['2026-11-06','2026-11-13','2026-11-20','2026-11-24','2026-11-25','2026-11-27',   // group stage
+                      '2026-12-04','2026-12-05',   // quarterfinals
+                      '2026-12-08',                // semifinals
+                      '2026-12-11'];               // final
+const NBA_CUP_THEME = { name:'NBA CUP DUEL 🏆', stat:'team', prompt:'Which team will win?' };
 function duelThemeFor(dateKey){
   if(dateKey < DUEL_THEMES_START) return null;
+  if(NBA_CUP_DAYS.includes(dateKey)) return NBA_CUP_THEME;
   return DUEL_THEMES[new Date(dateKey+'T12:00:00Z').getUTCDay()];
 }
 // This season's (2026-27) 3PM / FTM per game for the duel pool. Players with 3+ games
@@ -5032,6 +5042,93 @@ function duelTonightEntry(p){
 }
 
 // Render the duel card on the home screen
+// ── FUTURES DUEL (Dual Duel Wednesdays) ─────────────────────────────────────
+// A second, longer-range pick on Wednesdays: "who wins the Cup / title / MVP". Pick from a
+// dropdown; picks lock at lockAt; the commissioner marks the winner in the Commissioner Panel.
+// Picks live in leagueState.futures[id] = {picks:{mid:option}, pickedAt:{}, result}.
+const FUTURES_DUELS = [
+  { id:'cup26-west-a', open:'2026-11-04', lockAt:'2026-11-06T19:00:00-05:00',
+    title:'NBA CUP · WEST GROUP A', question:'Who will win NBA Cup West Group A?',
+    options:['HOU','DAL','DEN','UTA','PHX'] },
+];
+function futureState(f){ return ((leagueState.futures||{})[f.id]) || {}; }
+// The futures duel to show today: open now, locked and waiting on a result, or settled in the last 3 days
+function currentFuture(){
+  const today = todayKey(), now = Date.now(), pv = isFnavTester();
+  for(const f of FUTURES_DUELS){
+    const st = futureState(f);
+    if(st.result){ const d = new Date(st.resultAt||0); if(now - d < 3*864e5) return f; continue; }
+    if(today >= f.open || pv) return f;   // testers see it before it opens
+  }
+  return null;
+}
+function futureOptLabel(o){ return (NBA_TEAMS?.[o] ? `${NBA_TEAMS[o]}` : o); }
+function futuresDuelHtml(){
+  const f = currentFuture(); if(!f) return '';
+  const st = futureState(f), me = String(getMyId()), mine = (st.picks||{})[me];
+  const today = todayKey(), preview = today < f.open, locked = Date.now() >= new Date(f.lockAt).getTime(), settled = !!st.result;
+  const picks = Object.entries(st.picks||{});
+  const count = o => picks.filter(([,v])=>v===o).length;
+  const logo = o => { const u = getTeamLogoUrl(o); return u ? `<img src="${u}" alt="" onerror="this.style.visibility='hidden'">` : `<b>${o}</b>`; };
+  const lockTxt = new Date(f.lockAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET';
+  const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id));
+  let body;
+  if(settled){
+    const right = picks.filter(([,v])=>v===st.result).map(([id])=>mgr(id)).filter(Boolean);
+    body = `<div class="fd-win">${logo(st.result)}<div><span>WINNER</span><b>${escHtmlBB(futureOptLabel(st.result)).toUpperCase()}</b></div></div>
+      <div class="fd-lab">CALLED IT · ${right.length}</div>
+      <div class="fd-row">${right.length ? right.map(m=>`<span title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 24, 7, m.icon||null, m.photo||null)}</span>`).join('') : '<em>Nobody saw it coming.</em>'}</div>`;
+  } else if(locked || mine){
+    body = `${mine ? `<div class="fd-mine">YOUR PICK: ${logo(mine)}<b>${escHtmlBB(futureOptLabel(mine)).toUpperCase()}</b></div>` : `<div class="fd-mine muted">🔒 Picks are locked. You didn't pick.</div>`}
+      ${(locked || mine) && picks.length ? `<div class="fd-bars">${f.options.map(o=>{ const n=count(o), pc=Math.round(100*n/picks.length); return `<div class="fd-bar${o===mine?' me':''}">${logo(o)}<b>${o}</b><span class="fd-track"><i style="width:${pc}%"></i></span><em>${pc}%</em></div>`; }).join('')}</div>` : ''}
+      <div class="fd-note">${locked ? 'LOCKED · RESULT POSTED WHEN THE GROUP IS DECIDED' : `PICKS LOCK ${lockTxt} · YOU CAN CHANGE IT UNTIL THEN`}</div>
+      ${!locked && mine ? `<button type="button" class="fd-change" onclick="futuresChange('${f.id}')">CHANGE PICK</button>` : ''}`;
+  } else {
+    body = `<select id="fd-sel" class="fd-sel" ${preview?'disabled':''}><option value="">Choose a team…</option>${f.options.map(o=>`<option value="${o}">${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select>
+      <button type="button" class="fd-go" ${preview?'disabled':''} onclick="futuresPick('${f.id}')">LOCK IN ▶</button>
+      <div class="fd-note">${preview ? `🧪 PREVIEW · OPENS ${new Date(f.open+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase()} FOR EVERYONE` : `PICKS LOCK ${lockTxt}`}</div>`;
+  }
+  return `<div class="fd-card">
+    <div class="fd-head"><span>🔮 FUTURES DUEL</span><span>${escHtmlBB(f.title)}</span></div>
+    <div class="fd-q">${escHtmlBB(f.question)}</div>
+    <div class="fd-logos">${f.options.map(o=>`<span class="${settled&&o===st.result?'win':''}${settled&&o!==st.result?' out':''}">${logo(o)}</span>`).join('')}</div>
+    ${body}
+  </div>`;
+}
+let _fdEditing = false;
+function futuresChange(id){ const st = (leagueState.futures||{})[id]; if(st?.picks) delete st.picks[String(getMyId())]; renderFuturesDuel(); }
+async function futuresPick(id){
+  const f = FUTURES_DUELS.find(x=>x.id===id), v = document.getElementById('fd-sel')?.value, mid = String(getMyId());
+  if(!f || !mid) return;
+  if(!v){ toast('Pick a team first'); return; }
+  if(Date.now() >= new Date(f.lockAt).getTime()){ toast('🔒 Picks are locked'); renderFuturesDuel(); return; }
+  if(!leagueState.futures) leagueState.futures = {};
+  const st = leagueState.futures[id] ||= {picks:{}, pickedAt:{}};
+  st.picks = {...(st.picks||{}), [mid]: v}; st.pickedAt = {...(st.pickedAt||{}), [mid]: new Date().toISOString()};
+  renderFuturesDuel();
+  await saveLeagueState();
+  toast(_lastSaveOk ? `Locked in: ${futureOptLabel(v)}` : 'Did not save. Try again.');
+}
+async function commSetFutureResult(id, v){
+  if(!bbIsComm()) return;
+  if(!leagueState.futures) leagueState.futures = {};
+  const st = leagueState.futures[id] ||= {picks:{}, pickedAt:{}};
+  st.result = v || null; st.resultAt = v ? new Date().toISOString() : null;
+  await saveLeagueState(); toast(v ? `Winner set: ${futureOptLabel(v)}` : 'Result cleared');
+  renderAdminContent?.(); renderFuturesDuel();
+}
+function renderFuturesDuel(){
+  const html = futuresDuelHtml();
+  document.querySelectorAll('.fd-slot').forEach(el=>{ el.innerHTML = html; });
+}
+function renderAdminFuturesSection(){
+  return `<div style="margin-top:16px"><div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:10px">🔮 FUTURES DUELS</div>
+    ${FUTURES_DUELS.map(f=>{ const st = futureState(f), n = Object.keys(st.picks||{}).length;
+      return `<div style="font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2);margin-bottom:8px">${escHtmlBB(f.question)}<br><span style="color:var(--text3)">OPENS ${f.open} · ${n} PICK${n===1?'':'S'}</span>
+        <select onchange="commSetFutureResult('${f.id}', this.value)" style="display:block;margin-top:4px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:5px;padding:6px;font-size:12px">
+          <option value="">— winner not decided —</option>${f.options.map(o=>`<option value="${o}" ${st.result===o?'selected':''}>${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select></div>`; }).join('')}</div>`;
+}
+
 // ── DUEL RECAP: yesterday's duel — the winner and who called it (Duel tab › Current) ──
 function duelRecapHtml(dateKey){
   const duel = (leagueState.duels||{})[dateKey];
@@ -5079,6 +5176,18 @@ function renderDuelRecap(){
   const el = document.getElementById('duel-recap-container'); if(el) el.innerHTML = '';   // the recap lives on the Duel tab
 }
 function renderDuelCard(){
+  _renderDuelCard();
+  // Home only: one line with the Ballers who called yesterday's duel (the Duel tab has the full recap)
+  const el = document.getElementById('duel-card-container'), card = el?.querySelector('.duel-card');
+  if(!card || el.closest('#duel-screen-content')) return;
+  const y = getPrevDateKey(todayKey()), d = (leagueState.duels||{})[y];
+  if(!d || d.result===null || d.result===undefined || d.result==='void' || d.result==='push' || d.result==='tie') return;
+  const right = Object.entries(d.picks||{}).filter(([,v])=>String(v)===String(d.result)).map(([id])=>(leagueState.managers||[]).find(m=>String(m.id)===String(id))).filter(Boolean);
+  const day = new Date(y+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+  card.insertAdjacentHTML('beforeend', `<div class="duel-yday" onclick="event.stopPropagation();window._duelTab='current';showScreen('duel')" title="See yesterday's recap">
+    <span>✓ ${day}:</span>${right.length ? right.map(m=>`<span class="dy-av" title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 20, 6, m.icon||null, m.photo||null)}</span>`).join('') : '<em>nobody got it</em>'}<i>›</i></div>`);
+}
+function _renderDuelCard(){
   const el=document.getElementById('duel-card-container');
   if(!el) return;
 
@@ -5269,6 +5378,7 @@ function renderDuelCard(){
     return '';
   };
 
+  const showBtns = !myPick && !settled && !isDuelLocked(duel);
   el.innerHTML=`
   <div class="duel-card">
     <div class="duel-header">
@@ -5285,7 +5395,7 @@ function renderDuelCard(){
       <div class="duel-player ${duelSideState(1,myPick,duel).cls}">
         ${duelLiveHtml(1)}
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p1.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p1)}</div>${duelSideState(1,myPick,duel).ribbon}</div>
-        <div class="dname">${playerShortName(p1.name)}</div>
+        ${showBtns ? '' : `<div class="dname">${playerShortName(p1.name)}</div>`}
         <div class="dstat">${getDuelStatDisplay(p1, statType, duel, 1)}</div>
         <div class="dgame">${getTodayGameInfo(p1.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
         ${pct1}
@@ -5294,7 +5404,7 @@ function renderDuelCard(){
       <div class="duel-player ${duelSideState(2,myPick,duel).cls}">
         ${duelLiveHtml(2)}
         <div class="portrait-wrap" onclick="event.stopPropagation();${pcardOnclick(p2.name)}" style="cursor:pointer"><div style="width:100%;height:100%;background:var(--bg3)">${portHtml(p2)}</div>${duelSideState(2,myPick,duel).ribbon}</div>
-        <div class="dname">${playerShortName(p2.name)}</div>
+        ${showBtns ? '' : `<div class="dname">${playerShortName(p2.name)}</div>`}
         <div class="dstat">${getDuelStatDisplay(p2, statType, duel, 2)}</div>
         <div class="dgame">${getTodayGameInfo(p2.team) || '<span style="color:var(--text3)">No game today</span>'}</div>
         ${pct2}
@@ -8254,6 +8364,7 @@ async function renderAdminContent(){
   ${renderAdminLineupFixSection()}
   ${renderAdminDuelSection()}
   ${renderAdminDuelResultEditSection()}
+  ${renderAdminFuturesSection()}
   <button class="btn btn-full btn-secondary" style="margin-top:14px;border-color:#ffd93d;color:#ffd93d" onclick="previewWeekResults()">🏆 PREVIEW RESULTS SCREEN (ONLY YOU)</button>
   ${renderAdminWlcSection()}
   `;

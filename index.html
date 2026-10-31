@@ -1630,6 +1630,31 @@ body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 #scout-modal .rc-act .rc-scout{width:100%;text-align:center}
 .wv-browse{margin:0;padding:10px 12px;border:1px solid var(--accent1);border-radius:10px;background:color-mix(in srgb,var(--accent1) 8%,transparent);font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2)}
 .wv-browse b{font-weight:normal;color:var(--accent1)}
+.fd-card{margin:6px 14px 12px;padding:12px;border:2px solid #4adfff;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,#4adfff 10%,var(--card)),var(--card));font-family:var(--pixel);box-shadow:0 0 14px rgba(74,223,255,.2)}
+.fd-head{display:flex;justify-content:space-between;gap:8px;font-size:6px;color:#4adfff;letter-spacing:.08em}
+.fd-head span:last-child{color:var(--text3)}
+.fd-q{text-align:center;font-size:7.5px;line-height:1.7;color:#ffd93d;margin:10px 0 8px}
+.fd-logos{display:flex;justify-content:center;gap:8px;margin-bottom:10px}
+.fd-logos span{width:40px;height:40px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.fd-logos img{width:34px;height:34px;object-fit:contain} .fd-logos b{font-size:6px;color:#fff;font-weight:normal}
+.fd-logos .win{box-shadow:0 0 0 2px #ffd93d,0 0 10px rgba(255,217,61,.5)} .fd-logos .out{opacity:.35}
+.fd-sel{width:100%;box-sizing:border-box;background:var(--bg3);color:var(--text1);border:1px solid #4adfff;border-radius:8px;padding:10px;font-size:14px;margin-bottom:8px}
+.fd-go{width:100%;font-family:var(--pixel);font-size:8px;padding:11px;border:0;border-radius:8px;background:#4adfff;color:#04121a;cursor:pointer}
+.fd-go:disabled,.fd-sel:disabled{opacity:.5;cursor:not-allowed}
+.fd-note{text-align:center;font-size:4.5px;line-height:1.8;color:var(--text3);margin-top:8px}
+.fd-mine{display:flex;align-items:center;justify-content:center;gap:8px;font-size:6px;color:var(--accent2)} .fd-mine img{width:24px;height:24px;object-fit:contain} .fd-mine b{font-weight:normal;color:#fff}
+.fd-mine.muted{color:var(--text3)}
+.fd-bars{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.fd-bar{display:grid;grid-template-columns:22px 26px 1fr 30px;align-items:center;gap:6px} .fd-bar img{width:20px;height:20px;object-fit:contain} .fd-bar b{font-size:5px;color:#fff;font-weight:normal}
+.fd-track{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden} .fd-track i{display:block;height:100%;background:#4adfff}
+.fd-bar.me .fd-track i{background:var(--accent2)} .fd-bar em{font-style:normal;font-size:5px;color:var(--text2);text-align:right}
+.fd-change{display:block;margin:8px auto 0;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-family:var(--pixel);font-size:5px;padding:6px 10px;cursor:pointer}
+.fd-win{display:flex;align-items:center;justify-content:center;gap:10px} .fd-win img{width:44px;height:44px;object-fit:contain}
+.fd-win span{display:block;font-size:5px;color:var(--text3)} .fd-win b{font-weight:normal;font-size:9px;color:#ffd93d}
+.fd-lab{font-size:5px;color:var(--accent2);margin:12px 0 6px;letter-spacing:.1em} .fd-row{display:flex;flex-wrap:wrap;gap:8px} .fd-row em{font-style:normal;font-size:5px;color:var(--text3)}
+.duel-yday{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed color-mix(in srgb,var(--accent5) 45%,transparent);font-family:var(--pixel);font-size:5.5px;color:var(--accent2);cursor:pointer}
+.duel-yday em{font-style:normal;color:var(--text3)} .duel-yday i{font-style:normal;margin-left:auto;color:var(--text3)}
+.duel-yday .dy-av{display:inline-flex}
 .dr-card{margin:6px 14px 12px;padding:12px 12px 14px;border:2px solid #b36bff;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,#b36bff 12%,var(--card)),var(--card));font-family:var(--pixel);box-shadow:0 0 14px rgba(179,107,255,.25)}
 .dr-head{display:flex;justify-content:space-between;font-size:6px;color:#c9a2ff;letter-spacing:.1em}
 .dr-theme{text-align:center;font-size:8px;color:#ffd93d;margin:10px 0 10px;letter-spacing:.06em}
@@ -1944,6 +1969,7 @@ html[data-theme="neon"]{
     <!-- Daily Duel -->
     <div id="duel-recap-container"></div>
     <div id="duel-card-container"></div>
+    <div class="fd-slot"></div>
 
     <!-- Not in this fantasy run (joined mid-run): a note instead of match-ups and stats -->
     <div id="home-fantasy-wait" style="display:none"></div>

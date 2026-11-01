@@ -5071,18 +5071,33 @@ const CUP_GROUPS = {   // 2026 Emirates NBA Cup (ESPN, Oct 2026)
 };
 const CUP_GROUP_DATES = ['2026-10-30','2026-11-06','2026-11-13','2026-11-20','2026-11-24','2026-11-25','2026-11-27'];
 const FUTURES_DUELS = ['WEST A','WEST B','WEST C','EAST A','EAST B','EAST C'].map((g,i)=>({
-  id:'cup26-'+g.toLowerCase().replace(' ','-'), open:`2026-11-0${i+1}`, lockAt:'2026-11-06T19:00:00-05:00',
+  id:'cup26-'+g.toLowerCase().replace(' ','-'), open:`2026-11-0${i+1}`, lockAt:`2026-11-0${i+1}T23:59:59-05:00`,  // one per day; really locks at that day's first tip-off
   title:`NBA CUP · ${g.replace(' ',' GROUP ')}`, question:`Who will win NBA Cup ${g[0]+g.slice(1,4).toLowerCase()} Group ${g.slice(-1)}?`,
   options:CUP_GROUPS[g], cupGroup:g }));
 function futureState(f){ return ((leagueState.futures||{})[f.id]) || {}; }
-const futLocked = f => Date.now() >= new Date(f.lockAt).getTime();
+// Each futures question is a one-day thing, like the Daily Duel: open on its day, locked at that day's first tip-off
+function futLockTime(f){
+  if(f.open===todayKey()){
+    const tips = (SB_EVENTS||[]).filter(e=>!e._lastNight).map(e=>Date.parse(e.date)).filter(t=>!isNaN(t) && _etDayOfTs(t)===f.open.replace(/-/g,''));
+    if(tips.length) return Math.min(...tips);
+  }
+  return new Date(f.lockAt).getTime();
+}
+const futLocked = f => { const today = todayKey();
+  if(today > f.open) return true;
+  if(today === f.open && Object.values(todayGamesCache||{}).some(g=>g && (g.isLive || g.isFinal))) return true;
+  return Date.now() >= futLockTime(f); };
 function futureOptLabel(o){ return (NBA_TEAMS?.[o] ? `${NBA_TEAMS[o]}` : o); }
 // Futures to show now: open for picks (testers see them early), or settled in the last 3 days
 function futuresNow(){
   const today = todayKey(), pv = isFnavTester();
-  return FUTURES_DUELS.filter(f=>{ const st = futureState(f);
+  const list = FUTURES_DUELS.filter(f=>{ const st = futureState(f);
     if(st.result) return Date.now() - new Date(st.resultAt||0) < 3*864e5;
-    return !futLocked(f) && (today >= f.open || pv); })
+    return f.open===today; });
+  // Testers also get an early look at the next one
+  const next = pv && FUTURES_DUELS.filter(f=>f.open>today).sort((a,b)=>a.open.localeCompare(b.open))[0];
+  if(next && !list.includes(next)) list.push(next);
+  return list
     .sort((a,b)=> (b.open<=today) - (a.open<=today) || b.open.localeCompare(a.open));
 }
 const futuresOpenNow = () => futuresNow().some(f=>!futureState(f).result && !futLocked(f));
@@ -5091,7 +5106,7 @@ function futureCardHtml(f){
   const today = todayKey(), preview = today < f.open, locked = futLocked(f), settled = !!st.result;
   const picks = Object.entries(st.picks||{}), pct = o => picks.length ? Math.round(100*picks.filter(([,v])=>v===o).length/picks.length) : 0;
   const logo = o => { const u = getTeamLogoUrl(o); return u ? `<img src="${u}" alt="${o}" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'${o}'}))">` : `<b>${o}</b>`; };
-  const lockTxt = new Date(f.lockAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET';
+  const lockTxt = f.open===today ? new Date(futLockTime(f)).toLocaleString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET TONIGHT' : 'AT FIRST TIP-OFF THAT DAY';
   const showPct = settled || locked || mine;
   // Like the Daily Duel: tap a team to pick it; once picked, your team is highlighted and every team shows its %
   const tiles = f.options.map(o=>{

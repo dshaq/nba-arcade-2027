@@ -1517,6 +1517,24 @@ img{display:block;}
 .bs-tile .in{position:absolute;inset:0;border:2px solid #000;box-shadow:0 0 0 1px #2d2668;overflow:hidden;background:linear-gradient(160deg,#2a2370,#120d3a 70%)}
 .bs-tile canvas{position:absolute;inset:7%;width:86%;height:86%;image-rendering:pixelated;transform:skewX(10deg)}
 .bs-tile.locked{cursor:default}
+.bs-tile.mystery{cursor:pointer}
+.bs-tile.locked.mystery .q{color:#ffd93d;text-shadow:0 0 6px rgba(255,217,61,.7);animation:snQ 2.4s steps(2) infinite}
+@keyframes snQ{50%{opacity:.45}}
+.bs-tile.shake{animation:snShake .35s steps(6)}
+@keyframes snShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.bs-secret-n{font-style:normal;color:#ffd93d}
+.bs-stage.sn-charge #bb-hero{animation:snCharge 1.1s steps(11) forwards!important}
+@keyframes snCharge{0%{filter:brightness(1)}20%{filter:brightness(1.6)}30%{filter:brightness(1)}50%{filter:brightness(2.2)}60%{filter:brightness(1.2)}80%{filter:brightness(3) saturate(.4)}100%{filter:brightness(4) saturate(0)}}
+.bs-stage.sn-boom::before{content:'';position:absolute;inset:-40%;z-index:6;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,240,160,.95) 0 6deg,transparent 6deg 18deg),radial-gradient(circle,#fff 0 22%,#fff6c0 32%,transparent 60%);
+  animation:snBoom .88s ease-out forwards}
+@keyframes snBoom{0%{opacity:0;transform:scale(.2) rotate(0)}25%{opacity:1}100%{opacity:0;transform:scale(1.6) rotate(25deg)}}
+.sn-banner{position:absolute;left:0;right:0;top:38%;z-index:7;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;background:rgba(0,0,0,.72);border-block:2px solid #ffd93d;pointer-events:none;animation:snBan 2.6s steps(1,end) forwards}
+.sn-banner b{font-family:var(--pixel);font-size:13px;color:#ffd93d;text-shadow:3px 3px 0 #c8262e;animation:snBlink .3s steps(2) 6}
+.sn-banner span{font-family:var(--pixel);font-size:6px;color:#fff;letter-spacing:.15em}
+@keyframes snBlink{50%{opacity:0}}
+@keyframes snBan{0%{transform:scaleY(0)}4%{transform:scaleY(1)}96%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.bs-stage.sn-charge #bb-hero,.bs-stage.sn-boom::before,.sn-banner,.sn-banner b{animation:none!important}}
 .bs-tile.locked .in{background:repeating-linear-gradient(45deg,#110c31 0 6px,#16103f 6px 12px)}
 .bs-tile.locked .q{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform:skewX(10deg);font-family:var(--pixel);font-size:11px;color:#3d3585}
 .bs-tile.on .in{box-shadow:0 0 0 2px #ffd23d,0 0 12px #ffd23d;background:linear-gradient(160deg,color-mix(in srgb,var(--bc) 70%,#2a2370),#120d3a 75%)}

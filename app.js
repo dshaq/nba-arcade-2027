@@ -8080,12 +8080,12 @@ function openAvatarEditor(forMid){
   const ch = saved?.ch && BB.CHARS[saved.ch] ? saved.ch : BB.ORDER[0], pick = saved?.pick || BB.fresh(ch);
   // Someone with a Baller lands on the color screen with their look; a first-timer starts on the roster
   _bb = {mid, ch, pick, style: bbStyleName(ch, pick), stage: saved ? 'color' : 'roster', mode:'styles', part:null, taken: bbTaken(mid)};
+  _bb.order = bbOrder(mid, ch);
   document.getElementById('avatar-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'avatar-modal'; modal.className = 'modal-overlay'; modal.style.display = 'flex';
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
   const mgrs = [...(leagueState?.managers||[])].sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
-  const N = BB.ORDER.length, fill = (6 - N % 6) % 6;
   modal.innerHTML = `
     <div class="modal-box bb-box bs-box">
       <div class="bb-head">
@@ -8100,8 +8100,7 @@ function openAvatarEditor(forMid){
         <div class="bs-flash" id="bs-flash"></div>
       </div>
       <div id="bs-roster">
-        <div class="bs-rhead"><span>ROSTER · <b>${N} BALLERS</b></span><span>TAP AGAIN TO PICK</span></div>
-        <div class="bs-grid" role="listbox" aria-label="Characters">${BB.ORDER.map(c=>`<button type="button" class="bs-tile" role="option" data-c="${c}" aria-label="${escHtmlBB(BB.CHARS[c].name)}"><span class="in"></span><canvas></canvas></button>`).join('')}${'<div class="bs-tile locked" aria-hidden="true"><span class="in"></span><span class="q">?</span></div>'.repeat(fill)}</div>
+        <div id="bs-gridwrap">${bbGridHtml()}</div>
         <div class="bb-bar"><button type="button" data-act="pick" class="primary bs-go">PICK ${'▶'}</button></div>
       </div>
       <div id="bs-pad" hidden>
@@ -8113,8 +8112,54 @@ function openAvatarEditor(forMid){
     </div>`;
   modal.querySelector('.bb-box').addEventListener('click', bbClick);
   document.body.appendChild(modal);
-  modal.querySelectorAll('.bs-tile[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); });
+  bbGridDraw();
   bbRender(false);
+}
+// ── Secret Ballers ──────────────────────────────────────────────────────────────
+// Hidden from the roster until unlocked (prefs[mid].secrets). Each locked one shows as a "?" tile.
+// LEMON: dress Nova in a Gold hood, Espresso seams and a Gold mask -> he goes supernova.
+const BB_SECRET_COMBOS = { lemon: {from:'nova', pick:{ball:9, seam:3, mask:1}} };
+function bbUnlocked(mid){ return (leagueState?.prefs?.[mid]?.secrets) || []; }
+function bbOrder(mid, cur){ return [...BB.ORDER, ...(BB.SECRET||[]).filter(c=>bbUnlocked(mid).includes(c) || c===cur)]; }
+function bbGridHtml(){
+  const order = _bb.order, locked = (BB.SECRET||[]).filter(c=>!order.includes(c)).length;
+  const N = order.length + locked, fill = (6 - N % 6) % 6;
+  return `<div class="bs-rhead"><span>ROSTER · <b>${order.length} BALLERS</b>${locked?` <i class="bs-secret-n">+ ${locked} ???</i>`:''}</span><span>TAP AGAIN TO PICK</span></div>
+    <div class="bs-grid" role="listbox" aria-label="Characters">${order.map(c=>`<button type="button" class="bs-tile${(BB.SECRET||[]).includes(c)?' secret':''}" role="option" data-c="${c}" aria-label="${escHtmlBB(BB.CHARS[c].name)}"><span class="in"></span><canvas></canvas></button>`).join('')}${'<button type="button" class="bs-tile locked mystery" data-act="mystery" aria-label="Secret Baller"><span class="in"></span><span class="q">?</span></button>'.repeat(locked)}${'<div class="bs-tile locked" aria-hidden="true"><span class="in"></span><span class="q">?</span></div>'.repeat(fill)}</div>`;
+}
+function bbGridDraw(){ document.querySelectorAll('#avatar-modal .bs-tile[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); }); }
+function bbCheckSecret(){
+  if(!_bb || _bb.busy) return false;
+  for(const [sec, combo] of Object.entries(BB_SECRET_COMBOS)){
+    if(_bb.ch!==combo.from || !BB.CHARS[sec]) continue;
+    if(Object.entries(combo.pick).every(([k,v])=>_bb.pick[k]===v)){ bbSupernova(sec); return true; }
+  }
+  return false;
+}
+async function bbSupernova(sec){
+  _bb.busy = true;
+  const st = document.getElementById('bs-stage'), wait = ms => new Promise(r=>setTimeout(r, ms));
+  bbRender(false);
+  st.classList.add('sn-charge');                        // he flickers brighter and brighter…
+  await wait(1100);
+  st.classList.remove('sn-charge'); st.classList.add('sn-boom');   // …white-out and a burst of rays
+  await wait(380);
+  const mid = _bb.mid, first = !bbUnlocked(mid).includes(sec);
+  _bb.ch = sec; _bb.pick = BB.fresh(sec); _bb.style = 'Original'; _bb.mode = 'styles'; _bb.part = null; _bb.stage = 'color';
+  _bb.order = bbOrder(mid, sec);
+  const gw = document.getElementById('bs-gridwrap'); if(gw){ gw.innerHTML = bbGridHtml(); bbGridDraw(); }
+  bbRender(false);
+  await wait(500);
+  st.classList.remove('sn-boom');
+  st.insertAdjacentHTML('beforeend', `<div class="sn-banner"><b>${first ? 'NEW CHALLENGER!' : 'SUPERNOVA!'}</b><span>${escHtmlBB(BB.CHARS[sec].name)} ${first?'UNLOCKED':'IS BACK'}</span></div>`);
+  _bb.busy = false;
+  if(first){
+    if(!leagueState.prefs) leagueState.prefs = {};
+    leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), secrets:[...bbUnlocked(mid), sec]};
+    saveLeagueState();   // keep the unlock even if they close without saving a look
+  }
+  await wait(2600);
+  st.querySelector('.sn-banner')?.remove();
 }
 function escHtmlBB(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function bbTile(attr, label, on, takenBy){
@@ -8184,7 +8229,8 @@ const BB_TAGLINES = {
   jalen:'Mean mug. Meaner jumper.', hops:'Leaps first. Asks later.', jake:'Too cool to box out.',
   bolt:'Runs on batteries and buckets.', lars:'Charges the lane. Literally.', karl:'Now you see him. Now he scored.',
   hoot:'Sees the pass before you do.', bee:'Stings on the fast break.', jack:'King of the fourth quarter.',
-  zorp:'Range from another galaxy.', gabe:'Unbothered. Still drops 30.', nova:'Steals in the night.'
+  zorp:'Range from another galaxy.', gabe:'Unbothered. Still drops 30.', nova:'Steals in the night.',
+  lemon:'Went supernova.'
 };
 // Who in the league already plays as this Baller (their own colors)
 function bbLeagueHtml(ch){
@@ -8277,7 +8323,7 @@ function bbRandomFor(c){
   return null;
 }
 function bbClick(e){
-  const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb) return;
+  const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb || _bb.busy) return;
   const d = t.dataset, ch = _bb.ch;
   if(d.c){
     if(d.c===ch){ bbToColor(); return; }           // tap the highlighted Baller again to pick him
@@ -8289,7 +8335,8 @@ function bbClick(e){
   else if(d.way){ const w = BB.COLORWAYS[ch][+d.way]; _bb.pick = {...BB.fresh(ch), ...w[1]}; _bb.style = w[0]; bbFlash(); }
   else if(d.team){ const tm = BB.TEAMS[+d.team]; _bb.pick = BB.teamPick(ch, tm); _bb.style = tm[0]; bbFlash(); }
   else if(d.part){ _bb.part = d.part; }
-  else if(d.k){ _bb.pick = {..._bb.pick, [d.k]: +d.i}; _bb.style = bbStyleName(ch, _bb.pick); }
+  else if(d.k){ _bb.pick = {..._bb.pick, [d.k]: +d.i}; _bb.style = bbStyleName(ch, _bb.pick); if(bbCheckSecret()) return; }
+  else if(d.act==='mystery'){ const tl = t; tl.classList.remove('shake'); void tl.offsetWidth; tl.classList.add('shake'); toast('🔒 ??? Some colors hide more than they show.'); return; }
   else if(d.act==='rand'){ const r = bbRandomFor(ch); if(r){ [_bb.pick, _bb.style] = r; _bb.part = null; bbFlash(); } }
   else if(d.act==='save'){ saveAvatarChoice(); return; }
   bbRender(false);
@@ -8301,8 +8348,8 @@ document.addEventListener('keydown', e=>{
   if(e.target.tagName==='INPUT' || e.target.tagName==='SELECT') return;
   if(e.key==='Escape'){ e.preventDefault(); if(_bb.stage==='color'){ _bb.stage='roster'; bbRender(true); } else modal.remove(); return; }
   if(_bb.stage!=='roster') return;
-  const i = BB.ORDER.indexOf(_bb.ch), mv = {ArrowLeft:-1, ArrowRight:1, ArrowUp:-6, ArrowDown:6}[e.key];
-  if(mv!=null){ e.preventDefault(); const nx = i + mv; if(nx>=0 && nx<BB.ORDER.length){ _bb.ch = BB.ORDER[nx]; _bb.pick = BB.fresh(_bb.ch); _bb.style='Original'; bbRender(true); } }
+  const O = _bb.order || BB.ORDER, i = O.indexOf(_bb.ch), mv = {ArrowLeft:-1, ArrowRight:1, ArrowUp:-6, ArrowDown:6}[e.key];
+  if(mv!=null){ e.preventDefault(); const nx = i + mv; if(nx>=0 && nx<O.length){ _bb.ch = O[nx]; _bb.pick = BB.fresh(_bb.ch); _bb.style='Original'; bbRender(true); } }
   else if(e.key==='Enter' && !e.target.closest?.('button')){ e.preventDefault(); bbToColor(); }
 });
 // After a good save: a quick "LOCKED IN" moment on the stage before the window closes

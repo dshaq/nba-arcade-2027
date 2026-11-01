@@ -1630,6 +1630,32 @@ body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 #scout-modal .rc-act .rc-scout{width:100%;text-align:center}
 .wv-browse{margin:0;padding:10px 12px;border:1px solid var(--accent1);border-radius:10px;background:color-mix(in srgb,var(--accent1) 8%,transparent);font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2)}
 .wv-browse b{font-weight:normal;color:var(--accent1)}
+.dt-blink{text-align:center;font-family:var(--pixel);font-size:6px;color:#4adfff;margin:2px 14px 6px;animation:dtBlink 1s steps(2,end) infinite;text-shadow:0 0 8px rgba(74,223,255,.6)}
+@keyframes dtBlink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dt-blink{animation:none}}
+.dt-tabs{display:flex;gap:3px;margin:0 14px 6px;padding:3px;background:var(--bg3);border:1px solid var(--border);border-radius:8px}
+.dt-slot .dt-tabs,.dt-slot .dt-blink{margin-left:0;margin-right:0}
+#home-screen .dt-slot .dt-tabs,#home-screen .dt-slot .dt-blink{margin-left:14px;margin-right:14px}
+.dt-tabs button{flex:1;font-family:var(--pixel);font-size:6px;padding:9px 4px;border:0;border-radius:6px;background:transparent;color:var(--text3);cursor:pointer}
+.dt-tabs button.on{background:#b36bff;color:#fff}
+.dt-tabs button.off{opacity:.35;cursor:not-allowed}
+.dt-tabs button i{font-style:normal;font-size:4.5px;background:#4adfff;color:#04121a;padding:2px 3px;border-radius:3px;margin-left:3px;vertical-align:middle}
+.fd-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:4px 0 10px}
+.fd-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px 6px;border-radius:8px;border:2px solid var(--border);background:var(--bg3);cursor:pointer;font-family:var(--pixel);min-width:0}
+.fd-tile:disabled{cursor:default}
+.fd-tile:not(:disabled):hover{border-color:#4adfff}
+.fd-logo{width:36px;height:36px;display:flex;align-items:center;justify-content:center} .fd-logo img{width:100%;height:100%;object-fit:contain} .fd-logo b{font-size:6px;color:#fff;font-weight:normal}
+.fd-ab{font-size:5px;color:var(--text2)} .fd-pc{font-size:7px;color:#fff}
+.fd-tile.mine{border-color:#ffd93d;box-shadow:0 0 10px rgba(255,217,61,.45);background:color-mix(in srgb,#ffd93d 12%,var(--bg3))}
+.fd-tile.mine .fd-pc{color:#ffd93d}
+.fd-you{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font-size:4.5px;background:#ffd93d;color:#1a1200;padding:2px 4px;border-radius:3px}
+.fd-tile.win{border-color:var(--accent2);box-shadow:0 0 10px color-mix(in srgb,var(--accent2) 50%,transparent)} .fd-tile.out{opacity:.4}
+.fs-box{max-width:380px;width:calc(100% - 32px);max-height:85vh;overflow-y:auto;font-family:var(--pixel)}
+.fs-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.fs-title{font-size:6px;color:#4adfff;letter-spacing:.08em} .fs-name{font-size:9px;color:#fff;margin:6px 0} .fs-rec{font-size:5px;color:var(--text3)}
+.fs-row{padding:9px 0;border-top:1px solid var(--border)} .fs-q{font-size:5.5px;line-height:1.7;color:var(--text2)}
+.fs-a{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:6px;color:#fff} .fs-a b{font-weight:normal;white-space:nowrap}
+.fs-w{font-size:4.5px;color:var(--text3);margin-top:3px}
 .fd-card{margin:6px 14px 12px;padding:12px;border:2px solid #4adfff;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,#4adfff 10%,var(--card)),var(--card));font-family:var(--pixel);box-shadow:0 0 14px rgba(74,223,255,.2)}
 .fd-head{display:flex;justify-content:space-between;gap:8px;font-size:6px;color:#4adfff;letter-spacing:.08em}
 .fd-head span:last-child{color:var(--text3)}
@@ -1968,6 +1994,7 @@ html[data-theme="neon"]{
 
     <!-- Daily Duel -->
     <div id="duel-recap-container"></div>
+    <div class="dt-slot"></div>
     <div id="duel-card-container"></div>
     <div class="fd-slot"></div>
 

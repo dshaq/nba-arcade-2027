@@ -769,7 +769,8 @@ function duelLogoUrl(abbr){ return `${PORTRAITS_BUCKET_URL}/TEAMS/${abbr}.png`; 
 function getTeamLogoUrl(abbr){
   if(PIXEL_LOGOS[abbr]) return PIXEL_LOGOS[abbr];
   const id = ESPN_TEAM_IDS[abbr];
-  if(id) return `https://a.espncdn.com/i/teamlogos/nba/500/${abbr.toLowerCase()}.png`;
+  const espn = {UTA:'utah', NOP:'no', SAS:'sa', GSW:'gs', NYK:'ny', WAS:'wsh'}[abbr] || abbr.toLowerCase();
+  if(id) return `https://a.espncdn.com/i/teamlogos/nba/500/${espn}.png`;
   return null;
 }
 
@@ -4057,7 +4058,7 @@ function renderDuelScreen(){
     ? `<div style="background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);border-radius:var(--radius);padding:8px 12px;margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">⚡ STREAKS & LEADERBOARD COUNT STARTING OCT 20 WHEN THE SEASON TIPS OFF</div>`
     : '';
 
-  const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14) : '';
+  const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14, true) : '';
 
   // Two tabs like the Weekly Challenge: Current (today's duel + yesterday's recap) and Standings
   if(!window._duelTab) window._duelTab = 'current';
@@ -4068,13 +4069,15 @@ function renderDuelScreen(){
     <div style="padding:12px 0 80px">
       <div style="display:flex;border-bottom:1px solid var(--border);margin:0 14px 12px">${tabBtn('current','CURRENT')}${tabBtn('standings','STANDINGS')}</div>
       ${tab==='current' ? `
+        <div class="dt-slot" style="padding:0 14px"></div>
         <div id="duel-card-container-screen" style="padding:0 14px 4px"></div>
         <div class="fd-slot" style="padding:0 14px"></div>
         ${recap ? `<div class="section-label" style="margin-top:14px">YESTERDAY'S DUEL</div><div style="padding:0 14px">${recap}</div>` : ''}` : `
         ${seasonNote}
+        <div class="dt-tabs" style="margin:0 14px 10px"><button type="button" class="${(window._duelLb||'daily')==='daily'?'on':''}" onclick="window._duelLb='daily';renderDuelScreen()">⚡ DAILY DUEL</button><button type="button" class="${window._duelLb==='futures'?'on':''}" onclick="window._duelLb='futures';renderDuelScreen()">🔮 FUTURES DUEL</button></div>
         <div class="card" style="padding:0;overflow:hidden">
-          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · STARTS OCT 20</div>
-          ${lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>'}
+          <div style="font-family:var(--pixel);font-size:5px;color:var(--text3);padding:8px 14px;border-bottom:1px solid var(--border)">${window._duelLb==='futures' ? 'RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · TAP ANYONE FOR THEIR FUTURES PICKS' : 'RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT · TAP ANYONE FOR THEIR FUTURES PICKS'}</div>
+          ${window._duelLb==='futures' ? futuresLeaderboardHtml(14) : (lbRows || '<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO PICKS YET</div>')}
         </div>`}
     </div>`;
 
@@ -5042,66 +5045,73 @@ function duelTonightEntry(p){
 }
 
 // Render the duel card on the home screen
-// ── FUTURES DUEL (Dual Duel Wednesdays) ─────────────────────────────────────
-// A second, longer-range pick on Wednesdays: "who wins the Cup / title / MVP". Pick from a
-// dropdown; picks lock at lockAt; the commissioner marks the winner in the Commissioner Panel.
-// Picks live in leagueState.futures[id] = {picks:{mid:option}, pickedAt:{}, result}.
-const FUTURES_DUELS = [
-  { id:'cup26-west-a', open:'2026-11-04', lockAt:'2026-11-06T19:00:00-05:00',
-    title:'NBA CUP · WEST GROUP A', question:'Who will win NBA Cup West Group A?',
-    options:['HOU','DAL','DEN','UTA','PHX'] },
-];
+// ── FUTURES DUEL ────────────────────────────────────────────────────────────
+// A second, longer-range pick next to the Daily Duel ("who wins the Cup group / title / MVP").
+// Results come later: NBA Cup groups settle on their own from the group games; anything else
+// the commissioner marks in the Commissioner Panel. Picks: leagueState.futures[id] = {picks, pickedAt, result, resultAt}.
+const CUP_GROUPS = {   // 2026 Emirates NBA Cup (ESPN, Oct 2026)
+  'WEST A':['DEN','HOU','PHX','DAL','UTA'], 'WEST B':['OKC','MIN','LAC','NOP','MEM'], 'WEST C':['SAS','LAL','POR','GSW','SAC'],
+  'EAST A':['DET','TOR','ORL','MIL','BKN'], 'EAST B':['NYK','CLE','PHI','MIA','IND'], 'EAST C':['BOS','ATL','CHA','CHI','WAS'],
+};
+const CUP_GROUP_DATES = ['2026-10-30','2026-11-06','2026-11-13','2026-11-20','2026-11-24','2026-11-25','2026-11-27'];
+const FUTURES_DUELS = ['WEST A','WEST B','WEST C','EAST A','EAST B','EAST C'].map((g,i)=>({
+  id:'cup26-'+g.toLowerCase().replace(' ','-'), open:`2026-11-0${i+1}`, lockAt:'2026-11-06T19:00:00-05:00',
+  title:`NBA CUP · ${g.replace(' ',' GROUP ')}`, question:`Who will win NBA Cup ${g[0]+g.slice(1,4).toLowerCase()} Group ${g.slice(-1)}?`,
+  options:CUP_GROUPS[g], cupGroup:g }));
 function futureState(f){ return ((leagueState.futures||{})[f.id]) || {}; }
-// The futures duel to show today: open now, locked and waiting on a result, or settled in the last 3 days
-function currentFuture(){
-  const today = todayKey(), now = Date.now(), pv = isFnavTester();
-  for(const f of FUTURES_DUELS){
-    const st = futureState(f);
-    if(st.result){ const d = new Date(st.resultAt||0); if(now - d < 3*864e5) return f; continue; }
-    if(today >= f.open || pv) return f;   // testers see it before it opens
-  }
-  return null;
-}
+const futLocked = f => Date.now() >= new Date(f.lockAt).getTime();
 function futureOptLabel(o){ return (NBA_TEAMS?.[o] ? `${NBA_TEAMS[o]}` : o); }
-function futuresDuelHtml(){
-  const f = currentFuture(); if(!f) return '';
+// Futures to show now: open for picks (testers see them early), or settled in the last 3 days
+function futuresNow(){
+  const today = todayKey(), pv = isFnavTester();
+  return FUTURES_DUELS.filter(f=>{ const st = futureState(f);
+    if(st.result) return Date.now() - new Date(st.resultAt||0) < 3*864e5;
+    return !futLocked(f) && (today >= f.open || pv); })
+    .sort((a,b)=> (b.open<=today) - (a.open<=today) || b.open.localeCompare(a.open));
+}
+const futuresOpenNow = () => futuresNow().some(f=>!futureState(f).result && !futLocked(f));
+function futureCardHtml(f){
   const st = futureState(f), me = String(getMyId()), mine = (st.picks||{})[me];
-  const today = todayKey(), preview = today < f.open, locked = Date.now() >= new Date(f.lockAt).getTime(), settled = !!st.result;
-  const picks = Object.entries(st.picks||{});
-  const count = o => picks.filter(([,v])=>v===o).length;
-  const logo = o => { const u = getTeamLogoUrl(o); return u ? `<img src="${u}" alt="" onerror="this.style.visibility='hidden'">` : `<b>${o}</b>`; };
+  const today = todayKey(), preview = today < f.open, locked = futLocked(f), settled = !!st.result;
+  const picks = Object.entries(st.picks||{}), pct = o => picks.length ? Math.round(100*picks.filter(([,v])=>v===o).length/picks.length) : 0;
+  const logo = o => { const u = getTeamLogoUrl(o); return u ? `<img src="${u}" alt="${o}" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'${o}'}))">` : `<b>${o}</b>`; };
   const lockTxt = new Date(f.lockAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET';
+  const showPct = settled || locked || mine;
+  // Like the Daily Duel: tap a team to pick it; once picked, your team is highlighted and every team shows its %
+  const tiles = f.options.map(o=>{
+    const cls = [settled && o===st.result ? 'win' : '', settled && o!==st.result ? 'out' : '', o===mine ? 'mine' : ''].join(' ');
+    const can = !settled && !locked && !mine;
+    return `<button type="button" class="fd-tile ${cls}" ${can?`onclick="futuresPick('${f.id}','${o}')"`:'disabled'} title="${escHtmlBB(futureOptLabel(o))}">
+      <span class="fd-logo">${logo(o)}</span><span class="fd-ab">${o}</span>${showPct?`<span class="fd-pc">${pct(o)}%</span>`:''}${o===mine?'<span class="fd-you">YOU</span>':''}</button>`;
+  }).join('');
   const mgr = id => (leagueState.managers||[]).find(m=>String(m.id)===String(id));
-  let body;
+  let foot;
   if(settled){
     const right = picks.filter(([,v])=>v===st.result).map(([id])=>mgr(id)).filter(Boolean);
-    body = `<div class="fd-win">${logo(st.result)}<div><span>WINNER</span><b>${escHtmlBB(futureOptLabel(st.result)).toUpperCase()}</b></div></div>
-      <div class="fd-lab">CALLED IT · ${right.length}</div>
-      <div class="fd-row">${right.length ? right.map(m=>`<span title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 24, 7, m.icon||null, m.photo||null)}</span>`).join('') : '<em>Nobody saw it coming.</em>'}</div>`;
-  } else if(locked || mine){
-    body = `${mine ? `<div class="fd-mine">YOUR PICK: ${logo(mine)}<b>${escHtmlBB(futureOptLabel(mine)).toUpperCase()}</b></div>` : `<div class="fd-mine muted">🔒 Picks are locked. You didn't pick.</div>`}
-      ${(locked || mine) && picks.length ? `<div class="fd-bars">${f.options.map(o=>{ const n=count(o), pc=Math.round(100*n/picks.length); return `<div class="fd-bar${o===mine?' me':''}">${logo(o)}<b>${o}</b><span class="fd-track"><i style="width:${pc}%"></i></span><em>${pc}%</em></div>`; }).join('')}</div>` : ''}
-      <div class="fd-note">${locked ? 'LOCKED · RESULT POSTED WHEN THE GROUP IS DECIDED' : `PICKS LOCK ${lockTxt} · YOU CAN CHANGE IT UNTIL THEN`}</div>
-      ${!locked && mine ? `<button type="button" class="fd-change" onclick="futuresChange('${f.id}')">CHANGE PICK</button>` : ''}`;
+    foot = `<div class="fd-note" style="color:#ffd93d">🏆 ${escHtmlBB(futureOptLabel(st.result)).toUpperCase()} WON THE GROUP</div>
+      <div class="fd-lab">CALLED IT · ${right.length}</div><div class="fd-row">${right.length ? right.map(m=>`<span title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 24, 7, m.icon||null, m.photo||null)}</span>`).join('') : '<em>Nobody saw it coming.</em>'}</div>`;
+  } else if(mine){
+    foot = `<div class="fd-note">${locked ? 'LOCKED · RESULT POSTS WHEN THE GROUP IS DECIDED' : `YOU PICKED ${escHtmlBB(futureOptLabel(mine)).toUpperCase()} · CHANGE IT UNTIL ${lockTxt}`}</div>
+      ${!locked ? `<button type="button" class="fd-change" onclick="futuresChange('${f.id}')">CHANGE PICK</button>` : ''}`;
+  } else if(locked){
+    foot = `<div class="fd-note">🔒 PICKS LOCKED · YOU DIDN'T PICK</div>`;
   } else {
-    body = `<select id="fd-sel" class="fd-sel" ${preview?'disabled':''}><option value="">Choose a team…</option>${f.options.map(o=>`<option value="${o}">${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select>
-      <button type="button" class="fd-go" ${preview?'disabled':''} onclick="futuresPick('${f.id}')">LOCK IN ▶</button>
-      <div class="fd-note">${preview ? `🧪 PREVIEW · OPENS ${new Date(f.open+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase()} FOR EVERYONE` : `PICKS LOCK ${lockTxt}`}</div>`;
+    foot = `<select class="fd-sel" onchange="if(this.value) futuresPick('${f.id}', this.value)"><option value="">Or choose from the list…</option>${f.options.map(o=>`<option value="${o}">${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select>
+      <div class="fd-note">${preview ? `🧪 PREVIEW · OPENS ${new Date(f.open+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase()} FOR EVERYONE · YOUR TEST PICK COUNTS` : `TAP A TEAM · PICKS LOCK ${lockTxt}`}</div>`;
   }
   return `<div class="fd-card">
     <div class="fd-head"><span>🔮 FUTURES DUEL</span><span>${escHtmlBB(f.title)}</span></div>
     <div class="fd-q">${escHtmlBB(f.question)}</div>
-    <div class="fd-logos">${f.options.map(o=>`<span class="${settled&&o===st.result?'win':''}${settled&&o!==st.result?' out':''}">${logo(o)}</span>`).join('')}</div>
-    ${body}
+    <div class="fd-tiles">${tiles}</div>
+    ${foot}
   </div>`;
 }
-let _fdEditing = false;
+function futuresDuelHtml(){ return futuresNow().map(futureCardHtml).join(''); }
 function futuresChange(id){ const st = (leagueState.futures||{})[id]; if(st?.picks) delete st.picks[String(getMyId())]; renderFuturesDuel(); }
-async function futuresPick(id){
-  const f = FUTURES_DUELS.find(x=>x.id===id), v = document.getElementById('fd-sel')?.value, mid = String(getMyId());
-  if(!f || !mid) return;
-  if(!v){ toast('Pick a team first'); return; }
-  if(Date.now() >= new Date(f.lockAt).getTime()){ toast('🔒 Picks are locked'); renderFuturesDuel(); return; }
+async function futuresPick(id, v){
+  const f = FUTURES_DUELS.find(x=>x.id===id), mid = String(getMyId());
+  if(!f || !mid || !v) return;
+  if(futLocked(f)){ toast('🔒 Picks are locked'); renderFuturesDuel(); return; }
   if(!leagueState.futures) leagueState.futures = {};
   const st = leagueState.futures[id] ||= {picks:{}, pickedAt:{}};
   st.picks = {...(st.picks||{}), [mid]: v}; st.pickedAt = {...(st.pickedAt||{}), [mid]: new Date().toISOString()};
@@ -5113,18 +5123,116 @@ async function commSetFutureResult(id, v){
   if(!bbIsComm()) return;
   if(!leagueState.futures) leagueState.futures = {};
   const st = leagueState.futures[id] ||= {picks:{}, pickedAt:{}};
-  st.result = v || null; st.resultAt = v ? new Date().toISOString() : null;
+  st.result = v || null; st.resultAt = v ? new Date().toISOString() : null; st.resultBy = v ? 'commissioner' : null;
   await saveLeagueState(); toast(v ? `Winner set: ${futureOptLabel(v)}` : 'Result cleared');
   renderAdminContent?.(); renderFuturesDuel();
 }
+// ── Daily Duel / Futures Duel tabs (Home and the Duel page) ──
+let _duelSection = 'daily';
+function duelTabsHtml(){
+  const any = futuresNow().length > 0, open = futuresOpenNow();
+  if(!any && _duelSection==='futures') _duelSection = 'daily';
+  return `${open ? '<div class="dt-blink">▶ CLICK TAB TO ACCESS A SECOND DUEL! ◀</div>' : ''}
+    <div class="dt-tabs"><button type="button" class="${_duelSection==='daily'?'on':''}" onclick="setDuelSection('daily')">⚡ DAILY DUEL</button>
+    <button type="button" class="${_duelSection==='futures'?'on':''}${any?'':' off'}" ${any?`onclick="setDuelSection('futures')"`:'disabled title="No Futures Duel today"'}>🔮 FUTURES DUEL${open?' <i>NEW</i>':''}</button></div>`;
+}
+function setDuelSection(id){ _duelSection = id; renderFuturesDuel(); }
 function renderFuturesDuel(){
   const html = futuresDuelHtml();
-  document.querySelectorAll('.fd-slot').forEach(el=>{ el.innerHTML = html; });
+  document.querySelectorAll('.dt-slot').forEach(el=>{ el.innerHTML = duelTabsHtml(); });
+  const fut = _duelSection==='futures';
+  document.querySelectorAll('.fd-slot').forEach(el=>{ el.innerHTML = fut ? html : ''; el.hidden = !fut; });
+  ['duel-card-container','duel-card-container-screen'].forEach(id=>{ const el = document.getElementById(id); if(el) el.hidden = fut; });
+}
+// ── Futures standings + each manager's Futures summary ──
+function futuresRecords(){
+  const out = {};
+  const done = FUTURES_DUELS.filter(f=>futureState(f).result).sort((a,b)=>a.lockAt.localeCompare(b.lockAt) || a.open.localeCompare(b.open));
+  for(const m of (leagueState.managers||[])){
+    const r = out[m.id] = {picked:0, correct:0, run:0, best:0};
+    for(const f of done){ const st = futureState(f), p = (st.picks||{})[m.id];
+      if(!p){ r.run = 0; continue; }
+      r.picked++; if(p===st.result){ r.correct++; r.run++; r.best = Math.max(r.best, r.run); } else r.run = 0; }
+  }
+  return out;
+}
+function futuresLeaderboardHtml(padX){
+  const recs = futuresRecords(), myId = getMyId();
+  const rows = (leagueState.managers||[]).map(m=>{ const r = recs[m.id]; return {m, cur:r.run, best:r.best, pct:r.picked ? r.correct/r.picked : null}; })
+    .sort((a,b)=> b.cur-a.cur || (b.pct??-1)-(a.pct??-1) || b.best-a.best);
+  const cell = (v, hot) => `<div class="dlb-c${hot?' hot':''}">${v}</div>`;
+  return `<div class="dlb-head" style="padding:8px ${padX}px"><span></span><span></span><span>USER</span><span>% CORRECT</span><span>ALL-TIME STREAK</span><span>CURRENT STREAK</span></div>` +
+    rows.map((x,i)=>`<div class="dlb-row${String(x.m.id)===String(myId)?' me':''}" style="padding:9px ${padX}px;cursor:pointer" onclick="showFuturesSummary('${x.m.id}')">
+      <span class="dlb-rk">${i+1}</span>${avatarEl(x.m.display_name, x.m.color||'#4a9eff', 26, 8, x.m.icon||null, x.m.photo||null)}
+      <div class="dlb-nm">${escHtmlBB(x.m.display_name)}${String(x.m.id)===String(myId)?' ★':''}</div>
+      ${cell(x.pct==null?'—':Math.round(x.pct*100)+'%')}${cell(x.best||'—')}${cell(x.cur>0?'🔥 '+x.cur:'—', x.cur>0)}
+    </div>`).join('');
+}
+function showFuturesSummary(mid){
+  const m = (leagueState.managers||[]).find(x=>String(x.id)===String(mid)); if(!m) return;
+  const me = String(mid)===String(getMyId());
+  const rows = FUTURES_DUELS.filter(f=>todayKey()>=f.open || futureState(f).picks?.[mid]).map(f=>{
+    const st = futureState(f), p = (st.picks||{})[mid];
+    // Someone else's open pick stays hidden until picks lock
+    const hide = !me && p && !futLocked(f) && !st.result;
+    const status = !p ? (futLocked(f) ? ['NO PICK','#8d86c4'] : ['NOT PICKED YET','#8d86c4'])
+      : st.result ? (p===st.result ? ['✓ CORRECT','var(--accent2)'] : ['✗ INCORRECT','#ff5c6c']) : ['⏳ PENDING','#ffd93d'];
+    return `<div class="fs-row"><div class="fs-q">${escHtmlBB(f.question)}</div>
+      <div class="fs-a"><span>${p ? (hide ? '🔒 HIDDEN UNTIL LOCK' : escHtmlBB(futureOptLabel(p)).toUpperCase()) : '—'}</span><b style="color:${status[1]}">${status[0]}</b></div>
+      ${st.result && p!==st.result ? `<div class="fs-w">WINNER: ${escHtmlBB(futureOptLabel(st.result)).toUpperCase()}</div>` : ''}</div>`;
+  }).join('') || '<div class="fs-row"><div class="fs-q">No Futures Duels yet.</div></div>';
+  const r = futuresRecords()[mid] || {};
+  document.getElementById('fs-modal')?.remove();
+  const md = document.createElement('div'); md.id = 'fs-modal'; md.className = 'modal-overlay'; md.style.display = 'flex';
+  md.onclick = e=>{ if(e.target===md) md.remove(); };
+  md.innerHTML = `<div class="modal-box fs-box">
+    <div class="fs-top">${avatarEl(m.display_name, m.color||'#4a9eff', 56, 16, m.icon||null, m.photo||null)}<div><div class="fs-title">🔮 FUTURES DUEL SUMMARY</div><div class="fs-name">${escHtmlBB(m.display_name)}</div>
+      <div class="fs-rec">${r.correct||0} CORRECT OF ${r.picked||0} DECIDED</div></div></div>
+    ${rows}
+    <button type="button" class="btn btn-secondary btn-full" style="margin-top:12px;font-size:6px" onclick="document.getElementById('fs-modal').remove()">CLOSE</button></div>`;
+  document.body.appendChild(md);
+}
+// ── NBA Cup groups settle themselves: once all 10 group games are final, rank the group by
+// record, then head-to-head among tied teams, then point differential, then points scored.
+// A tie that's still unbroken is left for the commissioner.
+let _cupSettleTried = false;
+async function settleCupGroups(){
+  if(_cupSettleTried || !leagueState || !bdlKey) return;
+  const pending = FUTURES_DUELS.filter(f=>f.cupGroup && !futureState(f).result && futLocked(f));
+  if(!pending.length || todayKey() < CUP_GROUP_DATES[CUP_GROUP_DATES.length-1]) return;
+  _cupSettleTried = true;
+  let games; try{ games = await bdlFetchAll('/games', {'dates[]': CUP_GROUP_DATES}); }catch(e){ return; }
+  let changed = false;
+  for(const f of pending){
+    const teams = CUP_GROUPS[f.cupGroup];
+    const gs = (games||[]).filter(g=>teams.includes(g.home_team?.abbreviation) && teams.includes(g.visitor_team?.abbreviation) && /final/i.test(g.status||''));
+    if(gs.length < 10) continue;
+    const winner = cupGroupWinner(teams, gs.map(g=>({h:g.home_team.abbreviation, a:g.visitor_team.abbreviation, hs:+g.home_team_score, as:+g.visitor_team_score})));
+    if(!winner) continue;
+    if(!leagueState.futures) leagueState.futures = {};
+    const st = leagueState.futures[f.id] ||= {picks:{}, pickedAt:{}};
+    st.result = winner; st.resultAt = new Date().toISOString(); st.resultBy = 'auto'; changed = true;
+  }
+  if(changed){ await saveLeagueState(); renderFuturesDuel(); }
+}
+function cupGroupWinner(teams, games){
+  const rec = Object.fromEntries(teams.map(t=>[t,{w:0,pd:0,pts:0}]));
+  for(const g of games){ const hw = g.hs > g.as;
+    rec[g.h].w += hw?1:0; rec[g.a].w += hw?0:1; rec[g.h].pd += g.hs-g.as; rec[g.a].pd += g.as-g.hs; rec[g.h].pts += g.hs; rec[g.a].pts += g.as; }
+  const top = Math.max(...teams.map(t=>rec[t].w));
+  let tied = teams.filter(t=>rec[t].w===top);
+  if(tied.length===1) return tied[0];
+  const h2h = t => games.filter(g=>tied.includes(g.h) && tied.includes(g.a) && ((g.h===t && g.hs>g.as) || (g.a===t && g.as>g.hs))).length;
+  const key = t => [h2h(t), rec[t].pd, rec[t].pts];
+  tied.sort((x,y)=>{ const a=key(x), b=key(y); for(let i=0;i<3;i++) if(a[i]!==b[i]) return b[i]-a[i]; return 0; });
+  const k0 = key(tied[0]).join(), k1 = key(tied[1]).join();
+  return k0===k1 ? null : tied[0];
 }
 function renderAdminFuturesSection(){
-  return `<div style="margin-top:16px"><div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:10px">🔮 FUTURES DUELS</div>
+  return `<div style="margin-top:16px"><div style="font-family:var(--pixel);font-size:8px;color:var(--accent3);margin-bottom:6px">🔮 FUTURES DUELS</div>
+    <div style="font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3);margin-bottom:10px">Cup groups set their winner on their own after Nov 27 once all group games are final. You can set or change any winner here.</div>
     ${FUTURES_DUELS.map(f=>{ const st = futureState(f), n = Object.keys(st.picks||{}).length;
-      return `<div style="font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2);margin-bottom:8px">${escHtmlBB(f.question)}<br><span style="color:var(--text3)">OPENS ${f.open} · ${n} PICK${n===1?'':'S'}</span>
+      return `<div style="font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2);margin-bottom:8px">${escHtmlBB(f.question)}<br><span style="color:var(--text3)">OPENS ${f.open} · ${n} PICK${n===1?'':'S'}${st.resultBy?` · SET BY ${st.resultBy.toUpperCase()}`:''}</span>
         <select onchange="commSetFutureResult('${f.id}', this.value)" style="display:block;margin-top:4px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:5px;padding:6px;font-size:12px">
           <option value="">— winner not decided —</option>${f.options.map(o=>`<option value="${o}" ${st.result===o?'selected':''}>${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select></div>`; }).join('')}</div>`;
 }
@@ -5160,7 +5268,7 @@ function duelRecapHtml(dateKey){
     : push ? `<div class="dr-you">Push: streaks hold.</div>`
     : myPick===duel.result ? `<div class="dr-you ok">✓ YOU CALLED IT${ds(me).streak?` · 🔥 ${ds(me).streak} IN A ROW`:''}</div>`
     : `<div class="dr-you no">✗ NOT THIS TIME · STREAK RESET</div>`;
-  const who = (list, cls) => list.length ? list.map(m=>`<span class="dr-who ${cls}" title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}<b>${escHtmlBB(m.display_name)}</b>${cls==='ok'&&ds(m.id).streak>1?`<i>🔥${ds(m.id).streak}</i>`:''}</span>`).join('') : `<span class="dr-none">${cls==='ok'?'NOBODY. OUCH.':'NOBODY!'}</span>`;
+  const who = (list, cls) => list.length ? list.map(m=>`<span class="dr-who ${cls}" title="${escHtmlBB(m.display_name)}" style="cursor:pointer" onclick="showFuturesSummary('${m.id}')">${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}<b>${escHtmlBB(m.display_name)}</b>${cls==='ok'&&ds(m.id).streak>1?`<i>🔥${ds(m.id).streak}</i>`:''}</span>`).join('') : `<span class="dr-none">${cls==='ok'?'NOBODY. OUCH.':'NOBODY!'}</span>`;
   const day = new Date(dateKey+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
   return `<div class="dr-card">
     <div class="dr-head"><span>⚡ DUEL RECAP</span><span>${day}</span></div>
@@ -5185,7 +5293,7 @@ function renderDuelCard(){
   const right = Object.entries(d.picks||{}).filter(([,v])=>String(v)===String(d.result)).map(([id])=>(leagueState.managers||[]).find(m=>String(m.id)===String(id))).filter(Boolean);
   const day = new Date(y+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
   card.insertAdjacentHTML('beforeend', `<div class="duel-yday" onclick="event.stopPropagation();window._duelTab='current';showScreen('duel')" title="See yesterday's recap">
-    <span>✓ ${day}:</span>${right.length ? right.map(m=>`<span class="dy-av" title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 20, 6, m.icon||null, m.photo||null)}</span>`).join('') : '<em>nobody got it</em>'}<i>›</i></div>`);
+    <span>✓ Yesterday:</span>${right.length ? right.map(m=>`<span class="dy-av" title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 20, 6, m.icon||null, m.photo||null)}</span>`).join('') : '<em>nobody got it</em>'}<i>›</i></div>`);
 }
 function _renderDuelCard(){
   const el=document.getElementById('duel-card-container');
@@ -5441,7 +5549,7 @@ function duelRecords(){
   return out;
 }
 // Leaderboard rows: # · avatar · name · % CORRECT · ALL-TIME STREAK · CURRENT STREAK
-function duelLeaderboardHtml(padX){
+function duelLeaderboardHtml(padX, futuresTap){
   const recs = duelRecords(), streaks = leagueState.duelStreaks || {}, myId = getMyId();
   const rows = (leagueState.managers||[]).map(m=>{
     const r = recs[m.id] || {picked:0, correct:0, best:0};
@@ -5450,9 +5558,9 @@ function duelLeaderboardHtml(padX){
   }).sort((a,b)=> b.cur-a.cur || (b.pct??-1)-(a.pct??-1) || b.best-a.best);
   const cell = (v, hot) => `<div class="dlb-c${hot?' hot':''}">${v}</div>`;
   return `<div class="dlb-head" style="padding:8px ${padX}px"><span></span><span></span><span>USER</span><span>% CORRECT</span><span>ALL-TIME STREAK</span><span>CURRENT STREAK</span></div>` +
-    rows.map((x,i)=>`<div class="dlb-row${String(x.m.id)===String(myId)?' me':''}" style="padding:9px ${padX}px">
-      <span class="dlb-rk">${i+1}</span>${userAvatar(x.m,26,8)}
-      <div class="dlb-nm">${userLink(x.m.id, escHtmlBB(x.m.display_name))}${String(x.m.id)===String(myId)?' ★':''}</div>
+    rows.map((x,i)=>`<div class="dlb-row${String(x.m.id)===String(myId)?' me':''}" style="padding:9px ${padX}px${futuresTap?';cursor:pointer':''}" ${futuresTap?`onclick="showFuturesSummary('${x.m.id}')"`:''}>
+      <span class="dlb-rk">${i+1}</span>${futuresTap ? avatarEl(x.m.display_name, x.m.color||'#4a9eff', 26, 8, x.m.icon||null, x.m.photo||null) : userAvatar(x.m,26,8)}
+      <div class="dlb-nm">${futuresTap ? escHtmlBB(x.m.display_name) : userLink(x.m.id, escHtmlBB(x.m.display_name))}${String(x.m.id)===String(myId)?' ★':''}</div>
       ${cell(x.pct==null?'—':Math.round(x.pct*100)+'%')}${cell(x.best||'—')}${cell(x.cur>0?'🔥 '+x.cur:'—', x.cur>0)}
     </div>`).join('');
 }
@@ -9197,6 +9305,7 @@ async function boot(){
       await syncColorTheme();   // newest theme pick wins (this browser vs the league)
       await applyLineupPlans();
       await ensureTodaysDuel();
+      settleCupGroups();
       maybeSwapInjuredDuel();
       purgeWlcTestWeeks().then(ensureWlcTipoff);
       updateUserChip();

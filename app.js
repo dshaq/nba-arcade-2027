@@ -10736,26 +10736,75 @@ function showWlcRules(){
   modal=document.createElement('div');
   modal.id='wlc-rules-modal';
   modal.className='modal-overlay';
-  modal.style.cssText='display:flex;align-items:flex-end;';
+  modal.style.display='flex';
+  // Same layout as the Fantasy rules: colored sections, label/value rows, a short note under each
+  const section=(title,color,body)=>`
+    <div style="margin-bottom:18px">
+      <div style="font-family:var(--pixel);font-size:6.5px;color:${color};margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">${title}</div>
+      ${body}
+    </div>`;
+  const row=(label,value)=>`
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <span style="font-family:var(--pixel);font-size:5.5px;color:var(--text3)">${label}</span>
+      <span style="font-family:var(--pixel);font-size:6px;color:var(--text1);text-align:right;max-width:58%;line-height:1.6">${value}</span>
+    </div>`;
+  const note=t=>`<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);margin-top:8px;line-height:1.8">${t}</div>`;
+  const fpRows=[['Points, Rebounds, Assists','+ 1 FP each'],['Steals, Blocks','+ 1 FP each'],['Missed FG, Missed FT','− 1 FP each'],['Turnovers','− 1 FP each'],['Flagrant & Technical Fouls','− 1 FP each']].map(([l,v])=>row(l,v)).join('');
   modal.innerHTML=`
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px 12px 0 0;width:100%;max-width:var(--max-w);padding:20px 16px;max-height:85vh;overflow-y:auto;">
-      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;"></div>
+    <div class="modal-box" style="max-width:440px;width:calc(100% - 32px);max-height:88vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">HOW IT WORKS</div>
-        <button onclick="document.getElementById('wlc-rules-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:5px 10px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent3)">📖 CHALLENGE RULES</div>
+        <button onclick="document.getElementById('wlc-rules-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
       </div>
-      <div style="font-family:var(--pixel);font-size:6px;color:var(--accent2);margin-bottom:10px;line-height:2">WEEKLY LINE-UP CHALLENGE</div>
-      <div style="font-family:var(--pixel);font-size:7px;line-height:1.8;color:var(--text2);line-height:1.8;margin-bottom:16px">
-        <p style="margin-bottom:10px">Goal: build the best lineup of <strong>1 to 5 players</strong> from the week's pool while spending <strong>$15 or less</strong>.</p>
-        <p style="margin-bottom:10px">Each week, the Commissioner releases a themed pool of 25 NBA players split into 5 salary tiers, $1 through $5. Tap a player to see him at the top of the screen, then tap Select. Mix tiers however you like: three $5 stars, five $1 sleepers, anything up to $15.</p>
-        <p style="margin-bottom:10px">Once you tap <strong>Save Lineup</strong> and confirm, your lineup is <strong>final</strong>. Lineups lock Monday at 7 AM ET, and nobody can see anyone else's picks until then.</p>
-        <p style="margin-bottom:10px"><strong>Scoring:</strong> each player scores his <strong>average FP per game</strong> that week (Mon–Sun), and your total is the sum of those averages. Players with more games get no advantage. A player who doesn't play scores 0. FP per game: <strong>+1 per point, rebound, assist, steal and block; −1 per missed FG, missed FT, turnover, flagrant foul and technical foul.</strong></p>
-        <p style="margin-bottom:10px"><strong>Injury swap:</strong> once per week, you can swap a player listed <strong>OUT</strong> for a same-tier player from the pool whose game hasn't started. That slot then averages both players' games: the original player's before the swap, the replacement's after.</p>
-        <p style="margin-bottom:10px">Highest total wins the week.</p>
-        <p style="margin-bottom:10px"><strong>Standings points:</strong> every week you play, you earn <strong>1 point for each lineup you outscore</strong>, plus a <strong>3-point bonus for winning the week</strong> (ties for first all get the bonus). Example: in a 10-player week, 1st place earns 9 + 3 = 12 points, 5th earns 5, last earns 0. Skip a week and you earn 0 for it.</p>
-        <p style="margin-bottom:10px"><strong>Standings columns:</strong> <strong>Run Pts</strong> (this run only, e.g. Fall), <strong>Total Pts</strong> (all season) and <strong>Win %</strong> (weeks won out of weeks played, all season).</p>
-        <p>Standings are ordered by Run Pts; ties go to Total Pts, then Win %. Points reset at the start of each run; Total Pts keep counting all season.</p>
-      </div>
+
+      ${section('BUILD YOUR LINE-UP','var(--accent2)',`
+        ${row('Players','1 to 5')}
+        ${row('Salary cap','$15')}
+        ${row('Player pool','25 players · 5 tiers, $1 – $5')}
+        ${row('Theme','New pool every week')}
+        ${note('Tap a player to preview him, then tap Select. Mix tiers however you like: three $5 stars, five $1 sleepers, anything up to $15.')}
+      `)}
+
+      ${section('LOCK','var(--accent1)',`
+        ${row('Saving','Final once you confirm')}
+        ${row('Picks lock','Monday · 7 AM ET')}
+        ${row('Other lineups','Hidden until lock')}
+      `)}
+
+      ${section('WEEKLY SCORING','var(--accent3)',`
+        ${row('Each player scores','Avg FP per game, Mon–Sun')}
+        ${row('Your score','Sum of your players\' averages')}
+        ${row('Player doesn\'t play','0 FP')}
+        ${row('Weekly winner','Highest score')}
+        ${note('Averages mean a player with 4 games has no edge over one with 2.')}
+      `)}
+
+      ${section('FANTASY POINTS (PER GAME)','var(--accent5)',`
+        ${fpRows}
+      `)}
+
+      ${section('INJURY SWAP','var(--accent4)',`
+        ${row('Swaps per week','1')}
+        ${row('Who can be swapped','A player listed OUT')}
+        ${row('Replacement','Same tier, game not started')}
+        ${note('That slot then averages both players\' games: the original player\'s before the swap, the replacement\'s after.')}
+      `)}
+
+      ${section('STANDINGS POINTS','var(--accent2)',`
+        ${row('Each lineup you outscore','+ 1 pt')}
+        ${row('Winning the week',`+ ${WLC_WIN_BONUS} pts bonus`)}
+        ${row('Tied for 1st','Everyone tied gets the bonus')}
+        ${row('Skipping a week','0 pts')}
+        ${note('Example: in a 10-player week, 1st earns 9 + 3 = 12 pts, 5th earns 5 and last earns 0.')}
+      `)}
+
+      ${section('STANDINGS','var(--accent1)',`
+        ${row('Run Pts','This run only (e.g. Fall)')}
+        ${row('Total Pts','All season')}
+        ${row('Win %','Weeks won ÷ weeks played')}
+        ${row('Order','Run Pts → Total Pts → Win %')}
+        ${note('Run Pts start over each run; Total Pts keep counting all season.')}
+      `)}
     </div>`;
   modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };
   document.body.appendChild(modal);

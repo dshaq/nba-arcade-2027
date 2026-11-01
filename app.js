@@ -8116,16 +8116,15 @@ function openAvatarEditor(forMid){
   bbRender(false);
 }
 // ── Secret Ballers ──────────────────────────────────────────────────────────────
-// Hidden from the roster until unlocked (prefs[mid].secrets). Each locked one shows as a "?" tile.
+// Hidden from the roster until unlocked (prefs[mid].secrets): no tile, no count, no hint.
 // LEMON: dress Nova in a Gold hood, Espresso seams and a Gold mask -> he goes supernova.
 const BB_SECRET_COMBOS = { lemon: {from:'nova', pick:{ball:9, seam:3, mask:1}} };
 function bbUnlocked(mid){ return (leagueState?.prefs?.[mid]?.secrets) || []; }
 function bbOrder(mid, cur){ return [...BB.ORDER, ...(BB.SECRET||[]).filter(c=>bbUnlocked(mid).includes(c) || c===cur)]; }
 function bbGridHtml(){
-  const order = _bb.order, locked = (BB.SECRET||[]).filter(c=>!order.includes(c)).length;
-  const N = order.length + locked, fill = (6 - N % 6) % 6;
-  return `<div class="bs-rhead"><span>ROSTER · <b>${order.length} BALLERS</b>${locked?` <i class="bs-secret-n">+ ${locked} ???</i>`:''}</span><span>TAP AGAIN TO PICK</span></div>
-    <div class="bs-grid" role="listbox" aria-label="Characters">${order.map(c=>`<button type="button" class="bs-tile${(BB.SECRET||[]).includes(c)?' secret':''}" role="option" data-c="${c}" aria-label="${escHtmlBB(BB.CHARS[c].name)}"><span class="in"></span><canvas></canvas></button>`).join('')}${'<button type="button" class="bs-tile locked mystery" data-act="mystery" aria-label="Secret Baller"><span class="in"></span><span class="q">?</span></button>'.repeat(locked)}${'<div class="bs-tile locked" aria-hidden="true"><span class="in"></span><span class="q">?</span></div>'.repeat(fill)}</div>`;
+  const order = _bb.order, fill = (6 - order.length % 6) % 6;   // locked secrets leave no trace
+  return `<div class="bs-rhead"><span>ROSTER · <b>${order.length} BALLERS</b></span><span>TAP AGAIN TO PICK</span></div>
+    <div class="bs-grid" role="listbox" aria-label="Characters">${order.map(c=>`<button type="button" class="bs-tile" role="option" data-c="${c}" aria-label="${escHtmlBB(BB.CHARS[c].name)}"><span class="in"></span><canvas></canvas></button>`).join('')}${'<div class="bs-tile locked" aria-hidden="true"><span class="in"></span><span class="q">?</span></div>'.repeat(fill)}</div>`;
 }
 function bbGridDraw(){ document.querySelectorAll('#avatar-modal .bs-tile[data-c] canvas').forEach(cv=>{ const c=cv.parentNode.dataset.c; BB.draw(cv, BB.fresh(c), c); }); }
 function bbCheckSecret(){
@@ -8336,7 +8335,6 @@ function bbClick(e){
   else if(d.team){ const tm = BB.TEAMS[+d.team]; _bb.pick = BB.teamPick(ch, tm); _bb.style = tm[0]; bbFlash(); }
   else if(d.part){ _bb.part = d.part; }
   else if(d.k){ _bb.pick = {..._bb.pick, [d.k]: +d.i}; _bb.style = bbStyleName(ch, _bb.pick); if(bbCheckSecret()) return; }
-  else if(d.act==='mystery'){ const tl = t; tl.classList.remove('shake'); void tl.offsetWidth; tl.classList.add('shake'); toast('🔒 ??? Some colors hide more than they show.'); return; }
   else if(d.act==='rand'){ const r = bbRandomFor(ch); if(r){ [_bb.pick, _bb.style] = r; _bb.part = null; bbFlash(); } }
   else if(d.act==='save'){ saveAvatarChoice(); return; }
   bbRender(false);

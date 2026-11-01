@@ -10506,60 +10506,48 @@ async function commReplaceWlcPlayer(wk, oldName, newName){
 }
 
 // Challenge standings: head-to-head points. Each final week you get 1 point for every lineup you
-// outscored, +3 for winning the week. Ranked by points; to be ranked you must have played at least
-// half the weeks so far (the rest are listed below, still earning points). Run or full season.
+// outscored, +3 for winning the week. Ranked by this run's points, then total points, then win %.
 const WLC_WIN_BONUS = 3;
-let _wlcStandView = 'run';
-function wlcPointsTable(view){
+function wlcPointsTable(){
   const weeks = leagueState.wlc?.weeks || {}, res = leagueState.wlc?.results || {};
-  const run = RUNS.find(r=>r.id===currentRun) || RUNS[0];
-  const inView = wk => view==='season' || (wk >= run.start && wk <= run.end);
-  const keys = Object.keys(res).filter(wk=>weeks[wk] && !weeks[wk].testers && weeks[wk].status==='final' && inView(wk)).sort();
+  const run = RUNS.find(r=>{ const t = todayKey(); return t >= r.start && t <= r.end; }) || RUNS.find(r=>r.id===currentRun) || RUNS[0];
+  const keys = Object.keys(res).filter(wk=>weeks[wk] && !weeks[wk].testers && weeks[wk].status==='final').sort();
   const T = {};
   for(const wk of keys){
     const r = res[wk], sc = Object.entries(r.scores||{}).map(([id,fp])=>[String(id), +fp||0]);
-    const winners = (r.winners||[]).map(String);
+    const winners = (r.winners||[]).map(String), inRun = wk >= run.start && wk <= run.end;
     for(const [id,fp] of sc){
-      const beat = sc.filter(([o,f])=>o!==id && f<fp).length, place = 1 + sc.filter(([o,f])=>o!==id && f>fp).length;
-      const t = T[id] || (T[id] = {pts:0, wins:0, weeks:0, placeSum:0});
-      const won = winners.includes(id);
-      t.pts += beat + (won ? WLC_WIN_BONUS : 0); t.wins += won ? 1 : 0; t.weeks++; t.placeSum += place;
+      const won = winners.includes(id), pts = sc.filter(([o,f])=>o!==id && f<fp).length + (won ? WLC_WIN_BONUS : 0);
+      const t = T[id] || (T[id] = {run:0, total:0, wins:0, weeks:0});
+      t.total += pts; if(inRun) t.run += pts; t.wins += won ? 1 : 0; t.weeks++;
     }
   }
-  return {T, total:keys.length, need: Math.max(1, Math.ceil(keys.length/2)), run};
+  return {T, run};
 }
-function setWlcStandView(v){ _wlcStandView = v; const c = document.getElementById('wlc-pane-standings') || document.querySelector('.wlc-stand-host'); if(c) renderWlcStandings(c); }
 function renderWlcStandings(container){
   const managers = leagueState.managers || [];
   if(!managers.length){
     container.innerHTML = '<div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO STANDINGS YET</div>';
     return;
   }
-  container.classList.add('wlc-stand-host');
-  const myId = String(getMyId()), view = _wlcStandView;
-  const {T, total, need, run} = wlcPointsTable(view);
-  const rows = managers.map(m=>({m, ...(T[String(m.id)] || {pts:0, wins:0, weeks:0, placeSum:0})}))
-    .sort((a,b)=> b.pts-a.pts || b.wins-a.wins || a.placeSum/(a.weeks||1)-b.placeSum/(b.weeks||1) || String(a.m.display_name).localeCompare(String(b.m.display_name)));
-  const ranked = rows.filter(r=>r.weeks>=need && total), waiting = rows.filter(r=>!(r.weeks>=need && total));
-  const row = (r, rank) => { const m = r.m, me = String(m.id)===myId;
-    const sub = r.weeks ? `${r.wins} WIN${r.wins===1?'':'S'} · ${r.weeks} OF ${total} WEEKS · AVG FINISH ${(r.placeSum/r.weeks).toFixed(1)}` : 'NO WEEKS PLAYED';
-    return `<div class="wlc-standings-row ws-row${me?' me':''}" onclick="showWlcLineupPopup('${m.id}')">
-      <span class="wlc-standings-rank">${rank||'–'}</span>
-      ${avatarEl(m.display_name,m.color||'#4a9eff',26,6,m.icon||null,m.photo||null)}
-      <div class="ws-who"><span class="wlc-standings-name">${escHtmlBB(m.display_name)}${me?' ★':''}</span><span class="ws-sub">${sub}</span></div>
-      <span class="ws-pts${r.pts?'':' z'}">${r.pts}<small>PTS</small></span>
-    </div>`; };
+  const myId = String(getMyId()), {T, run} = wlcPointsTable();
+  const rows = managers.map(m=>({m, ...(T[String(m.id)] || {run:0, total:0, wins:0, weeks:0})}))
+    .map(r=>({...r, pct: r.weeks ? r.wins/r.weeks : -1}))
+    .sort((a,b)=> b.run-a.run || b.total-a.total || b.pct-a.pct || String(a.m.display_name).localeCompare(String(b.m.display_name)));
   const runName = (run?.name||'Run').toUpperCase();
+  const row = (r, i) => { const m = r.m, me = String(m.id)===myId;
+    return `<div class="wlc-standings-row ws-row${me?' me':''}" onclick="showWlcLineupPopup('${m.id}')">
+      <span class="wlc-standings-rank">${i+1}</span>
+      ${avatarEl(m.display_name,m.color||'#4a9eff',24,6,m.icon||null,m.photo||null)}
+      <span class="wlc-standings-name ws-nm">${escHtmlBB(m.display_name)}${me?' ★':''}</span>
+      <span class="ws-c ws-run${r.run?'':' z'}">${r.run}</span>
+      <span class="ws-c${r.total?'':' z'}">${r.total}</span>
+      <span class="ws-c ws-pct${r.weeks?'':' z'}">${r.weeks ? Math.round(100*r.pct)+'%' : '—'}</span>
+    </div>`; };
   container.innerHTML = `
-    <div class="ws-tog" role="tablist">
-      <button type="button" class="${view==='run'?'on':''}" onclick="setWlcStandView('run')">${runName} RUN</button>
-      <button type="button" class="${view==='season'?'on':''}" onclick="setWlcStandView('season')">FULL SEASON</button>
-    </div>
-    <div class="ws-how">1 PT FOR EVERY LINEUP YOU OUTSCORE · <b>+${WLC_WIN_BONUS}</b> FOR A WEEKLY WIN</div>
-    ${!total ? `<div class="ws-empty">NO FINISHED WEEKS ${view==='run'?'THIS RUN ':''}YET</div>` : ''}
-    <div class="wlc-standings-table" style="padding:0">${ranked.map((r,i)=>row(r,i+1)).join('')}</div>
-    ${waiting.length ? `<div class="ws-wait"><span>NOT RANKED YET</span><span>${total?`PLAY ${need} OF ${total} WEEKS`:'PLAY A WEEK'} TO QUALIFY</span></div>
-      <div class="wlc-standings-table ws-waiting" style="padding:0">${waiting.map(r=>row(r,null)).join('')}</div>` : ''}`;
+    <div class="ws-head"><span class="ws-hn">STANDINGS</span><span class="ws-c">${runName}<br>PTS</span><span class="ws-c">TOTAL<br>PTS</span><span class="ws-c">WIN<br>%</span></div>
+    <div class="wlc-standings-table" style="padding:0">${rows.map(row).join('')}</div>
+    <div class="ws-how">1 PT FOR EVERY LINEUP YOU OUTSCORE · <b>+${WLC_WIN_BONUS}</b> FOR A WEEKLY WIN · <span onclick="showWlcRules()" style="text-decoration:underline;cursor:pointer">RULES</span></div>`;
 }
 
 // ── WLC ADMIN (Commissioner) ──────────────────────────────────────────────────
@@ -10763,7 +10751,10 @@ function showWlcRules(){
         <p style="margin-bottom:10px">Once you tap <strong>Save Lineup</strong> and confirm, your lineup is <strong>final</strong>. Lineups lock Monday at 7 AM ET, and nobody can see anyone else's picks until then.</p>
         <p style="margin-bottom:10px"><strong>Scoring:</strong> each player scores his <strong>average FP per game</strong> that week (Mon–Sun), and your total is the sum of those averages. Players with more games get no advantage. A player who doesn't play scores 0. FP per game: <strong>+1 per point, rebound, assist, steal and block; −1 per missed FG, missed FT, turnover, flagrant foul and technical foul.</strong></p>
         <p style="margin-bottom:10px"><strong>Injury swap:</strong> once per week, you can swap a player listed <strong>OUT</strong> for a same-tier player from the pool whose game hasn't started. That slot then averages both players' games: the original player's before the swap, the replacement's after.</p>
-        <p>Highest total wins the week. Wins and total FP are tracked all season.</p>
+        <p style="margin-bottom:10px">Highest total wins the week.</p>
+        <p style="margin-bottom:10px"><strong>Standings points:</strong> every week you play, you earn <strong>1 point for each lineup you outscore</strong>, plus a <strong>3-point bonus for winning the week</strong> (ties for first all get the bonus). Example: in a 10-player week, 1st place earns 9 + 3 = 12 points, 5th earns 5, last earns 0. Skip a week and you earn 0 for it.</p>
+        <p style="margin-bottom:10px"><strong>Standings columns:</strong> <strong>Run Pts</strong> (this run only, e.g. Fall), <strong>Total Pts</strong> (all season) and <strong>Win %</strong> (weeks won out of weeks played, all season).</p>
+        <p>Standings are ordered by Run Pts; ties go to Total Pts, then Win %. Points reset at the start of each run; Total Pts keep counting all season.</p>
       </div>
     </div>`;
   modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };

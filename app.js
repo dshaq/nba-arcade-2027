@@ -10505,48 +10505,61 @@ async function commReplaceWlcPlayer(wk, oldName, newName){
   renderWlcScreen();
 }
 
+// Challenge standings: head-to-head points. Each final week you get 1 point for every lineup you
+// outscored, +3 for winning the week. Ranked by points; to be ranked you must have played at least
+// half the weeks so far (the rest are listed below, still earning points). Run or full season.
+const WLC_WIN_BONUS = 3;
+let _wlcStandView = 'run';
+function wlcPointsTable(view){
+  const weeks = leagueState.wlc?.weeks || {}, res = leagueState.wlc?.results || {};
+  const run = RUNS.find(r=>r.id===currentRun) || RUNS[0];
+  const inView = wk => view==='season' || (wk >= run.start && wk <= run.end);
+  const keys = Object.keys(res).filter(wk=>weeks[wk] && !weeks[wk].testers && weeks[wk].status==='final' && inView(wk)).sort();
+  const T = {};
+  for(const wk of keys){
+    const r = res[wk], sc = Object.entries(r.scores||{}).map(([id,fp])=>[String(id), +fp||0]);
+    const winners = (r.winners||[]).map(String);
+    for(const [id,fp] of sc){
+      const beat = sc.filter(([o,f])=>o!==id && f<fp).length, place = 1 + sc.filter(([o,f])=>o!==id && f>fp).length;
+      const t = T[id] || (T[id] = {pts:0, wins:0, weeks:0, placeSum:0});
+      const won = winners.includes(id);
+      t.pts += beat + (won ? WLC_WIN_BONUS : 0); t.wins += won ? 1 : 0; t.weeks++; t.placeSum += place;
+    }
+  }
+  return {T, total:keys.length, need: Math.max(1, Math.ceil(keys.length/2)), run};
+}
+function setWlcStandView(v){ _wlcStandView = v; const c = document.getElementById('wlc-pane-standings') || document.querySelector('.wlc-stand-host'); if(c) renderWlcStandings(c); }
 function renderWlcStandings(container){
-  const standings = leagueState.wlc?.standings || {};
   const managers = leagueState.managers || [];
   if(!managers.length){
     container.innerHTML = '<div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO STANDINGS YET</div>';
     return;
   }
-
-  // Season standings only (this week's entries live on the Current Week's Lineups tab)
-  const currentHtml = '';
-  const myId = getMyId();
-
-  // Tries = official (non-test) weeks this manager saved a lineup for
-  const weeks = leagueState.wlc?.weeks || {}, allLineups = leagueState.wlc?.lineups || {};
-  const tries = mid => Object.keys(allLineups).filter(wk=>weeks[wk] && !weeks[wk].testers && allLineups[wk]?.[mid]?.picks?.length).length;
-  const rows = managers.map(m=>{
-    const s = standings[m.id] || {wins:0, totalFP:0};
-    return {...m, wins:s.wins||0, totalFP:s.totalFP||0, tries:tries(m.id)};
-  }).sort((a,b)=>b.wins!==a.wins?b.wins-a.wins:b.totalFP-a.totalFP);
-
-  let seasonHtml = '';
-  rows.forEach((m,i)=>{
-    const isMe = m.id===myId;
-    seasonHtml += `
-    <div class="wlc-standings-row" onclick="showWlcLineupPopup('${m.id}')" style="cursor:pointer;${isMe?'border-color:var(--accent2);':''}">
-      <span class="wlc-standings-rank">${i+1}</span>
-      <div style="display:flex;align-items:center;gap:8px;flex:1;">
-        ${avatarEl(m.display_name,m.color||'#4a9eff',24,6,m.icon||null,m.photo||null)}
-        <span class="wlc-standings-name" style="${isMe?'color:var(--accent2)':''}">
-          ${m.display_name}${isMe?' ★':''}
-        </span>
-      </div>
-      <span class="wlc-standings-pct">${m.tries ? Math.round(100*m.wins/m.tries)+'%' : '—'}</span>
-    </div>`;
-  });
-
+  container.classList.add('wlc-stand-host');
+  const myId = String(getMyId()), view = _wlcStandView;
+  const {T, total, need, run} = wlcPointsTable(view);
+  const rows = managers.map(m=>({m, ...(T[String(m.id)] || {pts:0, wins:0, weeks:0, placeSum:0})}))
+    .sort((a,b)=> b.pts-a.pts || b.wins-a.wins || a.placeSum/(a.weeks||1)-b.placeSum/(b.weeks||1) || String(a.m.display_name).localeCompare(String(b.m.display_name)));
+  const ranked = rows.filter(r=>r.weeks>=need && total), waiting = rows.filter(r=>!(r.weeks>=need && total));
+  const row = (r, rank) => { const m = r.m, me = String(m.id)===myId;
+    const sub = r.weeks ? `${r.wins} WIN${r.wins===1?'':'S'} · ${r.weeks} OF ${total} WEEKS · AVG FINISH ${(r.placeSum/r.weeks).toFixed(1)}` : 'NO WEEKS PLAYED';
+    return `<div class="wlc-standings-row ws-row${me?' me':''}" onclick="showWlcLineupPopup('${m.id}')">
+      <span class="wlc-standings-rank">${rank||'–'}</span>
+      ${avatarEl(m.display_name,m.color||'#4a9eff',26,6,m.icon||null,m.photo||null)}
+      <div class="ws-who"><span class="wlc-standings-name">${escHtmlBB(m.display_name)}${me?' ★':''}</span><span class="ws-sub">${sub}</span></div>
+      <span class="ws-pts${r.pts?'':' z'}">${r.pts}<small>PTS</small></span>
+    </div>`; };
+  const runName = (run?.name||'Run').toUpperCase();
   container.innerHTML = `
-    ${currentHtml}
-    <div style="display:flex;justify-content:space-between;font-family:var(--pixel);font-size:6px;color:var(--text3);padding:0 12px 8px 0"><span>SEASON STANDINGS</span><span>WINNING %</span></div>
-    <div class="wlc-standings-table" style="padding:0">
-      ${seasonHtml || '<div style="padding:16px;text-align:center;font-family:var(--pixel);font-size:6px;color:var(--text3)">NO RESULTS YET</div>'}
-    </div>`;
+    <div class="ws-tog" role="tablist">
+      <button type="button" class="${view==='run'?'on':''}" onclick="setWlcStandView('run')">${runName} RUN</button>
+      <button type="button" class="${view==='season'?'on':''}" onclick="setWlcStandView('season')">FULL SEASON</button>
+    </div>
+    <div class="ws-how">1 PT FOR EVERY LINEUP YOU OUTSCORE · <b>+${WLC_WIN_BONUS}</b> FOR A WEEKLY WIN</div>
+    ${!total ? `<div class="ws-empty">NO FINISHED WEEKS ${view==='run'?'THIS RUN ':''}YET</div>` : ''}
+    <div class="wlc-standings-table" style="padding:0">${ranked.map((r,i)=>row(r,i+1)).join('')}</div>
+    ${waiting.length ? `<div class="ws-wait"><span>NOT RANKED YET</span><span>${total?`PLAY ${need} OF ${total} WEEKS`:'PLAY A WEEK'} TO QUALIFY</span></div>
+      <div class="wlc-standings-table ws-waiting" style="padding:0">${waiting.map(r=>row(r,null)).join('')}</div>` : ''}`;
 }
 
 // ── WLC ADMIN (Commissioner) ──────────────────────────────────────────────────

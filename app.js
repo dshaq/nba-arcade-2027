@@ -6944,11 +6944,21 @@ function renderFantasySchedule(){
 }
 
 // One row per match-up (used by the Schedule tab and the Home "Current Match-ups")
-function scheduleRowsHtml(week, wi, isCurrent, isPast){
+// W-L(-T) in a run from finished match-ups (same count as the Standings tab)
+function runRecord(mid, runId){
+  let w=0,l=0,t=0;
+  ((leagueState.schedule||{})[runId]||[]).forEach(week=>week.forEach(mu=>{
+    if(!mu.winner || (mu.home!==mid && mu.away!==mid)) return;
+    if(mu.winner===mid) w++; else if(mu.winner==='tie') t++; else l++;
+  }));
+  return `${w}-${l}${t?'-'+t:''}`;
+}
+function scheduleRowsHtml(week, wi, isCurrent, isPast, runId=currentRun){
   const managers=leagueState.managers||[];
   const myId=getMyId();
   const getM=id=>managers.find(m=>m.id===id)||{id,display_name:'???',color:'#4a9eff'};
-  const side=(m,r)=>`<div class="vs-side${r?' r':''}">${rosterLink(m.id, avatarEl(m.display_name, m.color||'#4a9eff', 26, 8, m.icon||null, m.photo||null))}<div class="vs-n">${rosterLink(m.id, teamLabel(m).toUpperCase())}</div></div>`;
+  const rec=m=>`<span class="vs-rec">${runRecord(m.id, runId)}</span>`;
+  const side=(m,r)=>`<div class="vs-side${r?' r':''}"><div class="vs-av">${r?rec(m):''}${rosterLink(m.id, avatarEl(m.display_name, m.color||'#4a9eff', 26, 8, m.icon||null, m.photo||null))}${r?'':rec(m)}</div><div class="vs-n">${rosterLink(m.id, teamLabel(m).toUpperCase())}</div></div>`;
   return week.map(matchup=>{
     const h=getM(matchup.home), a=getM(matchup.away);
     const isMine=matchup.home===myId||matchup.away===myId;
@@ -6980,7 +6990,7 @@ function renderHomeMatchups(){
   const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   el.innerHTML=`<div class="hs"><div class="hs-title">WEEK ${wi+1} MATCH-UPS</div>
     <div class="hs-sub">${fmt(mon).toUpperCase()} – ${fmt(sun).toUpperCase()}${typeof liveGamesActive!=='undefined'&&liveGamesActive?' · <span class="live-badge" style="font-size:4px;padding:1px 4px">LIVE</span>':''}</div>
-    ${scheduleRowsHtml(week, wi, true, false)}
+    ${scheduleRowsHtml(week, wi, true, false, run.id)}
     <div class="hs-foot">TAP A MATCH-UP FOR ITS BOX SCORE</div></div>`;
 }
 

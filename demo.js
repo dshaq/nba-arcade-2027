@@ -1,7 +1,7 @@
 // NBA Arcade · DEMO MODE (open the site with ?demo)
 // Stands in for supabase-js so the app runs with no login:
-//  - League data is the real league's game data (stats, schedule, rosters, duels, challenge),
-//    fetched read-only WITHOUT the managers list or chat, then given made-up names.
+//  - League data is a snapshot of the real league's game data (demo-data.json: stats, schedule,
+//    rosters, duels, challenge) WITHOUT the managers list or chat, given made-up names.
 //  - Every save stays in this browser tab; nothing is ever written to the real league.
 //  - Adds a DEMO ribbon and a guided tour.
 (function(){
@@ -11,10 +11,6 @@
   const H = {apikey:ANON, Authorization:'Bearer '+ANON};
   window.NBA_DEMO = true;
 
-  // Game data only. Never: managers (names, user ids) or chat.
-  const SAFE = ['active','activeLog','activeSnapshots','currentRun','drafts','duelStreaks','duels','futures','inactive','ir',
-    'lineupOverrides','lineupPlans','matchups','minBuild','playerStats','prefs','rosters','schedule','season',
-    'superlatives','waiverLog','waiverWeekCount','wlc'];
   const NAMES = [
     ['Alex','Pixel Pushers'],['Jordan R','Full Court Press'],['Casey','Glass Cleaners'],['Morgan','Fast Break Bandits'],
     ['Riley','Bank Shot Bros'],['Taylor','Triple Double Trouble'],['Jamie','Paint Patrol'],['Quinn','Sixth Man Squad'],
@@ -27,10 +23,9 @@
   const stamp = () => new Date(Date.now() + (++ts)).toISOString();
 
   async function load(){
-    const sel = SAFE.map(k=>`${k}:state->${k}`).join(',');
-    const r = await fetch(`${URL}/rest/v1/leagues?id=eq.${KEY}&select=${sel}`, {headers:H}).then(x=>x.json()).catch(()=>[]);
-    const st = Array.isArray(r) && r[0] ? r[0] : {};
-    for(const k of Object.keys(st)) if(st[k]==null) delete st[k];
+    // demo-data.json: a snapshot of the league's game data only (no managers, no chat),
+    // taken by the developer; refresh it to bring the demo up to date
+    const st = await fetch('demo-data.json', {cache:'no-cache'}).then(x=>x.json()).catch(()=>({}));
     // Everyone who appears anywhere in the game data
     const ids = new Set();
     const add = o => Object.keys(o||{}).forEach(k=>{ if(/^\d+$/.test(k)) ids.add(+k); });
@@ -38,6 +33,7 @@
     Object.values(st.duels||{}).forEach(d=>add(d.picks)); Object.values(st.wlc?.lineups||{}).forEach(add);
     Object.values(st.futures||{}).forEach(f=>add(f.picks));
     (Object.values(st.schedule||{})).flat(2).forEach(m=>{ if(m && m.home!=null){ ids.add(+m.home); ids.add(+m.away); } });
+    (st.managerIds||[]).forEach(x=>ids.add(+x)); delete st.managerIds;
     ids.add(VIEWER);
     const list = [...ids].filter(x=>!isNaN(x)).sort((a,b)=>a-b);
     managers = list.map((id,i)=>{ const [n,t] = NAMES[i % NAMES.length];

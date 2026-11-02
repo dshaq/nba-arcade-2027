@@ -10427,7 +10427,7 @@ function wlcGridHtml(pool, onTap, selected, previewing){
       const pv = previewing===p.n;
       html += `<div class="wlc-pcard${sel?' selected':''}${pv?' previewing':''}" onclick="${onTap(p.n)}">${pv?'<span class="wlc-p1">P1</span>':''}
         <div class="wlc-pimg"><img src="${port}" loading="lazy" onerror="this.style.visibility='hidden'">${inj?`<span class="wlc-pinj" style="background:${inj.color}">${inj.label}</span>`:''}${sel?'<span class="wlc-pcheck">✓</span>':''}</div>
-        <div class="wlc-pname">${parts[0]}<br>${parts.slice(1).join(' ')}${pos?`<div class="wlc-ppos">${pos}</div>`:''}</div>
+        <div class="wlc-pname">${parts[0]}<br>${parts.slice(1).join(' ')}${(team||pos)?`<div class="wlc-ppos">${[team,pos].filter(Boolean).join(' • ')}</div>`:''}</div>
       </div>`;
     }
     html += '</div>';

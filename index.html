@@ -61,8 +61,16 @@ img{display:block;}
 }
 
 /* ── SCANLINES OVERLAY ── */
-/* On body (not #app) so pop-ups opened on top of the app (results, rules, player cards) get them too */
-body::after{
+#app::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0px,rgba(0,0,0,.12) 1px,transparent 1px,transparent 3px);
+  pointer-events:none;
+  z-index:9999;
+}
+/* Pop-ups live outside #app, so they carry their own scanlines (results, rules, player cards) */
+.modal-overlay::after,.top-sheet-overlay::after{
   content:'';
   position:fixed;
   inset:0;

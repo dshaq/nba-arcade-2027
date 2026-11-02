@@ -3430,11 +3430,12 @@ async function toggleActiveStatus(mid, pid){
   if(!leagueState.activeLog) leagueState.activeLog = {};
   if(!leagueState.activeLog[mid]) leagueState.activeLog[mid] = [];
   leagueState.activeLog[mid].push({ts: new Date().toISOString(), active: [...leagueState.active[mid]]});
-  await saveLeagueState();
   renderRostersScreen();
   renderLineupPreview();
+  toast((isActive ? 'Moved to Bench' : 'Moved to Active') + ' · saving…');
+  await saveLeagueState();
   renderHomeScreen();
-  toast(isActive ? 'Moved to Bench' : 'Moved to Active');
+  toast(_lastSaveOk ? (isActive ? '✓ Saved: moved to Bench' : '✓ Saved: moved to Active') : '⚠ That move did NOT save. Check your connection and try again.');
 }
 
 // ── DAY-BY-DAY LINEUPS ──────────────────────────────────────────────────────
@@ -3605,11 +3606,13 @@ async function swapActiveBench(mid, a, b){
   if(!leagueState.activeLog) leagueState.activeLog = {};
   if(!leagueState.activeLog[mid]) leagueState.activeLog[mid] = [];
   leagueState.activeLog[mid].push({ts:new Date().toISOString(), active:[...leagueState.active[mid]]});
-  await saveLeagueState();
+  // Show the swap right away; the save runs behind it (a slow connection used to look like a dead button)
   renderRostersScreen();
   if(typeof renderLineupPreview==='function') renderLineupPreview();
+  toast(`⇄ ${playerShortName(getPlayer(goingIn).name)} IN · ${playerShortName(getPlayer(goingOut).name)} TO BENCH · SAVING…`);
+  await saveLeagueState();
   renderHomeScreen();
-  toast(`⇄ ${playerShortName(getPlayer(goingIn).name)} IN · ${playerShortName(getPlayer(goingOut).name)} TO BENCH`);
+  toast(_lastSaveOk ? `✓ Saved: ${playerShortName(getPlayer(goingIn).name)} is Active` : '⚠ That swap did NOT save. Check your connection and try again.');
 }
 
 // ── CURRENT RUN LOGIC ────────────────────────────────────────────────────────

@@ -9816,7 +9816,7 @@ const WLC_SET_POOLS = {
 };
 function setWlcPool(wk){
   const set = WLC_SET_POOLS[wk]; if(!set) return null;
-  const pool = set.names.map(n=>{ const cur = wlcFindPlayer(n), db = PLAYERS_DB.find(p=>normName(p.n)===normName(n));
+  const pool = set.names.map(n=>{ const cur = wlcFindPlayer(n) || wlcFindPlayer(n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i,'')), db = PLAYERS_DB.find(p=>normName(p.n)===normName(n));
     const name = cur?.name || n;
     return {...(db||{}), n:name, t:cur?.team||db?.t||'', fpPG:seasonFpPG(name, db?.fpPG ?? (cur ? estimateFpPG(cur) : 0))}; });
   return { weekKey: wk, theme: set.theme, pool: assignTiers(pool) };

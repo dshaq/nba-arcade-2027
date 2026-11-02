@@ -9808,10 +9808,10 @@ function applyWlcPoolTweaks(weekKey, pool){
 // Generating that week proposes this pool; it still goes through the usual approve step.
 const WLC_SET_POOLS = {
   '2026-11-02': {theme:'Rookie Class', names:[
-    'Cameron Boozer','Yaxel Lendeborg','Caleb Wilson','Keaton Wagler','Darius Acuff Jr.',
-    'AJ Dybantsa','Meleek Thomas','Trevon Brazile','Darryn Peterson','Mikel Brown Jr.',
-    'Allen Graves','Aday Mara','Kingston Flemings','Baba Miller','Brayden Burries',
-    'Morez Johnson Jr.','Dailyn Swain','Sergio de Larrea','Emanuel Sharp','Chris Cenac Jr.',
+    'Cameron Boozer','Yaxel Lendeborg','Caleb Wilson','AJ Dybantsa','Darius Acuff Jr.',
+    'Keaton Wagler','Aday Mara','Trevon Brazile','Darryn Peterson','Kingston Flemings',
+    'Allen Graves','Meleek Thomas','Morez Johnson','Mikel Brown Jr.','Brayden Burries',
+    'Baba Miller','Dailyn Swain','Nate Ament','Emanuel Sharp','Chris Cenac Jr.',
     'Hannes Steinbach','Tobi Lawal','Tarris Reed Jr.','Christian Anderson','Bennett Stirtz']},
 };
 function setWlcPool(wk){

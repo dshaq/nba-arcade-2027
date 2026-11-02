@@ -61,13 +61,14 @@ img{display:block;}
 }
 
 /* ── SCANLINES OVERLAY ── */
-#app::before{
+/* On body (not #app) so pop-ups opened on top of the app (results, rules, player cards) get them too */
+body::after{
   content:'';
   position:fixed;
   inset:0;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0px,rgba(0,0,0,.12) 1px,transparent 1px,transparent 3px);
   pointer-events:none;
-  z-index:9999;
+  z-index:2147483000;
 }
 
 /* ── TOP BAR ── */

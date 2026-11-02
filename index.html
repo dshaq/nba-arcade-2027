@@ -2297,7 +2297,11 @@ html[data-theme="neon"]{
 <div id="toast"></div>
 
 <!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
+<script>
+  // ?demo → demo mode: a stand-in for Supabase (see demo.js); otherwise the real client
+  if(/[?&]demo(=|&|$)/.test(location.search)) document.write('<script src="demo.js"><\/script>');
+  else document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"><\/script>');
+</script>
 <script src="players-db.js"></script>
 <script src="balls.js"></script>
 <script src="app.js"></script>

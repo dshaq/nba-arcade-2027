@@ -101,8 +101,8 @@
     {t:'WEEKLY LINE-UP CHALLENGE', b:'Each week the commissioner picks a themed pool of 25 players in five salary tiers. Build the best line-up for $15. Points for every line-up you beat.', go:()=>showScreen('wlc')},
     {t:'DAILY DUEL', b:'One question a day, with a theme for each weekday: Monster Monday, Wet Wednesday, Stocks Saturday… Pick a side, build a streak, climb the standings.', go:()=>showScreen('duel')},
     {t:'SELECT YOUR BALLER', b:'Everyone plays as a pixel-art Baller, with styles, all 30 team colorways or fully custom colors. Some say there\'s a secret one…', go:()=>{ showScreen('profile'); openAvatarEditor(); }},
-    {t:'WEEKLY RESULTS', b:'Every Monday the league gets an awards show: Team and Player of the Week, the biggest letdown, the nicest surprise and the Challenge winner.', go:()=>{ document.getElementById('avatar-modal')?.remove(); previewWeekResults(); }},
-    {t:'THAT\'S THE TOUR', b:'Everything here is clickable. Changes you make stay in this tab only and reset when you reload. Have fun!', go:()=>{}},
+    {t:'WEEKLY RESULTS', b:'Every Monday the league gets an awards show: Team and Player of the Week, the biggest letdown, the nicest surprise and the Challenge winner.', go:()=>{ document.getElementById('avatar-modal')?.remove(); const w = latestFinishedWeek(); if(w) showWeekResults(w.runId, w.idx); }},
+    {t:'THAT\'S THE TOUR', b:'Everything here is clickable. Changes you make stay in this tab only and reset when you reload. Have fun!', go:()=>{ showScreen('home'); window.scrollTo(0,0); }},
   ];
   let step = -1;
   function closeAll(){ ['avatar-modal','week-results-modal','wp-modal','fs-modal'].forEach(id=>document.getElementById(id)?.remove()); }
@@ -122,8 +122,8 @@
   document.addEventListener('DOMContentLoaded', ()=>{
     const css = document.createElement('style');
     css.textContent = `
-      #demo-ribbon{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%);z-index:2147483100;display:flex;gap:6px;align-items:center;
-        font-family:var(--pixel,monospace);font-size:6px;background:#ff3b5c;color:#fff;border:2px solid #000;border-radius:4px;padding:4px 6px;box-shadow:0 3px 0 #000}
+      #demo-ribbon{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--topbar-h,52px) + 4px);right:max(10px,calc(50% - var(--max-w,480px)/2 + 10px));z-index:2147483100;display:flex;gap:6px;align-items:center;
+        font-family:var(--pixel,monospace);font-size:5px;background:#ff3b5c;color:#fff;border:2px solid #000;border-radius:4px;padding:3px 5px;box-shadow:0 2px 0 #000;opacity:.95}
       #demo-ribbon button{font:inherit;background:#ffd93d;color:#000;border:1px solid #000;border-radius:3px;padding:3px 6px;cursor:pointer}
       #demo-tour{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:translateX(-50%);width:min(420px,calc(100% - 24px));z-index:2147483100;
         background:#0b0f2a;border:3px solid #ffd93d;border-radius:10px;box-shadow:0 0 0 3px #000,0 10px 30px rgba(0,0,0,.6);padding:12px 14px;font-family:var(--pixel,monospace)}

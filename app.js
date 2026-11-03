@@ -2352,7 +2352,7 @@ async function flushOutbox(){
         continue;
       }
       const msg = `${error.code||''} ${error.message||''}`;
-      if(/PGRST202|league_apply|does not exist|Could not find the function/i.test(msg) && _rpcMode !== true){
+      if(/PGRST202|Could not find the function/i.test(msg) && _rpcMode !== true){
         // Database function not installed yet: send everything the old way, once
         console.warn('[save] league_apply missing — using whole-league saves', msg);
         _rpcMode = false;
@@ -8742,6 +8742,7 @@ async function renderAdminContent(){
   ${renderAdminRosterEditorSection()}
   ${renderAdminLineupOverrideSection()}
   ${renderAdminLineupFixSection()}
+  ${renderAdminPickFixSection()}
   ${renderAdminDuelSection()}
   ${renderAdminDuelResultEditSection()}
   ${renderAdminFuturesSection()}
@@ -8887,6 +8888,67 @@ async function adminLineupOverride(){
   toast(`${pin?.name||'Player'} activated${pout?`, ${pout.name} benched`:''} ✓`);
   renderAdminContent(); renderLineupPreview(); renderMyRosterList();
   if(document.getElementById('rosters-content')) renderRostersScreen();
+}
+
+// ── COMMISSIONER: FIX A PICK ────────────────────────────────────────────────
+// Enter (or change) someone's Daily Duel or Futures pick, even after the lock — for picks
+// that didn't save. A settled Duel replays everyone's streaks afterwards.
+let _pfMid = null, _pfKind = 'duel', _pfKey = null;
+function renderAdminPickFixSection(){
+  const mgrs = [...allManagers()].sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
+  if(_pfMid==null) _pfMid = String(getMyId());
+  const duelKeys = Object.keys(leagueState.duels||{}).sort().reverse().slice(0,21);
+  const futs = FUTURES_DUELS;
+  if(_pfKind==='duel' && !duelKeys.includes(_pfKey)) _pfKey = duelKeys[0] || null;
+  if(_pfKind==='fut' && !futs.some(f=>f.id===_pfKey)) _pfKey = (futuresNow()[0] || futs[0])?.id || null;
+  const sel = 'width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text1);padding:7px;font-family:var(--pixel);font-size:6px;margin-bottom:6px';
+  const dayName = dk => { const [y,m,d]=dk.split('-').map(Number); return new Date(y,m-1,d,12).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+  let choices = '', cur = null, note = '';
+  if(_pfKind==='duel' && _pfKey){
+    const d = leagueState.duels[_pfKey];
+    const lab = n => d.type==='team' ? (n===1?d.team1:d.team2) : (getPlayer(n===1?d.pid1:d.pid2)?.name || '?');
+    cur = d.picks?.[_pfMid] ?? d.picks?.[Number(_pfMid)];
+    choices = [1,2].map(n=>`<button class="btn ${String(cur)===String(n)?'btn-primary':'btn-secondary'}" style="flex:1;font-size:6px" onclick="adminFixPick(${n})">${escHtmlBB(lab(n))}</button>`).join('');
+    note = d.result!=null ? 'SETTLED · STREAKS WILL BE REPLAYED' : isDuelLocked(d) ? 'LOCKED · YOU CAN STILL ENTER IT' : 'OPEN';
+  } else if(_pfKind==='fut' && _pfKey){
+    const f = futs.find(x=>x.id===_pfKey), st = futureState(f);
+    cur = st.picks?.[_pfMid];
+    choices = f.options.map(o=>`<button class="btn ${cur===o?'btn-primary':'btn-secondary'}" style="flex:1;min-width:52px;font-size:6px" onclick="adminFixPick('${o}')">${o}</button>`).join('');
+    note = st.result ? 'SETTLED' : futLocked(f) ? 'LOCKED · YOU CAN STILL ENTER IT' : 'OPEN';
+  }
+  return `
+  <div class="section-label" style="padding:12px 0 8px">✍️ FIX A PICK</div>
+  <div class="card" style="margin:0">
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px">Enter a pick that didn't save, even after the lock.</div>
+    <select style="${sel}" onchange="_pfMid=this.value;renderAdminContent()">${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(_pfMid)?'selected':''}>${escHtmlBB(m.display_name)}</option>`).join('')}</select>
+    <select style="${sel}" onchange="_pfKind=this.value;_pfKey=null;renderAdminContent()"><option value="duel" ${_pfKind==='duel'?'selected':''}>Daily Duel</option><option value="fut" ${_pfKind==='fut'?'selected':''}>Futures Duel</option></select>
+    <select style="${sel}" onchange="_pfKey=this.value;renderAdminContent()">${_pfKind==='duel'
+      ? duelKeys.map(k=>`<option value="${k}" ${k===_pfKey?'selected':''}>${dayName(k)} · ${escHtmlBB(leagueState.duels[k].theme||'Duel')}</option>`).join('')
+      : futs.map(f=>`<option value="${f.id}" ${f.id===_pfKey?'selected':''}>${escHtmlBB(f.title)}</option>`).join('')}</select>
+    <div style="font-family:var(--pixel);font-size:5px;color:var(--accent3);margin:2px 0 6px">${note}${cur!=null?` · CURRENT PICK: ${escHtmlBB(String(cur))}`:' · NO PICK YET'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${choices}</div>
+  </div>`;
+}
+async function adminFixPick(v){
+  const mid = String(_pfMid), who = (allManagers().find(m=>String(m.id)===mid)||{}).display_name || mid;
+  if(_pfKind==='duel'){
+    const d = leagueState.duels?.[_pfKey]; if(!d) return;
+    if(!d.picks) d.picks = {}; if(!d.pickedAt) d.pickedAt = {};
+    delete d.picks[Number(mid)];
+    d.picks[mid] = v; d.pickedAt[mid] = d.pickedAt[mid] || new Date().toISOString();
+    renderAdminContent();
+    await saveLeagueState();
+    if(d.result!=null) await recalcDuelStreaks();
+  } else {
+    const f = FUTURES_DUELS.find(x=>x.id===_pfKey); if(!f) return;
+    if(!leagueState.futures) leagueState.futures = {};
+    const st = leagueState.futures[f.id] ||= {picks:{}, pickedAt:{}};
+    st.picks = {...(st.picks||{}), [mid]: v}; st.pickedAt = {...(st.pickedAt||{}), [mid]: st.pickedAt?.[mid] || new Date().toISOString()};
+    renderAdminContent();
+    await saveLeagueState();
+  }
+  toast(_lastSaveOk===false ? '⚠ Did not save — try again' : `✓ ${who}: pick saved`);
+  renderAdminContent(); renderDuelCard(); if(currentScreen==='duel') renderDuelScreen();
 }
 
 // ── COMMISSIONER: FIX PAST LINEUPS ──────────────────────────────────────────

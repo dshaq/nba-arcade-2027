@@ -2327,52 +2327,63 @@ function commitLeague(){
   _outbox.push({id, ops, at:Date.now()});
   _saveOutbox();
   _lastSaveOk = 'pending';
-  setSavePill('saving');
+  if(!_saveErr) setSavePill('saving');
   const done = new Promise(res=>_waiters.set(id, res));
   flushOutbox();
   // Callers wait for the server's OK, but never more than a few seconds: the outbox keeps it safe
   return Promise.race([done.then(()=>{ _lastSaveOk = true; }), new Promise(r=>setTimeout(r, 4000))]);
 }
+const _withTimeout = (p, ms, what) => Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error(`${what} timed out after ${ms/1000}s`)), ms))]);
+let _saveErr = null;   // last reason a save didn't go through (shown when the light is tapped)
 async function flushOutbox(){
   if(_flushing) return _flushing;
   _flushing = (async ()=>{
     let backoff = 1000;
     while(_outbox.length){
       const it = _outbox[0];
+      it.tries = (it.tries||0) + 1;
       let error = null;
-      try{ ({error} = await db.rpc('league_apply', {p_id:LEAGUE_KEY, p_ops:it.ops})); }
+      // Hard cap on the whole call (sign-in refresh included), so nothing can hang the outbox
+      try{ ({error} = await _withTimeout(db.rpc('league_apply', {p_id:LEAGUE_KEY, p_ops:it.ops}), 15000, 'save')); }
       catch(e){ error = {message:String(e?.message||e)}; }
       if(!error){
         _outbox.shift(); _saveOutbox();
         try{ _leagueBaseJson = JSON.stringify(applyOps(JSON.parse(_leagueBaseJson), it.ops)); }catch(e){}
         _leagueTs = null;   // our copy no longer matches a known server version; next pull downloads
-        _rpcMode = true;
+        _rpcMode = true; _saveErr = null;
         _waiters.get(it.id)?.(); _waiters.delete(it.id);
         backoff = 1000;
         continue;
       }
-      const msg = `${error.code||''} ${error.message||''}`;
-      if(/PGRST202|Could not find the function/i.test(msg) && _rpcMode !== true){
-        // Database function not installed yet: send everything the old way, once
-        console.warn('[save] league_apply missing — using whole-league saves', msg);
-        _rpcMode = false;
-        const waiting = _outbox.map(x=>x.id); _outbox = []; _saveOutbox();
+      const msg = `${error.code||''} ${error.message||''}`.trim();
+      _saveErr = {msg, at:new Date().toISOString(), tries:it.tries};
+      console.warn('[save] not confirmed yet', msg, it.ops);
+      try{ const log = JSON.parse(localStorage.getItem('nba-save-errors')||'[]'); log.push(_saveErr); localStorage.setItem('nba-save-errors', JSON.stringify(log.slice(-15))); }catch(e){}
+      const missing = /PGRST202|Could not find the function/i.test(msg) && _rpcMode !== true;
+      // Not installed, or this change keeps failing: send everything the old (whole-league) way
+      if(missing || it.tries >= 3){
+        if(missing){ console.warn('[save] league_apply missing — using whole-league saves'); _rpcMode = false; }
+        setSavePill('saving');
         await _saveLeagueBlob();
-        waiting.forEach(id=>{ _waiters.get(id)?.(); _waiters.delete(id); });
-        setSavePill(_lastSaveOk===true ? 'saved' : 'error');
-        break;
+        if(_lastSaveOk === true){
+          const done = _outbox.map(x=>x.id); _outbox = []; _saveOutbox(); _saveErr = null;
+          done.forEach(id=>{ _waiters.get(id)?.(); _waiters.delete(id); });
+          if(_rpcMode === false){ setSavePill('saved'); break; }
+          continue;
+        }
       }
-      if(/JWT|sign in required|401|403/i.test(msg)){ try{ await db.auth.refreshSession(); }catch(e){} }
-      console.warn('[save] not confirmed yet, retrying', msg);
+      if(/JWT|sign in required|401|403|42501/i.test(msg)){ try{ await _withTimeout(db.auth.refreshSession(), 10000, 'sign-in refresh'); }catch(e){} }
       setSavePill(navigator.onLine===false ? 'offline' : 'retry');
-      await new Promise(r=>{ _wakeFlush = r; setTimeout(r, backoff); });   // back online / tab shown → try right away
+      await new Promise(r=>{ _wakeFlush = r; setTimeout(r, backoff); });   // back online / tab shown / tapped → try right away
       _wakeFlush = null;
       backoff = Math.min(backoff*2, 15000);
     }
-    if(_rpcMode !== false) setSavePill('saved');
-  })().finally(()=>{ _flushing = null; });
+    if(!_outbox.length) setSavePill('saved');
+  })().catch(e=>{ console.warn('[save] outbox stopped', e); _saveErr = {msg:String(e?.message||e), at:new Date().toISOString()}; setSavePill('retry'); })
+    .finally(()=>{ _flushing = null; if(_outbox.length) setTimeout(flushOutbox, 3000); });
   return _flushing;
 }
+function retrySavesNow(){ _wakeFlush?.(); flushOutbox(); }
 // Changes this browser never got confirmed (tab closed, phone lost signal): put them back
 // over the fresh league and send them again. Every op is safe to send twice.
 function replayOutbox(){
@@ -2396,7 +2407,22 @@ function setSavePill(state){
   clearTimeout(_pillTimer);
   const txt = {saving:'SAVING…', saved:'✓ SAVED', retry:'⚠ NOT SAVED YET · RETRYING', offline:'⚠ OFFLINE · WILL SAVE WHEN BACK', error:'⚠ NOT SAVED'}[state] || '';
   el.className = 'sp-'+state; el.textContent = txt; el.hidden = !txt;
+  el.onclick = (state==='retry'||state==='offline'||state==='error') ? showSaveDetails : null;
+  if(state==='retry' && _outbox.length) el.textContent = `⚠ NOT SAVED YET · RETRYING (${_outbox.length}) · TAP`;
   if(state==='saved') _pillTimer = setTimeout(()=>{ el.hidden = true; }, 1600);
+}
+function showSaveDetails(){
+  document.getElementById('save-detail-modal')?.remove();
+  const m = document.createElement('div'); m.id='save-detail-modal'; m.className='modal-overlay'; m.style.display='flex';
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  const items = _outbox.map(x=>x.ops.map(o=>o.path.join(' › ')).join(', ')).slice(0,5);
+  m.innerHTML = `<div class="modal-box" style="max-width:360px;width:calc(100% - 32px)">
+    <div style="font-family:var(--pixel);font-size:8px;color:#ff3b5c;margin-bottom:10px">⚠ WAITING TO SAVE</div>
+    <div style="font-family:var(--pixel);font-size:6px;line-height:1.9;color:var(--text2);margin-bottom:10px">${_outbox.length} change(s) are kept safe on this device and will keep retrying, even if you close the app. Screenshot this for the commissioner if it doesn't clear.</div>
+    <div style="font-family:monospace;font-size:10px;line-height:1.5;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px;word-break:break-word;margin-bottom:12px">${escHtmlBB(_saveErr?.msg||'no error yet')}<br>${escHtmlBB(_saveErr?.at||'')}<br>${items.map(escHtmlBB).join('<br>')}</div>
+    <button class="btn btn-primary btn-full" onclick="retrySavesNow();document.getElementById('save-detail-modal').remove()">TRY AGAIN NOW</button>
+  </div>`;
+  document.body.appendChild(m);
 }
 window.addEventListener('online', ()=>{ if(_outbox.length){ _wakeFlush?.(); flushOutbox(); } });
 window.addEventListener('beforeunload', e=>{ if(_outbox.length){ e.preventDefault(); e.returnValue = ''; } });

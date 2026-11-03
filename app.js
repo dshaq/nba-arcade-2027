@@ -9425,7 +9425,7 @@ async function boot(){
       await ensureTodaysDuel();
       settleCupGroups();
       maybeSwapInjuredDuel();
-      purgeWlcTestWeeks().then(ensureWlcTipoff);
+      purgeWlcTestWeeks().then(ensureWlcTipoff).then(autoFinalizeWlcWeeks);
       updateUserChip();
       if(isFirstLogin){
         // Only navigate to home on actual login — not on silent token refreshes
@@ -9930,6 +9930,19 @@ function computeWlcResults(weekKey){
   const bestUserMgr = managers.find(m=>String(m.id)===String(bestUserId));
 
   return { scores, winners, best5, bestUser:{ id:bestUserId, name:bestUserMgr?.display_name||'—', fp:bestUserFP } };
+}
+
+// Weeks whose Sunday has passed (ET) are finalized automatically, so standings points show up
+// on Monday without the commissioner pressing anything. Test weeks are left alone.
+async function autoFinalizeWlcWeeks(){
+  const weeks = leagueState?.wlc?.weeks || {}, today = todayKey();
+  for(const [wk, w] of Object.entries(weeks).sort()){
+    if(!w || w.testers || w.status==='final' || w.status==='pending') continue;
+    const [y,m,d] = wk.split('-').map(Number), sun = new Date(y, m-1, d+6, 12);
+    const sunKey = `${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')}`;
+    if(today > sunKey){ try{ await finalizeWlcWeek(wk); }catch(e){ console.warn('[wlc] auto-finalize', wk, e); } }
+  }
+  if(currentScreen==='wlc') renderWlcScreen();
 }
 
 // Update WLC standings after a week is finalized

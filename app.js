@@ -55,6 +55,7 @@ let _lastNetHang = '';
 function _netKind(url){
   if(/\/auth\/v1\/token/.test(url)) return 'sign-in refresh';
   if(/select=updated_at(&|$)/.test(url)) return 'save check';
+  if(/\/rpc\/league_apply/.test(url)) return 'save';
   return '';
 }
 async function _fetchWithTimeout(input, init={}){
@@ -2094,9 +2095,11 @@ function pullLeagueState(){
     if(!r || r.same) return;          // nobody saved since our last read
     const remote = r.state;
     if(handleStaleClient(remote)) return;
-    const merged = merge3(JSON.parse(_leagueBaseJson), JSON.parse(startJson), remote);
+    const oldBase = JSON.parse(_leagueBaseJson);
+    const merged = merge3(oldBase, JSON.parse(startJson), remote);
     // Keep anything changed locally while the fetch was in flight
     _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, merged));
+    if(_shadowJson) _shadowJson = JSON.stringify(merge3(oldBase, JSON.parse(_shadowJson), remote));
     _leagueBaseJson = JSON.stringify(remote);
     _leagueTs = r.ts;
   }, 15000, 'pullLeagueState');
@@ -2113,6 +2116,9 @@ async function loadLeagueState(){
   dedupePlayerStats();
   // Always sync live manager profiles so names/colors are never stale
   await syncManagersToState();
+  // No league row yet (brand-new league): the first save creates it the old way
+  _shadowJson = remote ? _leagueBaseJson : null;
+  if(_shadowJson) replayOutbox();
 }
 
 // Default avatars (no photo, no icon) were often the same red. Any default color too
@@ -2254,13 +2260,157 @@ function logActiveChanges(){
   }
 }
 
-let _lastSaveOk = false; // did the most recent saveLeagueState() land?
+let _lastSaveOk = false; // did the most recent saveLeagueState() land? (true / 'pending' / false)
+
+// ── INSTANT SAVES ──────────────────────────────────────────────────────────────
+// A tap no longer re-uploads the whole league (~600 KB) and retries when someone else saved
+// first. The change is turned into a few small "ops" (set this pick, add this chat line) that
+// the database applies atomically (league_apply, sql/league_apply.sql). They go out at once,
+// outside the sync queue, and wait in an outbox kept in this browser until the server confirms,
+// so closing the tab or losing signal never drops a change: it's sent on the next open.
+// If the database function isn't installed yet, saves fall back to the old whole-league save.
+let _rpcMode = null;          // null = not tried yet, true = works, false = not installed
+let _shadowJson = null;       // league as of the last commit / pull (what's already been sent)
+const OUTBOX_KEY = 'nba-outbox-v1';
+let _outbox = [], _flushing = null, _opSeq = 0, _wakeFlush = null;
+const _waiters = new Map();   // outbox id -> resolve()
+
+function _sameJson(a,b){ return a===b || JSON.stringify(a)===JSON.stringify(b); }
+// Smallest set of ops that turns `a` into `b`. Objects are walked; arrays are one value,
+// except an array that only grew at the end, which becomes pushes (so two people adding chat
+// lines at once both keep theirs).
+function diffOps(a, b, path=[], out=[]){
+  if(!_isPlainObj(a) || !_isPlainObj(b)){ if(path.length && !_sameJson(a,b)) out.push({op:'set', path, value:b}); return out; }
+  const merge = {};
+  for(const k of Object.keys(b)){
+    const av = a[k], bv = b[k];
+    if(av === bv || _sameJson(av, bv)) continue;
+    if(_isPlainObj(av) && _isPlainObj(bv)){ diffOps(av, bv, [...path, k], out); continue; }
+    if(Array.isArray(av) && Array.isArray(bv) && bv.length > av.length && av.every((x,i)=>_sameJson(x, bv[i]))){
+      for(const v of bv.slice(av.length)) out.push({op:'push', path:[...path, k], value:v});
+      continue;
+    }
+    if(bv === undefined) continue;
+    merge[k] = bv;
+  }
+  const keys = Object.keys(merge);
+  if(keys.length === 1 || (keys.length && !path.length)) for(const k of keys) out.push({op:'set', path:[...path, k], value:merge[k]});
+  else if(keys.length) out.push({op:'merge', path, value:merge});
+  for(const k of Object.keys(a)) if(!(k in b)) out.push({op:'del', path:[...path, k]});
+  return out;
+}
+// Same rules as the database function, for our own copy
+function applyOps(obj, ops){
+  for(const o of ops){
+    const p = o.path; if(!p?.length) continue;
+    let t = obj;
+    for(let i=0; i<p.length-1; i++){ if(!_isPlainObj(t[p[i]])) t[p[i]] = {}; t = t[p[i]]; }
+    const k = p[p.length-1];
+    if(o.op==='del') delete t[k];
+    else if(o.op==='set') t[k] = JSON.parse(JSON.stringify(o.value));
+    else if(o.op==='merge'){ if(!_isPlainObj(t[k])) t[k] = {}; Object.assign(t[k], JSON.parse(JSON.stringify(o.value))); }
+    else if(o.op==='push'){ if(!Array.isArray(t[k])) t[k] = []; if(!t[k].some(x=>_sameJson(x, o.value))) t[k].push(JSON.parse(JSON.stringify(o.value))); }
+  }
+  return obj;
+}
+function _saveOutbox(){ try{ localStorage.setItem(OUTBOX_KEY, JSON.stringify({uid:currentUser?.id||null, items:_outbox})); }catch(e){ console.warn('[outbox] could not store', e); } }
+function commitLeague(){
+  if(_staleReloading) return Promise.resolve();
+  logActiveChanges();
+  leagueState.minBuild = Math.max(+leagueState.minBuild||0, APP_BUILD);
+  let ops;
+  try{ ops = diffOps(JSON.parse(_shadowJson), leagueState); }
+  catch(e){ console.warn('[commit] diff failed, using a full save', e); return _saveLeagueBlob(); }
+  if(!ops.length){ _lastSaveOk = _outbox.length ? 'pending' : true; return Promise.resolve(); }
+  _shadowJson = JSON.stringify(leagueState);
+  const id = `${Date.now().toString(36)}-${(++_opSeq).toString(36)}`;
+  _outbox.push({id, ops, at:Date.now()});
+  _saveOutbox();
+  _lastSaveOk = 'pending';
+  setSavePill('saving');
+  const done = new Promise(res=>_waiters.set(id, res));
+  flushOutbox();
+  // Callers wait for the server's OK, but never more than a few seconds: the outbox keeps it safe
+  return Promise.race([done.then(()=>{ _lastSaveOk = true; }), new Promise(r=>setTimeout(r, 4000))]);
+}
+async function flushOutbox(){
+  if(_flushing) return _flushing;
+  _flushing = (async ()=>{
+    let backoff = 1000;
+    while(_outbox.length){
+      const it = _outbox[0];
+      let error = null;
+      try{ ({error} = await db.rpc('league_apply', {p_id:LEAGUE_KEY, p_ops:it.ops})); }
+      catch(e){ error = {message:String(e?.message||e)}; }
+      if(!error){
+        _outbox.shift(); _saveOutbox();
+        try{ _leagueBaseJson = JSON.stringify(applyOps(JSON.parse(_leagueBaseJson), it.ops)); }catch(e){}
+        _leagueTs = null;   // our copy no longer matches a known server version; next pull downloads
+        _rpcMode = true;
+        _waiters.get(it.id)?.(); _waiters.delete(it.id);
+        backoff = 1000;
+        continue;
+      }
+      const msg = `${error.code||''} ${error.message||''}`;
+      if(/PGRST202|league_apply|does not exist|Could not find the function/i.test(msg) && _rpcMode !== true){
+        // Database function not installed yet: send everything the old way, once
+        console.warn('[save] league_apply missing — using whole-league saves', msg);
+        _rpcMode = false;
+        const waiting = _outbox.map(x=>x.id); _outbox = []; _saveOutbox();
+        await _saveLeagueBlob();
+        waiting.forEach(id=>{ _waiters.get(id)?.(); _waiters.delete(id); });
+        setSavePill(_lastSaveOk===true ? 'saved' : 'error');
+        break;
+      }
+      if(/JWT|sign in required|401|403/i.test(msg)){ try{ await db.auth.refreshSession(); }catch(e){} }
+      console.warn('[save] not confirmed yet, retrying', msg);
+      setSavePill(navigator.onLine===false ? 'offline' : 'retry');
+      await new Promise(r=>{ _wakeFlush = r; setTimeout(r, backoff); });   // back online / tab shown → try right away
+      _wakeFlush = null;
+      backoff = Math.min(backoff*2, 15000);
+    }
+    if(_rpcMode !== false) setSavePill('saved');
+  })().finally(()=>{ _flushing = null; });
+  return _flushing;
+}
+// Changes this browser never got confirmed (tab closed, phone lost signal): put them back
+// over the fresh league and send them again. Every op is safe to send twice.
+function replayOutbox(){
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem(OUTBOX_KEY)||'null'); }catch(e){}
+  if(!saved?.items?.length) return;
+  if(saved.uid && currentUser?.id && saved.uid !== currentUser.id){ try{ localStorage.removeItem(OUTBOX_KEY); }catch(e){} return; }
+  const fresh = saved.items.filter(x=>Date.now()-(x.at||0) < 3*24*3600*1000);
+  if(!fresh.length){ try{ localStorage.removeItem(OUTBOX_KEY); }catch(e){} return; }
+  for(const it of fresh) applyOps(leagueState, it.ops);
+  _shadowJson = JSON.stringify(leagueState);
+  _outbox = fresh; _saveOutbox();
+  console.info(`[outbox] re-sending ${fresh.length} change(s) from last time`);
+  setSavePill('saving');
+  flushOutbox();
+}
+// Little status light: SAVING… → ✓ SAVED, or a warning while it keeps retrying
+let _pillTimer = null;
+function setSavePill(state){
+  let el = document.getElementById('save-pill');
+  if(!el){ el = document.createElement('div'); el.id = 'save-pill'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite'); document.body.appendChild(el); }
+  clearTimeout(_pillTimer);
+  const txt = {saving:'SAVING…', saved:'✓ SAVED', retry:'⚠ NOT SAVED YET · RETRYING', offline:'⚠ OFFLINE · WILL SAVE WHEN BACK', error:'⚠ NOT SAVED'}[state] || '';
+  el.className = 'sp-'+state; el.textContent = txt; el.hidden = !txt;
+  if(state==='saved') _pillTimer = setTimeout(()=>{ el.hidden = true; }, 1600);
+}
+window.addEventListener('online', ()=>{ if(_outbox.length){ _wakeFlush?.(); flushOutbox(); } });
+window.addEventListener('beforeunload', e=>{ if(_outbox.length){ e.preventDefault(); e.returnValue = ''; } });
+
 // Merge-safe AND race-safe: the write only lands if nobody else saved since we read
 // (updated_at must still match). If someone did, re-read, re-merge and try again.
 // What the current save is doing, for the "didn't save" message and the console
 let _saveStep = '', _saveStepAt = 0;
 const _setSaveStep = st => { _saveStep = st; _saveStepAt = Date.now(); };
 function saveLeagueState(){
+  if(_rpcMode !== false && _shadowJson) return commitLeague();
+  return _saveLeagueBlob();
+}
+function _saveLeagueBlob(){
   _setSaveStep('waiting for an earlier sync to finish');
   return queueLeagueOp(async ()=>{
     _lastSaveOk = false; _saveTimedOut = false; const _t0 = Date.now();
@@ -2302,6 +2452,7 @@ function saveLeagueState(){
       // Adopt the merged result, keeping anything changed locally during the save
       _replaceLeagueState(merge3(JSON.parse(startJson), leagueState, toWrite));
       _leagueBaseJson = json;
+      if(_rpcMode !== false) _shadowJson = JSON.stringify(leagueState);
       _leagueTs = newTs;   // null (unknown) → next pull/save downloads the row
       _lastSaveOk = true;
       console.info(`[saveLeagueState] saved in ${((Date.now()-_t0)/1000).toFixed(1)}s (try ${attempt+1}, ${Math.round(json.length/1024)} KB)`);
@@ -2327,7 +2478,7 @@ function showSaveFailed(why){
 
 // A phone tab can sleep for days. When it wakes, pull right away (this also catches old code).
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && typeof currentUser!=='undefined' && currentUser && leagueState) pullLeagueState();
+  if(document.visibilityState==='visible' && typeof currentUser!=='undefined' && currentUser && leagueState){ if(_outbox.length){ _wakeFlush?.(); flushOutbox(); } pullLeagueState(); }
 });
 
 // ── BALLDONTLIE INTEGRATION ──────────────────────────────────────────────────
@@ -3435,7 +3586,7 @@ async function toggleActiveStatus(mid, pid){
   toast((isActive ? 'Moved to Bench' : 'Moved to Active') + ' · saving…');
   await saveLeagueState();
   renderHomeScreen();
-  toast(_lastSaveOk ? (isActive ? '✓ Saved: moved to Bench' : '✓ Saved: moved to Active') : '⚠ That move did NOT save. Check your connection and try again.');
+  toast(_lastSaveOk===true ? (isActive ? '✓ Saved: moved to Bench' : '✓ Saved: moved to Active') : _lastSaveOk==='pending' ? '⏳ Still sending… it will save on its own, even if you leave' : '⚠ That move did NOT save. Check your connection and try again.');
 }
 
 // ── DAY-BY-DAY LINEUPS ──────────────────────────────────────────────────────
@@ -3612,7 +3763,7 @@ async function swapActiveBench(mid, a, b){
   toast(`⇄ ${playerShortName(getPlayer(goingIn).name)} IN · ${playerShortName(getPlayer(goingOut).name)} TO BENCH · SAVING…`);
   await saveLeagueState();
   renderHomeScreen();
-  toast(_lastSaveOk ? `✓ Saved: ${playerShortName(getPlayer(goingIn).name)} is Active` : '⚠ That swap did NOT save. Check your connection and try again.');
+  toast(_lastSaveOk===true ? `✓ Saved: ${playerShortName(getPlayer(goingIn).name)} is Active` : _lastSaveOk==='pending' ? '⏳ Still sending… it will save on its own, even if you leave' : '⚠ That swap did NOT save. Check your connection and try again.');
 }
 
 // ── CURRENT RUN LOGIC ────────────────────────────────────────────────────────
@@ -4885,10 +5036,12 @@ async function makeDuelPick(side){
   duel.picks[mid] = side;
   if(!duel.pickedAt) duel.pickedAt = {};
   duel.pickedAt[mid] = new Date().toISOString();
-  await saveLeagueState();
-  toast(`LOCKED IN! Check back after games for the result. 🔥`);
+  // Show it right away; the save goes out behind it (the SAVING… / ✓ SAVED light shows progress)
   renderDuelCard();
   if(currentScreen==='duel') renderDuelScreen();
+  toast(`LOCKED IN! Check back after games for the result. 🔥`);
+  await saveLeagueState();
+  if(_lastSaveOk===false) toast('⚠ Your pick did NOT save. Check your connection and pick again.');
 }
 
 // Recalculate all duel streaks from scratch by replaying every settled duel in order.
@@ -5162,8 +5315,9 @@ async function futuresPick(id, v){
   const st = leagueState.futures[id] ||= {picks:{}, pickedAt:{}};
   st.picks = {...(st.picks||{}), [mid]: v}; st.pickedAt = {...(st.pickedAt||{}), [mid]: new Date().toISOString()};
   renderFuturesDuel();
+  toast(`Locked in: ${futureOptLabel(v)}`);
   await saveLeagueState();
-  toast(_lastSaveOk ? `Locked in: ${futureOptLabel(v)}` : 'Did not save. Try again.');
+  if(_lastSaveOk===false) toast('⚠ Your pick did NOT save. Check your connection and pick again.');
 }
 async function commSetFutureResult(id, v){
   if(!bbIsComm()) return;

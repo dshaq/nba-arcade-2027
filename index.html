@@ -1588,6 +1588,11 @@ img{display:block;}
 .wp-pp img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:5px;background:var(--bg3)}
 .wp-pp span{font-family:var(--pixel);font-size:4.5px;color:var(--text1);text-align:center;line-height:1.4;overflow:hidden;max-width:100%}
 .wp-pp i{font-family:var(--pixel);font-size:4px;color:var(--text3);font-style:normal}
+#save-pill{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h,58px) + env(safe-area-inset-bottom,0px) + 10px);z-index:2147483200;
+  font-family:var(--pixel);font-size:6px;letter-spacing:.06em;padding:7px 12px;border-radius:14px;border:2px solid #000;box-shadow:0 3px 0 #000;pointer-events:none;white-space:nowrap}
+#save-pill.sp-saving{background:#ffd93d;color:#1a1400}
+#save-pill.sp-saved{background:#39ff6a;color:#04130f}
+#save-pill.sp-retry,#save-pill.sp-offline,#save-pill.sp-error{background:#ff3b5c;color:#fff}
 .ws-head{display:flex;align-items:flex-end;gap:8px;padding:0 13px 8px 12px;font-family:var(--pixel);font-size:5px;line-height:1.6;color:var(--text3)}
 .ws-head .ws-hn{flex:1;font-size:6px}
 .ws-row{cursor:pointer;gap:8px}

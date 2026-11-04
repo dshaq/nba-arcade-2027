@@ -10,7 +10,9 @@ const PORTRAITS_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/player-po
 // Storage can't hold accented file names, so portrait files are saved without accents
 // ("Kasparas Jakucionis.jpeg"). Strip accents from the name before building the URL.
 function plainName(n){ return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/ł/g,'l').replace(/Ł/g,'L').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/ø/g,'o'); }
-function portraitUrl(team, name){ return `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(plainName(name))}.jpeg`; }
+// ?v= changes daily, so a portrait uploaded today shows even where a browser cached the "missing" answer
+const PORTRAIT_V = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+function portraitUrl(team, name){ return `${PORTRAITS_BUCKET_URL}/${team}/${encodeURIComponent(plainName(name))}.jpeg?v=${PORTRAIT_V}`; }
 const INVITE_CODE   = 'HOOPTIME27';  // commissioner sets this
 const COMMISSIONER_EMAIL = 'daveschachter@gmail.com';
 
@@ -1164,7 +1166,7 @@ function wlcResultsHtml(D){
         <div class="wlr-big">${W.fp.toFixed(1)}<small>FP/G</small></div></div>
       <div class="wlr-cell"><div class="wr-award-title">% OF OPTIMAL LINEUP</div>
         <div class="wlr-ring" style="--p:${pct||0}"><b>${pct==null?'—':pct+'%'}</b></div>
-        <div class="wlr-csub">${W.fp.toFixed(1)} FP OF ${D.best ? D.best.sum.toFixed(1)+' FP' : '—'}</div></div>
+        <div class="wlr-csub">${W.fp.toFixed(1)} OF ${D.best ? D.best.sum.toFixed(1)+' FP/G' : '—'}</div></div>
       <div class="wlr-cell"><div class="wr-award-title">BIGGEST GAME</div>
         ${D.bigGame ? `<div class="wlr-gimg" onclick="${pcardOnclick(pName(D.bigGame.name))}">${img(D.bigGame.name)}</div>
         <div class="wlr-cname">${escHtmlBB(playerShortName(pName(D.bigGame.name)))}</div>
@@ -1186,8 +1188,10 @@ function wlcResultsHtml(D){
   return `${row1.replace('__WINLINEUP__', winLineup)}
     ${row3}
     ${D.best ? head('OPTIMAL LINE-UP', `${D.best.sum.toFixed(1)} FP/G · $${WLC_SALARY_CAP} CAP`, '#b36bff') + wlcResultCardsHtml([...D.best.list].sort((a,b)=>b.salary-a.salary)) + '<div class="wlr-note">The best 5 anyone could have picked under the cap this week.</div>' : ''}
-    ${head('FINAL STANDINGS', '', '#4adfff')}
-    <div class="card" style="padding:0;overflow:hidden;margin:0">${D.scores.map(x=>`<div class="wlr-row${D.winners.includes(x)?' w':''}"><span class="wlr-rk">${ordinal(1+D.scores.filter(y=>y.fp>x.fp).length)}</span>${avatarEl(x.m.display_name, x.m.color||'#4a9eff', 22, 7, x.m.icon||null, x.m.photo||null)}<span class="wlr-nm">${escHtmlBB(x.m.display_name)}</span><span class="wlr-fp">${x.fp.toFixed(1)}</span></div>`).join('')}</div>`;
+    ${head('FINAL STANDINGS', 'FP/G · PTS EARNED', '#4adfff')}
+    <div class="card" style="padding:0;overflow:hidden;margin:0">${D.scores.map(x=>{ const pts = D.scores.filter(y=>y.fp<x.fp).length + (D.winners.includes(x) ? WLC_WIN_BONUS : 0);
+      return `<div class="wlr-row${D.winners.includes(x)?' w':''}"><span class="wlr-rk">${ordinal(1+D.scores.filter(y=>y.fp>x.fp).length)}</span>${avatarEl(x.m.display_name, x.m.color||'#4a9eff', 22, 7, x.m.icon||null, x.m.photo||null)}<span class="wlr-nm">${escHtmlBB(x.m.display_name)}</span><span class="wlr-fp">${x.fp.toFixed(1)}</span><span class="wlr-pts${pts?'':' z'}">+${pts}<small> PTS</small></span></div>`; }).join('')}</div>
+    <div class="wlr-note">1 pt for every line-up you beat · +${WLC_WIN_BONUS} for the win</div>`;
 }
 function showWeekResults(runId, idx, onClose, opts={}){
   const run = RUNS.find(x=>x.id===runId);
@@ -1249,7 +1253,7 @@ function showWeekResults(runId, idx, onClose, opts={}){
       <div style="font-family:var(--pixel);font-size:4.5px;color:var(--text3);margin-top:8px;text-align:center">TAP A MATCH-UP FOR ITS BOX SCORE</div>
       ${letdown || surprise ? `<div class="wr-awards" style="margin-top:16px">
         ${letdown ? swing('BIGGEST LETDOWN', '#ff5c6c', letdown) : ''}
-        ${surprise ? swing('NICEST SURPRISE', '#39ff6a', surprise) : ''}
+        ${surprise ? swing('MISSED OPPORTUNITY', '#39ff6a', surprise) : ''}
       </div>` : ''}
       ${pickups.length ? `<div class="wr-rowhead" style="--ac:#4adfff">${pickups.length>1?'BEST PICK-UPS':'BEST PICK-UP'}</div>
       <div class="wr-awards">${pickups.map((x,i)=>award(`#${i+1} PICK-UP`, '#4adfff', `<img src="${port(x.p)}" onerror="this.style.visibility='hidden'">`, x.p.name, `ADDED BY ${escHtmlBB(teamLabel(x.m)).toUpperCase()}`, x.fp, pickups.length===1)).join('')}</div>` : ''}
@@ -1450,6 +1454,8 @@ let pcardList = null;
 function _pcardNamesNear(el){
   const re = /showPlayerCard\(("(?:[^"\\]|\\.)*")/;
   for(let n = el; n && n !== document.body; n = n.parentElement){
+    // A list can name its own players (the Challenge pool), so ‹ › never wander off to other screens
+    if(n.dataset?.pcards){ try{ const own = JSON.parse(n.dataset.pcards); if(own.length >= 2) return own; }catch(e){} }
     const links = [...n.querySelectorAll('[onclick*="showPlayerCard("]')];
     if(links.length >= 2){
       const names = [];
@@ -1486,7 +1492,7 @@ function showPlayerCard(playerName, initialTab, opts) {
   const pLeague = (leagueState.players||[]).find(pl=>pl.name===playerName);
   const p = pArr || pDb || pLeague;
   const info = PLAYER_INFO[playerName] || PLAYER_INFO[pArr?.name] || {};
-  const fpVal = BDL_STATS[playerName]?.fpPG ?? pDb?.fpPG ?? (p ? estimateFpPG(p) : null);
+  const fpVal = seasonFpPG(playerName, null) ?? pDb?.fpPG ?? (p ? estimateFpPG(p) : null);
   const teamAbbr = pArr?.team || pDb?.t || pLeague?.team || '';
   const teamFull = NBA_TEAMS[teamAbbr] || teamAbbr;
   const portraitName = pArr?.name || playerName;
@@ -1738,8 +1744,25 @@ function estimateFpPG(p){
 // This season's (2026-27) FP per game for a pool/projection name: real average once he
 // has 3+ games (BDL_STATS), else an estimate from his current per-game stats, else the
 // preseason projection. All on the league's FP formula.
+// FP/G from the league's own game log (the same games and FP everyone sees on player cards):
+// one line per game date, tonight's game only once it's final. 0 games → null.
+function leagueFpPG(pid, team){
+  if(pid==null) return null;
+  const lines = statsByPid().get(String(pid)) || []; if(!lines.length) return null;
+  const today = todayStr(), byDate = new Map();
+  for(const v of lines){ const d = String(v.date||v.dateStr||''); if(d) byDate.set(d, v); }
+  let sum = 0, gp = 0;
+  for(const [d, v] of byDate){
+    if(d > today) continue;
+    if(d === today && !todayGamesCache?.[(team||'').toUpperCase()]?.isFinal) continue;
+    sum += +v.fp || 0; gp++;
+  }
+  return gp ? {fpPG: Math.round(sum/gp*10)/10, gp} : null;
+}
 function seasonFpPG(name, fallback){
   const cur = wlcFindPlayer(name), b = BDL_STATS[cur?.name||name];
+  const own = cur ? leagueFpPG(cur.id, cur.team) : null;
+  if(own) return own.fpPG;
   if(b?.fpPG != null) return +b.fpPG;
   if(cur){ const e = estimateFpPG(cur); if(e) return Math.round(e*10)/10; }
   return fallback ?? null;
@@ -1747,6 +1770,7 @@ function seasonFpPG(name, fallback){
 // Get the best available projected FP/G for a player (PLAYERS entry).
 // Priority: BDL live season averages (BDL_STATS) → PLAYERS_DB curated fpPG → estimated from stats
 function getPlayerProjFP(player){
+  const own = leagueFpPG(player.id, player.team); if(own) return own.fpPG;
   if(BDL_STATS[player.name]?.fpPG) return BDL_STATS[player.name].fpPG;
   const db = PLAYERS_DB.find(x => x.n === player.name);
   if(db?.fpPG) return db.fpPG;
@@ -3076,10 +3100,10 @@ let rostersFpMode = (()=>{ try{ return localStorage.getItem('nba-fpmode')||'week
 function setRostersFpMode(m){ rostersFpMode = m; try{ localStorage.setItem('nba-fpmode', m); }catch(e){} renderRostersScreen(); }
 function fpToggleHead(){
   const b = (m,l) => `<button class="fpt${rostersFpMode===m?' on':''}" onclick="setRostersFpMode('${m}')">${l}</button>`;
-  return `<div class="fpc fpc-head"><span class="fpc-lbl"><span class="fpt-wrap">${b('week','WEEK')}${b('fall','FALL')}</span></span><span class="fpc-tot">${rostersFpMode==='week'?'WEEK':'TOT'}</span><span class="fpc-avg">AVG</span></div>`;
+  return `<div class="fpc fpc-head"><span class="fpc-lbl"><span class="fpt-wrap">${b('week','WEEK')}${b('fall','FALL')}</span></span><span class="fpc-tot">${rostersFpMode==='week'?'WEEK':'TOT'}</span><span class="fpc-avg">FP/G</span></div>`;
 }
 function fpColsHead(label, size){
-  return `<div class="fpc fpc-head${size==='sm'?' sm':''}">${label?`<span class="fpc-lbl">${label}</span>`:''}<span class="fpc-tot">TOT</span><span class="fpc-avg">AVG</span></div>`;
+  return `<div class="fpc fpc-head${size==='sm'?' sm':''}">${label?`<span class="fpc-lbl">${label}</span>`:''}<span class="fpc-tot">TOT</span><span class="fpc-avg">FP/G</span></div>`;
 }
 
 function rosterFP(pids){
@@ -3317,10 +3341,16 @@ function countFoulsFromPlays(plays, espnIdToPid){
 }
 
 let _lastBdlStatsFetch = 0;
+let _dayRolled = null;
 async function refreshLiveStats(){
   await pullLeagueState(); // see other managers' changes; keeps mine
   await applyLineupPlans(); // a planned day has arrived → make it the lineup
   maybeShowWeekResults();
+  // An app left open overnight rolls over at 12:00 AM ET like a fresh open would
+  if(_dayRolled !== todayKey()){
+    const first = _dayRolled == null; _dayRolled = todayKey();
+    if(!first){ ensureTodaysDuel().then(()=>{ renderDuelCard?.(); }); autoFinalizeWlcWeeks().then(autoOpenWlcWeek).then(ensureWlcTipoff); }
+  }
   const now=new Date();
   if(now<NBA_SEASON_START || now>NBA_SEASON_END) return;
 
@@ -3520,7 +3550,13 @@ function showTransactionLog(tab){
           <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">MOVE</th>
           <th style="text-align:left;padding:8px 4px;color:var(--text3);font-weight:normal">PLAYER</th>
         </tr></thead>
-        <tbody>${rows.map((e,i)=>{ const p=getPlayer(e.pid); return `<tr style="background:${i%2?'rgba(255,255,255,0.02)':'transparent'}">
+        <tbody>${rows.map((e,i)=>{ const p=getPlayer(e.pid);
+          // Previous tab: a line + label at the start of each match-up week (Mon–Sun)
+          const monOf = d => { const t = statDateObj(d); t.setDate(t.getDate() - ((t.getDay()+6)%7)); return t; };
+          const wk = monOf(dayOf(e)), prevWk = i ? monOf(dayOf(rows[i-1])) : null;
+          const sep = txlogTab==='previous' && (!prevWk || +prevWk !== +wk)
+            ? `<tr><td colspan="4" style="padding:${i?14:8}px 4px 6px;color:var(--accent1);font-size:5px;letter-spacing:.08em;border-top:${i?'2px solid var(--border)':'none'}">MATCH-UP WEEK OF ${wk.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase()}</td></tr>` : '';
+          return sep + `<tr style="background:${i%2?'rgba(255,255,255,0.02)':'transparent'}">
           <td style="padding:8px 4px;color:var(--text3);white-space:nowrap">${fmt(e)}</td>
           <td style="padding:8px 4px;color:var(--text1)">${e.team}</td>
           <td style="padding:8px 4px;color:${e.type==='add'?'var(--accent2)':'#ffd93d'}">${e.type==='add'?'ADDED':'DROPPED'}${e.comm?' <span style="color:var(--text3)">(COMM)</span>':''}</td>
@@ -4252,7 +4288,7 @@ function renderDuelScreen(){
     ? `<div style="background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);border-radius:var(--radius);padding:8px 12px;margin:0 14px 12px;font-family:var(--pixel);font-size:5.5px;color:var(--accent1)">⚡ STREAKS & LEADERBOARD COUNT STARTING OCT 20 WHEN THE SEASON TIPS OFF</div>`
     : '';
 
-  const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14, true) : '';
+  const lbRows = (leagueState.managers||[]).length ? duelLeaderboardHtml(14) : '';
 
   // Two tabs like the Weekly Challenge: Current (today's duel + yesterday's recap) and Standings
   if(!window._duelTab) window._duelTab = 'current';
@@ -5316,13 +5352,13 @@ function futureCardHtml(f){
     foot = `<div class="fd-note" style="color:#ffd93d">🏆 ${escHtmlBB(futureOptLabel(st.result)).toUpperCase()} WON THE GROUP</div>
       <div class="fd-lab">CALLED IT · ${right.length}</div><div class="fd-row">${right.length ? right.map(m=>`<span title="${escHtmlBB(m.display_name)}">${avatarEl(m.display_name, m.color||'#4a9eff', 24, 7, m.icon||null, m.photo||null)}</span>`).join('') : '<em>Nobody saw it coming.</em>'}</div>`;
   } else if(mine){
-    foot = `<div class="fd-note">${locked ? 'LOCKED · RESULT POSTS WHEN THE GROUP IS DECIDED' : `YOU PICKED ${escHtmlBB(futureOptLabel(mine)).toUpperCase()} · CHANGE IT UNTIL ${lockTxt}`}</div>
-      ${!locked ? `<button type="button" class="fd-change" onclick="futuresChange('${f.id}')">CHANGE PICK</button>` : ''}`;
+    // Like the Daily Duel, a pick is locked in the moment you make it
+    foot = `<div class="fd-note">🔒 LOCKED IN: ${escHtmlBB(futureOptLabel(mine)).toUpperCase()} · RESULT POSTS WHEN THE GROUP IS DECIDED</div>`;
   } else if(locked){
     foot = `<div class="fd-note">🔒 PICKS LOCKED · YOU DIDN'T PICK</div>`;
   } else {
     foot = `<select class="fd-sel" onchange="if(this.value) futuresPick('${f.id}', this.value)"><option value="">Or choose from the list…</option>${f.options.map(o=>`<option value="${o}">${escHtmlBB(futureOptLabel(o))}</option>`).join('')}</select>
-      <div class="fd-note">${preview ? `🧪 PREVIEW · OPENS ${new Date(f.open+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase()} FOR EVERYONE · YOUR TEST PICK COUNTS` : `TAP A TEAM · PICKS LOCK ${lockTxt}`}</div>`;
+      <div class="fd-note">${preview ? `🧪 PREVIEW · OPENS ${new Date(f.open+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase()} FOR EVERYONE · YOUR TEST PICK COUNTS` : `TAP A TEAM · YOUR PICK IS FINAL · LOCKS ${lockTxt}`}</div>`;
   }
   return `<div class="fd-card">
     <div class="fd-head"><span>🔮 FUTURES DUEL</span><span>${escHtmlBB(f.title)}</span></div>
@@ -5494,7 +5530,7 @@ function duelRecapHtml(dateKey){
     : push ? `<div class="dr-you">Push: streaks hold.</div>`
     : myPick===duel.result ? `<div class="dr-you ok">✓ YOU CALLED IT${ds(me).streak?` · 🔥 ${ds(me).streak} IN A ROW`:''}</div>`
     : `<div class="dr-you no">✗ NOT THIS TIME · STREAK RESET</div>`;
-  const who = (list, cls) => list.length ? list.map(m=>`<span class="dr-who ${cls}" title="${escHtmlBB(m.display_name)}" style="cursor:pointer" onclick="showFuturesSummary('${m.id}')">${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}<b>${escHtmlBB(m.display_name)}</b>${cls==='ok'&&ds(m.id).streak>1?`<i>🔥${ds(m.id).streak}</i>`:''}</span>`).join('') : `<span class="dr-none">${cls==='ok'?'NOBODY. OUCH.':'NOBODY!'}</span>`;
+  const who = (list, cls) => list.length ? list.map(m=>`<span class="dr-who ${cls}" title="${escHtmlBB(m.display_name)}" style="cursor:pointer" onclick="showUserProfile('${m.id}')">${avatarEl(m.display_name, m.color||'#4a9eff', 28, 8, m.icon||null, m.photo||null)}<b>${escHtmlBB(m.display_name)}</b>${cls==='ok'&&ds(m.id).streak>1?`<i>🔥${ds(m.id).streak}</i>`:''}</span>`).join('') : `<span class="dr-none">${cls==='ok'?'NOBODY. OUCH.':'NOBODY!'}</span>`;
   const day = new Date(dateKey+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
   return `<div class="dr-card">
     <div class="dr-head"><span>⚡ DUEL RECAP</span><span>${day}</span></div>
@@ -6638,7 +6674,7 @@ function runSegsHtml(total, cur, ended, now){
     const lit = ended || w<cur ? 7 : w===cur ? dow : 0;
     let pips='';
     for(let d=0; d<7; d++) pips += `<i class="${d<lit?'on':''}${!ended&&w===cur&&d===lit-1?' now':''}"></i>`;
-    h += `<span class="mm-seg${w===cur&&!ended?' cur':''}${lit===7?' full':''}">${pips}</span>`;
+    h += `<span class="mm-seg${w===cur&&!ended?' cur':''}${ended||w<cur?' done':''}">${pips}</span>`;
   }
   return h;
 }
@@ -7444,7 +7480,7 @@ function renderRostersScreen(){
         <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
         ${line2}
       </div>
-      <div class="rc-fp"><b class="${big>0?'':'z'}">${fpT(big)}</b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
+      <div class="rc-fp"><b class="${big>0?'':'z'}">${fpT(big)}<small> FP</small></b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
       ${actionBtns ? `<div class="rc-act">${actionBtns}</div>` : '<div class="rc-act"></div>'}
     </div>`;
   };
@@ -7697,7 +7733,7 @@ function renderWaiverPlayerList(){
           </div>
           <div class="rc-act">${act}</div>
           <div class="rc-ownslot">${ownEl || scoutBtn}</div>
-          <div class="rc-fp"><b class="${tot>0?'':'z'}">${fpT(tot)}</b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`AVG ${avg==null?'—':avg.toFixed(1)}`}</i></div>
+          <div class="rc-fp"><b class="${tot>0?'':'z'}">${fpT(tot)}<small> FP</small></b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
         </div>`;
       }).join('')}
       ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3);border-top:1px solid var(--border)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
@@ -7734,7 +7770,7 @@ function showScoutingList(){
       <div class="rc-pt" onclick="${pcardOnclick(p.name)}">${port?`<img src="${port}" loading="lazy" onerror="this.style.display='none'">`:''}</div>
       <div class="rc-info"><div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name}${injuryBadgeHtml(p.name)}</div>
         <div class="rc-meta">${p.pos||''} · ${p.team||''}${owner?` · <span style="color:var(--accent4)">ON ${escHtmlBB(teamLabel(owner)).toUpperCase()}</span>`:''}</div></div>
-      <div class="rc-fp"><b class="${tot>0?'':'z'}">${fpT(tot)}</b><i>AVG ${avg==null?'—':avg.toFixed(1)}</i></div>
+      <div class="rc-fp"><b class="${tot>0?'':'z'}">${fpT(tot)}<small> FP</small></b><i>${avg==null?'—':avg.toFixed(1)+' FP/G'}</i></div>
       <div class="rc-act">${canAdd?`<button type="button" class="rc-scout sc-add" aria-label="Add ${p.name.replace(/"/g,'&quot;')} to your roster" onclick="document.getElementById('scout-modal').remove();confirmAdd('${mid}',${p.id})">+ ADD TO ROSTER</button>`:''}
         <button type="button" class="rc-scout on" onclick="toggleScout(${p.id})" aria-label="Remove from scouting list">✕ REMOVE</button></div>
     </div>`;
@@ -7749,7 +7785,7 @@ function showScoutingList(){
       <button onclick="document.getElementById('scout-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;font-family:var(--pixel);font-size:6px">✕</button>
     </div>
     <div class="top-sheet-body" style="padding:10px 0 16px">
-      ${rows ? `<div class="rc-wrap"><div class="rc-sec act"><span>YOUR SCOUTING REPORT · ${ids.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP · AVG</span></div>${rows}</div>
+      ${rows ? `<div class="rc-wrap"><div class="rc-sec act"><span>YOUR SCOUTING REPORT · ${ids.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP · FP/G</span></div>${rows}</div>
         <div style="padding:10px 16px 0;font-family:var(--pixel);font-size:5px;line-height:1.8;color:var(--text3)">Only you see your list. Total and average FP are for the whole season.</div>`
       : `<div class="empty-state" style="padding:36px 20px"><div class="icon">🔭</div><div class="label">NOBODY SCOUTED YET<br/><span style="color:var(--text3);font-size:5px;line-height:2">TAP + SCOUT ON ANY UNROSTERED PLAYER IN WAIVERS</span></div></div>`}
     </div>
@@ -8291,7 +8327,8 @@ function openAvatarEditor(forMid){
   const saved = BB.parse(leagueState?.prefs?.[mid]?.avatar?.ball);
   const ch = saved?.ch && BB.CHARS[saved.ch] ? saved.ch : BB.ORDER[0], pick = saved?.pick || BB.fresh(ch);
   // Someone with a Baller lands on the color screen with their look; a first-timer starts on the roster
-  _bb = {mid, ch, pick, style: bbStyleName(ch, pick), stage: saved ? 'color' : 'roster', mode:'styles', part:null, taken: bbTaken(mid)};
+  // Always opens on the roster (top of the screen); picking your current Baller brings back your look
+  _bb = {mid, ch, pick, style: bbStyleName(ch, pick), stage: 'roster', mode:'styles', part:null, taken: bbTaken(mid), saved: saved||null};
   _bb.order = bbOrder(mid, ch);
   document.getElementById('avatar-modal')?.remove();
   const modal = document.createElement('div');
@@ -8316,8 +8353,9 @@ function openAvatarEditor(forMid){
         <div class="bb-bar"><button type="button" data-act="pick" class="primary bs-go">PICK ${'▶'}</button></div>
       </div>
       <div id="bs-pad" hidden>
-        <div class="bs-padhead"><span>NOW MAKE IT YOURS</span><button type="button" data-act="roster">◀ ROSTER</button></div>
-        <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button></div>
+        <button type="button" data-act="roster" class="bs-backroster">◀ CHANGE BALLER</button>
+        <div class="bs-padhead"><span>NOW MAKE IT YOURS</span></div>
+        <div class="bb-seg" role="tablist"><button type="button" data-mode="styles">STYLES</button><button type="button" data-mode="teams">TEAMS</button><button type="button" data-mode="custom">CUSTOM</button><button type="button" data-mode="looks">MY LOOKS</button></div>
         <div class="bb-panel" id="bb-panel"></div>
         <div class="bb-bar"><button type="button" data-act="rand" class="bs-go bs-rand">🎲 RANDOM</button><button type="button" data-act="save" class="primary bs-go">SAVE ▶</button></div>
       </div>
@@ -8343,6 +8381,7 @@ function bbCheckSecret(){
   if(!_bb || _bb.busy) return false;
   for(const [sec, combo] of Object.entries(BB_SECRET_COMBOS)){
     if(_bb.ch!==combo.from || !BB.CHARS[sec]) continue;
+    if(bbUnlocked(_bb.mid).includes(sec)) continue;   // already found: the combo is just a normal look now
     if(Object.entries(combo.pick).every(([k,v])=>_bb.pick[k]===v)){ bbSupernova(sec); return true; }
   }
   return false;
@@ -8404,7 +8443,15 @@ function bbRender(slide){
   if(!color) return;
   document.querySelectorAll('#avatar-modal .bb-seg button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===_bb.mode); b.setAttribute('aria-selected', b.dataset.mode===_bb.mode); });
   const P = document.getElementById('bb-panel'), curTok = BB.token(ch, pick);
-  if(_bb.mode==='styles' || _bb.mode==='teams'){
+  if(_bb.mode==='looks'){
+    // Saved loadouts: any Baller + colors, one tap to put back on
+    const looks = bbLooks(_bb.mid);
+    P.innerHTML = `<div class="bb-strip">${looks.map((tok,i)=>{ const r = BB.parse(tok); if(!r) return '';
+        return `<div class="bb-look"><button type="button" class="bb-tile${tok===curTok?' on':''}" data-look="${i}"><canvas></canvas><span>${escHtmlBB(BB.CHARS[r.ch].name)}</span></button><button type="button" class="bb-look-x" data-lookdel="${i}" aria-label="Remove this look">✕</button></div>`; }).join('')}
+      ${looks.length < BB_MAX_LOOKS ? `<button type="button" class="bb-tile bb-look-add" data-act="lookadd"><span class="plus">＋</span><span>SAVE LOOK</span></button>` : ''}</div>
+      <p class="bb-hint">${looks.length ? 'Tap a look to put it back on. ＋ saves the one you\'re wearing now.' : 'Save up to '+BB_MAX_LOOKS+' looks (any Baller, any colors) and switch between them in one tap.'}</p>`;
+    P.querySelectorAll('.bb-look canvas').forEach((cv,i)=>{ const r = BB.parse(looks[i]); if(r) BB.draw(cv, r.pick, r.ch); });
+  } else if(_bb.mode==='styles' || _bb.mode==='teams'){
     const list = _bb.mode==='styles'
       ? (BB.COLORWAYS[ch]||[['Original',{}]]).map(([n,o])=>[n, {...BB.fresh(ch),...o}])
       : BB.TEAMS.map(tm=>[tm[0], BB.teamPick(ch,tm)]);
@@ -8520,7 +8567,10 @@ function bbArrowState(wrap, st){
   wrap.querySelector('.r').hidden = st.scrollLeft >= max - 2;
 }
 function bbToColor(){
-  if(_bb.stage!=='color'){ _bb.pick = BB.fresh(_bb.ch); _bb.style = 'Original'; }
+  if(_bb.stage!=='color'){
+    if(_bb.saved?.ch === _bb.ch){ _bb.pick = {..._bb.saved.pick}; _bb.style = bbStyleName(_bb.ch, _bb.pick); }
+    else { _bb.pick = BB.fresh(_bb.ch); _bb.style = 'Original'; }
+  }
   _bb.stage = 'color'; _bb.mode = 'styles'; _bb.part = null; bbFlash(); bbRender(false);
 }
 function bbRandomFor(c){
@@ -8533,9 +8583,21 @@ function bbRandomFor(c){
   }
   return null;
 }
+const BB_MAX_LOOKS = 8;
+function bbLooks(mid){ return [...(leagueState?.prefs?.[mid]?.looks || [])]; }
+function bbSetLooks(mid, looks){
+  if(!leagueState.prefs) leagueState.prefs = {};
+  leagueState.prefs[mid] = {...(leagueState.prefs[mid]||{}), looks};
+  saveLeagueState();
+}
 function bbClick(e){
-  const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act]'); if(!t || t.disabled || !_bb || _bb.busy) return;
+  const t = e.target.closest('[data-c],[data-mode],[data-way],[data-team],[data-part],[data-k],[data-act],[data-look],[data-lookdel]'); if(!t || t.disabled || !_bb || _bb.busy) return;
   const d = t.dataset, ch = _bb.ch;
+  if(d.lookdel!=null){ const looks = bbLooks(_bb.mid); looks.splice(+d.lookdel, 1); bbSetLooks(_bb.mid, looks); bbRender(false); return; }
+  if(d.look!=null){ const r = BB.parse(bbLooks(_bb.mid)[+d.look]); if(r){ const sw = r.ch!==_bb.ch; _bb.ch = r.ch; _bb.pick = r.pick; _bb.style = bbStyleName(r.ch, r.pick); _bb.part = null; _bb.order = bbOrder(_bb.mid, r.ch); bbFlash(); bbRender(sw); } return; }
+  if(d.act==='lookadd'){ const tok = BB.token(ch, _bb.pick), looks = bbLooks(_bb.mid);
+    if(looks.includes(tok)){ toast('That look is already saved'); return; }
+    bbSetLooks(_bb.mid, [...looks, tok].slice(-BB_MAX_LOOKS)); toast('Look saved ✓'); bbRender(false); return; }
   if(d.c){
     if(d.c===ch){ bbToColor(); return; }           // tap the highlighted Baller again to pick him
     _bb.ch = d.c; _bb.pick = BB.fresh(d.c); _bb.style = 'Original'; _bb.part = null; bbRender(true); return;
@@ -9667,7 +9729,7 @@ async function boot(){
       await ensureTodaysDuel();
       settleCupGroups();
       maybeSwapInjuredDuel();
-      purgeWlcTestWeeks().then(ensureWlcTipoff).then(autoFinalizeWlcWeeks);
+      purgeWlcTestWeeks().then(autoFinalizeWlcWeeks).then(autoOpenWlcWeek).then(ensureWlcTipoff);
       updateUserChip();
       if(isFirstLogin){
         // Only navigate to home on actual login — not on silent token refreshes
@@ -10187,6 +10249,35 @@ async function autoFinalizeWlcWeeks(){
   if(currentScreen==='wlc') renderWlcScreen();
 }
 
+// New week, no waiting: from Monday 12:00 AM ET the week's Challenge is open for picks.
+// If the commissioner already generated it, it's published (approved) as is; if not, the planned
+// pool for that week (or the theme rotation) is generated and published. Picks lock at the
+// week's first tip-off still ahead (normally Monday night). The commissioner can still swap
+// players or rename the theme afterwards.
+async function autoOpenWlcWeek(){
+  if(!leagueState?.wlc) leagueState.wlc = {weeks:{},lineups:{},results:{},standings:{}};
+  const wk = _wlcWeekKeyRaw(), w = leagueState.wlc.weeks?.[wk];
+  if(w && (w.testers || w.status==='active' || w.status==='final')) return;
+  const [y,m,d] = wk.split('-').map(Number);
+  let tip = null;
+  for(let i=0; i<7 && !tip; i++){
+    const t = new Date(y, m-1, d+i, 12), k = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    if(k < todayKey()) continue;
+    const ft = await firstTipOn(k); if(ft && new Date(ft) > new Date()) tip = ft;
+  }
+  await pullLeagueState();   // someone else may have just done it
+  const cur = leagueState.wlc.weeks?.[wk];
+  if(cur && (cur.testers || cur.status==='active' || cur.status==='final')) return;
+  if(cur){ cur.status = 'active'; cur.tipoffTime = cur.tipoffTime || tip; cur.autoPublished = new Date().toISOString(); }
+  else {
+    const prop = generateWlcProposal(wk);
+    leagueState.wlc.weeks[wk] = {theme:prop.theme, pool:prop.pool, status:'active', tipoffTime:tip, createdAt:new Date().toISOString(), autoPublished:new Date().toISOString()};
+  }
+  await saveLeagueState();
+  if(currentScreen==='wlc') renderWlcScreen();
+  if(currentScreen==='home') renderHomeScreen();
+}
+
 // Update WLC standings after a week is finalized
 async function finalizeWlcWeek(weekKey){
   const results = computeWlcResults(weekKey);
@@ -10223,6 +10314,7 @@ function wlcFitGrid(){
   const grid = document.querySelector('#wlc-content .wlc-grid');
   if(!grid) return;
   grid.style.removeProperty('--wlc-pimg-h'); grid.classList.remove('fit');
+  return;   // squeezing the rows onto one desktop screen shrank the portraits until names covered faces; let the page scroll instead
   if(window.innerWidth < 700) return;
   const h = id => document.getElementById(id)?.offsetHeight || 0;
   const pv = document.querySelector('#wlc-content .wlc-preview');
@@ -10311,7 +10403,7 @@ function renderWlcScreen(){
   const cost = wlcPickCost(picks);
   const tb = document.getElementById('top-bar');
   if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
-  html += `<div class="wlc-proj-note">"FP/G" is each player's average this 2026-27 season (a projection until he's played 3 games).</div>`;
+  html += `<div class="wlc-proj-note">"FP/G" is each player's average this 2026-27 season (a projection until his first game).</div>`;
   html += wlcPreviewHtml(pool, picks);
   html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks, window._wlcPreview);
   const canSave = picks.length>=1 && picks.length<=WLC_TEAM_SIZE && cost<=WLC_SALARY_CAP;
@@ -10374,10 +10466,15 @@ function wlcChartHtml(wk, week){
   const colors = assignLineColors(series.map(s=>s.m));
   series.forEach((s,k)=>{ s.c = colors[s.m.id]; s.rank = 1 + series.filter(x=>x.now > s.now).length; });
   window._wchSeries = series;
-  // Zoomed in: the axis starts at 75. Early-week scores under 75 sit on the floor line.
-  const W=340, H=136, L=30, R=14, T=22, B=20, lo=75;
-  const all = series.flatMap(s=>s.vals), max = Math.max(lo+10, ...all);
-  const step = max-lo>150 ? 50 : max-lo>60 ? 25 : max-lo>30 ? 10 : 5;
+  // The axis fits the actual scores each day: it starts at the round number just under the
+  // lowest score shown (0 / 25 / 50…) and ends just above the highest.
+  const W=340, H=136, L=30, R=14, T=22, B=20;
+  const all = series.flatMap(s=>s.vals).filter(v=>v>0);
+  const minV = all.length ? Math.min(...all) : 0, maxV = all.length ? Math.max(...all) : 50;
+  const span = Math.max(10, maxV - minV);
+  const step = span>150 ? 50 : span>60 ? 25 : span>30 ? 10 : 5;
+  const lo = Math.max(0, Math.floor((minV - step*0.5)/step)*step);
+  const max = Math.max(lo+step*2, maxV);
   const top = lo + Math.ceil((max-lo)/step)*step;
   const x = i => L + i*(W-L-R)/6, y = v => T + (1 - (Math.max(v,lo)-lo)/(top-lo))*(H-T-B);
   const grid = [...Array(Math.round((top-lo)/step)+1)].map((_,i)=>{ const v=lo+i*step;
@@ -10394,7 +10491,7 @@ function wlcChartHtml(wk, week){
       : `<circle cx="${cx}" cy="${cy-12}" r="8" fill="${lead.c}"/><text x="${cx}" y="${cy-9.5}" text-anchor="middle" class="wch-lead-t">${escHtmlBB((lead.m.display_name||'?')[0].toUpperCase())}</text>`}</g>`; })();
   const key = series.map((s,k)=>`<button type="button" class="wch-av" data-k="${k}" style="--c:${s.c}" onclick="wlcChartFocus(${k})" aria-label="${escHtmlBB(s.m.display_name)}">${avatarEl(s.m.display_name, s.m.color||'#4a9eff', 30, 8, s.m.icon||null, s.m.photo||null)}</button>`).join('');
   return `<div class="wch">
-    <div class="wch-head"><span><span style="color:#ffd93d">${wlcThemeName(week, wk).toUpperCase()}</span> · AVG FP</span><span class="wch-lock">🔒 PICKS LOCKED</span></div>
+    <div class="wch-head"><span><span style="color:#ffd93d">${wlcThemeName(week, wk).toUpperCase()}</span> · FP/G</span><span class="wch-lock">🔒 PICKS LOCKED</span></div>
     ${series.length ? `<svg viewBox="0 0 ${W} ${H}" class="wch-svg" role="img" aria-label="Weekly Line-up Challenge scores by day">${grid}${xl}${lines}${leadIcon}</svg>
     <div class="wch-key">${key}</div>
     <div class="wch-note">Select a User's avatar image to view more detail.</div>`
@@ -10421,7 +10518,7 @@ function wlcChartFocus(k){
     <div class="wch-pop-nm">${escHtmlBB(s.m.display_name)}</div>
     <div class="wch-pop-stats">
       <div><span>PLACE</span><b>${ord(s.rank)}</b></div>
-      <div><span>AVG FP</span><b>${s.now.toFixed(1)}</b></div>
+      <div><span>FP/G</span><b>${s.now.toFixed(1)}</b></div>
     </div>
     <button type="button" class="btn btn-secondary btn-full" style="margin-top:12px;font-size:6px">CLOSE</button>
   </div>`;
@@ -10466,7 +10563,7 @@ function wlcCardsGridHtml(mid, wk, showSwap){
     const canSwap = showSwap && (locked || lineup.saved) && !sl.swap && !wlcSwapBlockReason(lineup, sl.name);
     const sub = live ? `<span class="lv">LIVE ${fpT(tg.st.fp)}</span>`
       : tg ? `TODAY ${fpT(tg.st.fp)}`
-      : sl.gp ? `${sl.gp} GP · AVG` : 'NO GAMES YET';
+      : sl.gp ? `${sl.gp} GP · FP/G` : 'NO GAMES YET';
     return `<div class="wc-wrap"><div class="wc t${sl.pp.tier||1}${sl.gp?'':' dim'}" onclick="${pcardOnclick(nm)}">
       <div class="pt"><img src="${portraitUrl(team, nm)}" loading="lazy" onerror="this.style.visibility='hidden'"><span class="pr">$${sl.pp.salary||'?'}</span>
         ${live?'<span class="lvtag">LIVE</span>':''}${inj?`<span class="inj" style="background:${inj.color}">${inj.label}</span>`:''}${sl.swap?'<span class="sw">⇄</span>':''}</div>
@@ -10556,6 +10653,20 @@ function wlcPreviewStats(name){
 function wlcPreviewHtml(pool, picks){
   const name = window._wlcPreview;
   const p = name && pool.find(x=>x.n===name);
+  if(!p && picks.length){
+    // Line-up so far, with its projected FP/G, so you can plan before saving
+    const order = [...picks].sort((a,b)=>(pool.find(x=>x.n===b)?.tier||0)-(pool.find(x=>x.n===a)?.tier||0));
+    const cost = wlcPickCostFor(picks, pool), full = picks.length>=WLC_TEAM_SIZE || cost>=WLC_SALARY_CAP;
+    const proj = order.reduce((a,n)=>a+(+seasonFpPG(n, pool.find(x=>x.n===n)?.fpPG)||0),0);
+    const mini = order.map(n=>{ const pp = pool.find(x=>x.n===n)||{}, cur = wlcFindPlayer(n), nm = cur?.name||n;
+      return `<div class="wlc-sum-p t${pp.tier||1}" onclick="wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})"><img src="${portraitUrl(cur?.team||pp.t, nm)}" onerror="this.style.visibility='hidden'"><span>$${pp.salary||'?'}</span><i>${escHtmlBB(playerShortName(nm))}</i></div>`; }).join('')
+      + '<div class="wlc-sum-p empty"><span>+</span></div>'.repeat(Math.max(0, WLC_TEAM_SIZE - picks.length));
+    return `<div class="wlc-preview sum${full?' full':''}">
+      <div class="wlc-sum-head"><span>${full ? 'LINE-UP READY' : `YOUR LINE-UP · ${picks.length}/${WLC_TEAM_SIZE}`}</span><span>$${cost} OF $${WLC_SALARY_CAP}</span></div>
+      <div class="wlc-sum-row">${mini}</div>
+      <div class="wlc-sum-foot"><span class="wlc-sum-proj">${proj.toFixed(1)}<small> PROJ FP/G</small></span><span class="wlc-sum-hint">${full ? 'SAVE LINE-UP BELOW ▼' : 'TAP A PORTRAIT TO ADD MORE'}</span></div>
+    </div>`;
+  }
   if(!p){
     return `<div class="wlc-preview empty"><div class="wlc-pv-port"><span>?</span></div>
       <div class="wlc-pv-info"><div class="wlc-pv-name blink">SELECT YOUR PLAYER</div>
@@ -10568,12 +10679,13 @@ function wlcPreviewHtml(pool, picks){
   const q = JSON.stringify(p.n).replace(/"/g,'&quot;');
   const port = portraitUrl(team, nm);
   const box = (l,v) => `<div class="wlc-pv-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`;
-  return `<div class="wlc-preview t${p.tier}">
+  const poolNames = [...pool].sort((a,b)=>(b.tier||0)-(a.tier||0)).map(x=>wlcFindPlayer(x.n)?.name || x.n);
+  return `<div class="wlc-preview t${p.tier}" data-pcards="${escHtmlBB(JSON.stringify(poolNames))}">
     <div class="wlc-pv-port" onclick="${pcardOnclick(nm)}" title="Full player profile"><img src="${port}" onerror="this.style.visibility='hidden'"><span class="wlc-pv-price">$${p.salary}</span></div>
     <div class="wlc-pv-info">
       <div class="wlc-pv-head"><div style="min-width:0">
         <div class="wlc-pv-name">${nm}${injuryBadgeHtml(nm)}</div>
-        <div class="wlc-pv-sub">${pos?pos+' · ':''}${team} · 2025-26 SEASON</div></div>
+        <div class="wlc-pv-sub">${pos?pos+' · ':''}${team} · 2026-27 SEASON</div></div>
         ${wlcWeekGamesHtml(team)}</div>
       <div class="wlc-pv-stats">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
       <div class="wlc-pv-btns">
@@ -10587,7 +10699,14 @@ function wlcPreviewHtml(pool, picks){
 // The player's NBA games during the challenge week: "10/26 @ UTA"
 function wlcWeekGamesHtml(team){
   if(ymd(currentWeekStart()) !== wlcWeekKey().replace(/-/g,'')){ return ''; }
-  if(!Object.keys(WEEK_GAMES).length){ loadWeekGames().then(()=>{ if(window._wlcPreview) renderWlcScreen(); }); return '<div class="wlc-pv-games"></div>'; }
+  if(!Object.keys(WEEK_GAMES).length){
+    // Load once; only redraw if it actually brought games. (Before, a failed load redrew the screen
+    // and tried again in a tight loop, so on some desktops Select/Cancel and the other portraits
+    // were being replaced faster than a click could land.)
+    if(!wlcWeekGamesHtml._loading){ wlcWeekGamesHtml._loading = true;
+      loadWeekGames().then(()=>{ if(Object.keys(WEEK_GAMES).length && window._wlcPreview && currentScreen==='wlc') renderWlcScreen(); })
+        .finally(()=>setTimeout(()=>{ wlcWeekGamesHtml._loading = false; }, 60000)); }
+    return '<div class="wlc-pv-games"></div>'; }
   const g = teamWeekGames(team);
   const rows = g.map(x=>`<div>${+x.date.slice(4,6)}/${+x.date.slice(6,8)} ${x.isHome?'vs.':'@'} ${x.opp}</div>`).join('');
   return `<div class="wlc-pv-games"><div class="h">${g.length} GAME${g.length===1?'':'S'}</div>${rows||'<div>—</div>'}</div>`;
@@ -10746,7 +10865,7 @@ function openWlcReplaceModal(wk, poolName, query){
   const ql = normName(query||'');
   const poolTier = n => (w.pool||[]).find(p=>normName(p.n)===normName(n))?.tier;
   const cands = PLAYERS_DB
-    .map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {n:p.n, name:cur.name, t:cur.team||p.t, fpPG:BDL_STATS[cur.name]?.fpPG ?? p.fpPG, inPool:inPool.has(normName(p.n))} : null; })
+    .map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {n:p.n, name:cur.name, t:cur.team||p.t, fpPG:seasonFpPG(cur.name, p.fpPG), inPool:inPool.has(normName(p.n))} : null; })
     .filter(c=>c && normName(c.n)!==normName(poolName) && (!ql || normName(c.name).includes(ql)))
     .sort((a,b)=>(b.fpPG||0)-(a.fpPG||0)).slice(0,80);
   document.getElementById('wlc-replace-modal')?.remove();

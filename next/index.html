@@ -334,7 +334,7 @@ function home(){
   const lead = MU.me>=MU.opp;
   const pickA = S.done.duel===DUEL.a.short, pickB = S.done.duel===DUEL.b.short;
   return topBar()+`<div class="screen"><div class="home">
-    <div class="box fan" onclick="openSheet('lineup')">
+    <div class="box fan" onclick="go('fantasy')">
       <div>
         <h2>FANTASY</h2><div class="eyebrow">WEEK ${MU.week} · VS ${OPP.name.toUpperCase()}</div>
         <div class="score"><b class="${lead?'lead':''}">${MU.me}</b><span class="dash"></span><b class="${lead?'':'lead'}">${MU.opp}</b></div>
@@ -348,14 +348,14 @@ function home(){
       </div>
     </div>
     <div class="row2">
-      <div class="box duel" onclick="openSheet('duel')">
+      <div class="box duel" onclick="go('duel')">
         <h2>DUEL</h2>
         <div class="vs"><div class="f ${pickA?'pick':''}" style="--tc:${DUEL.a.tc}">${img(pimg(DUEL.a.team,DUEL.a.name))}</div><i>VS</i><div class="f ${pickB?'pick':''}" style="--tc:${DUEL.b.tc}">${img(pimg(DUEL.b.team,DUEL.b.name))}</div></div>
         <div class="tag">${DUEL.title.toUpperCase()}</div>
         ${todoLine('duel',{need:'MAKE YOUR PICK',done:'PICKED '+(S.done.duel||'')})}
         ${todoLine('futures',{need:'FUTURES PICK',done:'FUTURES IN'})}
       </div>
-      <div class="box chal" onclick="openSheet('wlc')">
+      <div class="box chal" onclick="go('wlc')">
         <h2>CHALLENGE</h2>
         <div class="banner"><div class="allstar">${WLC.pool}<small>${WLC.sub}</small></div></div>
         ${todoLine('wlc',{need:'MAKE ENTRY',done:'ENTERED'})}
@@ -365,7 +365,7 @@ function home(){
 }
 function missions(){
   const n=doneCount(), all=n===MISSIONS.length, a=S.active;
-  return `<div class="screen sub"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>MISSIONS</h1></div>
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>MISSIONS</h1></div>
     <div class="panel"><div class="sec">TODAY · RESETS 12 AM ET</div>
       <div class="bigbar"><div class="pbar" id="pbar">${MISSIONS.map((m,i)=>`<span class="${i<n?'on':''}"></span>`).join('')}</div><span class="chest ${all?'on':''}" style="font-size:20px">🎁</span></div>
       <div class="reward">${all?(S.bonus?'✓ BONUS COLLECTED':''):`FILL THE BAR: <b>+${FULL_BONUS} EXP</b> AND A <b>PORTRAIT UNLOCK</b>`}</div>
@@ -399,7 +399,7 @@ function baller(){
     const lab = kind==='cw' ? cwName(ch,val).toUpperCase() : gearName[val];
     if(kind==='cw' && !(BB.COLORWAYS[ch]||[])[val]) return '';
     return `<div class="un ${got?'got':'lock'} ${sel&&got?'sel':''}" data-k="${kind}" data-v="${val}" data-lv="${lv}"><span class="lvtag">LV ${lv}</span><span class="cvs" data-look='${JSON.stringify(look)}'></span><div class="l">${got?lab:'🔒 '+lab}</div></div>`; }).join('');
-  return `<div class="screen sub"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>BALLERS</h1></div>
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>BALLERS</h1></div>
     <div class="panel"><div class="bstage"><button class="arrow" onclick="bi--;render()">◀</button>
       <div class="who"><span id="bigb" data-ch="${ch}"></span>
         ${S.active===ch?'<div class="active-pill">EARNING EXP</div>':`<button class="go" style="margin-top:8px" onclick="setActive('${ch}')">PLAY AS ${BB.CHARS[ch].name}</button>`}</div>
@@ -411,6 +411,7 @@ function baller(){
   </div>`;
 }
 const SCREENS={home, missions, baller};
+const AFTER={};
 function render(){
   document.getElementById('ui').innerHTML = SCREENS[cur]();
   const mb=document.getElementById('mebtn'); if(mb) mb.appendChild(ballerCv(S.active,1));
@@ -419,13 +420,14 @@ function render(){
   document.querySelectorAll('#track .cvs').forEach(el=>{ const ch=document.getElementById('bigb').dataset.ch; el.appendChild(ballerCv(ch,2,JSON.parse(el.dataset.look))); });
   document.querySelectorAll('#track .un.got').forEach(el=>el.onclick=()=>{ const ch=document.getElementById('bigb').dataset.ch, me=B(ch), k=el.dataset.k, v=k==='cw'?+el.dataset.v:el.dataset.v;
     if(k==='cw') me.cw=v; else me[k] = me[k]===v ? null : v; save(); render(); });
+  (AFTER[cur]||(()=>{}))();
   nav();
 }
 function nav(){
   const need = a => MISSIONS.some(m=>m.area===a && !S.done[m.k]);
-  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,()=>openSheet('lineup'),need('fantasy')],['wlc',I.orb,()=>openSheet('wlc'),need('wlc')],['duel',I.bolt,()=>openSheet('duel'),need('duel')],['menu',I.menu,openMenu]];
+  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,()=>go('fantasy'),need('fantasy')],['wlc',I.orb,()=>go('wlc'),need('wlc')],['duel',I.bolt,()=>go('duel'),need('duel')],['menu',I.menu,openMenu]];
   const el=document.getElementById('nav'); el.innerHTML='';
-  items.forEach(([k,ic,fn,dot])=>{ const b=document.createElement('button'); b.className=k===cur?'on':''; b.innerHTML=ic+(dot?'<span class="dot"></span>':''); b.setAttribute('aria-label',k); b.onclick=fn; el.appendChild(b); });
+  items.forEach(([k,ic,fn,dot])=>{ const b=document.createElement('button'); b.className=(k===cur||(k==='duel'&&cur==='futures'))?'on':''; b.innerHTML=ic+(dot?'<span class="dot"></span>':''); b.setAttribute('aria-label',k); b.onclick=fn; el.appendChild(b); });
 }
 
 /* ── Sheets: stand-ins for each area so the to-do → bar → EXP loop can be tried ── */
@@ -433,6 +435,8 @@ function overlay(html, center){ const o=document.createElement('div'); o.classNa
   o.addEventListener('click',e=>{ if(e.target===o) o.remove(); }); document.getElementById('app').appendChild(o); return o; }
 function openSheet(k){
   if(k==='checkin'){ greet(true); return; }
+  const route={lineup:'fantasy', duel:'duel', futures:'futures', wlc:'wlc'}[k];
+  if(route && SCREENS[route]){ if(k==='lineup') FZ.tab='inv'; go(route); return; }
   const m=MISSIONS.find(x=>x.k===k);
   if(k==='duel'){
     const o=overlay(`<div class="sheet" style="--c:var(--pink)"><h3>DAILY DUEL · ${DUEL.title.toUpperCase()}</h3><p>Who scores more fantasy points tonight? Your pick is final as soon as you tap.</p>
@@ -565,5 +569,6 @@ dust(document.getElementById('dust'));
 render();
 if(!S.greeted) greet();
 </script>
+<script src="modes.js"></script>
 </body>
 </html>

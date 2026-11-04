@@ -16,6 +16,8 @@ create or replace function public.league_apply(p_id text, p_ops jsonb)
 returns timestamptz
 language plpgsql
 security invoker
+set lock_timeout = '5s'          -- never wait forever behind another save
+set statement_timeout = '12s'
 as $$
 declare
   raw   text;
@@ -70,8 +72,7 @@ begin
   end loop;
 
   -- Write back in the same format the app already uses (a JSON string)
-  select data_type into ctype from information_schema.columns
-   where table_schema = 'public' and table_name = 'leagues' and column_name = 'state';
+  select pg_typeof(state)::text into ctype from public.leagues where id = p_id;
   if ctype = 'text' then
     update public.leagues set state = s::text, updated_at = now() where id = p_id returning updated_at into ts;
   else

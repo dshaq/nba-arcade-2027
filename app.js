@@ -2445,11 +2445,15 @@ function showSaveDetails(){
     <div style="font-family:var(--pixel);font-size:6px;line-height:1.9;color:var(--text2);margin-bottom:10px">${_outbox.length} change(s) are kept safe on this device and will keep retrying, even if you close the app. Screenshot this for the commissioner if it doesn't clear.</div>
     <div style="font-family:monospace;font-size:10px;line-height:1.5;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px;word-break:break-word;margin-bottom:12px">${escHtmlBB(_saveErr?.msg||'no error yet')}<br>${escHtmlBB(_saveErr?.at||'')}<br>${items.map(escHtmlBB).join('<br>')}</div>
     <button class="btn btn-primary btn-full" onclick="retrySavesNow();document.getElementById('save-detail-modal').remove()">TRY AGAIN NOW</button>
+    ${/timed out|hung|Failed to fetch|NetworkError|Load failed/i.test(_saveErr?.msg||'') ? `<div style="font-family:var(--pixel);font-size:6px;line-height:1.9;color:var(--text2);margin:12px 0 8px">Still stuck? The phone's connection to the league can go stale. Restarting the app opens a fresh one — your change(s) above are kept and sent right after.</div>
+    <button class="btn btn-secondary btn-full" onclick="restartForSave()">RESTART APP &amp; SEND</button>` : ''}
   </div>`;
   document.body.appendChild(m);
 }
 window.addEventListener('online', ()=>{ if(_outbox.length){ _wakeFlush?.(); flushOutbox(); } });
-window.addEventListener('beforeunload', e=>{ if(_outbox.length){ e.preventDefault(); e.returnValue = ''; } });
+let _restartingForSave = false;
+function restartForSave(){ _saveOutbox(); _restartingForSave = true; location.reload(); }
+window.addEventListener('beforeunload', e=>{ if(_outbox.length && !_restartingForSave){ e.preventDefault(); e.returnValue = ''; } });
 
 // Merge-safe AND race-safe: the write only lands if nobody else saved since we read
 // (updated_at must still match). If someone did, re-read, re-merge and try again.

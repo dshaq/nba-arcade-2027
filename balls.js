@@ -151,5 +151,5 @@ function url(tok){
   const u=cv.toDataURL('image/png'); _urls.set(tok,u); return u;
 }
 const isBall = s => typeof s==='string' && s.startsWith('ball:');
-window.BB = {fit: ch=>fit(ch).k, size: ch=>fit(ch).S, canBlink, FX, CHARS, ORDER:Object.keys(CHARS).filter(c=>!SECRET.includes(c)), SECRET, PALETTES, COLORWAYS, TEAMS:BB_TEAMS, ORIG, fresh, teamPick, colorFor, draw, token, parse, url, isBall, mix};
+window.BB = {fit: ch=>fit(ch).k, size: ch=>fit(ch).S, canBlink, eyes: eyeInfo, FX, CHARS, ORDER:Object.keys(CHARS).filter(c=>!SECRET.includes(c)), SECRET, PALETTES, COLORWAYS, TEAMS:BB_TEAMS, ORIG, fresh, teamPick, colorFor, draw, token, parse, url, isBall, mix};
 })();

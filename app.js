@@ -53,7 +53,7 @@ async function _authLock(name, acquireTimeout, fn){
 // Small calls (the "has anyone saved?" check, sign-in token refresh) give up after 8s and
 // are tried again right away on a fresh request; a hung connection after a tab sleeps is the
 // usual cause and a second try nearly always goes straight through. Big downloads get 25s.
-let _lastNetHang = '';
+let _lastNetHang = '', _lastNetOk = 0;
 function _netKind(url){
   if(/\/auth\/v1\/token/.test(url)) return 'sign-in refresh';
   if(/select=updated_at(&|$)/.test(url)) return 'save check';
@@ -67,7 +67,7 @@ async function _fetchWithTimeout(input, init={}){
     const ac = new AbortController(); let timedOut = false;
     const t = setTimeout(()=>{ timedOut = true; ac.abort(); }, ms);
     if(init.signal){ if(init.signal.aborted) ac.abort(); else init.signal.addEventListener('abort', ()=>ac.abort(), {once:true}); }
-    try{ return await fetch(input, {...init, signal:ac.signal, ...(small && i>0 ? {cache:'no-store'} : {})}); }
+    try{ const res = await fetch(input, {...init, signal:ac.signal, ...(small && i>0 ? {cache:'no-store'} : {})}); _lastNetOk = Date.now(); return res; }
     catch(e){
       if(!timedOut || i===tries-1){ if(timedOut) _lastNetHang = small || 'download'; throw e; }
       console.warn(`[net] ${small} hung ${ms/1000}s, trying again (${i+2}/${tries})`);
@@ -2364,6 +2364,9 @@ async function flushOutbox(){
   _flushing = (async ()=>{
     let backoff = 1000;
     while(_outbox.length){
+      // Your own changes go first; background stat lines never hold them up
+      const ui = _outbox.findIndex(x=>!_isStatsItem(x));
+      if(ui > 0) _outbox.unshift(..._outbox.splice(ui,1));
       const it = _outbox[0];
       it.tries = (it.tries||0) + 1;
       let error = null;
@@ -2383,6 +2386,19 @@ async function flushOutbox(){
       _saveErr = {msg, at:new Date().toISOString(), tries:it.tries};
       console.warn('[save] not confirmed yet', msg, it.ops);
       try{ const log = JSON.parse(localStorage.getItem('nba-save-errors')||'[]'); log.push(_saveErr); localStorage.setItem('nba-save-errors', JSON.stringify(log.slice(-15))); }catch(e){}
+      // A change that also carried stat lines: send the change on its own, without them
+      if(!_isStatsItem(it) && it.ops.some(o=>o.path[0]==='playerStats') && !/PGRST202|Could not find the function/i.test(msg)){
+        it.ops = it.ops.filter(o=>o.path[0]!=='playerStats'); it.tries = 0; _saveOutbox();
+        console.info('[save] retrying without the background stats');
+        continue;
+      }
+      // Stat lines are saved by every open app; if ours doesn't go through, someone else's will
+      if(_isStatsItem(it) && !/PGRST202|Could not find the function/i.test(msg)){
+        _outbox.shift(); _saveOutbox(); _waiters.get(it.id)?.(); _waiters.delete(it.id);
+        console.info('[save] skipped a background stats save (others will save it)');
+        if(!_outbox.length) _saveErr = null;
+        continue;
+      }
       const missing = /PGRST202|Could not find the function/i.test(msg) && _rpcMode !== true;
       // Not installed, or this change keeps failing: send everything the old (whole-league) way
       if(missing || it.tries >= 3){
@@ -2407,6 +2423,7 @@ async function flushOutbox(){
     .finally(()=>{ _flushing = null; if(_outbox.length) setTimeout(flushOutbox, 3000); });
   return _flushing;
 }
+function _isStatsItem(it){ return it.ops.every(o=>o.path[0]==='playerStats'); }
 function retrySavesNow(){ _wakeFlush?.(); flushOutbox(); }
 // Changes this browser never got confirmed (tab closed, phone lost signal): put them back
 // over the fresh league and send them again. Every op is safe to send twice.
@@ -2439,7 +2456,10 @@ function showSaveDetails(){
   document.getElementById('save-detail-modal')?.remove();
   const m = document.createElement('div'); m.id='save-detail-modal'; m.className='modal-overlay'; m.style.display='flex';
   m.onclick = e=>{ if(e.target===m) m.remove(); };
-  const items = _outbox.map(x=>x.ops.map(o=>o.path.join(' › ')).join(', ')).slice(0,5);
+  const items = _outbox.filter(x=>!_isStatsItem(x)).map(x=>`${x.ops.map(o=>o.path.join(' › ')).join(', ')} · ${Math.max(1,Math.round(JSON.stringify(x.ops).length/1024))} KB · ${Math.round((Date.now()-x.at)/60000)} min ago`).slice(0,5);
+  const statsN = _outbox.filter(_isStatsItem).length;
+  if(statsN) items.push(`+ ${statsN} background stat update(s)`);
+  items.push(`last reply from the league: ${_lastNetOk ? Math.round((Date.now()-_lastNetOk)/1000)+'s ago' : 'none yet'}`);
   m.innerHTML = `<div class="modal-box" style="max-width:360px;width:calc(100% - 32px)">
     <div style="font-family:var(--pixel);font-size:8px;color:#ff3b5c;margin-bottom:10px">⚠ WAITING TO SAVE</div>
     <div style="font-family:var(--pixel);font-size:6px;line-height:1.9;color:var(--text2);margin-bottom:10px">${_outbox.length} change(s) are kept safe on this device and will keep retrying, even if you close the app. Screenshot this for the commissioner if it doesn't clear.</div>

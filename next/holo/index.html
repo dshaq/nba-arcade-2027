@@ -39,8 +39,8 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
   background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 6%,#39ff6a 12%,#00e5ff 18%,#b36bff 24%,#ff2e88 30%);
   background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);
   transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
-/* 4 · your sparkles (black removed): faint everywhere, bright near the light, and their colour shifts as you tilt */
-.spark{inset:-6%;background:url(sparkles.png) center/cover;mix-blend-mode:screen;
+/* 4 · your sparkles (black removed), on top of everything but the glare: faint everywhere, bright near the light, and their colour shifts as you tilt */
+.spark{inset:0;z-index:7;background:url(sparkles.png) center/cover;mix-blend-mode:screen;
   -webkit-mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
           mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
   filter:hue-rotate(calc(var(--ry)*5deg)) brightness(calc(1 + var(--hyp)*.6));
@@ -99,10 +99,11 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
   <div class="stage" id="stage">
     <div class="card jf-trim" id="card">
       <div class="L frame"></div>
-      <div class="win"><div class="L bg"></div><div class="L bgfoil"></div><div class="L spark"></div></div>
+      <div class="win"><div class="L bg"></div><div class="L bgfoil"></div></div>
       <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="jf white"></div><div class="jf trim"></div><div class="gloss"></div></div>
       <span class="badge l">#009</span><span class="badge r">HOLO</span>
       <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
+      <div class="L spark"></div>
       <div class="L glare"></div>
     </div>
   </div>

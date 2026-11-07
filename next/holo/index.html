@@ -25,10 +25,10 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
 
 /* 1 · foil frame: the card's edge band, etched lines that change colour with the angle */
 .frame{background:
-   repeating-linear-gradient(115deg,rgba(255,255,255,.0) 0 3px,rgba(255,255,255,.18) 3px 4px),
-   linear-gradient(115deg,#ff5fbf,#ffd93d,#39ff6a,#4ad8ff,#b36bff,#ff5fbf,#ffd93d);
-  background-size:100% 100%,400% 400%;
-  background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%);filter:saturate(.8) brightness(.92) contrast(1.1)}
+   repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 3px,rgba(255,250,220,.22) 3px 4px),
+   linear-gradient(125deg,#5a3a00,#c8901a 18%,#fff2b0 30%,#d9a520 42%,#7a5200 55%,#f5d061 68%,#fff8d6 76%,#b07a10 88%,#5a3a00);
+  background-size:100% 100%,320% 320%;
+  background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%);filter:contrast(1.05)}
 .frame::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.6),transparent 45%);mix-blend-mode:overlay}
 
 /* 2 · the art window */
@@ -36,15 +36,21 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
 .bg{position:absolute;inset:-8%;background:url(bg.jpg) center/cover;transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px)) scale(1.04)}
 /* 3 · foil on the background: colour-dodge only lights up where the art is bright, so the green lines turn rainbow and black stays black */
 .bgfoil{inset:-8%;mix-blend-mode:color-dodge;opacity:calc(.35 + var(--hyp)*.55);
-  background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 6%,#39ff6a 12%,#00e5ff 18%,#b36bff 24%,#ff2e88 30%);
+  background:repeating-linear-gradient(105deg,#0a5d2a 0%,#4cbb17 7%,#b8ff7a 13%,#00c48c 19%,#e8ffd6 24%,#127a3c 30%);
   background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);
   transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
-/* 4 · your sparkles (black removed), on top of everything but the glare: faint everywhere, bright near the light, and their colour shifts as you tilt */
-.spark{inset:0;z-index:7;background:url(sparkles.png) center/cover;mix-blend-mode:screen;
-  -webkit-mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
-          mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
-  filter:hue-rotate(calc(var(--ry)*5deg)) brightness(calc(1 + var(--hyp)*.6));
-  opacity:calc(.55 + var(--hyp)*.45);transform:translate(calc(var(--ry)*-.35px),calc(var(--rx)*.35px))}
+/* 4 · stars: two planes floating in front of the player, each moving more than he does, and the near
+   stars cast a soft shadow onto him; the gap between star and shadow is what makes them feel lifted off his face */
+.stars{inset:-8%;background:center/cover no-repeat;transition:none}
+.stars.far{z-index:7;background-image:url(stars-far.png);opacity:.85;
+  transform:translate(calc(var(--ry)*1px),calc(var(--rx)*-.8px)) scale(1.02);filter:drop-shadow(0 0 1.5px rgba(76,187,23,.6))}
+.stars.near{z-index:7;background-image:url(stars-near.png);
+  transform:translate(calc(var(--ry)*1.9px),calc(var(--rx)*-1.5px)) scale(1.08);
+  filter:drop-shadow(0 0 2px rgba(76,187,23,.8)) brightness(calc(1 + var(--hyp)*.4))}
+.stars.shadow{z-index:5;background-image:url(stars-near.png);filter:brightness(0) blur(2px);opacity:.6;
+  transform:translate(calc(var(--ry)*.5px + (.5 - var(--mx))*22px),calc(var(--rx)*-.4px + (.5 - var(--my))*22px + 6px)) scale(1.08)}
+.card.off-spark .stars{display:none}
+.card.off-depth .stars{transform:none!important}
 
 /* 5 · the player: nearest layer, moves the most, head breaks out over the top of the frame */
 .pl{inset:0;clip-path:inset(0 5.5% 24% 5.5% round 0 0 8px 8px)}
@@ -58,7 +64,7 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
 
 /* jersey foil: only on the jersey, never the face */
 .pl .jf{position:absolute;left:3%;width:94%;bottom:21.5%;aspect-ratio:944/1104;display:none;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px));
-  background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 7%,#39ff6a 14%,#00e5ff 21%,#b36bff 28%,#ff2e88 35%);background-size:260% 260%;
+  background:repeating-linear-gradient(105deg,#0a5d2a 0%,#4cbb17 7%,#b8ff7a 13%,#00c48c 19%,#e8ffd6 24%,#127a3c 30%);background-size:260% 260%;
   background-position:calc(var(--mx)*100%) calc(var(--my)*100%)}
 .pl .jf.trim{-webkit-mask:url(mask-trim.png) 0 0/100% 100%;mask:url(mask-trim.png) 0 0/100% 100%;mix-blend-mode:color-dodge;opacity:calc(.55 + var(--hyp)*.45)}
 .pl .jf.white{-webkit-mask:url(mask-white.png) 0 0/100% 100%;mask:url(mask-white.png) 0 0/100% 100%;mix-blend-mode:multiply;opacity:calc(.16 + var(--hyp)*.24)}
@@ -73,7 +79,7 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
 .plate .s{display:flex;justify-content:space-between;font-size:7px;color:var(--t2)}
 .plate .s b{font-weight:normal;color:var(--gold)}
 .badge{position:absolute;z-index:7;top:2.2%;font-size:7px;padding:4px 6px;border-radius:4px;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
-.badge.l{left:7%}.badge.r{right:7%;background:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4ad8ff);background-size:300%;background-position:calc(var(--mx)*100%) 0;color:#000}
+.badge.l{left:7%}.badge.r{right:7%;background:linear-gradient(90deg,#b07a10,#fff2b0,#d9a520,#fff8d6,#b07a10);background-size:300%;background-position:calc(var(--mx)*100%) 0;color:#000}
 /* 7 · glare: one bright spot that follows the light */
 .glare{z-index:8;mix-blend-mode:overlay;background:radial-gradient(farthest-corner circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.85) 0,rgba(255,255,255,.25) 22%,rgba(0,0,0,.35) 90%);opacity:calc(.25 + var(--hyp)*.6)}
 
@@ -103,7 +109,7 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
       <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="jf white"></div><div class="jf trim"></div><div class="gloss"></div></div>
       <span class="badge l">#009</span><span class="badge r">HOLO</span>
       <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
-      <div class="L spark"></div>
+      <div class="L stars shadow"></div><div class="L stars far"></div><div class="L stars near"></div>
       <div class="L glare"></div>
     </div>
   </div>

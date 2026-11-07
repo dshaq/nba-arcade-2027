@@ -480,6 +480,7 @@ function openMenu(){
   const o=overlay(`<div class="sheet"><h3>MORE</h3><div class="menu">
     <a data-a="missions"><span>🎯</span>Missions<small>${doneCount()}/${MISSIONS.length} TODAY</small></a>
     <a data-a="cards"><span>🎴</span>Cards<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
+    <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
     <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
     <a data-a="x"><span>🏆</span>Standings</a><a data-a="x"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="x"><span>⚙️</span>Settings</a>
     <a data-a="greet"><span>👋</span>Replay today's greeting<small>PREVIEW</small></a>

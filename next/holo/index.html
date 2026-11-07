@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Holo Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<style>
+/* Holo Lab: one card built the layered way.
+   Layers, back to front: foil frame → background (deep) → foil on the background's bright lines →
+   sparkles near the light → player cutout (near, breaks out of the frame) → name plate → glare.
+   The face is never foiled; it only gets a soft gloss. */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--bg:#020c18;--t2:#a8c0e8;--t3:#506080;--gold:#ffd93d;--edge:#1e3258;--card:#0d1530;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(90% 60% at 50% 40%,#10284e,#020c18 75%);color:#fff;font-family:var(--px)}
+main{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  padding:calc(env(safe-area-inset-top,0px) + 24px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(16px,env(safe-area-inset-left,0px))}
+h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.1em}
+.stage{perspective:1100px;touch-action:none;padding:24px 10px}
+.card{--rx:0;--ry:0;--mx:.5;--my:.35;--hyp:0;
+  position:relative;width:min(330px,80vw);aspect-ratio:5/7;border-radius:14px;
+  transform:rotateX(calc(var(--rx)*1deg)) rotateY(calc(var(--ry)*1deg));transform-style:preserve-3d;
+  box-shadow:calc(var(--ry)*-.9px) calc(var(--rx)*.9px + 18px) 40px rgba(0,0,0,.6),0 0 0 2px #000;overflow:hidden;isolation:isolate}
+.L{position:absolute;inset:0;pointer-events:none}
+
+/* 1 · foil frame: the card's edge band, etched lines that change colour with the angle */
+.frame{background:
+   repeating-linear-gradient(115deg,rgba(255,255,255,.0) 0 3px,rgba(255,255,255,.18) 3px 4px),
+   linear-gradient(115deg,#ff5fbf,#ffd93d,#39ff6a,#4ad8ff,#b36bff,#ff5fbf,#ffd93d);
+  background-size:100% 100%,400% 400%;
+  background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%);filter:saturate(.8) brightness(.92) contrast(1.1)}
+.frame::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.6),transparent 45%);mix-blend-mode:overlay}
+
+/* 2 · the art window */
+.win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:24%;border-radius:8px;overflow:hidden;background:#000;box-shadow:inset 0 0 0 2px rgba(0,0,0,.8)}
+.bg{position:absolute;inset:-8%;background:url(bg.jpg) center/cover;transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px)) scale(1.04)}
+/* 3 · foil on the background: colour-dodge only lights up where the art is bright, so the green lines turn rainbow and black stays black */
+.bgfoil{inset:-8%;mix-blend-mode:color-dodge;opacity:calc(.35 + var(--hyp)*.55);
+  background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 6%,#39ff6a 12%,#00e5ff 18%,#b36bff 24%,#ff2e88 30%);
+  background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);
+  transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
+/* 4 · sparkles that only show near the light */
+.spark{inset:0;mix-blend-mode:color-dodge;background-image:var(--sparkimg);background-size:180px 180px;
+  -webkit-mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,transparent 42%);
+          mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,transparent 42%);
+  opacity:calc(.25 + var(--hyp)*.75);transform:translate(calc(var(--ry)*-.3px),calc(var(--rx)*.3px))}
+
+/* 5 · the player: nearest layer, moves the most, head breaks out over the top of the frame */
+.pl{inset:0;clip-path:inset(0 5.5% 24% 5.5% round 0 0 8px 8px)}
+.pl img{position:absolute;left:6%;width:88%;top:-1.5%;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px));
+  filter:drop-shadow(0 0 1.5px rgba(255,255,255,.55)) drop-shadow(0 8px 10px rgba(0,0,0,.55))}
+.pl .gloss{position:absolute;left:6%;width:88%;top:-1.5%;aspect-ratio:944/1104;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px));
+  -webkit-mask:url(tatum.png) 0 0/100% 100%;mask:url(tatum.png) 0 0/100% 100%;mix-blend-mode:soft-light;
+  background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);
+  background-size:220% 220%;background-position:calc(var(--mx)*100%) 50%}
+.card.nopop .pl{clip-path:inset(5.5% 5.5% 24% 5.5% round 8px)}
+
+/* 6 · name plate */
+.plate{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:17%;border-radius:8px;background:linear-gradient(180deg,#0c1426,#05080f);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);display:flex;flex-direction:column;justify-content:center;padding:0 6%;gap:7px;z-index:6}
+.plate .n{font-size:13px;letter-spacing:-.02em;text-shadow:0 2px 0 #000}
+.plate .n small{display:block;font-size:7px;color:var(--t2);margin-bottom:5px}
+.plate .s{display:flex;justify-content:space-between;font-size:7px;color:var(--t2)}
+.plate .s b{font-weight:normal;color:var(--gold)}
+.badge{position:absolute;z-index:7;top:2.2%;font-size:7px;padding:4px 6px;border-radius:4px;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.badge.l{left:7%}.badge.r{right:7%;background:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4ad8ff);background-size:300%;background-position:calc(var(--mx)*100%) 0;color:#000}
+/* 7 · glare: one bright spot that follows the light */
+.glare{z-index:8;mix-blend-mode:overlay;background:radial-gradient(farthest-corner circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.85) 0,rgba(255,255,255,.25) 22%,rgba(0,0,0,.35) 90%);opacity:calc(.25 + var(--hyp)*.6)}
+
+/* layer switches, so you can see what each piece adds */
+.card.off-depth .bg,.card.off-depth .bgfoil,.card.off-depth .spark,.card.off-depth .pl img,.card.off-depth .pl .gloss{transform:none!important}
+.card.off-foil .bgfoil,.card.off-foil .gloss{display:none}
+.card.off-foil .frame{background:linear-gradient(160deg,#d8dee8,#8e98ab)}
+.card.off-spark .spark{display:none}
+.card.off-glare .glare{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px}
+.chips button{font-family:var(--px);font-size:7px;padding:9px 10px;border-radius:7px;border:2px solid var(--edge);background:var(--card);color:var(--t3);cursor:pointer}
+.chips button.on{border-color:var(--gold);color:var(--gold)}
+.note{font-size:6.5px;color:var(--t2);line-height:2;max-width:380px;text-align:center}
+.gy{font-family:var(--px);font-size:8px;padding:12px 14px;border-radius:9px;border:3px solid #000;background:var(--gold);color:#1a1200;box-shadow:0 4px 0 #000;cursor:pointer}
+a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(16px,env(safe-area-inset-left,0px));font-size:7px;color:var(--t2);text-decoration:none}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">◀ TEST SITE</a>
+  <h1>HOLO LAB</h1>
+  <div class="stage" id="stage">
+    <div class="card" id="card">
+      <div class="L frame"></div>
+      <div class="win"><div class="L bg"></div><div class="L bgfoil"></div><div class="L spark"></div></div>
+      <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="gloss"></div></div>
+      <span class="badge l">#009</span><span class="badge r">HOLO</span>
+      <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
+      <div class="L glare"></div>
+    </div>
+  </div>
+  <div class="chips" id="chips">
+    <button data-k="depth" class="on">DEPTH</button><button data-k="foil" class="on">FOIL</button><button data-k="spark" class="on">SPARKLE</button>
+    <button data-k="pop" class="on">POP-OUT</button><button data-k="glare" class="on">GLARE</button>
+  </div>
+  <button class="gy" id="gy" hidden>📱 TILT YOUR PHONE</button>
+  <div class="note">Drag across the card, or tilt your phone. Turn the layers off and on to see what each one adds.</div>
+</main>
+<script>
+const card=document.getElementById('card'), stage=document.getElementById('stage');
+
+// sparkle texture, drawn once: a few tiny stars and dots on transparent
+(function(){ const c=document.createElement('canvas'); c.width=c.height=180; const x=c.getContext('2d');
+  for(let i=0;i<70;i++){ const px=Math.random()*180, py=Math.random()*180, r=Math.random();
+    x.fillStyle=`hsl(${Math.random()*360},100%,${80+Math.random()*20}%)`;
+    if(r>.85){ x.fillRect(px-3,py,7,1); x.fillRect(px,py-3,1,7); } else x.fillRect(px,py,r>.5?2:1,r>.5?2:1); }
+  card.style.setProperty('--sparkimg',`url(${c.toDataURL()})`); })();
+
+// springy tilt: the card eases toward where you point
+const tgt={rx:0,ry:0,mx:.5,my:.35,h:0}, cur={...tgt}; let mode='idle', last=0;
+function aim(px,py){ tgt.ry=(px-.5)*32; tgt.rx=(.5-py)*26; tgt.mx=px; tgt.my=py; tgt.h=Math.min(1,Math.hypot(px-.5,py-.5)*2.2); last=performance.now(); }
+const rel=e=>{ const r=card.getBoundingClientRect(); return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))]; };
+let down=false;
+stage.addEventListener('pointerdown',e=>{ down=true; mode='hand'; stage.setPointerCapture(e.pointerId); aim(...rel(e)); });
+stage.addEventListener('pointermove',e=>{ if(mode==='gyro') return; if(down||e.pointerType==='mouse'){ mode='hand'; aim(...rel(e)); } });
+const rest=()=>{ down=false; if(mode!=='gyro'){ mode='idle'; Object.assign(tgt,{rx:0,ry:0,mx:.5,my:.35,h:0}); last=performance.now(); } };
+stage.addEventListener('pointerup',rest); stage.addEventListener('pointercancel',rest); stage.addEventListener('pointerleave',()=>{ if(!down) rest(); });
+(function tick(t){
+  if(mode==='idle' && performance.now()-last>1200){ const a=t/1700; tgt.ry=Math.sin(a)*9; tgt.rx=Math.cos(a*.8)*5; tgt.mx=.5+Math.sin(a)*.32; tgt.my=.38+Math.cos(a*.8)*.22; tgt.h=.3; }
+  for(const k in cur) cur[k]+=(tgt[k]-cur[k])*.12;
+  const s=card.style; s.setProperty('--rx',cur.rx.toFixed(2)); s.setProperty('--ry',cur.ry.toFixed(2)); s.setProperty('--mx',cur.mx.toFixed(3)); s.setProperty('--my',cur.my.toFixed(3)); s.setProperty('--hyp',cur.h.toFixed(3));
+  requestAnimationFrame(tick); })(0);
+
+// phone tilt
+const gy=document.getElementById('gy');
+if(typeof DeviceOrientationEvent!=='undefined' && matchMedia('(pointer:coarse)').matches){ gy.hidden=false;
+  gy.onclick=async()=>{ try{ if(DeviceOrientationEvent.requestPermission && await DeviceOrientationEvent.requestPermission()!=='granted') return;
+    addEventListener('deviceorientation',e=>{ if(e.gamma==null||down) return; mode='gyro';
+      aim(.5+Math.max(-1,Math.min(1,e.gamma/28))/2, .5+Math.max(-1,Math.min(1,(e.beta-45)/28))/2); });
+    gy.textContent='📱 TILT ON'; gy.disabled=true; }catch(err){ gy.textContent='TILT NOT AVAILABLE'; } }; }
+
+// layer switches
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); const on=b.classList.contains('on'), k=b.dataset.k;
+  if(k==='pop') card.classList.toggle('nopop',!on); else card.classList.toggle('off-'+k,!on); });
+</script>
+</body>
+</html>

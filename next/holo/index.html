@@ -71,6 +71,19 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
 .card.jf-trim .jf.trim,.card.jf-both .jf.trim,.card.jf-white .jf.white,.card.jf-both .jf.white{display:block}
 .card.off-depth .pl .jf{transform:none!important}
 
+/* CRT: scanlines + a faint RGB aperture grille + a soft tube vignette over the whole picture (hair and stars included),
+   and a 1px red/blue fringe on the player, so it reads like a 16-bit screen grab printed on foil */
+.crt{z-index:7;clip-path:inset(5.5% 5.5% 24% 5.5% round 8px);pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.34) 0 1px,rgba(0,0,0,0) 1px 3px),
+    repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px),
+    radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 60%,rgba(0,0,0,.38) 100%)}
+.crt::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 30%);animation:roll 7s linear infinite;background-size:100% 40%;background-repeat:no-repeat}
+@keyframes roll{from{background-position:0 -60%}to{background-position:0 220%}}
+.pl img{filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.5)) drop-shadow(0 8px 10px rgba(0,0,0,.55))!important}
+.card.off-crt .crt{display:none}
+.card.off-crt .pl img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.55)) drop-shadow(0 8px 10px rgba(0,0,0,.55))!important}
+
 /* 6 · name plate */
 .plate{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:17%;border-radius:8px;background:linear-gradient(180deg,#0c1426,#05080f);
   box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);display:flex;flex-direction:column;justify-content:center;padding:0 6%;gap:7px;z-index:6}
@@ -109,13 +122,13 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
       <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="jf white"></div><div class="jf trim"></div><div class="gloss"></div></div>
       <span class="badge l">#009</span><span class="badge r">HOLO</span>
       <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
-      <div class="L stars shadow"></div><div class="L stars far"></div><div class="L stars near"></div>
+      <div class="L stars shadow"></div><div class="L stars far"></div><div class="L stars near"></div><div class="L crt"></div>
       <div class="L glare"></div>
     </div>
   </div>
   <div class="chips" id="chips">
     <button data-k="depth" class="on">DEPTH</button><button data-k="foil" class="on">FOIL</button><button data-k="spark" class="on">SPARKLE</button>
-    <button data-k="pop" class="on">POP-OUT</button><button data-k="glare" class="on">GLARE</button>
+    <button data-k="pop" class="on">POP-OUT</button><button data-k="glare" class="on">GLARE</button><button data-k="crt" class="on">CRT</button>
     <button id="jbtn" class="on" style="flex-basis:100%;max-width:220px">JERSEY FOIL: TRIM</button>
   </div>
   <button class="gy" id="gy" hidden>📱 TILT YOUR PHONE</button>

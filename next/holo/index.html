@@ -39,11 +39,12 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
   background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 6%,#39ff6a 12%,#00e5ff 18%,#b36bff 24%,#ff2e88 30%);
   background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);
   transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
-/* 4 · sparkles that only show near the light */
-.spark{inset:0;mix-blend-mode:color-dodge;background-image:var(--sparkimg);background-size:180px 180px;
-  -webkit-mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,transparent 42%);
-          mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,transparent 42%);
-  opacity:calc(.25 + var(--hyp)*.75);transform:translate(calc(var(--ry)*-.3px),calc(var(--rx)*.3px))}
+/* 4 · your sparkles (black removed): faint everywhere, bright near the light, and their colour shifts as you tilt */
+.spark{inset:-6%;background:url(sparkles.png) center/cover;mix-blend-mode:screen;
+  -webkit-mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
+          mask-image:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),#000 0,rgba(0,0,0,.22) 50%);
+  filter:hue-rotate(calc(var(--ry)*5deg)) brightness(calc(1 + var(--hyp)*.6));
+  opacity:calc(.55 + var(--hyp)*.45);transform:translate(calc(var(--ry)*-.35px),calc(var(--rx)*.35px))}
 
 /* 5 · the player: nearest layer, moves the most, head breaks out over the top of the frame */
 .pl{inset:0;clip-path:inset(0 5.5% 24% 5.5% round 0 0 8px 8px)}
@@ -54,6 +55,15 @@ h1{margin:0;font-size:11px;font-weight:normal;color:var(--gold);letter-spacing:.
   background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);
   background-size:220% 220%;background-position:calc(var(--mx)*100%) 50%}
 .card.nopop .pl{clip-path:inset(5.5% 5.5% 24% 5.5% round 8px)}
+
+/* jersey foil: only on the jersey, never the face */
+.pl .jf{position:absolute;left:3%;width:94%;bottom:21.5%;aspect-ratio:944/1104;display:none;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px));
+  background:repeating-linear-gradient(105deg,#ff2e88 0%,#ffd93d 7%,#39ff6a 14%,#00e5ff 21%,#b36bff 28%,#ff2e88 35%);background-size:260% 260%;
+  background-position:calc(var(--mx)*100%) calc(var(--my)*100%)}
+.pl .jf.trim{-webkit-mask:url(mask-trim.png) 0 0/100% 100%;mask:url(mask-trim.png) 0 0/100% 100%;mix-blend-mode:color-dodge;opacity:calc(.55 + var(--hyp)*.45)}
+.pl .jf.white{-webkit-mask:url(mask-white.png) 0 0/100% 100%;mask:url(mask-white.png) 0 0/100% 100%;mix-blend-mode:multiply;opacity:calc(.16 + var(--hyp)*.24)}
+.card.jf-trim .jf.trim,.card.jf-both .jf.trim,.card.jf-white .jf.white,.card.jf-both .jf.white{display:block}
+.card.off-depth .pl .jf{transform:none!important}
 
 /* 6 · name plate */
 .plate{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:17%;border-radius:8px;background:linear-gradient(180deg,#0c1426,#05080f);
@@ -87,10 +97,10 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
   <a class="back" href="../">◀ TEST SITE</a>
   <h1>HOLO LAB</h1>
   <div class="stage" id="stage">
-    <div class="card" id="card">
+    <div class="card jf-trim" id="card">
       <div class="L frame"></div>
       <div class="win"><div class="L bg"></div><div class="L bgfoil"></div><div class="L spark"></div></div>
-      <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="gloss"></div></div>
+      <div class="L pl"><img src="tatum.png" alt="Jayson Tatum"><div class="jf white"></div><div class="jf trim"></div><div class="gloss"></div></div>
       <span class="badge l">#009</span><span class="badge r">HOLO</span>
       <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
       <div class="L glare"></div>
@@ -99,6 +109,7 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
   <div class="chips" id="chips">
     <button data-k="depth" class="on">DEPTH</button><button data-k="foil" class="on">FOIL</button><button data-k="spark" class="on">SPARKLE</button>
     <button data-k="pop" class="on">POP-OUT</button><button data-k="glare" class="on">GLARE</button>
+    <button id="jbtn" class="on" style="flex-basis:100%;max-width:220px">JERSEY FOIL: TRIM</button>
   </div>
   <button class="gy" id="gy" hidden>📱 TILT YOUR PHONE</button>
   <div class="note">Drag across the card, or tilt your phone. Turn the layers off and on to see what each one adds.</div>
@@ -106,12 +117,7 @@ a.back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:max(
 <script>
 const card=document.getElementById('card'), stage=document.getElementById('stage');
 
-// sparkle texture, drawn once: a few tiny stars and dots on transparent
-(function(){ const c=document.createElement('canvas'); c.width=c.height=180; const x=c.getContext('2d');
-  for(let i=0;i<70;i++){ const px=Math.random()*180, py=Math.random()*180, r=Math.random();
-    x.fillStyle=`hsl(${Math.random()*360},100%,${80+Math.random()*20}%)`;
-    if(r>.85){ x.fillRect(px-3,py,7,1); x.fillRect(px,py-3,1,7); } else x.fillRect(px,py,r>.5?2:1,r>.5?2:1); }
-  card.style.setProperty('--sparkimg',`url(${c.toDataURL()})`); })();
+
 
 // springy tilt: the card eases toward where you point
 const tgt={rx:0,ry:0,mx:.5,my:.35,h:0}, cur={...tgt}; let mode='idle', last=0;
@@ -137,7 +143,9 @@ if(typeof DeviceOrientationEvent!=='undefined' && matchMedia('(pointer:coarse)')
     gy.textContent='📱 TILT ON'; gy.disabled=true; }catch(err){ gy.textContent='TILT NOT AVAILABLE'; } }; }
 
 // layer switches
-document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); const on=b.classList.contains('on'), k=b.dataset.k;
+const JF=['trim','white','both','off']; let jfi=0; const jb=document.getElementById('jbtn');
+jb.onclick=()=>{ jfi=(jfi+1)%JF.length; JF.forEach(k=>card.classList.remove('jf-'+k)); card.classList.add('jf-'+JF[jfi]); jb.textContent='JERSEY FOIL: '+JF[jfi].toUpperCase(); jb.classList.toggle('on',JF[jfi]!=='off'); };
+document.querySelectorAll('#chips button[data-k]').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); const on=b.classList.contains('on'), k=b.dataset.k;
   if(k==='pop') card.classList.toggle('nopop',!on); else card.classList.toggle('off-'+k,!on); });
 </script>
 </body>

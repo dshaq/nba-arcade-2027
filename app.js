@@ -10981,8 +10981,10 @@ function openWlcReplaceModal(wk, poolName, query){
   const inPool = new Set((w.pool||[]).map(p=>normName(p.n)));
   const ql = normName(query||'');
   const poolTier = n => (w.pool||[]).find(p=>normName(p.n)===normName(n))?.tier;
-  const cands = PLAYERS_DB
-    .map(p=>{ const cur=wlcFindPlayer(p.n); return cur ? {n:p.n, name:cur.name, t:cur.team||p.t, fpPG:seasonFpPG(cur.name, p.fpPG), inPool:inPool.has(normName(p.n))} : null; })
+  // Every player in the league's player list (not just the ~190 with projections)
+  const dbBy = new Map(PLAYERS_DB.map(p=>[normName(p.n), p]));
+  const cands = PLAYERS
+    .map(cur=>{ const d=dbBy.get(normName(cur.name)); const n=d?.n||cur.name; return {n, name:cur.name, t:cur.team||d?.t, fpPG:seasonFpPG(cur.name, d?.fpPG||0), inPool:inPool.has(normName(n))}; })
     .filter(c=>c && normName(c.n)!==normName(poolName) && (!ql || normName(c.name).includes(ql)))
     .sort((a,b)=>(b.fpPG||0)-(a.fpPG||0)).slice(0,80);
   document.getElementById('wlc-replace-modal')?.remove();
@@ -11018,9 +11020,9 @@ async function commReplaceWlcPlayer(wk, oldName, newName){
     w.pool[i] = {...b, tier:a.tier, salary:a.salary};
     w.pool[j] = {...a, tier:b.tier, salary:b.salary};
   } else {
-    const db = PLAYERS_DB.find(p=>p.n===newName) || {n:newName};
+    const db = PLAYERS_DB.find(p=>normName(p.n)===normName(newName)) || {n:newName};
     const cur = wlcFindPlayer(newName);
-    w.pool[i] = {...db, t:cur?.team||db.t, tier:w.pool[i].tier, salary:w.pool[i].salary};
+    w.pool[i] = {...db, t:cur?.team||db.t, fpPG:db.fpPG ?? +(seasonFpPG(cur?.name||newName, 0)||0).toFixed(1), tier:w.pool[i].tier, salary:w.pool[i].salary};
   }
   await saveLeagueState();
   document.getElementById('wlc-replace-modal')?.remove();

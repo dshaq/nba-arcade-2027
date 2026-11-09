@@ -2031,6 +2031,7 @@ function _setMerge3(base, local, remote){
 function merge3(base, local, remote, key){
   if(_jsonEq(local, base)) return remote;   // I didn't touch it
   if(_jsonEq(remote, base)) return local;   // nobody else touched it
+  if(base === undefined && remote !== undefined && local !== undefined && _isPlainObj(remote)) return remote;   // both created it: the one already saved wins (keeps everyone's picks)
   if(key && SET_MERGE_KEYS.has(key) && Array.isArray(local) && Array.isArray(remote)) return _setMerge3(base, local, remote);
   if(_isPlainObj(local) && _isPlainObj(remote)){
     const b = _isPlainObj(base) ? base : {};
@@ -2310,6 +2311,9 @@ function diffOps(a, b, path=[], out=[]){
     const av = a[k], bv = b[k];
     if(av === bv || _sameJson(av, bv)) continue;
     if(_isPlainObj(av) && _isPlainObj(bv)){ diffOps(av, bv, [...path, k], out); continue; }
+    // Something brand new (today's Duel, a new week...): only create it if nobody else already has.
+    // Without this, a save that sat in a phone's queue for hours could replace the real one, picks and all.
+    if(av === undefined && _isPlainObj(bv) && path.length){ out.push({op:'set', path:[...path, k], value:bv, ifMissing:true}); continue; }
     if(Array.isArray(av) && Array.isArray(bv) && bv.length > av.length && av.every((x,i)=>_sameJson(x, bv[i]))){
       for(const v of bv.slice(av.length)) out.push({op:'push', path:[...path, k], value:v});
       continue;
@@ -2331,7 +2335,7 @@ function applyOps(obj, ops){
     for(let i=0; i<p.length-1; i++){ if(!_isPlainObj(t[p[i]])) t[p[i]] = {}; t = t[p[i]]; }
     const k = p[p.length-1];
     if(o.op==='del') delete t[k];
-    else if(o.op==='set') t[k] = JSON.parse(JSON.stringify(o.value));
+    else if(o.op==='set'){ if(o.ifMissing && t[k] !== undefined) continue; t[k] = JSON.parse(JSON.stringify(o.value)); }
     else if(o.op==='merge'){ if(!_isPlainObj(t[k])) t[k] = {}; Object.assign(t[k], JSON.parse(JSON.stringify(o.value))); }
     else if(o.op==='push'){ if(!Array.isArray(t[k])) t[k] = []; if(!t[k].some(x=>_sameJson(x, o.value))) t[k].push(JSON.parse(JSON.stringify(o.value))); }
   }
@@ -2364,6 +2368,8 @@ async function flushOutbox(){
   _flushing = (async ()=>{
     let backoff = 1000;
     while(_outbox.length){
+      _dropStaleCreates();
+      if(!_outbox.length) break;
       // Your own changes go first; background stat lines never hold them up
       const ui = _outbox.findIndex(x=>!_isStatsItem(x));
       if(ui > 0) _outbox.unshift(..._outbox.splice(ui,1));
@@ -2422,6 +2428,17 @@ async function flushOutbox(){
   })().catch(e=>{ console.warn('[save] outbox stopped', e); _saveErr = {msg:String(e?.message||e), at:new Date().toISOString()}; setSavePill('retry'); })
     .finally(()=>{ _flushing = null; if(_outbox.length) setTimeout(flushOutbox, 3000); });
   return _flushing;
+}
+function _getPath(o, p){ for(const k of p){ if(o==null || typeof o!=='object') return undefined; o = o[k]; } return o; }
+function _dropStaleCreates(){
+  if(!_shadowJson || !_outbox.some(it=>it.ops.some(o=>o.ifMissing))) return;
+  let remote; try{ remote = JSON.parse(_shadowJson); }catch(e){ return; }
+  let changed = false;
+  for(const it of _outbox){
+    const keep = it.ops.filter(o=>!(o.ifMissing && _getPath(remote, o.path) !== undefined));
+    if(keep.length !== it.ops.length){ console.info('[save] skipped creating something that already exists:', it.ops.filter(o=>!keep.includes(o)).map(o=>o.path.join('›'))); it.ops = keep; changed = true; }
+  }
+  if(changed){ for(const it of _outbox.filter(x=>!x.ops.length)){ _waiters.get(it.id)?.(); _waiters.delete(it.id); } _outbox = _outbox.filter(x=>x.ops.length); _saveOutbox(); }
 }
 function _isStatsItem(it){ return it.ops.every(o=>o.path[0]==='playerStats'); }
 function retrySavesNow(){ _wakeFlush?.(); flushOutbox(); }

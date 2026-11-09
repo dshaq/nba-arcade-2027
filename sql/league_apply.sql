@@ -7,6 +7,7 @@
 --
 -- Ops (applied in order):
 --   {"op":"set",   "path":["duels","2026-11-02","picks","1"], "value":2}
+--   {"op":"set",   "path":["duels","2026-11-09"], "value":{...}, "ifMissing":true}   -- create only if absent
 --   {"op":"merge", "path":["playerStats"], "value":{"k1":{...},"k2":{...}}}   -- add/replace keys
 --   {"op":"del",   "path":["lineupPlans","1","20261103"]}
 --   {"op":"push",  "path":["chat"], "value":{...}}   -- append unless an identical item is there
@@ -57,6 +58,8 @@ begin
     end loop;
 
     if op->>'op' = 'set' then
+      -- "ifMissing": only create it if it isn't there yet (a late save never replaces today's Duel)
+      if coalesce((op->>'ifMissing')::boolean, false) and (s #> path) is not null then continue; end if;
       s := jsonb_set(s, path, op->'value', true);
     elsif op->>'op' = 'merge' then
       cur := s #> path;

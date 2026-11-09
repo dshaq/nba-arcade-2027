@@ -10451,6 +10451,11 @@ function renderWlcScreen(){
   const el = document.getElementById('wlc-content');
   if(!el) return;
   if(!leagueState || !myProfile){ el.innerHTML='<div style="padding:20px;text-align:center;font-family:var(--pixel);font-size:7px;color:var(--text3)">LOADING...</div>'; return; }
+  if(myProfile?.is_commissioner && window._wlcEditWeek){
+    const ew = leagueState.wlc?.weeks?.[window._wlcEditWeek];
+    if(ew?.status==='pending'){ renderWlcPendingApproval(el, ew, window._wlcEditWeek); return; }
+    window._wlcEditWeek = null;
+  }
   const wk = wlcWeekKey();
   const week = wlcVisibleWeek(wk);
   if(!week){ renderWlcNoWeek(el, wk); return; }
@@ -11111,7 +11116,25 @@ async function showWeekPreview(startKey){
     ${days.map(dayHtml).join('')}
     <div class="wp-sec">WEEKLY CHALLENGE · WEEK OF ${dayName(wk)}</div>
     <div class="wp-theme">${escHtmlBB(prop.theme||'')}${prop.saved?' · ALREADY GENERATED':' · PROPOSAL'}</div>
-    ${tiers}`;
+    ${tiers}
+    <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="editWlcFromPreview('${wk}')">✏️ EDIT THIS CHALLENGE (THEME & PLAYERS)</button>`;
+  window._wpProp = {wk, prop};
+}
+// From the preview: save this proposal as a draft only the commissioner sees (held, so it can't
+// open by itself), then jump to the Challenge tab's review screen to rename and swap players.
+async function editWlcFromPreview(wk){
+  const {prop} = (window._wpProp?.wk===wk ? window._wpProp : {}); if(!prop) return;
+  if(!leagueState.wlc) leagueState.wlc = {weeks:{},lineups:{},results:{},standings:{}};
+  const cur = leagueState.wlc.weeks[wk];
+  if(cur && cur.status==='active'){ toast('That week is live — use TAKE DOWN TO EDIT in the Commissioner Panel'); return; }
+  if(!cur || cur.testers) leagueState.wlc.weeks[wk] = {theme:prop.theme, pool:prop.pool, status:'pending', held:true, createdAt:new Date().toISOString()};
+  else cur.held = true;
+  await saveLeagueState();
+  document.getElementById('wp-modal')?.remove();
+  if(typeof closeAdminPanel==='function') closeAdminPanel();
+  window._wlcEditWeek = wk;
+  showScreen('wlc');
+  toast('Tap any player to replace him · rename the theme at the top · APPROVE when done');
 }
 
 // ── WLC ADMIN (Commissioner) ──────────────────────────────────────────────────

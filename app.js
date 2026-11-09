@@ -8892,7 +8892,7 @@ function activityEvents(){
   (Array.isArray(L.chat)?L.chat:[]).forEach(c=>push(c.managerId,c.ts,'chat','Chat message'));
   for(const [mid,pr] of Object.entries(L.prefs||{})){ if(pr?.avatar?.at) push(mid,pr.avatar.at,'look','Changed avatar'); if(pr?.themeAt) push(mid,pr.themeAt,'look','Changed theme'); }
   for(const [mid,sn] of Object.entries(L.seen||{})) if(sn?.at) push(mid,sn.at,'seen','Opened the app');
-  return ev.sort((a,b)=>b.ts.localeCompare(a.ts));
+  const seenKey=new Set(); return ev.sort((a,b)=>b.ts.localeCompare(a.ts)).filter(e=>{ const k=e.mid+e.ts.slice(0,19)+e.kind; if(seenKey.has(k)) return false; seenKey.add(k); return true; });
 }
 function showActivityReport(){
   document.getElementById('activity-modal')?.remove();

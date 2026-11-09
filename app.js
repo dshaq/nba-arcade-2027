@@ -10362,9 +10362,12 @@ async function autoFinalizeWlcWeeks(){
 // pool for that week (or the theme rotation) is generated and published. Picks lock at the
 // week's first tip-off still ahead (normally Monday night). The commissioner can still swap
 // players or rename the theme afterwards.
+// Weeks the commissioner is still editing: never auto-open these; he releases them with APPROVE.
+const WLC_HOLD_WEEKS = new Set(['2026-11-09']);
 async function autoOpenWlcWeek(){
   if(!leagueState?.wlc) leagueState.wlc = {weeks:{},lineups:{},results:{},standings:{}};
   const wk = _wlcWeekKeyRaw(), w = leagueState.wlc.weeks?.[wk];
+  if(WLC_HOLD_WEEKS.has(wk) || w?.held) return;
   if(w && (w.testers || w.status==='active' || w.status==='final')) return;
   const [y,m,d] = wk.split('-').map(Number);
   let tip = null;
@@ -10375,6 +10378,7 @@ async function autoOpenWlcWeek(){
   }
   await pullLeagueState();   // someone else may have just done it
   const cur = leagueState.wlc.weeks?.[wk];
+  if(cur?.held) return;
   if(cur && (cur.testers || cur.status==='active' || cur.status==='final')) return;
   if(cur){ cur.status = 'active'; cur.tipoffTime = cur.tipoffTime || tip; cur.autoPublished = new Date().toISOString(); }
   else {
@@ -10888,7 +10892,7 @@ function renderWlcNoWeek(el, wk){
       <div class="card">
         <div class="empty-state">
           <div class="icon" style="font-size:28px">🔮</div>
-          <div class="label">NO ACTIVE WEEK<br/><span style="color:var(--text3);font-size:5px">CHECK BACK MONDAY</span></div>
+          <div class="label">${WLC_HOLD_WEEKS.has(wk)?'THIS WEEK\'S CHALLENGE':'NO ACTIVE WEEK'}<br/><span style="color:var(--text3);font-size:5px">${WLC_HOLD_WEEKS.has(wk)?'BEING UPDATED · BACK SOON':'CHECK BACK MONDAY'}</span></div>
         </div>
       </div>
       ${isComm ? `
@@ -10935,7 +10939,7 @@ function renderWlcPendingApproval(el, week, wk){
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const [ws, we] = wlcWeekRange(wk);
   if(!isComm){
-    el.innerHTML = `<div style="padding:12px 14px"><div class="card"><div class="empty-state"><div class="icon">⏳</div><div class="label">THIS WEEK'S CHALLENGE<br/><span style="color:var(--text3);font-size:5px">WAITING FOR COMMISSIONER APPROVAL</span></div></div></div></div>`;
+    el.innerHTML = `<div style="padding:12px 14px"><div class="card"><div class="empty-state"><div class="icon">⏳</div><div class="label">THIS WEEK'S CHALLENGE<br/><span style="color:var(--text3);font-size:5px">${week.held?'BEING UPDATED · BACK SOON':'WAITING FOR COMMISSIONER APPROVAL'}</span></div></div></div></div>`;
     return;
   }
   const q = n => JSON.stringify(n).replace(/"/g,'&quot;');
@@ -11139,6 +11143,7 @@ async function commGenerateWlcWeek(testMode){
 async function commApproveWlcWeek(weekKey){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   leagueState.wlc.weeks[weekKey].status = 'active';
+  delete leagueState.wlc.weeks[weekKey].held;
   // Default tip-off to Monday of that week at 7am ET (11:00 UTC in EST / 12:00 UTC in EDT)
   // weekKey is a Monday ISO date string
   // Lock at Monday's first tip-off. Approved after that (e.g. testing)? Leave picks
@@ -11162,6 +11167,16 @@ async function commMakeWlcPublic(weekKey){
   renderAdminContent(); renderWlcScreen();
 }
 
+// Pull a live week back into review: players see "being updated", the commissioner can rename it
+// and swap players, and APPROVE puts it back live. Nothing reopens it automatically meanwhile.
+async function commHoldWlcWeek(weekKey){
+  const w = leagueState.wlc?.weeks?.[weekKey]; if(!w) return;
+  w.status = 'pending'; w.held = true;
+  await saveLeagueState();
+  toast('Challenge taken down — edit it on the Challenge tab, then APPROVE');
+  renderAdminContent();
+  if(currentScreen==='wlc') renderWlcScreen();
+}
 async function commRejectWlcWeek(weekKey){
   if(!leagueState.wlc?.weeks?.[weekKey]) return;
   delete leagueState.wlc.weeks[weekKey];
@@ -11257,6 +11272,7 @@ function renderAdminWlcSection(){
         <button class="btn btn-sm btn-secondary" onclick="commSetTipoffFromInput('${wk}')">SET LOCK</button>
       </div>
       ${locked?`<button class="btn btn-full btn-secondary" style="margin-bottom:8px" onclick="commSetTipoff('${wk}',null)">🔓 REOPEN PICKS</button>`:''}
+      <button class="btn btn-full btn-secondary" style="margin-bottom:8px" onclick="commHoldWlcWeek('${wk}')">⏸ TAKE DOWN TO EDIT</button>
       <button class="btn btn-full btn-danger" onclick="commFinalizeWeek('${wk}')">🏁 FINALIZE WEEK</button>`;
   } else if(week.status==='final'){
     html += `<div style="font-family:var(--pixel);font-size:6px;color:var(--text3)">WEEK FINALIZED ✓</div>`;

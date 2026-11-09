@@ -2053,7 +2053,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026102808;
+const APP_BUILD = 2026110901;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge';
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever

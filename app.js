@@ -8845,6 +8845,7 @@ async function renderAdminContent(){
 
   <div class="section-label" style="padding:12px 0 8px">LEAGUE ACTIONS</div>
   <div style="display:flex;flex-direction:column;gap:8px">
+    <button class="btn btn-primary btn-full" onclick="showActivityReport()">👀 Player Activity</button>
     <button class="btn btn-secondary btn-full" onclick="generateSchedule()">🗓 Generate Schedule</button>
     <button class="btn btn-secondary btn-full" onclick="forceRefreshStats()">🔄 Force Refresh Stats</button>
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
@@ -8861,6 +8862,72 @@ async function renderAdminContent(){
   <button class="btn btn-full btn-secondary" style="margin-top:14px;border-color:#ffd93d;color:#ffd93d" onclick="previewWeekResults()">🏆 PREVIEW RESULTS SCREEN (ONLY YOU)</button>
   ${renderAdminWlcSection()}
   `;
+}
+
+// ── COMMISSIONER: PLAYER ACTIVITY ───────────────────────────────────────────
+// Who's actually playing: one row per team with when they were last active, which of the last
+// 14 days they showed up, and what they did this week; then a feed of recent actions.
+// "Opened the app" is recorded once per day per person (leagueState.seen); everything else
+// comes from data the league already keeps. Only the commissioner sees this screen.
+function markSeen(){
+  try{
+    const mid=getMyId(); if(!mid || !leagueState || window.NBA_DEMO || !_shadowJson) return;
+    const d=todayYmd(), seen=(leagueState.seen ||= {}), me=(seen[mid] ||= {days:[]});
+    if((me.days||[]).includes(d)) return;
+    me.days=[...(me.days||[]), d].slice(-30); me.at=new Date().toISOString();
+    saveLeagueState();
+  }catch(e){ console.warn('[seen]', e); }
+}
+setInterval(markSeen, 60000); setTimeout(markSeen, 8000);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') setTimeout(markSeen, 3000); });
+
+function activityEvents(){
+  const ev=[], L=leagueState||{}, push=(mid,ts,kind,text)=>{ if(mid!=null && ts) ev.push({mid:String(mid),ts,kind,text}); };
+  const etMid = ts => new Date(ts).toLocaleTimeString('en-US',{timeZone:'America/New_York',hour12:false})==='24:00:00' || /T0[45]:00:00\.000Z$/.test(ts);
+  for(const [mid,log] of Object.entries(L.activeLog||{})) (log||[]).forEach(e=>{ if(e.ts && !etMid(e.ts)) push(mid,e.ts,'lineup','Changed lineup'); });
+  for(const [mid,log] of Object.entries(L.waiverLog||{})) (log||[]).forEach(e=>{ if(e.ts && !e.comm) push(mid,e.ts,'waiver',`${e.type==='drop'?'Dropped':'Added'} ${getPlayer(e.pid)?.name||'a player'}`); });
+  for(const [date,d] of Object.entries(L.duels||{})) for(const [mid,ts] of Object.entries(d?.pickedAt||{})) push(mid,ts,'duel',`Daily Duel pick (${date.slice(5)})`);
+  for(const [id,f] of Object.entries(L.futures||{})) for(const [mid,ts] of Object.entries(f?.pickedAt||{})) push(mid,ts,'futures',`Futures pick (${id.replace(/^cup\d+-/,'').replace('-',' ').toUpperCase()})`);
+  for(const [wk,ls] of Object.entries(L.wlc?.lineups||{})) for(const [mid,e] of Object.entries(ls||{})) if(e?.savedAt) push(mid,e.savedAt,'wlc',`Challenge entry (week of ${wk.slice(5)})`);
+  (Array.isArray(L.chat)?L.chat:[]).forEach(c=>push(c.managerId,c.ts,'chat','Chat message'));
+  for(const [mid,pr] of Object.entries(L.prefs||{})){ if(pr?.avatar?.at) push(mid,pr.avatar.at,'look','Changed avatar'); if(pr?.themeAt) push(mid,pr.themeAt,'look','Changed theme'); }
+  for(const [mid,sn] of Object.entries(L.seen||{})) if(sn?.at) push(mid,sn.at,'seen','Opened the app');
+  return ev.sort((a,b)=>b.ts.localeCompare(a.ts));
+}
+function showActivityReport(){
+  document.getElementById('activity-modal')?.remove();
+  const ev=activityEvents(), now=Date.now(), DAY=864e5, wk=now-7*DAY;
+  const etYmd = t => new Date(t).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
+  const days=[...Array(14)].map((_,i)=>etYmd(now-(13-i)*DAY));
+  const ago = ts => { const m=Math.round((now-new Date(ts))/6e4); return m<60?`${Math.max(1,m)}m ago`:m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; };
+  const mgrs=(leagueState.managers||[]).filter(m=>m && m.id!=null);
+  const name = mid => mgrs.find(m=>String(m.id)===String(mid))?.display_name || `#${mid}`;
+  const thisWk = Object.keys(leagueState.wlc?.lineups||{}).sort().pop();
+  const rows=mgrs.map(m=>{
+    const mine=ev.filter(e=>e.mid===String(m.id)), last=mine[0]?.ts;
+    const daySet=new Set(mine.map(e=>etYmd(e.ts))); (leagueState.seen?.[m.id]?.days||[]).forEach(d=>daySet.add(d));
+    const wkEv=mine.filter(e=>new Date(e.ts)>=wk), n=k=>wkEv.filter(e=>e.kind===k).length;
+    const age = last ? (now-new Date(last))/DAY : 99;
+    return {m, last, age, daySet, lineup:n('lineup'), waiver:n('waiver'), duel:n('duel'), fut:n('futures'), wlc: !!leagueState.wlc?.lineups?.[thisWk]?.[m.id]?.saved, active:daySet.size};
+  }).sort((a,b)=>(a.age-b.age));
+  const dot = c => `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-right:6px;vertical-align:1px"></span>`;
+  const col = a => a<1?'#39ff6a':a<3?'#ffd93d':'#ff3b5c';
+  const P='font-family:var(--pixel);';
+  const m=document.createElement('div'); m.id='activity-modal'; m.className='modal-overlay'; m.style.display='flex';
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  m.innerHTML=`<div class="modal-box" style="max-width:520px;width:calc(100% - 24px);max-height:86vh;overflow-y:auto">
+    <div style="${P}font-size:9px;color:var(--accent1);margin-bottom:6px">PLAYER ACTIVITY</div>
+    <div style="${P}font-size:5.5px;line-height:1.9;color:var(--text3);margin-bottom:12px">Only you can see this. Last 14 days; counts are the last 7. "Opened the app" is tracked from today on.</div>
+    ${rows.map(r=>`<div style="padding:10px 0;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;${P}font-size:7px">${dot(col(r.age))}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtmlBB(r.m.display_name||'')}<span style="color:var(--text3);font-size:5.5px"> · ${escHtmlBB(r.m.team_name||'')}</span></span><span style="color:${col(r.age)};font-size:6px;white-space:nowrap">${r.last?ago(r.last):'NEVER'}</span></div>
+      <div style="display:flex;gap:2px;margin:8px 0 7px 13px">${days.map(d=>`<span title="${d}" style="flex:1;max-width:16px;height:9px;border-radius:2px;background:${r.daySet.has(d)?'var(--accent1)':'var(--bg3)'}"></span>`).join('')}<span style="${P}font-size:5px;color:var(--text3);margin-left:6px;white-space:nowrap">${r.active}/14 DAYS</span></div>
+      <div style="${P}font-size:5.5px;color:var(--text2);margin-left:13px;line-height:1.8">LINEUP ${r.lineup} · ADD/DROP ${r.waiver} · DUEL ${r.duel}/7 · FUTURES ${r.fut} · CHALLENGE ${r.wlc?'✓':'—'}</div>
+    </div>`).join('')}
+    <div style="${P}font-size:7px;color:var(--accent1);margin:16px 0 8px">RECENT ACTIONS</div>
+    ${ev.filter(e=>e.kind!=='seen').slice(0,40).map(e=>`<div style="display:flex;gap:8px;${P}font-size:5.5px;line-height:1.7;padding:5px 0;border-top:1px solid var(--border)"><span style="color:var(--text3);width:52px;flex:none">${ago(e.ts)}</span><span style="color:var(--text1);width:70px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtmlBB(name(e.mid))}</span><span style="color:var(--text2)">${escHtmlBB(e.text)}</span></div>`).join('')}
+    <button class="btn btn-secondary btn-full" style="margin-top:14px" onclick="document.getElementById('activity-modal').remove()">CLOSE</button>
+  </div>`;
+  document.body.appendChild(m);
 }
 
 // ── COMMISSIONER: ROSTER EDITOR ─────────────────────────────────────────────

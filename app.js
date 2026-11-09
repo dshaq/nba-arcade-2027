@@ -7727,7 +7727,7 @@ function renderWaiverPlayerList(){
   const mid=getMyId();
   const allRostered=new Set(Object.values(leagueState.rosters||{}).flat());
   const query=waiverSearchQuery.toLowerCase();
-  const canAdd=mid && inFantasyRun(mid) && canWaiver(mid) && getMyRoster().length<effectiveRosterSize(mid);
+  const canAdd=mid && inFantasyRun(mid) && canWaiver(mid);   // a full roster gets a "who do you drop?" window
 
   let players=PLAYERS.filter(p=>{
     if(waiverFilter.availability==='available' && allRostered.has(p.id)) return false;
@@ -7738,7 +7738,15 @@ function renderWaiverPlayerList(){
     return true;
   });
 
-  if(waiverFilter.sort==='fp'){
+  if(waiverFilter.sort==='fpg'){
+    // Best average first; players with no games yet sink to the bottom
+    const avgOf = x => { const gp=playerGamesPlayed(x.id); return gp ? (playerTotalFP(x.id)||0)/gp : null; };
+    players=[...players].map(p=>({p, a:avgOf(p)})).sort((x,y)=>{
+      if((x.a!=null)!==(y.a!=null)) return y.a!=null?1:-1;
+      if(x.a!=null) return y.a-x.a;
+      return x.p.name.localeCompare(y.p.name);
+    }).map(x=>x.p);
+  } else if(waiverFilter.sort==='fp'){
     players=[...players].sort((a,b)=>{
       const aT=playerTotalFP(a.id)||0, bT=playerTotalFP(b.id)||0;
       // Players with no earned FP this season always sink to the bottom
@@ -7754,7 +7762,7 @@ function renderWaiverPlayerList(){
   el.innerHTML = !players.length
     ? `<div class="empty-state"><div class="icon">🔍</div><div class="label">NO PLAYERS FOUND</div></div>`
     : `<div class="rc-wrap">
-      <div class="rc-sec act"><span>${waiverFilter.availability==='available'?'AVAILABLE':'ALL PLAYERS'} · ${players.length}</span><span style="color:var(--text3);letter-spacing:.05em">SEASON FP</span></div>
+      <div class="rc-sec act"><span>${waiverFilter.availability==='available'?'AVAILABLE':'ALL PLAYERS'} · ${players.length}</span><span style="color:var(--text3);letter-spacing:.05em">${waiverFilter.sort==='fpg'?'SORTED BY FP/G':'SEASON FP'}</span></div>
       ${players.slice(0,60).map(p=>{
         const tot=playerTotalFP(p.id), gp=playerGamesPlayed(p.id), avg=gp?tot/gp:null;
         const owner=allRostered.has(p.id) ? rosterOwnerOf(p.id) : null;
@@ -7782,7 +7790,7 @@ function renderWaiverPlayerList(){
           </div>
           <div class="rc-act">${act}</div>
           <div class="rc-ownslot">${ownEl || scoutBtn}</div>
-          <div class="rc-fp"><b class="${tot>0?'':'z'}">${fpT(tot)}<small> FP</small></b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
+          <div class="rc-fp${waiverFilter.sort==='fpg'?' by-avg':''}"><b class="${tot>0?'':'z'}">${fpT(tot)}<small> FP</small></b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
         </div>`;
       }).join('')}
       ${players.length>60?`<div style="padding:10px;text-align:center;font-family:var(--pixel);font-size:5.5px;color:var(--text3);border-top:1px solid var(--border)">+ ${players.length-60} MORE — SEARCH TO NARROW</div>`:''}
@@ -7871,10 +7879,10 @@ const wvSeg = (opts) => `<div class="wv-seg">${opts.map(([label,on,js])=>`<butto
 let _wvSheetOpen = false;
 function waiverActiveFilterCount(){ return (waiverFilter.availability==='all'?1:0) + (waiverFilter.hideOut?1:0) + (waiverFilter.sort==='alpha'?1:0) + (waiverFilter.team!=='all'?1:0); }
 function waiverLayoutHtml(layout, left){
-  const avail = waiverFilter.availability==='all' ? 'all' : 'available', sort = waiverFilter.sort==='alpha' ? 'alpha' : 'fp';
+  const avail = waiverFilter.availability==='all' ? 'all' : 'available', sort = ['alpha','fpg'].includes(waiverFilter.sort) ? waiverFilter.sort : 'fp';
   const nScout = myScoutList().length;
   const showSeg = wvSeg([['AVAILABLE', avail==='available', "waiverFilter.availability='available'"], ['ALL PLAYERS', avail==='all', "waiverFilter.availability='all'"]]);
-  const sortSeg = wvSeg([['FP ↓', sort==='fp', "waiverFilter.sort='fp'"], ['A–Z', sort==='alpha', "waiverFilter.sort='alpha'"]]);
+  const sortSeg = wvSeg([['FP ↓', sort==='fp', "waiverFilter.sort='fp'"], ['FP/G ↓', sort==='fpg', "waiverFilter.sort='fpg'"], ['A–Z', sort==='alpha', "waiverFilter.sort='alpha'"]]);
   const outChip = `<button type="button" class="wv-chip warn${waiverFilter.hideOut?' on':''}" onclick="wvSet('waiverFilter.hideOut=!waiverFilter.hideOut')">${waiverFilter.hideOut?'✓ ':''}HIDE OUT/INJ</button>`
     + `<button type="button" class="wv-chip gold${waiverFilter.rookie?' on':''}" onclick="wvSet('waiverFilter.rookie=!waiverFilter.rookie')">${waiverFilter.rookie?'✓ ':'🌟 '}ROOKIES</button>`;
   if(layout==='bar') return `
@@ -7981,15 +7989,69 @@ async function confirmAdd(mid, pid){
   // Block if IR player's injury has cleared
   if(checkIrClearedBlock(mid)) return;
   const roster=getMyRoster();
-  if(roster.length>=effectiveRosterSize(mid)){
-    toast('Roster full! Drop a player first');
-    return;
-  }
+  if(roster.length>=effectiveRosterSize(mid)){ openAddDropPicker(mid, pid); return; }
   const ok=await addPlayer(mid,pid);
   if(ok){
     toast(`${p.name} added!`);
     renderWaiversPane();
   }
+}
+
+// Roster full: choose who goes, then the drop and the add happen together in one save.
+function openAddDropPicker(mid, addPid){
+  const add = getPlayer(addPid); if(!add) return;
+  const ir = getIrSlot(mid);
+  const roster = ((leagueState.rosters||{})[mid]||[]).filter(id=>String(id)!==String(ir));
+  const topFP = Math.max(0, ...((leagueState.rosters||{})[mid]||[]).map(id=>playerTotalFP(id)));
+  const act = new Set((leagueState.active?.[mid]||[]).map(String));
+  const addTot = playerTotalFP(addPid), addGp = playerGamesPlayed(addPid);
+  const P = 'font-family:var(--pixel);';
+  const rows = roster.map(id=>{ const p=getPlayer(id); if(!p) return null;
+      const tot=playerTotalFP(id), gp=playerGamesPlayed(id), avg=gp?tot/gp:null; return {id, p, tot, avg, locked: topFP>0 && tot>=topFP}; })
+    .filter(Boolean).sort((a,b)=>(a.avg??-1)-(b.avg??-1))   // weakest first
+    .map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none;background:var(--bg3)">${playerPortraits[r.p.name]?`<img src="${playerPortraits[r.p.name]}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:''}</div>
+      <div style="flex:1;min-width:0"><div style="${P}font-size:6.5px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.p.name}${injuryBadgeHtml(r.p.name)}</div>
+        <div style="${P}font-size:5px;color:var(--text3);margin-top:4px">${r.p.pos} · ${r.p.team} · ${act.has(String(r.id))?'ACTIVE':'BENCH'} · ${fpT(r.tot)} FP · ${r.avg==null?'—':r.avg.toFixed(1)+' FP/G'}</div></div>
+      ${r.locked ? `<span style="${P}font-size:5px;color:var(--text3);white-space:nowrap">🔒 TOP FP</span>`
+        : `<button type="button" onclick="if(this.dataset.sure){executeAddDrop('${mid}',${addPid},${r.id})}else{this.dataset.sure=1;this.innerHTML='CONFIRM';this.style.background='#c0392b';this.style.color='#fff';this.style.borderColor='#ff5a4a'}" style="flex:none;background:rgba(255,217,61,0.15);border:1px solid #ffd93d;color:#ffd93d;border-radius:6px;${P}font-size:5.5px;padding:7px 10px;cursor:pointer">DROP</button>`}
+    </div>`).join('');
+  document.getElementById('add-drop-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'add-drop-modal'; m.className = 'modal-overlay'; m.style.display = 'flex';
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  m.innerHTML = `<div class="modal-box" style="max-width:380px;width:calc(100% - 32px);max-height:82vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="${P}font-size:7px;color:var(--accent3)">ADD ${escHtmlBB(add.name.toUpperCase())}</div>
+      <button onclick="document.getElementById('add-drop-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text3);padding:4px 8px;cursor:pointer;${P}font-size:6px">✕</button>
+    </div>
+    <div style="${P}font-size:5.5px;color:var(--text2);line-height:1.9;margin-bottom:8px">Your roster is full (${roster.length}/${ROSTER_SIZE}). Pick who to drop for <span style="color:var(--accent3)">${escHtmlBB(add.name)}</span> (${add.pos} · ${add.team} · ${fpT(addTot)} FP · ${addGp?(addTot/addGp).toFixed(1)+' FP/G':'—'}). Tap DROP, then CONFIRM. Uses 1 add/drop.</div>
+    ${rows}
+  </div>`;
+  document.body.appendChild(m);
+}
+async function executeAddDrop(mid, addPid, dropPid){
+  const add = getPlayer(addPid), drop = getPlayer(dropPid); if(!add || !drop) return;
+  if(!inFantasyRun(mid)){ toast('You join fantasy at the next run\'s draft'); return; }
+  if(!canWaiver(mid)){ toast('No add/drops remaining this week!'); return; }
+  if(rosterOwnerOf(addPid)){ toast(`${add.name} was just taken`); document.getElementById('add-drop-modal')?.remove(); renderWaiversPane(); return; }
+  const roster = (leagueState.rosters||{})[mid]||[];
+  if(!roster.includes(dropPid)){ toast('That player is no longer on your roster'); return; }
+  const topFP = Math.max(...roster.map(id=>playerTotalFP(id)));
+  if(playerTotalFP(dropPid)>=topFP && roster.length>1){ toast('Top FP player is locked from dropping!'); return; }
+  const ts = new Date().toISOString(), day = todayStr();
+  const key = mid+'_'+currentWeekStart().getTime().toString();
+  leagueState.rosters[mid] = [...roster.filter(id=>id!==dropPid), addPid];
+  leagueState.active[mid] = (leagueState.active[mid]||[]).filter(id=>id!==dropPid);
+  leagueState.inactive[mid] = (leagueState.inactive[mid]||[]).filter(id=>id!==dropPid);
+  if(!leagueState.waiverLog[mid]) leagueState.waiverLog[mid] = [];
+  leagueState.waiverLog[mid].push({pid:dropPid, date:day, type:'drop', ts});
+  leagueState.waiverLog[mid].push({pid:addPid, date:day, type:'add', ts});
+  leagueState.waiverWeekCount[key] = (leagueState.waiverWeekCount[key]||0) + 2;
+  document.getElementById('add-drop-modal')?.remove();
+  renderWaiversPane();
+  await saveLeagueState();
+  toast(_lastSaveOk ? `${drop.name} dropped · ${add.name} added!` : 'Saving… your move is kept and will keep retrying');
 }
 
 async function putOnIR(mid, pid){

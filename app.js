@@ -10534,7 +10534,6 @@ function renderWlcScreen(){
   const cost = wlcPickCost(picks);
   const tb = document.getElementById('top-bar');
   if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
-  html += `<div class="wlc-proj-note">"FP/G" is each player's average this 2026-27 season (a projection until his first game).</div>`;
   html += wlcPreviewHtml(pool, picks);
   html += wlcGridHtml(pool, n=>`wlcOpenPlayer(${JSON.stringify(n).replace(/"/g,'&quot;')})`, picks, window._wlcPreview);
   const canSave = picks.length>=1 && picks.length<=WLC_TEAM_SIZE && cost<=WLC_SALARY_CAP;

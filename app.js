@@ -3166,7 +3166,22 @@ function _etDayOfTs(ts){
   d = new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/New_York'}).replace(/-/g,'');
   _etDayCache.set(ts, d); return d;
 }
+// A player this manager dropped before that day can't score for him, even if a stale save
+// left him in the lineup list (a "ghost" starter).
+function _droppedBefore(mid, dateStr){
+  const out = new Set(), wl = (leagueState.waiverLog||{})[mid] || [];
+  const last = {};
+  for(const e of wl){ if(!e || e.date==null) continue; const d = String(e.date); if(d >= dateStr) continue;
+    const k = String(e.pid), t = e.ts || d; if(!last[k] || t >= last[k].t) last[k] = {type:e.type, t}; }
+  for(const [k, v] of Object.entries(last)) if(v.type==='drop') out.add(k);
+  return out;
+}
 function activeLineupOnDate(mid, dateStr){
+  const list = _activeLineupOnDateRaw(mid, dateStr);
+  const gone = _droppedBefore(mid, dateStr);
+  return gone.size ? list.filter(id=>!gone.has(String(id))) : list;
+}
+function _activeLineupOnDateRaw(mid, dateStr){
   // Commissioner-confirmed lineup for this date always wins (used to repair history)
   const ov = (leagueState.lineupOverrides||{})[dateStr]?.[mid];
   if(ov) return ov;
@@ -3785,7 +3800,27 @@ function dayGameInfo(team, ymd){
 const _schedLoading = {};
 // Turn any plan whose day has arrived into the real lineup (run on every load / pull)
 let _applyingPlans = false;
+// Remove "ghost" starters: players in someone's Active/Bench list who are no longer on their
+// roster (a stale save can put a dropped player back). A ghost silently used up an Active slot.
+function removeGhostStarters(){
+  let changed = false;
+  for(const [mid, act] of Object.entries(leagueState?.active||{})){
+    const roster = new Set(((leagueState.rosters||{})[mid]||[]).map(String));
+    if(!roster.size || !Array.isArray(act)) continue;
+    const keep = act.filter(id=>roster.has(String(id)));
+    if(keep.length !== act.length){
+      console.warn('[lineup] removed ghost starter(s) for', mid, act.filter(id=>!roster.has(String(id))));
+      leagueState.active[mid] = keep;
+      ((leagueState.activeLog ||= {})[mid] ||= []).push({ts:new Date().toISOString(), active:[...keep], fix:'ghost'});
+      changed = true;
+    }
+    const ina = (leagueState.inactive||{})[mid];
+    if(Array.isArray(ina) && ina.some(id=>!roster.has(String(id)))){ leagueState.inactive[mid] = ina.filter(id=>roster.has(String(id))); changed = true; }
+  }
+  return changed;
+}
 async function applyLineupPlans(){
+  if(removeGhostStarters()) await saveLeagueState();
   if(_applyingPlans || !leagueState?.lineupPlans) return;
   const t = todayYmd();
   let changed = false;

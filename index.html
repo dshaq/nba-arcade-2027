@@ -1726,12 +1726,13 @@ body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 .rc.ir{background:rgba(128,90,213,.06);}
 .rc.moving{background:rgba(255,217,61,.08);box-shadow:inset 3px 0 0 #ffd93d;}
 .rc.dropping{background:rgba(233,69,96,.04);}
-.rc .rc-add{flex-direction:column;gap:2px;background:var(--accent1);color:#000;border-color:var(--accent1);font-size:13px;}
+.rc .rc-add{flex-direction:column;gap:2px;background:transparent;color:var(--accent1);border:1.5px solid var(--accent1);font-size:13px;}
+.rc .rc-add:hover,.rc .rc-add:active{background:color-mix(in srgb,var(--accent1) 18%,transparent);}
 .rc .rc-add span{font-family:var(--pixel);font-size:4px;}
 .rc-scout{font-family:var(--pixel);font-size:4.5px;padding:4px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;white-space:nowrap;line-height:1.2}
 .rc-scout:hover{border-color:var(--accent3);color:var(--accent3)}
 .rc-scout.on{border-color:var(--accent3);color:var(--accent3)}
-.rc-scout.sc-add{background:var(--accent1);border-color:var(--accent1);color:#04121a}
+.rc-scout.sc-add{background:transparent;border-color:var(--accent1);color:var(--accent1)}
 #scout-modal .rc-act{align-items:stretch}
 #scout-modal .rc-act .rc-scout{width:100%;text-align:center}
 .wv-browse{margin:0;padding:10px 12px;border:1px solid var(--accent1);border-radius:10px;background:color-mix(in srgb,var(--accent1) 8%,transparent);font-family:var(--pixel);font-size:5.5px;line-height:1.9;color:var(--text2)}
@@ -1860,10 +1861,15 @@ body[data-fnav="hub"] .fantasy-sub-tabs{display:none}
 .wv-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .wv-grid2>div{display:flex;flex-direction:column;gap:4px;min-width:0} .wv-grid2>div>span{font-size:4.5px;color:var(--text3)}
 .wv-grid2 .wv-seg{width:100%} .wv-grid2 .wv-seg button{flex:1} .wv-grid2 .wv-chip{width:100%;padding:8px 6px}
-.rc.wv{grid-template-columns:60px minmax(0,1fr) auto 46px 52px;}
+.rc.wv{grid-template-columns:60px minmax(0,1fr) auto 44px 52px;}
 .rc.wv .rc-act{align-items:center}
 .rc.wv .rc-act:empty{display:block;width:0}
-.rc.wv .rc-scout{padding:4px 3px;font-size:4px}
+/* Waivers: ADD and SCOUT are the same size and both outlined (green = add, gold = scout) */
+.rc.wv .rc-add,.rc.wv .rc-scout{width:40px;height:34px;padding:0;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1}
+.rc.wv .rc-scout{border:1.5px solid color-mix(in srgb,var(--accent3) 55%,transparent);color:color-mix(in srgb,var(--accent3) 80%,var(--text3));font-size:13px;font-family:inherit}
+.rc.wv .rc-scout span{font-family:var(--pixel);font-size:4px;letter-spacing:.02em}
+.rc.wv .rc-scout.on{border-color:var(--accent3);color:var(--accent3);background:color-mix(in srgb,var(--accent3) 12%,transparent)}
+.rc.wv .rc-scout:hover{border-color:var(--accent3);color:var(--accent3)}
 .rc-ownslot{display:flex;justify-content:center}
 .rc-own{display:flex;flex-direction:column;align-items:center;gap:3px;width:34px;cursor:pointer;}
 .rc-own span{font-family:var(--pixel);font-size:4px;color:var(--text3);}

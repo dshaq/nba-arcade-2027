@@ -7801,7 +7801,7 @@ function renderWaiverPlayerList(){
 function myScoutList(){ const mid=getMyId(); return (mid && leagueState?.prefs?.[mid]?.scout) || []; }
 function scoutBtnHtml(pid){
   const on = myScoutList().map(String).includes(String(pid));
-  return `<button type="button" class="rc-scout${on?' on':''}" onclick="event.stopPropagation();toggleScout(${pid})" aria-label="${on?'Remove from':'Add to'} scouting list">${on?'✓ SCOUTED':'+ SCOUT'}</button>`;
+  return `<button type="button" class="rc-scout${on?' on':''}" onclick="event.stopPropagation();toggleScout(${pid})" aria-label="${on?'Remove from':'Add to'} scouting list">${on?'✓<span>SCOUTED</span>':'🔭<span>SCOUT</span>'}</button>`;
 }
 async function toggleScout(pid){
   const mid = getMyId(); if(!mid) return;

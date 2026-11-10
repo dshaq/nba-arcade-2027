@@ -8968,6 +8968,7 @@ async function renderAdminContent(){
   <div class="section-label" style="padding:12px 0 8px">LEAGUE ACTIONS</div>
   <div style="display:flex;flex-direction:column;gap:8px">
     <button class="btn btn-primary btn-full" onclick="showActivityReport()">👀 Player Activity</button>
+    <button class="btn btn-secondary btn-full" onclick="document.getElementById('admin-fix-pick')?.scrollIntoView({behavior:'smooth',block:'start'})">✍️ Fix a Pick (Duel · Futures · Challenge) ↓</button>
     <button class="btn btn-secondary btn-full" onclick="generateSchedule()">🗓 Generate Schedule</button>
     <button class="btn btn-secondary btn-full" onclick="forceRefreshStats()">🔄 Force Refresh Stats</button>
     <button class="btn btn-secondary btn-full" onclick="runDraftSetup()">🎯 Start Draft</button>
@@ -9229,7 +9230,7 @@ function renderAdminPickFixSection(){
     note = st.result ? 'SETTLED' : futLocked(f) ? 'LOCKED · YOU CAN STILL ENTER IT' : 'OPEN';
   }
   return `
-  <div class="section-label" style="padding:12px 0 8px">✍️ FIX A PICK</div>
+  <div class="section-label" id="admin-fix-pick" style="padding:12px 0 8px;scroll-margin-top:12px">✍️ FIX A PICK</div>
   <div class="card" style="margin:0">
     <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px">Enter a pick that didn't save, even after the lock.</div>
     <select style="${sel}" onchange="_pfMid=this.value;renderAdminContent()">${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(_pfMid)?'selected':''}>${escHtmlBB(m.display_name)}</option>`).join('')}</select>

@@ -9202,6 +9202,8 @@ function renderAdminPickFixSection(){
   const futs = FUTURES_DUELS;
   if(_pfKind==='duel' && !duelKeys.includes(_pfKey)) _pfKey = duelKeys[0] || null;
   if(_pfKind==='fut' && !futs.some(f=>f.id===_pfKey)) _pfKey = (futuresNow()[0] || futs[0])?.id || null;
+  const wlcKeys = Object.keys(leagueState.wlc?.weeks||{}).filter(k=>!leagueState.wlc.weeks[k].testers).sort().reverse().slice(0,4);
+  if(_pfKind==='wlc' && !wlcKeys.includes(_pfKey)) _pfKey = wlcKeys[0] || null;
   const sel = 'width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text1);padding:7px;font-family:var(--pixel);font-size:6px;margin-bottom:6px';
   const dayName = dk => { const [y,m,d]=dk.split('-').map(Number); return new Date(y,m-1,d,12).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
   let choices = '', cur = null, note = '';
@@ -9211,6 +9213,15 @@ function renderAdminPickFixSection(){
     cur = d.picks?.[_pfMid] ?? d.picks?.[Number(_pfMid)];
     choices = [1,2].map(n=>`<button class="btn ${String(cur)===String(n)?'btn-primary':'btn-secondary'}" style="flex:1;font-size:6px" onclick="adminFixPick(${n})">${escHtmlBB(lab(n))}</button>`).join('');
     note = d.result!=null ? 'SETTLED · STREAKS WILL BE REPLAYED' : isDuelLocked(d) ? 'LOCKED · YOU CAN STILL ENTER IT' : 'OPEN';
+  } else if(_pfKind==='wlc' && _pfKey){
+    const w = leagueState.wlc?.weeks?.[_pfKey], L = leagueState.wlc?.lineups?.[_pfKey]?.[_pfMid] || leagueState.wlc?.lineups?.[_pfKey]?.[Number(_pfMid)];
+    const picks = L?.picks || [], price = n => (w?.pool||[]).find(p=>p.n===n)?.salary || 0;
+    const left = 15 - picks.reduce((a,n)=>a+price(n),0);
+    cur = picks.length ? `${picks.join(', ')} ($${15-left})` : null;
+    choices = picks.map(n=>`<button class="btn btn-primary" style="font-size:6px" onclick="adminFixPick(${JSON.stringify('-'+n).replace(/"/g,'&quot;')})">✕ ${escHtmlBB(n)}</button>`).join('')
+      + (picks.length<5 ? (w?.pool||[]).filter(p=>!picks.includes(p.n) && p.salary<=left).sort((a,b)=>b.salary-a.salary || a.n.localeCompare(b.n))
+          .map(p=>`<button class="btn btn-secondary" style="font-size:6px" onclick="adminFixPick(${JSON.stringify('+'+p.n).replace(/"/g,'&quot;')})">+ ${escHtmlBB(p.n)} $${p.salary}</button>`).join('') : '');
+    note = `${picks.length}/5 PLAYERS · $${left} LEFT · ${w?.status==='final'?'FINAL · RESULTS WON\'T REDO':w?.tipoffTime && Date.now()>=new Date(w.tipoffTime) ? 'LOCKED · YOU CAN STILL EDIT IT' : 'OPEN'}`;
   } else if(_pfKind==='fut' && _pfKey){
     const f = futs.find(x=>x.id===_pfKey), st = futureState(f);
     cur = st.picks?.[_pfMid];
@@ -9222,9 +9233,10 @@ function renderAdminPickFixSection(){
   <div class="card" style="margin:0">
     <div style="font-family:var(--pixel);font-size:6px;line-height:1.8;color:var(--text3);margin-bottom:8px">Enter a pick that didn't save, even after the lock.</div>
     <select style="${sel}" onchange="_pfMid=this.value;renderAdminContent()">${mgrs.map(m=>`<option value="${m.id}" ${String(m.id)===String(_pfMid)?'selected':''}>${escHtmlBB(m.display_name)}</option>`).join('')}</select>
-    <select style="${sel}" onchange="_pfKind=this.value;_pfKey=null;renderAdminContent()"><option value="duel" ${_pfKind==='duel'?'selected':''}>Daily Duel</option><option value="fut" ${_pfKind==='fut'?'selected':''}>Futures Duel</option></select>
+    <select style="${sel}" onchange="_pfKind=this.value;_pfKey=null;renderAdminContent()"><option value="duel" ${_pfKind==='duel'?'selected':''}>Daily Duel</option><option value="fut" ${_pfKind==='fut'?'selected':''}>Futures Duel</option><option value="wlc" ${_pfKind==='wlc'?'selected':''}>Weekly Challenge lineup</option></select>
     <select style="${sel}" onchange="_pfKey=this.value;renderAdminContent()">${_pfKind==='duel'
       ? duelKeys.map(k=>`<option value="${k}" ${k===_pfKey?'selected':''}>${dayName(k)} · ${escHtmlBB(leagueState.duels[k].theme||'Duel')}</option>`).join('')
+      : _pfKind==='wlc' ? wlcKeys.map(k=>`<option value="${k}" ${k===_pfKey?'selected':''}>Week of ${dayName(k)} · ${escHtmlBB(leagueState.wlc.weeks[k].theme||'Challenge')}</option>`).join('')
       : futs.map(f=>`<option value="${f.id}" ${f.id===_pfKey?'selected':''}>${escHtmlBB(f.title)}</option>`).join('')}</select>
     <div style="font-family:var(--pixel);font-size:5px;color:var(--accent3);margin:2px 0 6px">${note}${cur!=null?` · CURRENT PICK: ${escHtmlBB(String(cur))}`:' · NO PICK YET'}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${choices}</div>
@@ -9232,6 +9244,24 @@ function renderAdminPickFixSection(){
 }
 async function adminFixPick(v){
   const mid = String(_pfMid), who = (allManagers().find(m=>String(m.id)===mid)||{}).display_name || mid;
+  if(_pfKind==='wlc'){
+    const w = leagueState.wlc?.weeks?.[_pfKey]; if(!w) return;
+    const all = (leagueState.wlc.lineups ||= {})[_pfKey] ||= {};
+    const L = all[mid] ||= {picks:[], swaps:[], saved:true, savedAt:new Date().toISOString()};
+    const name = String(v).slice(1), price = n => (w.pool||[]).find(p=>p.n===n)?.salary || 0;
+    if(String(v)[0]==='-') L.picks = L.picks.filter(n=>n!==name);
+    else {
+      const left = 15 - L.picks.reduce((a,n)=>a+price(n),0);
+      if(L.picks.length>=5 || price(name)>left || L.picks.includes(name)){ toast('Doesn\'t fit: 5 players, $15'); return; }
+      L.picks = [...L.picks, name];
+    }
+    L.saved = true; L.fixedBy = 'commissioner';
+    renderAdminContent();
+    await saveLeagueState();
+    toast(_lastSaveOk===false ? '⚠ Did not save — try again' : `✓ ${who}: Challenge lineup updated`);
+    renderAdminContent(); if(currentScreen==='wlc') renderWlcScreen();
+    return;
+  }
   if(_pfKind==='duel'){
     const d = leagueState.duels?.[_pfKey]; if(!d) return;
     if(!d.picks) d.picks = {}; if(!d.pickedAt) d.pickedAt = {};

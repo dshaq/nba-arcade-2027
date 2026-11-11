@@ -7484,7 +7484,7 @@ function renderRostersScreen(){
   }
   const modeFp = pid => rostersFpMode==='day' ? (dayFp[String(pid)]||0) : rostersFpMode==='week' ? (weekFp[String(pid)]||0) : playerTotalFP(pid);
   const fpCells = pid => { const gp = playerGamesPlayed(pid), tot = playerTotalFP(pid), avg = gp ? tot/gp : null;
-    return fpColsPairHtml(modeFp(pid), avg); };
+    return rostersFpMode==='day' && dayFp[String(pid)]===undefined ? `<div class="fpc"><span class="fpc-tot zero">—</span><span class="fpc-avg">${avg==null?'—':(+avg).toFixed(1)}</span></div>` : fpColsPairHtml(modeFp(pid), avg); };
   const topFP=roster.length?Math.max(...roster.map(id=>playerTotalFP(id))):0;
 
   if(!roster.length){
@@ -7571,7 +7571,7 @@ function renderRostersScreen(){
         <div class="rc-nm" onclick="${pcardOnclick(p.name)}">${p.name} ${isLocked&&isMyRoster?'🔒':''}${injBadge}${irBadge}</div>
         ${line2}
       </div>
-      <div class="rc-fp"><b class="${big>0?'':'z'}">${fpT(big)}<small> FP</small></b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
+      <div class="rc-fp"><b class="${big>0?'':'z'}">${rostersFpMode==='day' && dayFp[String(pid)]===undefined ? '—' : `${fpT(big)}<small> FP</small>`}</b><i>${liveFp!=null?`<span class="lv">+${fpT(liveFp)} LIVE</span>`:`${avg==null?'—':avg.toFixed(1)+' FP/G'}`}</i></div>
       ${actionBtns ? `<div class="rc-act">${actionBtns}</div>` : '<div class="rc-act"></div>'}
     </div>`;
   };

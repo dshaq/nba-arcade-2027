@@ -3134,7 +3134,7 @@ let rostersFpMode = (()=>{ try{ return localStorage.getItem('nba-fpmode')||'week
 function setRostersFpMode(m){ rostersFpMode = m; try{ localStorage.setItem('nba-fpmode', m); }catch(e){} renderRostersScreen(); }
 function fpToggleHead(){
   const b = (m,l) => `<button class="fpt${rostersFpMode===m?' on':''}" onclick="setRostersFpMode('${m}')">${l}</button>`;
-  return `<div class="fpc fpc-head"><span class="fpc-lbl"><span class="fpt-wrap">${b('week','WEEK')}${b('fall','FALL')}</span></span><span class="fpc-tot">${rostersFpMode==='week'?'WEEK':'TOT'}</span><span class="fpc-avg">FP/G</span></div>`;
+  return `<div class="fpc fpc-head"><span class="fpc-lbl"><span class="fpt-wrap">${b('day','DAY')}${b('week','WEEK')}${b('fall','FALL')}</span></span><span class="fpc-tot">${rostersFpMode==='day'?'DAY':rostersFpMode==='week'?'WEEK':'TOT'}</span><span class="fpc-avg">FP/G</span></div>`;
 }
 function fpColsHead(label, size){
   return `<div class="fpc fpc-head${size==='sm'?' sm':''}">${label?`<span class="fpc-lbl">${label}</span>`:''}<span class="fpc-tot">TOT</span><span class="fpc-avg">FP/G</span></div>`;
@@ -7476,8 +7476,15 @@ function renderRostersScreen(){
   // FP columns: this week's FP for this team (Active games) or Fall Run total; AVG = season FP/game
   const ws = currentWeekStart(), we = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate()+6);
   const weekFp = {}; if(rostersFpMode==='week') teamRowsForRange(rostersViewId, ymd(ws), ymd(we), true).forEach(r=>{ weekFp[String(r.p.id)] = r.fp; });
+  // DAY: what each player scored on the day being viewed (bench players too, so you can see what you left out)
+  const dayFp = {}; if(rostersFpMode==='day'){
+    const seen = new Set();
+    for(const e of Object.values(leagueState.playerStats||{})){ if(String(e.date)!==viewDay) continue; const k=e.pid+'_'+e.date; if(seen.has(k)) continue; seen.add(k); dayFp[String(e.pid)] = +(((dayFp[String(e.pid)]||0) + (e.fp||0)).toFixed(1)); }
+    if(viewDay===todayD) for(const pid of roster){ const lv = livePlayerStats[pid]; if(lv && !liveAlreadySaved(pid, lv)) dayFp[String(pid)] = +(((dayFp[String(pid)]||0) + (+lv.fp||0)).toFixed(1)); }
+  }
+  const modeFp = pid => rostersFpMode==='day' ? (dayFp[String(pid)]||0) : rostersFpMode==='week' ? (weekFp[String(pid)]||0) : playerTotalFP(pid);
   const fpCells = pid => { const gp = playerGamesPlayed(pid), tot = playerTotalFP(pid), avg = gp ? tot/gp : null;
-    return fpColsPairHtml(rostersFpMode==='week' ? (weekFp[String(pid)]||0) : tot, avg); };
+    return fpColsPairHtml(modeFp(pid), avg); };
   const topFP=roster.length?Math.max(...roster.map(id=>playerTotalFP(id))):0;
 
   if(!roster.length){
@@ -7553,7 +7560,7 @@ function renderRostersScreen(){
     const isLiveNow = !!(tg && tg.isLive && tg.myScore!=null);
     const liveFp = isLiveNow && lv && lv.live ? (+lv.fp||0) : null;
     const gp = playerGamesPlayed(pid), tot = playerTotalFP(pid), avg = gp ? tot/gp : null;
-    const big = rostersFpMode==='week' ? (weekFp[String(pid)]||0) : tot;
+    const big = modeFp(pid);
     const line2 = isLiveNow
       ? `<div class="rc-led">${p.team} ${tg.myScore}-${tg.oppScore} ${tg.opponent}${tg.period?` · Q${tg.period}`:''}</div>`
       : `<div class="rc-meta">${p.pos} · ${p.team}${gameInfo?` · ${gameInfo}`:''}</div>`;
@@ -7608,7 +7615,7 @@ function renderRostersScreen(){
         const sections = [];
         if(activePids.length){
           const tb = (m,l) => `<button class="fpt${rostersFpMode===m?' on':''}" onclick="setRostersFpMode('${m}')">${l}</button>`;
-          sections.push(`<div class="rc-sec act"><span>ACTIVE ${activePids.length}</span><span class="fpt-wrap">${tb('week','WEEK')}${tb('fall','FALL')}</span></div>`);
+          sections.push(`<div class="rc-sec act"><span>ACTIVE ${activePids.length}</span><span class="fpt-wrap">${tb('day','DAY')}${tb('week','WEEK')}${tb('fall','FALL')}</span></div>`);
           sections.push(...activePids.map(rowHtml));
         }
         if(benchPids.length){

@@ -40,7 +40,7 @@ function card16(n, pos, o={}){
   const fp = fpFor(p);
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${pix(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
+    <div class="rc-art">${face(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
     <div class="rc-bot"><b>${gtxt}</b></div></div></div>`;
 }
 
@@ -207,15 +207,17 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rc-art .fpg{position:absolute;right:2px;top:2px;font-size:5px;color:#fff;background:#c4122f;border:1px solid #000;padding:1px 2px;box-shadow:1px 1px 0 #000}
 .rc-art .fpn{position:absolute;right:2px;bottom:2px;font-size:4.5px;color:#1a1200;background:var(--gold);border:1px solid #000;padding:1px 2px}
 .rc-art{position:relative;border:1px solid #000;background:var(--tc);overflow:hidden;min-height:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-.rc-art canvas.pix{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;object-fit:cover}
+.rc-art img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;object-position:50% 8%}
+.rc-art::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(0,0,0,.45));mix-blend-mode:multiply}
+.rc-art>span{z-index:1}
 .rc-art .pos{position:absolute;left:2px;bottom:2px;font-size:4.5px;background:#000;color:#fff;padding:1px 2px}
 .rc-art .inj{position:absolute;left:2px;top:2px;font-size:4.5px;background:var(--gold);color:#1a1200;padding:1px 2px}.rc-art .inj.o{background:#ff3b5c;color:#fff}
 .rc-art .plus{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:rgba(255,255,255,.35)}
 .rc-art .p1t{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:5px;color:#fff;background:#e94560;padding:1px 3px;border:1px solid #000;animation:bob .8s steps(2) infinite}
 .rc-bot{display:flex;justify-content:center;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;font-size:4.5px;min-width:0}
 .rc-bot b{font-weight:normal;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.rc-bot i{font-style:normal;color:var(--gold);white-space:nowrap}
-.rc16.idle .rc-bot b{color:var(--t3)}.rc16.idle canvas.pix{filter:grayscale(.65) brightness(.75)}
-.rc16.out .rc-bot b{color:#ff3b5c}.rc16.out canvas.pix{filter:grayscale(1) brightness(.5)}
+.rc16.idle .rc-bot b{color:var(--t3)}.rc16.idle .rc-art img{filter:grayscale(.65) brightness(.75)}
+.rc16.out .rc-bot b{color:#ff3b5c}.rc16.out .rc-art img{filter:grayscale(1) brightness(.5)}
 .rc16.empty{animation:none;background:transparent;box-shadow:none;border:2px dashed #3b4a66;padding:2px}.rc16.empty .rc-in{background:rgba(59,74,102,.15);box-shadow:none}
 .rc16.empty .rc-in::after{display:none}.rc16.empty .rc-art{background:transparent;border:none;box-shadow:none}.rc16.empty .rc-bot{background:transparent;border:none;justify-content:center}.rc16.empty .rc-bot b{color:var(--t3)}
 .rc16.irs{border-color:var(--violet)}

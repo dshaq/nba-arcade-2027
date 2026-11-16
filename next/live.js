@@ -126,7 +126,7 @@ function sync(){
   S.fl={act:pad(act,8), bench:pad(bench,2), ir:[ir!=null?nameOf(ir):null]};
   // Score this week
   MU.week=widx+1; LIVE.mu={me:Math.round(W.managerFP(mid)), opp:oppId?Math.round(W.managerFP(oppId)):0}; LIVE.oppId=oppId;
-  TODAY_I = Math.round((W.etWallNow()-new Date(wr.mon.getFullYear(),wr.mon.getMonth(),wr.mon.getDate()))/864e5);
+  TODAY_I = Math.floor((W.etWallNow()-new Date(wr.mon.getFullYear(),wr.mon.getMonth(),wr.mon.getDate()))/864e5);
   TODAY_I = Math.max(0,Math.min(6,Math.floor(TODAY_I)));
   WEEK_START = w => W.runWeekRange(run, w-1).mon;
   const dayFp = (m,d) => W.teamFPForDates(m, d, d, byDate);

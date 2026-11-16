@@ -450,6 +450,10 @@ const SCREENS={home, missions, baller};
 const AFTER={};
 /* Show any error right on the screen (so a screenshot tells us what broke) */
 const ERRS=[];
+async function whyFail(f){ let info='';
+  try{ const r=await fetch(f+'.js?v=6&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
+  catch(e){ info=' (fetch: '+e.message+')'; }
+  showErr('could not load '+f+'.js'+info); }
 function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
   if(!b){ b=document.createElement('div'); b.id='errbox'; b.onclick=()=>b.remove();
     b.style.cssText='position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:99;background:#3a0a14;border:2px solid #ff3b5c;border-radius:8px;padding:8px 10px;font:10px/1.5 ui-monospace,monospace;color:#ffd0d8;max-height:40vh;overflow:auto;white-space:pre-wrap';
@@ -691,10 +695,10 @@ setTimeout(async()=>{ if(start.done) return;
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=6" onload="LOADED.add('data')" onerror="showErr('could not load data.js')"></script>
-<script src="modes.js?v=6" onload="LOADED.add('modes')" onerror="showErr('could not load modes.js')"></script>
-<script src="fantasy.js?v=6" onload="LOADED.add('fantasy')" onerror="showErr('could not load fantasy.js')"></script>
-<script src="live.js?v=6" onload="LOADED.add('live')" onerror="showErr('could not load live.js')"></script>
-<script src="cards.js?v=6" onload="LOADED.add('cards')" onerror="showErr('could not load cards.js')"></script>
+<script src="data.js?v=6" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=6" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=6" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="live.js?v=6" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=6" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
 </body>
 </html>

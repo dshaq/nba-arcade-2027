@@ -36,6 +36,12 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .me{border-color:var(--gold);overflow:visible}
 .me canvas{width:30px;height:30px}
 .me .lv{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-size:6px;background:var(--gold);color:#1a1200;padding:2px 4px;border-radius:4px;white-space:nowrap}
+.top.nos ~ .screen{padding-top:calc(env(safe-area-inset-top,0px) + 74px)}
+.mis-ic{border-color:#ff3b5c}
+.dot.rd{min-width:12px;height:12px;padding:0}
+.recap b.bad{color:#ff3b5c}
+.todo.st{color:var(--gold)}.todo.st::before{content:'★';margin-right:2px}
+.menu .mcap{font-size:6px;color:var(--gold);padding:14px 4px 6px;border-top:1px solid var(--edge);letter-spacing:.1em}
 .dot{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--red);border:2px solid var(--bg);font-size:6px;display:grid;place-items:center;color:#fff}
 
 /* ── Missions strip (the day's progress bar) ── */
@@ -252,12 +258,15 @@ const vsrc = (v,team,name) => v&&v.art ? altimg(v.art,team,name) : pimg(team,nam
 const SIL = 'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 70"><rect width="60" height="70" fill="#1e3258"/><circle cx="30" cy="26" r="13" fill="#506080"/><path d="M6 70c2-18 12-26 24-26s22 8 24 26z" fill="#506080"/></svg>');
 const ME  = {name:'Dave', team:'Pixel Pushers'};
 const OPP = {name:'Riley', team:'Fast Break Bandits'};
-const MU  = {me:94, opp:86, week:3};
-const MVP = {id:'sga', name:'Shai Gilgeous-Alexander', team:'OKC', tc:'#007ac1', fp:'52.4 FP/G'};
+const MU  = {week:3};                 // me/opp scores come from data.js
+let MVP = {id:'Shai Gilgeous-Alexander', name:'Shai Gilgeous-Alexander', team:'OKC', tc:'#007ac1', fp:'48 FP', label:'YESTERDAY'};  // set by home()
 const DUEL = {title:'Wet Wednesday', lock:'7:00 PM',
   a:{name:'Tyrese Maxey', short:'MAXEY', team:'PHI', tc:'#006bb6'},
   b:{name:'Devin Booker', short:'BOOKER', team:'PHX', tc:'#e56020'}};
-const WLC = {pool:'ALL-STAR', sub:'5 FOR $15'};
+const WLC = {pool:'WHITEOUT', sub:'5 FOR $15'};
+/* Preview switch: are today's games on yet? (menu ☰ → Preview) */
+const etHour = () => +new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false});
+const gs = () => S.gsO || (etHour()>=19 ? 'live' : 'pre');
 
 /* Alternate portraits. The real ones would be new art; these are look-alike treatments for now. */
 const VARIANTS = [
@@ -272,10 +281,10 @@ const VARIANTS = [
 /* Missions. Each to-do lives in the box for its area, and finishing it fills the day's bar. */
 const MISSIONS = [
   {k:'checkin', ic:'👋', t:'Check in',               d:'Open the app today',                 xp:10, area:'home'},
-  {k:'lineup',  ic:'🏀', t:'Set your line-up',       d:'Fantasy · 1 empty slot Thursday',     xp:20, area:'fantasy'},
+  {k:'lineup',  ic:'🏀', t:'Set your line-up',       d:'Fantasy · Tatum is OUT today',        xp:20, area:'fantasy'},
   {k:'duel',    ic:'⚡', t:"Make today's Duel pick", d:`${DUEL.a.short} or ${DUEL.b.short} · locks ${DUEL.lock}`, xp:20, area:'duel'},
   {k:'futures', ic:'🔮', t:'Make your Futures pick',  d:'NBA Cup · East Group B',              xp:15, area:'duel'},
-  {k:'wlc',     ic:'⭐', t:'Enter the Challenge',     d:`${WLC.pool} · this week`,             xp:25, area:'wlc'},
+  {k:'wlc',     ic:'⭐', t:'Enter the Challenge',     d:`${WLC.pool} · picks lock Monday`,     xp:25, area:'wlc'},
 ];
 const FULL_BONUS = 50;
 
@@ -289,7 +298,7 @@ const TODAY = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'
 const KEY='nba-next-proto-v2';
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
 let S = Object.assign({active:'nova', ballers:{}, portraits:{}, unlocked:[], day:null, done:{}}, load());
-if(S.day!==TODAY){ S.day=TODAY; S.done={}; S.greeted=false; S.bonus=false; }
+if(S.day!==TODAY){ S.day=TODAY; S.done={}; S.greeted=false; S.bonus=false; if(S.wsaved) S.done.wlc=true; }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 const B = ch => (S.ballers[ch] ||= {exp:0, cw:0, head:null, face:null});
 function lvOf(exp){ let lv=1; while(exp>=need(lv)){ exp-=need(lv); lv++; } return {lv, into:exp, next:need(lv)}; }
@@ -330,6 +339,7 @@ const I = {
   bolt:'<svg viewBox="0 0 16 16"><path d="M9 1 3 9h4l-1 6 6-8H8z" fill="#ffd93d" stroke="#000" stroke-linejoin="round"/></svg>',
   menu:'<svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#fff" d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/></svg>',
   cards:'<svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#000" d="M5 1h9v12H5z"/><path fill="#ffd93d" d="M6 2h7v10H6z"/><path fill="#000" d="M2 3h9v12H2z"/><path fill="#4a9eff" d="M3 4h7v10H3z"/><path fill="#fff" d="M4 5h2v2H4z"/></svg>',
+  target:'<svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#ff3b5c" d="M5 1h6v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H5v-1H3v-2H2v-2H1V6h1V4h1V2h2z"/><path fill="#fff" d="M6 3h4v1h1v1h1v1h1v4h-1v1h-1v1h-1v1H6v-1H5v-1H4v-1H3V6h1V5h1V4h1z"/><path fill="#ff3b5c" d="M7 5h2v1h1v1h1v2h-1v1H9v1H7v-1H6V9H5V7h1V6h1z"/><path fill="#ffd93d" d="M7 7h2v2H7z"/></svg>',
   chat:'<svg viewBox="0 0 16 16"><path d="M2 3h12v8H7l-4 3v-3H2z" fill="#fff" stroke="#000"/><path d="M5 7h1M8 7h1M11 7h1" stroke="#000" stroke-width="1.4"/></svg>',
 };
 
@@ -341,30 +351,34 @@ const pClass = id => { const v=S.portraits[id]||'base'; return v==='base'?'':'v-
 
 function topBar(){
   const a=S.active, L=lvOf(B(a).exp);
-  return `<div class="top"><div class="logo"><b>NBA</b> <i>ARCADE</i></div><div class="sp"></div>
+  const reward = doneCount()===MISSIONS.length && !S.bonus;
+  return `<div class="top ${cur==='home'?'':'nos'}"><div class="logo"><b>NBA</b> <i>ARCADE</i></div><div class="sp"></div>
+    ${cur==='home'||cur==='missions'?'':`<button class="ibtn mis-ic" onclick="go('missions')" aria-label="Daily Missions">${I.target}${reward?'<span class="dot rd"></span>':''}</button>`}
     <button class="ibtn" onclick="say('Chat · 2 new')" aria-label="Chat">${I.chat}<span class="dot">2</span></button>
     <button class="ibtn" onclick="go('cards')" aria-label="Cards">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
-    <button class="ibtn me" onclick="go('baller')" aria-label="Your Baller"><span id="mebtn"></span><span class="lv">LV ${L.lv}</span></button></div>
-  <div class="mstrip" onclick="go('missions')" role="button" aria-label="Missions">
-    <span class="lab">MISSIONS</span>
+    <button class="ibtn me" onclick="go('baller')" aria-label="Your Baller"><span id="mebtn"></span><span class="lv">LV ${L.lv}</span></button></div>`
+  + (cur!=='home' ? '' : `
+  <div class="mstrip" onclick="go('missions')" role="button" aria-label="Daily Missions">
+    <span class="lab">DAILY MISSIONS</span>
     <div class="pbar" id="pbar">${MISSIONS.map((m,i)=>`<span class="${i<doneCount()?'on':''}"></span>`).join('')}</div>
-    <span class="n">${doneCount()}/${MISSIONS.length}</span><span class="chest ${doneCount()===MISSIONS.length?'on':''}">🎁</span></div>`;
+    <span class="n">${doneCount()}/${MISSIONS.length}</span><span class="chest ${doneCount()===MISSIONS.length?'on':''}">🎁</span></div>`);
 }
 function home(){
   const lead = MU.me>=MU.opp;
+  MVP = topScorer();
+  const picksLeft = ['duel','futures'].filter(k=>!S.done[k] && (k==='duel' || futuresToday())).length;
   const pickA = S.done.duel===DUEL.a.short, pickB = S.done.duel===DUEL.b.short;
   return topBar()+`<div class="screen"><div class="home">
-    <div class="box fan" onclick="go('fantasy')">
+    <div class="box fan" onclick="openFantasy()">
       <div>
         <h2>FANTASY</h2><div class="eyebrow">WEEK ${MU.week} · VS ${OPP.name.toUpperCase()}</div>
         <div class="score"><b class="${lead?'lead':''}">${MU.me}</b><span class="dash"></span><b class="${lead?'':'lead'}">${MU.opp}</b></div>
         <div class="teams"><span>${ME.team.toUpperCase()}</span><span>${OPP.team.split(' ').pop().toUpperCase()}</span></div>
-        <div class="live">LIVE · 3 OF YOURS ON COURT</div>
         ${todoLine('lineup',{need:'SET LINE-UP!',done:'LINE-UP SET'})}
       </div>
       <div class="mvp" onclick="event.stopPropagation();openPortrait()">
         <div class="pcard ${pClass(MVP.id)}" style="background:${MVP.tc}">${img(vsrc(VARIANTS.find(v=>v.k===(S.portraits[MVP.id]||'base')),MVP.team,MVP.name))}<span class="alt">ALT</span></div>
-        <div class="plate">WEEK MVP</div><small>${MVP.fp}</small>
+        <div class="plate">${MVP.label}</div><small>${P(MVP.name).s} · ${MVP.fp}</small>
       </div>
     </div>
     <div class="row2">
@@ -372,20 +386,19 @@ function home(){
         <h2>DUEL</h2>
         <div class="vs"><div class="f ${pickA?'pick':''}" style="--tc:${DUEL.a.tc}">${img(pimg(DUEL.a.team,DUEL.a.name))}</div><i>VS</i><div class="f ${pickB?'pick':''}" style="--tc:${DUEL.b.tc}">${img(pimg(DUEL.b.team,DUEL.b.name))}</div></div>
         <div class="tag">${DUEL.title.toUpperCase()}</div>
-        ${todoLine('duel',{need:'MAKE YOUR PICK',done:'PICKED '+(S.done.duel||'')})}
-        ${todoLine('futures',{need:'FUTURES PICK',done:'FUTURES IN'})}
+        ${picksLeft ? `<div class="todo"><span class="w">!</span>MAKE YOUR PICK${picksLeft>1?' (x2)':''}</div>` : `<div class="todo ok"><span class="w">✓</span>PICKS IN</div>`}
       </div>
       <div class="box chal" onclick="go('wlc')">
         <h2>CHALLENGE</h2>
         <div class="banner"><div class="allstar">${WLC.pool}<small>${WLC.sub}</small></div></div>
-        ${todoLine('wlc',{need:'MAKE ENTRY',done:'ENTERED'})}
+        ${S.wphase==='live' ? `<div class="todo st">${wlcStatus()}</div>` : S.wsaved ? '<div class="todo ok"><span class="w">✓</span>ENTERED</div>' : '<div class="todo"><span class="w">!</span>MAKE ENTRY</div>'}
       </div>
     </div>
   </div></div><div class="proto">DESIGN PREVIEW · SAMPLE DATA</div>`;
 }
 function missions(){
   const n=doneCount(), all=n===MISSIONS.length, a=S.active;
-  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>MISSIONS</h1></div>
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>DAILY MISSIONS</h1></div>
     <div class="panel"><div class="sec">TODAY · RESETS 12 AM ET</div>
       <div class="bigbar"><div class="pbar" id="pbar">${MISSIONS.map((m,i)=>`<span class="${i<n?'on':''}"></span>`).join('')}</div><span class="chest ${all?'on':''}" style="font-size:20px">🎁</span></div>
       <div class="reward">${all?(S.bonus?'✓ BONUS COLLECTED':''):`FILL THE BAR: <b>+${FULL_BONUS} EXP</b> AND A <b>CARD PACK</b>`}</div>
@@ -440,12 +453,13 @@ function render(){
   document.querySelectorAll('#track .cvs').forEach(el=>{ const ch=document.getElementById('bigb').dataset.ch; el.appendChild(ballerCv(ch,2,JSON.parse(el.dataset.look))); });
   document.querySelectorAll('#track .un.got').forEach(el=>el.onclick=()=>{ const ch=document.getElementById('bigb').dataset.ch, me=B(ch), k=el.dataset.k, v=k==='cw'?+el.dataset.v:el.dataset.v;
     if(k==='cw') me.cw=v; else me[k] = me[k]===v ? null : v; save(); render(); });
+  document.querySelectorAll('.av[data-ch]').forEach(el=>{ if(!el.firstChild && el.dataset.ch && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
   (AFTER[cur]||(()=>{}))();
   nav();
 }
 function nav(){
   const need = a => MISSIONS.some(m=>m.area===a && !S.done[m.k]);
-  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,()=>go('fantasy'),need('fantasy')],['wlc',I.orb,()=>go('wlc'),need('wlc')],['duel',I.bolt,()=>go('duel'),need('duel')],['menu',I.menu,openMenu]];
+  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,openFantasy,need('fantasy')],['wlc',I.orb,()=>go('wlc'),need('wlc')],['duel',I.bolt,()=>go('duel'),need('duel')],['menu',I.menu,openMenu]];
   const el=document.getElementById('nav'); el.innerHTML='';
   items.forEach(([k,ic,fn,dot])=>{ const b=document.createElement('button'); b.className=(k===cur||(k==='duel'&&cur==='futures'))?'on':''; b.innerHTML=ic+(dot?'<span class="dot"></span>':''); b.setAttribute('aria-label',k); b.onclick=fn; el.appendChild(b); });
 }
@@ -456,7 +470,10 @@ function overlay(html, center){ const o=document.createElement('div'); o.classNa
 function openSheet(k){
   if(k==='checkin'){ greet(true); return; }
   const route={lineup:'fantasy', duel:'duel', futures:'futures', wlc:'wlc'}[k];
-  if(route && SCREENS[route]){ if(k==='lineup') FZ.tab='inv'; go(route); return; }
+  if(k==='lineup'){ FZ.tab='roster'; S.rq='quick'; FZ.sel=null; if(cur==='fantasy') render(); else go('fantasy'); return; }
+  if(k==='futures'){ DZ.tab='cur'; DZ.sec='futures'; if(cur==='duel') render(); else go('duel'); return; }
+  if(k==='duel'){ DZ.tab='cur'; DZ.sec='daily'; if(cur==='duel') render(); else go('duel'); return; }
+  if(route && SCREENS[route]){ go(route); return; }
   const m=MISSIONS.find(x=>x.k===k);
   if(k==='duel'){
     const o=overlay(`<div class="sheet" style="--c:var(--pink)"><h3>DAILY DUEL · ${DUEL.title.toUpperCase()}</h3><p>Who scores more fantasy points tonight? Your pick is final as soon as you tap.</p>
@@ -478,15 +495,23 @@ function openSheet(k){
 }
 function openMenu(){
   const o=overlay(`<div class="sheet"><h3>MORE</h3><div class="menu">
-    <a data-a="missions"><span>🎯</span>Missions<small>${doneCount()}/${MISSIONS.length} TODAY</small></a>
+    <a data-a="missions"><span>🎯</span>Daily Missions<small>${doneCount()}/${MISSIONS.length} TODAY</small></a>
     <a data-a="cards"><span>🎴</span>Cards<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
     <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
     <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
     <a data-a="x"><span>🏆</span>Standings</a><a data-a="x"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="x"><span>⚙️</span>Settings</a>
+    <div class="mcap">PREVIEW SWITCHES</div>
+    <a data-a="gs"><span>🏀</span>Today's games<small>${gs()==='live'?'LIVE NOW':'BEFORE TIP-OFF'} ⇄</small></a>
+    <a data-a="wph"><span>⭐</span>Weekly Challenge<small>${S.wphase==='live'?'IN PROGRESS':'PICKING'} ⇄</small></a>
+    <a data-a="vs"><span>⚔️</span>Replay the Fantasy VS splash<small>PREVIEW</small></a>
     <a data-a="greet"><span>👋</span>Replay today's greeting<small>PREVIEW</small></a>
     <a data-a="reset"><span>↺</span>Start the preview over<small>PREVIEW</small></a></div></div>`);
   o.querySelectorAll('[data-a]').forEach(a=>a.onclick=()=>{ o.remove(); const v=a.dataset.a;
-    if(v==='missions'||v==='baller'||v==='cards') go(v); else if(v==='greet') greet(true); else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{}}; save(); render(); greet(); } else say('We\'ll design this one later'); });
+    if(v==='missions'||v==='baller'||v==='cards') go(v); else if(v==='greet') greet(true);
+    else if(v==='gs'){ S.gsO = gs()==='live'?'pre':'live'; save(); render(); say(gs()==='live'?'Games are on':'Before tip-off'); }
+    else if(v==='wph'){ S.wphase = S.wphase==='live'?'open':'live'; save(); render(); say(S.wphase==='live'?'Challenge week under way':'Challenge picking open'); }
+    else if(v==='vs'){ S.vsWeek=null; save(); openFantasy(); }
+    else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{},fl:JSON.parse(JSON.stringify(MY_START)),party:[]}; save(); location.reload(); } else say('We\'ll design this one later'); });
 }
 
 /* ── Doing a to-do: EXP flies to the bar, the bar fills, the Baller levels up ── */
@@ -584,14 +609,21 @@ function greet(replay){
   g.innerHTML=`<div class="hi">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase()}</div>
     <h1>${hi},<br>${ME.name.toUpperCase()}!</h1><span id="gb"></span>
     <div class="recap">
-      <div style="animation-delay:.2s"><span>⚡</span><div>Yesterday's Duel: <b>you called it</b>. Barnes beat Sengun 41–37. Streak 🔥3.</div></div>
-      <div style="animation-delay:.45s"><span>🏀</span><div>Fantasy: you're up <b>${MU.me}–${MU.opp}</b> on ${OPP.name}.</div></div>
-      <div style="animation-delay:.7s"><span>🎯</span><div>${MISSIONS.length-1} missions waiting today.</div></div>
+      <div style="animation-delay:.2s"><span>⚡</span><div>Yesterday's Duel: <b>you called it</b>. Barnes beat Sengun 27–22. Streak 🔥3.</div></div>
+      <div style="animation-delay:.4s"><span>🏀</span><div>Fantasy: ${MU.me>=MU.opp?`you're up <b>${MU.me}–${MU.opp}</b> on`:`you trail <b class="bad">${MU.me}–${MU.opp}</b> to`} ${OPP.name}.</div></div>
+      <div style="animation-delay:.6s"><span>⭐</span><div>${wlcGreet()}</div></div>
+      <div style="animation-delay:.8s"><span>🎯</span><div><b>${MISSIONS.filter(m=>m.k!=='checkin'&&!S.done[m.k]).length} Daily Missions</b> for today.</div></div>
     </div>
     <button class="btn" id="cont">CONTINUE ▶</button>`;
   g.querySelector('#gb').appendChild(ballerCv(S.active,4));
   g.querySelector('#cont').onclick=()=>{ S.greeted=true; save(); dissolve(()=>{ g.remove(); render(); }, '#020c18').then(()=>{ if(!S.done.checkin) complete('checkin', document.querySelector('.mstrip')); }); };
   document.getElementById('app').appendChild(g);
+}
+
+function wlcGreet(){
+  if(S.wphase!=='live') return `Weekly Challenge: <b>${WLC.pool}</b> is open. Picks lock Monday.`;
+  const r=cEntries().find(e=>e.me).rank, was=1;
+  return `Weekly Challenge: ${r>was?'dropped to':r<was?'climbed to':'holding'} <b class="${r>was?'bad':''}">${ordinal(r).toLowerCase()} place</b>.`;
 }
 
 /* ── Fairy dust (kept from the last preview, retuned for the navy) ───────── */
@@ -623,11 +655,11 @@ function dissolve(swap, color='#020c18'){
 async function go(k){ if(busy||k===cur) return; busy=true; if(k==='baller') bi=null; await dissolve(()=>{ cur=k; render(); }); busy=false; }
 function say(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.getElementById('app').appendChild(d); setTimeout(()=>d.remove(),1800); }
 
-dust(document.getElementById('dust'));
-render();
-if(!S.greeted) greet();
+addEventListener('DOMContentLoaded', ()=>{ dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); });
 </script>
+<script src="data.js"></script>
 <script src="modes.js"></script>
+<script src="fantasy.js"></script>
 <script src="cards.js"></script>
 </body>
 </html>

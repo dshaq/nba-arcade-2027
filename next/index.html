@@ -458,7 +458,7 @@ function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
   if(!b){ b=document.createElement('div'); b.id='errbox'; b.onclick=()=>b.remove();
     b.style.cssText='position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:99;background:#3a0a14;border:2px solid #ff3b5c;border-radius:8px;padding:8px 10px;font:10px/1.5 ui-monospace,monospace;color:#ffd0d8;max-height:40vh;overflow:auto;white-space:pre-wrap';
     (document.getElementById('app')||document.body).appendChild(b); }
-  b.textContent='Something broke (tap to hide). Screenshot this for Claude:\n'+ERRS.slice(-6).join('\n'); }
+  b.textContent='Something broke (tap to hide). Screenshot this for Claude:\n'+ERRS.slice(0,14).join('\n'); }
 addEventListener('error', e=>showErr(`${e.message} @ ${(e.filename||'').split('/').pop()}:${e.lineno}:${e.colno}`));
 addEventListener('unhandledrejection', e=>showErr('promise: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason)));
 function render(){

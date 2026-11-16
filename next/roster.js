@@ -40,7 +40,7 @@ function card16(n, pos, o={}){
   const fp = fpFor(p);
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${face(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
+    <div class="rc-art">${face(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${pos==='i0'?'<span class="irtag">IR</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
     <div class="rc-bot"><b>${gtxt}</b></div></div></div>`;
 }
 
@@ -221,6 +221,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rc16.empty{animation:none;background:transparent;box-shadow:none;border:2px dashed #3b4a66;padding:2px}.rc16.empty .rc-in{background:rgba(59,74,102,.15);box-shadow:none}
 .rc16.empty .rc-in::after{display:none}.rc16.empty .rc-art{background:transparent;border:none;box-shadow:none}.rc16.empty .rc-bot{background:transparent;border:none;justify-content:center}.rc16.empty .rc-bot b{color:var(--t3)}
 .rc16.irs{border-color:var(--violet)}
+.rc-art .irtag{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-12deg);font-size:9px;color:#fff;background:var(--violet);border:2px solid #000;padding:2px 6px;box-shadow:2px 2px 0 #000}
 .rc16.p1{box-shadow:0 0 0 2px #e94560,0 0 14px rgba(233,69,96,.6),0 3px 0 #000}
 .rc16.lifted{opacity:.25;animation:none}
 .rc16.over{outline:3px solid var(--gold);outline-offset:2px;animation:none;transform:scale(1.05)}

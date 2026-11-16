@@ -199,7 +199,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .bhp.two{background:transparent;display:flex}
 .bhp.two i{display:block;height:100%;background:linear-gradient(180deg,#8dffab,#1fbf4a)}
 .bhp.two span{position:static;display:block;height:100%}
-.bsc b,.bsc span{font-weight:normal;color:var(--t1)}.bsc .up{color:var(--green)}
+.boss>div{min-width:0}.bsc{font-size:17px;gap:6px;flex-wrap:wrap}
+.bsc b,.bsc span{font-weight:normal;color:var(--t1)}
+.room b{font-size:5.5px;line-height:1.7}.bsc .up{color:var(--green)}
 .room.tdy{border-color:var(--gold)}
 .dlg{cursor:pointer}
 /* fantasy: select panel (also used by Waivers) */
@@ -277,7 +279,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .srep b{font-weight:normal;background:var(--gold);color:#1a1200;border-radius:6px;padding:1px 5px;margin-left:4px}
 .srep.blu{border-color:var(--blue);color:var(--blue)}
 .wbtns{display:flex;gap:8px;margin-top:2px}
-.wb{flex:1;font-size:7px;padding:9px 6px;border-radius:7px;border:2px solid var(--blue);background:transparent;color:var(--blue);cursor:pointer}
+.wb{flex:1 1 0;white-space:nowrap;font-size:7px;padding:9px 6px;border-radius:7px;border:2px solid var(--blue);background:transparent;color:var(--blue);cursor:pointer}
 .wb.sc{border-color:var(--gold);color:var(--gold)}.wb.sc.on{background:rgba(255,217,61,.12)}
 .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .tt{text-align:center;cursor:pointer;min-width:0}

@@ -202,7 +202,7 @@ const addsLeft = () => 3 - S.wv.used;
 const addBar = () => `<div class="adds">ADD/DROPS LEFT <span>${[0,1,2].map(k=>`<i class="${k<addsLeft()?'on':''}"></i>`).join('')}</span> ${addsLeft()}/3</div>`;
 function wvQuick(){
   const t=trending(), sel=FZ.wsel;
-  const btns = sel ? `<div class="wbtns"><button class="wb add" onclick="wvAdd('${sel.replace(/'/g,"\\'")}')">＋ ADD</button><button class="wb sc ${S.wv.scouted.includes(sel)?'on':''}" onclick="wvScout('${sel.replace(/'/g,"\\'")}')">${S.wv.scouted.includes(sel)?'✓ SCOUTED':'🔭 SCOUT'}</button></div>` : '';
+  const btns = sel ? `<div class="wbtns"><button class="wb add" onclick="wvAdd('${sel.replace(/'/g,"\\'")}')">+ ADD</button><button class="wb sc ${S.wv.scouted.includes(sel)?'on':''}" onclick="wvScout('${sel.replace(/'/g,"\\'")}')">${S.wv.scouted.includes(sel)?'✓ SCOUTED':'🔭 SCOUT'}</button></div>` : '';
   return `<div class="wtop">${addBar()}<button class="srep" onclick="scoutReport()">🔭 SCOUTING REPORT <b>${S.wv.scouted.length}</b></button></div>
     ${selPanel(sel, sel?`<small>LAST 5 GAMES <span style="color:var(--green)">${P(sel).l5} FP/G</span></small>${btns}`:'')}
     <div class="qcap">TRENDING · BEST FP/G OVER THE LAST 5 GAMES</div>

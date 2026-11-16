@@ -39,9 +39,9 @@ function card16(n, pos, o={}){
   const p=P(n), rr=rarity(p.f), di=FZ.day, gtxt = p.inj==='OUT' ? 'OUT' : dayGame(n, di), off = gtxt==='NO GAME';
   const fp = fpFor(p);
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
-    <div class="rc-in"><div class="rc-top"><span class="nm">${p.s}</span><span class="hp"><small>FP/G</small>${p.f}</span></div>
-    <div class="rc-art">${pix(p.t,p.n)}<span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}</div>
-    <div class="rc-bot"><b>${gtxt}</b><i>${fp}${fp==='—'?'':' FP'}</i></div></div></div>`;
+    <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
+    <div class="rc-art">${pix(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
+    <div class="rc-bot"><b>${gtxt}</b></div></div></div>`;
 }
 
 /* ── Line-up helpers (live.js swaps these for the real engine) ── */
@@ -202,16 +202,17 @@ document.head.insertAdjacentHTML('beforeend', `<style>
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 2px 2px 0 rgba(255,255,255,.35)}
 .rc16.r-legend .rc-in{background:linear-gradient(135deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);background-size:300% 300%;animation:holo 4s linear infinite}
 .rc16 .rc-in::after{content:'';position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.55) 50%,transparent 58%);transform:translateX(-120%);animation:glint 7s ease-in-out infinite;animation-delay:var(--d,0s);pointer-events:none}
-.rc-top{display:flex;justify-content:space-between;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;min-width:0}
+.rc-top{display:flex;justify-content:center;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;min-width:0}
 .rc-top .nm{font-size:4.6px;letter-spacing:-.02em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.rc-top .hp{font-size:5.5px;color:#ff6b6b;white-space:nowrap;flex:none}.rc-top .hp small{display:none}
+.rc-art .fpg{position:absolute;right:2px;top:2px;font-size:5px;color:#fff;background:#c4122f;border:1px solid #000;padding:1px 2px;box-shadow:1px 1px 0 #000}
+.rc-art .fpn{position:absolute;right:2px;bottom:2px;font-size:4.5px;color:#1a1200;background:var(--gold);border:1px solid #000;padding:1px 2px}
 .rc-art{position:relative;border:1px solid #000;background:var(--tc);overflow:hidden;min-height:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .rc-art canvas.pix{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;object-fit:cover}
 .rc-art .pos{position:absolute;left:2px;bottom:2px;font-size:4.5px;background:#000;color:#fff;padding:1px 2px}
-.rc-art .inj{position:absolute;right:2px;top:2px;font-size:4.5px;background:var(--gold);color:#1a1200;padding:1px 2px}.rc-art .inj.o{background:#ff3b5c;color:#fff}
+.rc-art .inj{position:absolute;left:2px;top:2px;font-size:4.5px;background:var(--gold);color:#1a1200;padding:1px 2px}.rc-art .inj.o{background:#ff3b5c;color:#fff}
 .rc-art .plus{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:rgba(255,255,255,.35)}
 .rc-art .p1t{position:absolute;left:50%;top:2px;transform:translateX(-50%);font-size:5px;color:#fff;background:#e94560;padding:1px 3px;border:1px solid #000;animation:bob .8s steps(2) infinite}
-.rc-bot{display:flex;justify-content:space-between;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;font-size:4.5px;min-width:0}
+.rc-bot{display:flex;justify-content:center;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;font-size:4.5px;min-width:0}
 .rc-bot b{font-weight:normal;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.rc-bot i{font-style:normal;color:var(--gold);white-space:nowrap}
 .rc16.idle .rc-bot b{color:var(--t3)}.rc16.idle canvas.pix{filter:grayscale(.65) brightness(.75)}
 .rc16.out .rc-bot b{color:#ff3b5c}.rc16.out canvas.pix{filter:grayscale(1) brightness(.5)}
@@ -223,7 +224,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rc16.over{outline:3px solid var(--gold);outline-offset:2px;animation:none;transform:scale(1.05)}
 .rc16.ghost{position:fixed;z-index:80;pointer-events:none;animation:none;transform:rotate(-4deg) scale(1.12);box-shadow:0 0 0 2px var(--gold),0 18px 30px rgba(0,0,0,.6)}
 .rc16.big{width:116px;flex:none;animation:wob 4.2s ease-in-out infinite}
-.rc16.big .rc-top .nm{font-size:7px}.rc16.big .rc-top .hp{font-size:9px}.rc16.big .rc-bot{font-size:6px}
+.rc16.big .rc-top .nm{font-size:7px!important}.rc16.big .fpg{font-size:8px}.rc16.big .fpn{font-size:6px}.rc16.big .rc-bot{font-size:6px}
 @keyframes wob{0%,100%{transform:rotate(-1.2deg) translateY(0)}50%{transform:rotate(1.2deg) translateY(-2px)}}
 @keyframes glint{0%,82%{transform:translateX(-120%)}92%,100%{transform:translateX(120%)}}
 @keyframes holo{to{background-position:300% 0}}

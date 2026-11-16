@@ -683,12 +683,18 @@ function say(t){ const d=document.createElement('div'); d.className='toast'; d.t
 
 function start(){ if(start.done) return; start.done=true; dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); }
 if(document.readyState==='loading') addEventListener('DOMContentLoaded', start); else setTimeout(start);
-setTimeout(()=>{ if(!start.done){ showErr('Page never finished loading; starting anyway'); start(); } }, 8000);
+// If a file is stuck loading (seen on one iPhone), fetch the missing ones again and start without waiting
+const LOADED=new Set(), PARTS=['data','modes','fantasy','live','cards'];
+setTimeout(async()=>{ if(start.done) return;
+  const miss=PARTS.filter(p=>!LOADED.has(p));
+  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=6&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
+  if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
+}, 5000);
 </script>
-<script src="data.js"></script>
-<script src="modes.js"></script>
-<script src="fantasy.js"></script>
-<script src="live.js"></script>
-<script src="cards.js"></script>
+<script src="data.js?v=6" onload="LOADED.add('data')" onerror="showErr('could not load data.js')"></script>
+<script src="modes.js?v=6" onload="LOADED.add('modes')" onerror="showErr('could not load modes.js')"></script>
+<script src="fantasy.js?v=6" onload="LOADED.add('fantasy')" onerror="showErr('could not load fantasy.js')"></script>
+<script src="live.js?v=6" onload="LOADED.add('live')" onerror="showErr('could not load live.js')"></script>
+<script src="cards.js?v=6" onload="LOADED.add('cards')" onerror="showErr('could not load cards.js')"></script>
 </body>
 </html>

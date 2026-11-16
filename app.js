@@ -4,7 +4,10 @@
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://ipsngddnavymcmfbbcxu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlwc25nZGRuYXZ5bWNtZmJiY3h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDk3NDMsImV4cCI6MjA5MTc4NTc0M30.0MmQn49Y0FCn3r8GFI5XspZR12YwGWTcTbv765VoJEQ';
-const LEAGUE_KEY    = 'nba-arcade-2027';
+// ?league=next opens the TEST league (a separate copy used by the new site). Anything else is the real league.
+const TEST_LEAGUES  = {next:'nba-arcade-next'};
+const LEAGUE_KEY    = TEST_LEAGUES[new URLSearchParams(location.search).get('league')] || 'nba-arcade-2027';
+const IS_TEST       = LEAGUE_KEY !== 'nba-arcade-2027';
 const PORTRAITS_KEY = 'nba-portraits-2027';
 const PORTRAITS_BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/player-portraits`;
 // Storage can't hold accented file names, so portrait files are saved without accents
@@ -2055,7 +2058,7 @@ function _replaceLeagueState(next){
 // Bump this whenever a deploy changes how league data is written.
 const APP_BUILD = 2026110902;
 let _staleReloading = false;
-const PENDING_MERGE_KEY = 'nba-pending-merge';
+const PENDING_MERGE_KEY = 'nba-pending-merge' + (IS_TEST ? ':'+LEAGUE_KEY : '');
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
 // everyone else saved since), then save them.
 async function restorePendingMerge(){
@@ -2134,6 +2137,8 @@ async function loadLeagueState(){
   await _leagueStateQueue; // let any in-flight save finish first
   const rr = await fetchRemoteLeagueStateWithTs(), remote = rr?.state || null;
   if(remote && handleStaleClient(remote)) return;
+  // Test league not created yet: stop here so nothing gets saved under its name by accident
+  if(IS_TEST && !remote){ window._testMissing = true; throw new Error('test league not set up yet'); }
   if(remote) leagueState = remote;
   if(!leagueState){ leagueState = defaultLeagueState(); }
   _leagueBaseJson = JSON.stringify(leagueState);
@@ -2247,6 +2252,7 @@ async function migrateAvatarFromDevice(){
 }
 
 async function syncManagersToState(){
+  if(IS_TEST) return;   // the test league keeps its own list (Dave, Dan and bots)
   // Preserve photos from leagueState (they're stored in the leagues JSON blob, not in the managers table)
   const prevPhotoMap={};
   (leagueState.managers||[]).forEach(m=>{ if(m.photo) prevPhotoMap[m.id]=m.photo; });
@@ -2296,7 +2302,7 @@ let _lastSaveOk = false; // did the most recent saveLeagueState() land? (true / 
 // If the database function isn't installed yet, saves fall back to the old whole-league save.
 let _rpcMode = null;          // null = not tried yet, true = works, false = not installed
 let _shadowJson = null;       // league as of the last commit / pull (what's already been sent)
-const OUTBOX_KEY = 'nba-outbox-v1';
+const OUTBOX_KEY = 'nba-outbox-v1' + (IS_TEST ? ':'+LEAGUE_KEY : '');   // test league keeps its own queue
 let _outbox = [], _flushing = null, _opSeq = 0, _wakeFlush = null;
 const _waiters = new Map();   // outbox id -> resolve()
 
@@ -9980,7 +9986,8 @@ async function boot(){
       await ensureTodaysDuel();
       settleCupGroups();
       maybeSwapInjuredDuel();
-      purgeWlcTestWeeks().then(autoFinalizeWlcWeeks).then(autoOpenWlcWeek).then(ensureWlcTipoff);
+      purgeWlcTestWeeks().then(autoFinalizeWlcWeeks).then(autoOpenWlcWeek).then(ensureWlcTipoff)
+        .then(()=>{ if(IS_TEST && window.testLeagueTick) return window.testLeagueTick(); }).catch(e=>console.warn('[test league]', e));
       updateUserChip();
       if(isFirstLogin){
         // Only navigate to home on actual login — not on silent token refreshes

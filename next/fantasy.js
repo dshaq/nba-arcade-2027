@@ -198,7 +198,7 @@ const fpTog = () => `<div class="fpt">${['DAY','WEEK','FALL'].map(m=>`<button cl
 /* WAIVERS */
 const pool = () => { const r=rostered(); return PL.filter(p=>!r.has(p.n)); };
 const trending = () => pool().filter(p=>!isOut(p.n)).sort((a,b)=>b.l5-a.l5).slice(0,6);
-const addsLeft = () => 3 - S.wv.used;
+let addsLeft = () => 3 - S.wv.used;
 const addBar = () => `<div class="adds">ADD/DROPS LEFT <span>${[0,1,2].map(k=>`<i class="${k<addsLeft()?'on':''}"></i>`).join('')}</span> ${addsLeft()}/3</div>`;
 function wvQuick(){
   const t=trending(), sel=FZ.wsel;
@@ -282,13 +282,13 @@ function vsSplash(){
   g.innerHTML=`<div class="half a"><span id="vsa"></span><div><b>${ME.team.toUpperCase()}</b><small>${ME.name.toUpperCase()} · ${me.w}-${me.l}</small></div></div>
     <div class="half b"><div><b>${OPP.team.toUpperCase()}</b><small>${OPP.name.toUpperCase()} · ${op.w}-${op.l}</small></div><span id="vsb"></span></div>
     <div class="vsx">VS</div><div class="vwk">WEEK ${MU.week} · FALL RUN</div><div class="vtap">TAP TO CONTINUE</div>`;
-  g.querySelector('#vsa').appendChild(ballerCv(S.active,4)); g.querySelector('#vsb').appendChild(ballerCv('bee',4));
+  g.querySelector('#vsa').appendChild(ballerCv(S.active,4)); g.querySelector('#vsb').appendChild(ballerCv(OPP.ch||'bee',4));
   g.onclick=()=>{ g.classList.add('out'); setTimeout(()=>g.remove(),350); };
   document.getElementById('app').appendChild(g);
 }
 
 AFTER.fantasy = ()=>{
-  const b=document.getElementById('bossSp'); if(b) b.appendChild(ballerCv('bee',3));
+  const b=document.getElementById('bossSp'); if(b) b.appendChild(ballerCv(OPP.ch||'bee',3));
   const d=document.getElementById('dlg'); if(d) typewrite(d, battleText());
 };
 SCREENS.fantasy = fantasy;

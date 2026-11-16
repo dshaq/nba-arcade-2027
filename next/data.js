@@ -19,7 +19,7 @@ const PL = RAW.map(([n,t,p,f])=>({n,t,p,f,c:TC[t]||'#1e3258',
   td:Math.round(f*(0.55+hsh(n+'td')*1.0)),              // FP today (once games are on)
   yd:Math.round(f*(0.5+hsh(n+'yd')*1.1)),               // FP yesterday
   inj:INJ[n]||null}));
-const P = n => PL.find(p=>p.n===n) || {n, s:String(n).split(' ').pop().toUpperCase(), t:'', p:'', f:0, c:'#1e3258', l5:0, wk:0, fall:0, td:0, yd:0};
+let P = n => PL.find(p=>p.n===n) || {n, s:String(n).split(' ').pop().toUpperCase(), t:'', p:'', f:0, c:'#1e3258', l5:0, wk:0, fall:0, td:0, yd:0};
 
 /* Today's games (sample slate). Teams not listed are off today. */
 const SLATE = [['NYK','BOS','7:30 PM'],['PHI','IND','7:00 PM'],['LAL','DEN','10:00 PM'],['DAL','OKC','8:00 PM'],['SAS','HOU','8:30 PM'],['MIA','ATL','7:30 PM'],['POR','PHX','10:00 PM'],['CHI','ORL','7:00 PM'],['NOP','UTA','9:00 PM']];
@@ -37,7 +37,7 @@ const TEAMS = [
   {m:'Morgan', team:'Glass Cleaners',     ch:'karl'},
   {m:'Taylor', team:'Bench Mob',          ch:'jack'},
 ];
-const chOf = t => t.me ? S.active : t.ch;
+let chOf = t => t.me ? S.active : t.ch;
 const MY_START = {act:['Shai Gilgeous-Alexander','Nikola Jokic','Cade Cunningham','Jalen Brunson','Anthony Edwards','Victor Wembanyama','Jayson Tatum','Scottie Barnes'],
                   bench:['Alperen Sengun','Dyson Daniels'], ir:[null]};
 if(!S.fl || !Array.isArray(S.fl.act)) S.fl = JSON.parse(JSON.stringify(MY_START));
@@ -52,19 +52,19 @@ const rostered = () => new Set([...myNames(), ...Object.values(OTHER).flat()]);
 /* Schedule: [week] → pairs of team indexes. Weeks 1–2 final, week 3 now. */
 const PAIRS = [[[0,3],[1,4],[2,5]],[[0,4],[1,2],[3,5]],[[0,1],[2,3],[4,5]],[[0,2],[1,5],[3,4]],[[0,5],[1,3],[2,4]]];
 const SCORES = {1:[[612,575],[640,533],[598,521]], 2:[[655,601],[671,630],[588,542]]};
-const weekPairs = w => PAIRS[(w-1)%PAIRS.length];
-const WEEK_START = w => { const d=new Date(2026,9,20+7*(w-1)); return d; };
+let weekPairs = w => PAIRS[(w-1)%PAIRS.length];
+let WEEK_START = w => { const d=new Date(2026,9,20+7*(w-1)); return d; };
 const fmtD = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
 /* This week's match-up, day by day. Today is WED in the sample. */
-const TODAY_I = 2;
+let TODAY_I = 2;
 const DAYS_BASE = [{d:'MON',me:168,op:131},{d:'TUE',me:122,op:171},{d:'WED'},{d:'THU'},{d:'FRI'},{d:'SAT'},{d:'SUN'}];
 function days(){ return DAYS_BASE.map((d,i)=>{ const o={...d};
   if(i<TODAY_I){ o.r = d.me>d.op?'W':'L'; }
   if(i===TODAY_I){ o.today=true; if(gs()==='live'){ o.live=true; o.me=myTodayFp(); o.op=74; } }
   return o; }); }
 function myTodayFp(){ return S.fl.act.filter(plays).reduce((a,n)=>a+P(n).td,0); }
-Object.defineProperties(MU, {me:{get:()=>days().reduce((a,d)=>a+(d.me||0),0)}, opp:{get:()=>days().reduce((a,d)=>a+(d.op||0),0)}});
+Object.defineProperties(MU, {me:{configurable:true, get:()=>days().reduce((a,d)=>a+(d.me||0),0)}, opp:{configurable:true, get:()=>days().reduce((a,d)=>a+(d.op||0),0)}});
 
 function record(i){ let w=0,l=0,pf=0; for(const wk of [1,2]) weekPairs(wk).forEach((pr,k)=>{ const j=pr.indexOf(i); if(j<0) return; const sc=SCORES[wk][k]; pf+=sc[j]; if(sc[j]>sc[1-j]) w++; else l++; }); return {w,l,pf}; }
 function standings(){ return TEAMS.map((t,i)=>({...t, i, ...record(i)})).sort((a,b)=>b.w-a.w || b.pf-a.pf); }

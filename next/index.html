@@ -386,7 +386,7 @@ function home(){
     <div class="row2">
       <div class="box duel" onclick="go('duel')">
         <h2>DUEL</h2>
-        <div class="vs"><div class="f ${pickA?'pick':''}" style="--tc:${DUEL.a.tc}">${img(pimg(DUEL.a.team,DUEL.a.name))}</div><i>VS</i><div class="f ${pickB?'pick':''}" style="--tc:${DUEL.b.tc}">${img(pimg(DUEL.b.team,DUEL.b.name))}</div></div>
+        <div class="vs"><div class="f ${pickA?'pick':''}" style="--tc:${DUEL.a.tc}">${img(DUEL.a.img||pimg(DUEL.a.team,DUEL.a.name))}</div><i>VS</i><div class="f ${pickB?'pick':''}" style="--tc:${DUEL.b.tc}">${img(DUEL.b.img||pimg(DUEL.b.team,DUEL.b.name))}</div></div>
         <div class="tag">${DUEL.title.toUpperCase()}</div>
         ${picksLeft ? `<div class="todo"><span class="w">!</span>MAKE YOUR PICK${picksLeft>1?' (x2)':''}</div>` : `<div class="todo ok"><span class="w">✓</span>PICKS IN</div>`}
       </div>
@@ -396,7 +396,7 @@ function home(){
         ${S.wphase==='live' ? `<div class="todo st">${wlcStatus()}</div>` : S.wsaved ? '<div class="todo ok"><span class="w">✓</span>ENTERED</div>' : '<div class="todo"><span class="w">!</span>MAKE ENTRY</div>'}
       </div>
     </div>
-  </div></div><div class="proto">DESIGN PREVIEW · SAMPLE DATA</div>`;
+  </div></div><div class="proto">${LIVE.on?'TEST LEAGUE · REAL GAMES':LIVE.state==='connecting'?'CONNECTING TO THE TEST LEAGUE…':'DESIGN PREVIEW · SAMPLE DATA'}</div>`;
 }
 function missions(){
   const n=doneCount(), all=n===MISSIONS.length, a=S.active;
@@ -503,6 +503,7 @@ function openMenu(){
     <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
     <a data-a="x"><span>🏆</span>Standings</a><a data-a="x"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="x"><span>⚙️</span>Settings</a>
     <div class="mcap">PREVIEW SWITCHES</div>
+    <a data-a="src"><span>🧪</span>Data<small>${LIVE.on?'TEST LEAGUE':'SAMPLE'} ⇄</small></a>
     <a data-a="gs"><span>🏀</span>Today's games<small>${gs()==='live'?'LIVE NOW':'BEFORE TIP-OFF'} ⇄</small></a>
     <a data-a="wph"><span>⭐</span>Weekly Challenge<small>${S.wphase==='live'?'IN PROGRESS':'PICKING'} ⇄</small></a>
     <a data-a="vs"><span>⚔️</span>Replay the Fantasy VS splash<small>PREVIEW</small></a>
@@ -512,6 +513,7 @@ function openMenu(){
     if(v==='missions'||v==='baller'||v==='cards') go(v); else if(v==='greet') greet(true);
     else if(v==='gs'){ S.gsO = gs()==='live'?'pre':'live'; save(); render(); say(gs()==='live'?'Games are on':'Before tip-off'); }
     else if(v==='wph'){ S.wphase = S.wphase==='live'?'open':'live'; save(); render(); say(S.wphase==='live'?'Challenge week under way':'Challenge picking open'); }
+    else if(v==='src'){ S.sample = !(LIVE.state==='sample'); save(); location.href = location.pathname; }
     else if(v==='vs'){ S.vsWeek=null; save(); openFantasy(); }
     else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{},fl:JSON.parse(JSON.stringify(MY_START)),party:[]}; save(); location.reload(); } else say('We\'ll design this one later'); });
 }
@@ -611,7 +613,7 @@ function greet(replay){
   g.innerHTML=`<div class="hi">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',timeZone:'America/New_York'}).toUpperCase()}</div>
     <h1>${hi},<br>${ME.name.toUpperCase()}!</h1><span id="gb"></span>
     <div class="recap">
-      <div style="animation-delay:.2s"><span>⚡</span><div>Yesterday's Duel: <b>you called it</b>. Barnes beat Sengun 27–22. Streak 🔥3.</div></div>
+      <div style="animation-delay:.2s"><span>⚡</span><div>${duelGreet()}</div></div>
       <div style="animation-delay:.4s"><span>🏀</span><div>Fantasy: ${MU.me>=MU.opp?`you're up <b>${MU.me}–${MU.opp}</b> on`:`you trail <b class="bad">${MU.me}–${MU.opp}</b> to`} ${OPP.name}.</div></div>
       <div style="animation-delay:.6s"><span>⭐</span><div>${wlcGreet()}</div></div>
       <div style="animation-delay:.8s"><span>🎯</span><div><b>${MISSIONS.filter(m=>m.k!=='checkin'&&!S.done[m.k]).length} Daily Missions</b> for today.</div></div>
@@ -622,6 +624,13 @@ function greet(replay){
   document.getElementById('app').appendChild(g);
 }
 
+function duelGreet(){
+  const y=YDUEL; if(y.none) return `Daily Duel: your streak is <b>🔥${STREAK.cur}</b>.`;
+  const ws=(y.win.p||P(y.win.n)).s, ls=(y.lose.p||P(y.lose.n)).s, sc=y.win.v!==''&&y.win.v!=null?` ${y.win.v}–${y.lose.v}`:'';
+  if(y.picked===false) return `Yesterday's Duel: ${ws} beat ${ls}${sc}. You didn't pick.`;
+  const hit=y.mine===y.win.n;
+  return `Yesterday's Duel: ${hit?'<b>you called it</b>':'<b class="bad">not this time</b>'}. ${ws} beat ${ls}${sc}.${hit?` Streak 🔥${STREAK.cur}.`:''}`;
+}
 function wlcGreet(){
   if(S.wphase!=='live') return `Weekly Challenge: <b>${WLC.pool}</b> is open. Picks lock Monday.`;
   const r=cEntries().find(e=>e.me).rank, was=1;
@@ -662,6 +671,7 @@ addEventListener('DOMContentLoaded', ()=>{ dust(document.getElementById('dust'))
 <script src="data.js"></script>
 <script src="modes.js"></script>
 <script src="fantasy.js"></script>
+<script src="live.js"></script>
 <script src="cards.js"></script>
 </body>
 </html>

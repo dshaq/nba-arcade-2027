@@ -126,6 +126,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .ftr{cursor:pointer;text-align:center;transition:transform .15s}
 .ftr .fp{height:190px;border:3px solid #000;outline:3px solid #fff;border-radius:4px;overflow:hidden;background:var(--tc)}
 .ftr .fp img{width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+.ftr .fp img.logo,.yf .ph img.logo{object-fit:contain;padding:14%}
 .ftr.p1 .fp{outline-color:#3cf;box-shadow:0 0 24px rgba(51,204,255,.6)}
 .ftr.dim{opacity:.45}
 .ftr .p1tag{display:inline-block;font-size:7px;background:#3cf;color:#001;padding:3px 6px;border-radius:3px;margin-bottom:6px;visibility:hidden}
@@ -474,31 +475,32 @@ const DUEL_STAT = {label:'3-POINTERS MADE', short:'3PM', a:3, b:4};   // a/b = m
 const YDUEL = {title:'TUESDAY BUCKETS', stat:'PTS', win:{n:'Scottie Barnes',v:27}, lose:{n:'Alperen Sengun',v:22}, pct:62, mine:'Scottie Barnes', right:[['Riley','bee'],['Jordan','hoot'],['Casey','bolt']]};
 const DSTAND = [['Jordan','hoot',61,6,5],['Dave',null,58,5,3],['Riley','bee',55,4,2],['Casey','bolt',50,3,1],['Morgan','karl',44,2,0],['Taylor','jack',40,2,0]];
 const FSTAND = [['Riley','bee',3,4],['Dave',null,2,2],['Jordan','hoot',2,3],['Casey','bolt',1,3],['Morgan','karl',1,4],['Taylor','jack',0,2]];
-const futuresToday = () => FUT.some(n=>n.today);
+let futuresToday = () => FUT.some(n=>n.today);
 const threeIc = (cls='') => `<svg class="${cls}" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="#f08020" d="M2 0h4v1h1v1h1v4H7v1H6v1H2V7H1V6H0V2h1V1h1z"/><path fill="#000" d="M4 0h1v8H4zM0 4h8v1H0z" opacity=".55"/><path fill="#ffc080" d="M2 1h1v1H2z"/></svg>`;
 function duelProg(){
-  const live = gs()==='live' && !!S.done.duel;
-  const side = (p,n,r) => { const slots=Math.max(6,n); return `<div class="ps ${r?'r':''}"><div class="pc">${r?'':p.short}<b>${live?n:0}</b>${r?p.short:''}</div><div class="ic">${[...Array(slots)].map((_,k)=>threeIc(live&&k<n?'':'e')).join('')}</div></div>`; };
+  const live = gs()==='live';
+  const per = DUEL_STAT.per||1;   // one icon per make (or per 5 points for bigger stats)
+  const side = (p,n,r) => { const k=Math.floor((live?n:0)/per), slots=Math.min(12,Math.max(6,k)); return `<div class="ps ${r?'r':''}"><div class="pc">${r?'':p.short}<b>${live?n:0}</b>${r?p.short:''}</div><div class="ic">${[...Array(slots)].map((_,j)=>threeIc(j<k?'':'e')).join('')}</div></div>`; };
   return `<div class="prog">${side(DUEL.a,DUEL_STAT.a,false)}${side(DUEL.b,DUEL_STAT.b,true)}</div>`;
 }
 function duelDaily(){
   const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live';
   const f=(p)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" onclick="duelPick('${p.short}',this)"><span class="p1tag">YOUR PICK</span>
-      <div class="fp" style="--tc:${p.tc}">${face(p.team,p.name)}</div><div class="fname">${p.short}</div><div class="fsub">${p.team} · ${fp.f} FP/G</div></div>`; };
+      <div class="fp" style="--tc:${p.tc}">${p.img?img(p.img,'logo'):face(p.team,p.name)}</div><div class="fname">${p.short}</div><div class="fsub">${p.sub||`${p.team} · ${fp.f} FP/G`}</div></div>`; };
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
     : live ? `<div class="alert live">DUEL IS LIVE · ${DUEL_STAT.short} UPDATE AS THEY HAPPEN</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
-  const y=YDUEL, w=P(y.win.n), l=P(y.lose.n), gotIt = y.mine===y.win.n;
+  const y=YDUEL, w=y.win.p||P(y.win.n), l=y.lose.p||P(y.lose.n), gotIt = y.mine===y.win.n;
   return `<div class="streak"><span class="fl">🔥</span><div><small>CURRENT STREAK</small><b>${STREAK.cur} IN A ROW</b></div><div class="best">BEST<br>${STREAK.best}</div></div>
     ${alert}
     <div class="arena" id="arena" style="--ca:${A.tc};--cb:${B.tc}">
-      <div class="dtitle">${DUEL.title.toUpperCase()}</div><div class="dsub">WHO MAKES MORE 3-POINTERS TODAY?</div>
+      <div class="dtitle">${DUEL.title.toUpperCase()}</div><div class="dsub">${DUEL.q||'WHO MAKES MORE 3-POINTERS TODAY?'}</div>
       <div class="fighters">${f(A)}<div class="vsbig">VS</div>${f(B)}</div>
       ${duelProg()}
       ${pick?'':`<div class="choose">CHOOSE YOUR FIGHTER</div>`}
     </div>
     <div class="panel"><div class="sec">YESTERDAY'S DUEL · ${y.title}</div>
-      <div class="ydr"><div class="yf win"><span class="wt">🏆 WINNER</span><div class="ph" style="--tc:${w.c}">${face(w.t,w.n)}</div><b>${w.s}</b><div class="v">${y.win.v}</div><small>${y.stat}</small></div><i>VS</i>
-        <div class="yf"><div class="ph" style="--tc:${l.c}">${face(l.t,l.n)}</div><b>${l.s}</b><div class="v">${y.lose.v}</div><small>${y.stat}</small></div></div>
+      <div class="ydr"><div class="yf win"><span class="wt">🏆 WINNER</span><div class="ph" style="--tc:${w.c}">${w.img?img(w.img,'logo'):face(w.t,w.n)}</div><b>${w.s}</b><div class="v">${y.win.v}</div><small>${y.stat}</small></div><i>VS</i>
+        <div class="yf"><div class="ph" style="--tc:${l.c}">${l.img?img(l.img,'logo'):face(l.t,l.n)}</div><b>${l.s}</b><div class="v">${y.lose.v}</div><small>${y.stat}</small></div></div>
       <div class="pbar2"><i style="width:${y.pct}%"></i><span></span></div><div class="pbl"><span>${y.pct}% PICKED</span><span>${100-y.pct}% PICKED</span></div>
       <div class="ydres" style="color:${gotIt?'var(--green)':'#ff3b5c'}">${gotIt?`✓ YOU CALLED IT · STREAK 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
       <div class="who">GOT IT RIGHT · ${y.right.length+(gotIt?1:0)}<div>${(gotIt?[[ME.name,S.active]]:[]).concat(y.right).map(([n,c])=>`<span><span class="av" data-ch="${c}"></span>${n}</span>`).join('')}</div></div></div>`;
@@ -512,7 +514,7 @@ function duel(){
       <div class="dtab"><div class="cap">${daily?'RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT':'RANKED BY CORRECT PICKS · NBA CUP'}</div>
       <div class="h"><span></span><span>USER</span><span>${daily?'% CORRECT':'CORRECT'}</span><span>${daily?'ALL-TIME STREAK':'PICKS'}</span><span>${daily?'CURRENT STREAK':'HIT %'}</span></div>
       ${rows.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span>
-        ${daily?`<span>${r[2]}%</span><span>${r[3]}</span><span class="cs">${r[4]?'🔥 '+r[4]:'—'}</span>`:`<span>${r[2]}</span><span>${r[3]}</span><span class="cs">${Math.round(100*r[2]/r[3])}%</span>`}</div>`; }).join('')}</div>`;
+        ${daily?`<span>${r[2]==='—'?'—':r[2]+'%'}</span><span>${r[3]}</span><span class="cs">${r[4]?'🔥 '+r[4]:'—'}</span>`:`<span>${r[2]}</span><span>${r[3]}</span><span class="cs">${Math.round(100*r[2]/r[3])}%</span>`}</div>`; }).join('')}</div>`;
   } else {
     body = `<div class="seg2"><button class="${DZ.sec==='daily'?'on':''}" onclick="DZ.sec='daily';render()">⚡ DAILY DUEL${S.done.duel?'':'<span class="dot"></span>'}</button><button class="${DZ.sec==='futures'?'on':''}" onclick="DZ.sec='futures';render()">🔮 FUTURES DUEL${futNeed?'<span class="dot"></span>':''}</button></div>
       ${DZ.sec==='futures' ? futuresBody() : duelDaily()}`;
@@ -540,11 +542,11 @@ const C_LINEUPS = [
   ['Casey','bolt',['Cooper Flagg','Walker Kessler','Matas Buzelis','Grayson Allen','Moritz Wagner']],
   ['Morgan','karl',['Domantas Sabonis','Donovan Clingan','Jakob Poeltl','Pelle Larsson','Sandro Mamukelashvili']]];
 const CSTAND = [['Jordan','hoot',7,7,'50%'],['Riley','bee',3,3,'0%'],['Dave',null,3,3,'0%'],['Casey','bolt',2,2,'0%'],['Morgan','karl',0,0,'—'],['Taylor','jack',0,0,'—']];
-const wkFpg = n => +(P(n).f*(0.86+hsh(n+'wl')*0.32)).toFixed(1);
-const myEntry = () => S.party.length===5 ? S.party : ['Nikola Jokic','Deni Avdija','Josh Giddey','Cam Spencer','Payton Pritchard'];
+let wkFpg = n => +(P(n).f*(0.86+hsh(n+'wl')*0.32)).toFixed(1);
+let myEntry = () => S.party.length===5 ? S.party : ['Nikola Jokic','Deni Avdija','Josh Giddey','Cam Spencer','Payton Pritchard'];
 function cEntries(){ const all=[[ME.name,null,myEntry()], ...C_LINEUPS].map(([m,ch,picks])=>({m,ch,picks,me:!ch,tot:+picks.reduce((a,n)=>a+wkFpg(n),0).toFixed(1)}));
   all.sort((a,b)=>b.tot-a.tot); all.forEach((e,k)=>e.rank=k+1); return all; }
-const daysLeft = () => 6-TODAY_I;
+let daysLeft = () => 6-TODAY_I;
 const spent = () => S.party.reduce((a,n)=>a+WLC_COST(n),0);
 function lineupCard(picks, live, mine){
   const tot = live ? picks.reduce((a,n)=>a+wkFpg(n),0).toFixed(1) : '—';
@@ -578,7 +580,7 @@ function challenge(){
     body = `<div class="qcap" style="color:var(--t3);margin:0">YOUR LINEUP</div>${lineupCard(S.party,false,true)}
       <div class="note">Your lineup is final. The only change allowed: one swap of a player listed OUT for a same-tier player whose game hasn't started.</div>
       <div class="qcap" style="color:var(--t3);margin:6px 0 0">ALL ENTRIES · PICKS REVEALED AT LOCK</div>
-      ${C_LINEUPS.map(([m,ch],k)=>`<div class="ment"><span class="av" data-ch="${ch}"></span>${m}</div><div class="hid ${k===3?'no':''}">${k===3?'NO LINEUP YET':'LINEUP SAVED · 5 PLAYERS · HIDDEN UNTIL LOCK'}</div>`).join('')}`;
+      ${C_LINEUPS.map(([m,ch,picks],k)=>{ const has = LIVE.on ? picks.length : k!==3; return `<div class="ment"><span class="av" data-ch="${ch}"></span>${m}</div><div class="hid ${has?'':'no'}">${has?`LINEUP SAVED · ${LIVE.on?picks.length:5} PLAYERS · HIDDEN UNTIL LOCK`:'NO LINEUP YET'}</div>`; }).join('')}`;
   } else {
     const left=BUDGET-spent(), sel=CZ.sel;
     let pv;

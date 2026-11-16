@@ -56,7 +56,7 @@ function liveNotice(){
 }
 
 async function refresh(){
-  if(!LIVE.on || document.querySelector('.ov,.greet,.vss') || document.activeElement?.tagName==='INPUT') return;
+  if(!LIVE.on || document.querySelector('.ov,.greet,.vss,.rc16.ghost') || document.activeElement?.tagName==='INPUT') return;
   const E=LIVE.E, live=E('livePlayerStats')||{};
   const sig = String(E('_leagueTs'))+'|'+Object.values(live).reduce((a,x)=>a+(x?.fp||0),0)+'|'+Object.values(E('todayGamesCache')||{}).map(g=>g.myScore).join(',');
   if(sig===LIVE.sig) return;

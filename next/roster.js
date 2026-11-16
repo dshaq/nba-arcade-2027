@@ -120,28 +120,36 @@ function rosterStage(){
 }
 
 /* ── Hold & drag ── */
+function killGhosts(){ document.querySelectorAll('.rc16.ghost').forEach(g=>g.remove()); document.querySelectorAll('.rc16.lifted,.rc16.over').forEach(c=>c.classList.remove('lifted','over')); }
+// Safety net: no drag card can outlive the gesture, a page change or the app going to the background
+['touchend','touchcancel','mouseup'].forEach(ev=>document.addEventListener(ev, ()=>setTimeout(()=>{ if(document.querySelector('.rc16.ghost') && !document.querySelector('.rc16.lifted')) killGhosts(); }, 60), true));
+document.addEventListener('visibilitychange', killGhosts);
+addEventListener('pagehide', killGhosts);
 function stageDrag(){
   const stage=document.querySelector('.stage'); if(!stage || FZ.view!==0) {
     document.querySelectorAll('.stage .rc16[data-pn]').forEach(c=>c.onclick=()=>openPlayer(c.dataset.pn)); return; }
   stage.querySelectorAll('.rc16[data-pos]').forEach(card=>{
-    let t=null, sx=0, sy=0, drag=false, moved=false, ghost=null, over=null;
+    let t=null, sx=0, sy=0, drag=false, moved=false, ghost=null, over=null, fin=true;
     const place=(x,y)=>{ ghost.style.left=(x-ghost.offsetWidth/2)+'px'; ghost.style.top=(y-ghost.offsetHeight*.6)+'px';
       const el=document.elementFromPoint(x,y)?.closest('.rc16[data-pos]'); if(over&&over!==el) over.classList.remove('over'); over=el&&el!==card?el:null; over?.classList.add('over'); };
     const begin=(x,y)=>{ drag=true; navigator.vibrate?.(12); const r=card.getBoundingClientRect();
       ghost=card.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=r.width+'px'; ghost.style.height=r.height+'px';
       ghost.querySelectorAll('canvas.pix').forEach((c,k)=>c.getContext('2d').drawImage(card.querySelectorAll('canvas.pix')[k],0,0));
-      document.body.appendChild(ghost); card.classList.add('lifted'); place(x,y); };
-    const start=(x,y)=>{ sx=x; sy=y; moved=false; drag=false; t=setTimeout(()=>begin(x,y), 260); };
+      document.body.appendChild(ghost); card.classList.add('lifted'); place(x,y);
+      // follow the finger even if the card under it gets redrawn or the finger leaves it
+      const dm=e=>{ const p=e.touches?e.touches[0]:e; move(p.clientX,p.clientY,e); }, de=()=>{ document.removeEventListener('touchmove',dm); document.removeEventListener('touchend',de); document.removeEventListener('touchcancel',de); end(); };
+      document.addEventListener('touchmove',dm,{passive:false}); document.addEventListener('touchend',de); document.addEventListener('touchcancel',de); };
+    const start=(x,y)=>{ sx=x; sy=y; moved=false; drag=false; fin=false; t=setTimeout(()=>begin(x,y), 260); };
     const move=(x,y,e)=>{ if(drag){ e.preventDefault(); place(x,y); } else if(Math.hypot(x-sx,y-sy)>9){ clearTimeout(t); moved=true; } };
-    const end=()=>{ clearTimeout(t);
-      if(drag){ ghost.remove(); card.classList.remove('lifted'); over?.classList.remove('over');
+    const end=()=>{ clearTimeout(t); if(fin) return; fin=true;
+      if(drag){ killGhosts(); card.classList.remove('lifted'); over?.classList.remove('over');
         if(over){ const a=card.dataset.pos, b=over.dataset.pos; if(swapPos(a,b)){ render(); say('Swapped'); lineupCheck(); } } }
       else if(!moved && card.dataset.pn) openPlayer(card.dataset.pn, rosterActions(card.dataset.pos));
       drag=false; ghost=null; over=null; };
     card.addEventListener('touchstart', e=>{ const p=e.touches[0]; start(p.clientX,p.clientY); }, {passive:true});
     card.addEventListener('touchmove', e=>{ const p=e.touches[0]; move(p.clientX,p.clientY,e); }, {passive:false});
     card.addEventListener('touchend', e=>{ e.preventDefault(); end(); });
-    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); if(ghost){ ghost.remove(); card.classList.remove('lifted'); } drag=false; });
+    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); killGhosts(); drag=false; ghost=null; });
     card.addEventListener('mousedown', e=>{ if(e.button) return; start(e.clientX,e.clientY);
       const mm=ev=>move(ev.clientX,ev.clientY,ev), mu=()=>{ removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); end(); };
       addEventListener('mousemove',mm); addEventListener('mouseup',mu); });
@@ -225,6 +233,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rc16.p1{box-shadow:0 0 0 2px #e94560,0 0 14px rgba(233,69,96,.6),0 3px 0 #000}
 .rc16.lifted{opacity:.25;animation:none}
 .rc16.over{outline:3px solid var(--gold);outline-offset:2px;animation:none;transform:scale(1.05)}
+.rc-art img{-webkit-user-drag:none;user-select:none;-webkit-touch-callout:none}
 .rc16.ghost{position:fixed;z-index:80;pointer-events:none;animation:none;transform:rotate(-4deg) scale(1.12);box-shadow:0 0 0 2px var(--gold),0 18px 30px rgba(0,0,0,.6)}
 .rc16.big{width:116px;flex:none;animation:wob 4.2s ease-in-out infinite}
 .rc16.big .rc-top .nm{font-size:7px!important}.rc16.big .fpg{font-size:8px}.rc16.big .fpn{font-size:6px}.rc16.big .rc-bot{font-size:6px}

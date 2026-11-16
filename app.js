@@ -10394,12 +10394,24 @@ const WLC_SET_POOLS = {
     'Allen Graves','Meleek Thomas','Morez Johnson','Mikel Brown Jr.','Brayden Burries',
     'Baba Miller','Dailyn Swain','Nate Ament','Emanuel Sharp','Chris Cenac Jr.',
     'Hannes Steinbach','Tobi Lawal','Tarris Reed Jr.','Christian Anderson','Bennett Stirtz']},
+  // Commissioner's own tiers: first row $5 … last row $1
+  '2026-11-16': {theme:'Whiteout', tiers:[
+    ['Luka Doncic','Nikola Jokic','Alperen Sengun','Domantas Sabonis','Cooper Flagg'],
+    ['Franz Wagner','Walker Kessler','Austin Reaves','Deni Avdija','Donovan Clingan'],
+    ['Isaiah Hartenstein','Jakob Poeltl','Brandin Podziemski','Matas Buzelis','Josh Giddey'],
+    ['Christian Braun','Duncan Robinson','Cam Spencer','Grayson Allen','Pelle Larsson'],
+    ['Aday Mara','Payton Pritchard','Danny Wolf','Sandro Mamukelashvili','Moritz Wagner']]},
 };
 function setWlcPool(wk){
   const set = WLC_SET_POOLS[wk]; if(!set) return null;
-  const pool = set.names.map(n=>{ const cur = wlcFindPlayer(n) || wlcFindPlayer(n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i,'')), db = PLAYERS_DB.find(p=>normName(p.n)===normName(n));
+  const names = set.names || set.tiers.flat();
+  const pool = names.map(n=>{ const cur = wlcFindPlayer(n) || wlcFindPlayer(n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i,'')), db = PLAYERS_DB.find(p=>normName(p.n)===normName(n));
     const name = cur?.name || n;
     return {...(db||{}), n:name, t:cur?.team||db?.t||'', fpPG:seasonFpPG(name, db?.fpPG ?? (cur ? estimateFpPG(cur) : 0))}; });
+  if(set.tiers){   // tiers fixed by the commissioner: row 1 = $5 … row 5 = $1
+    const tierOf = n => 5 - set.tiers.findIndex(row=>row.some(x=>normName(x)===normName(n)));
+    return { weekKey: wk, theme: set.theme, pool: pool.map(p=>{ const t = tierOf(p.n); return {...p, tier:t, salary:t}; }) };
+  }
   return { weekKey: wk, theme: set.theme, pool: assignTiers(pool) };
 }
 

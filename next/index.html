@@ -681,7 +681,9 @@ function dissolve(swap, color='#020c18'){
 async function go(k){ if(busy||k===cur) return; busy=true; if(k==='baller') bi=null; await dissolve(()=>{ cur=k; render(); }); busy=false; }
 function say(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.getElementById('app').appendChild(d); setTimeout(()=>d.remove(),1800); }
 
-addEventListener('DOMContentLoaded', ()=>{ dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); });
+function start(){ if(start.done) return; start.done=true; dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); }
+if(document.readyState==='loading') addEventListener('DOMContentLoaded', start); else setTimeout(start);
+setTimeout(()=>{ if(!start.done){ showErr('Page never finished loading; starting anyway'); start(); } }, 8000);
 </script>
 <script src="data.js"></script>
 <script src="modes.js"></script>

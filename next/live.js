@@ -23,7 +23,10 @@ const LOGOJ = t => `../logos/jam/${t}.png`;
     const login=W.document.getElementById('login-screen');
     if(login && login.style.display==='flex'){ done('signedout'); return; }
     const ls=E('leagueState'), me=E('myProfile');
-    if(ls && me && ls.rosters && E('PLAYERS')?.length && Object.keys(E('todayGamesCache')||{}).length){
+    const core = ls && me && ls.rosters && E('PLAYERS')?.length;
+    if(core && !LIVE.coreAt) LIVE.coreAt=Date.now();
+    // wait for today's games to load (or a few seconds, on days with no games)
+    if(core && (Object.keys(E('todayGamesCache')||{}).length || Date.now()-LIVE.coreAt>6000)){
       if(!HUMANS.includes(String(me.id))){ done('notmember'); return; }
       if(!ls.test){ if(Date.now()-t0>45000) done('waiting'); return; }
       LIVE.on=true; LIVE.mid=String(me.id); done('on'); return;
@@ -95,7 +98,7 @@ function sync(){
   const nameOf = id => { const p=W.getPlayer(Number(id))||W.getPlayer(id); return p?p.name:null; };
   // Today's games
   for(const k in GAMES) delete GAMES[k];
-  for(const [t,g] of Object.entries(games)) GAMES[t]={opp:g.opponent, home:!!g.isHome, time:g.time||'', live:!!g.isLive, final:!!g.isFinal, score:g.myScore!=null?`${g.myScore}-${g.oppScore}`:''};
+  for(const [t,g] of Object.entries(games)) GAMES[t]={opp:g.opponent, home:!!g.isHome, time:(g.time||'').replace(/ ET$/,''), live:!!g.isLive, final:!!g.isFinal, score:g.myScore!=null?`${g.myScore}-${g.oppScore}`:''};
   S.gsO = Object.values(games).some(g=>g.isLive||g.isFinal) ? 'live' : 'pre';
   // Teams: you first, then this week's opponent, then everyone else in standings order
   const mgrs=W.runManagers(run), sched=(ls.schedule||{})[run]||[], mine=(sched[widx]||[]).find(mu=>String(mu.home)===mid||String(mu.away)===mid);

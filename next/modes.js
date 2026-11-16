@@ -606,7 +606,7 @@ function cSave(el){
 }
 
 /* Home-page line for the Challenge box once the week is under way */
-function wlcStatus(){ const me=cEntries().find(e=>e.me); return `${ordinal(me.rank)} PLACE · ${daysLeft()} DAYS REMAIN`; }
+function wlcStatus(){ const me=cEntries().find(e=>e.me); const d=daysLeft(); return `${ordinal(me.rank)} PLACE · ${d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY'}`; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    FUTURES · route map

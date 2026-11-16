@@ -19,6 +19,7 @@ const LOGOJ = t => `../logos/jam/${t}.png`;
     let W; try{ W=fr.contentWindow; if(!W || !W.document) return; }catch(e){ return; }
     const E = s => { try{ return W.eval(s); }catch(e){ return undefined; } };
     LIVE.W=W; LIVE.E=E;
+    if(!W._errHooked){ W._errHooked=true; LIVE.engErrs=[]; W.addEventListener('error',e=>LIVE.engErrs.push(`${e.message} @ ${(e.filename||'').split('/').pop()}:${e.lineno}`)); W.addEventListener('unhandledrejection',e=>LIVE.engErrs.push('promise: '+(e.reason?.message||e.reason))); }
     if(W._testMissing){ done('missing'); return; }
     const login=W.document.getElementById('login-screen');
     if(login && login.style.display==='flex'){ done('signedout'); return; }
@@ -48,6 +49,8 @@ function liveNotice(){
     timeout:['COULDN\'T REACH THE LEAGUE','Check your connection and reload. Showing sample data for now.'],
     error:['SOMETHING WENT WRONG','The test league didn\'t load properly. Showing sample data for now.']}[LIVE.state];
   if(!msg) return;
+  if(LIVE.engErrs?.length && LIVE.state!=='signedout') msg[1] += '<br><br><small style="color:#ff8fa0">Engine: '+LIVE.engErrs.slice(-4).join(' · ').replace(/</g,'&lt;')+'</small>';
+  if(LIVE.state==='waiting' && LIVE.E && String(LIVE.E('myProfile')?.id)==='1') msg[1] = 'The test league is still switching on. Leave this page open for a minute, then reload.' + (LIVE.engErrs?.length?'<br><br><small style="color:#ff8fa0">Engine: '+LIVE.engErrs.slice(-4).join(' · ').replace(/</g,'&lt;')+'</small>':'');
   const o=overlay(`<div class="sheet" style="--c:var(--gold)"><h3>${msg[0]}</h3><p>${msg[1]}</p><div class="acts">${msg[2]?`<a class="btn" href="${msg[2]}" style="text-decoration:none">${msg[3]} ▶</a>`:''}<button class="btn alt" id="okx">OK</button></div></div>`);
   o.querySelector('#okx').onclick=()=>o.remove();
 }

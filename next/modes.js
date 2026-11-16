@@ -463,7 +463,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 
 /* ── shared bits ─────────────────────────────────────────────────────────── */
 const mframe = (cls, title, inner, extraHead='') => topBar() + `<div class="screen"><div class="mode ${cls}"><div class="mhead"><h1>${title}</h1>${extraHead}</div>${inner}</div></div>`;
-const face = (team, name, cls='') => img(pimg(team, name), cls);
+const face = (team, name, cls='') => img(pimg(team, name), cls).replace('<img ', `<img data-pn="${String(name).replace(/"/g,'&quot;')}" `);
 function typewrite(el, text, speed=22){ if(!el) return; clearInterval(el._t); let i=0; el.textContent=''; const t=el._t=setInterval(()=>{ el.textContent=text.slice(0,++i); if(i>=text.length){ clearInterval(t); el.insertAdjacentHTML('beforeend','<span class="more">▼</span>'); } }, speed); }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -485,7 +485,7 @@ function duelProg(){
 }
 function duelDaily(){
   const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live';
-  const f=(p)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" onclick="duelPick('${p.short}',this)"><span class="p1tag">YOUR PICK</span>
+  const f=(p)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)"><span class="p1tag">YOUR PICK</span>
       <div class="fp" style="--tc:${p.tc}">${p.img?img(p.img,'logo'):face(p.team,p.name)}</div><div class="fname">${p.short}</div><div class="fsub">${p.sub||`${p.team} · ${fp.f} FP/G`}</div></div>`; };
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
     : live ? `<div class="alert live">DUEL IS LIVE · ${DUEL_STAT.short} UPDATE AS THEY HAPPEN</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
@@ -589,7 +589,7 @@ function challenge(){
       pv = `<div class="cpv"><div class="ph" style="--tc:${p.c};--tcol:${TIER_C[c]}">${face(p.t,p.n)}<span class="tag">$${c}</span></div><div><b>${p.n.toUpperCase()}</b><small>${p.t} · ${p.p} · ${p.f} FP/G THIS SEASON</small><small>LAST 5 GAMES: ${p.l5} FP/G</small><small style="color:${p.inj==='OUT'?'#ff3b5c':'var(--t2)'}">${p.inj?p.inj+' · ':''}${GAMES[p.t]?'PLAYS TODAY':'NO GAME TODAY'}</small>
         ${inL?`<button class="go" style="background:transparent;color:#ff3b5c;border-color:#ff3b5c;box-shadow:none" onclick="cToggle()">REMOVE FROM LINEUP</button>`:can?`<button class="go" onclick="cToggle()">ADD TO LINEUP · $${c}</button>`:`<button class="go" disabled style="opacity:.45">${S.party.length>=5?'LINEUP IS FULL':'NOT ENOUGH SALARY'}</button>`}</div></div>`; }
     const grid = WLC_TIERS.map((row,k)=>{ const c=5-k; return `<div class="tg" style="--tcol:${TIER_C[c]}">$${c}</div>` + row.map(n=>{ const p=P(n), inL=S.party.includes(n), cant=!inL&&(c>left||S.party.length>=5);
-      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div><div class="nm">${p.s}</div><div class="tm">${p.t} · ${p.p}</div></div>`; }).join(''); }).join('');
+      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div><div class="nm">${p.s}</div><div class="tm">${p.t} · ${p.p}</div></div>`; }).join(''); }).join('');
     const ready = S.party.length===5 && left>=0;
     body = `${pv}<div class="tierg">${grid}</div>
       <div class="cbar"><div><div class="l">SALARY REMAINING</div><div class="v" style="color:var(--teal)">$${left}</div></div><div><div class="l">PLAYERS SELECTED</div><div class="v">${S.party.length} / 5</div></div>

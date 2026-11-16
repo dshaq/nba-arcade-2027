@@ -286,12 +286,24 @@ swapPos = function(a,b){
   if(b[0]==='i' && na && !isOut(na)){ say('Only OUT players can go on IR'); return false; }
   if(a[0]==='i' && nb && !isOut(nb)){ say('Only OUT players can go on IR'); return false; }
   setSlot(a,nb); setSlot(b,na);
+  commitLineup();
+  return true;
+};
+const _commitLineup = commitLineup, _commitPlan = commitPlan;
+commitLineup = function(){
+  if(!LIVE.on) return _commitLineup();
   const ls=LIVE.E('leagueState'), mid=LIVE.mid, id=n=>LIVE.pid.get(n);
   ls.active[mid]=S.fl.act.filter(Boolean).map(id); ls.inactive[mid]=S.fl.bench.filter(Boolean).map(id);
   if(S.fl.ir[0]) (ls.ir ||= {})[mid]=id(S.fl.ir[0]); else if(ls.ir) delete ls.ir[mid];
-  W.saveLeagueState().then(afterAction);
-  return true;
+  LIVE.W.saveLeagueState().then(afterAction);
 };
+commitPlan = function(di, names){
+  if(!LIVE.on) return _commitPlan(di, names);
+  const W=LIVE.W, ls=LIVE.E('leagueState'), mid=LIVE.mid, ymd=W.ymd(new Date(+WEEK_START(MU.week)+di*864e5+432e5));
+  ((ls.lineupPlans ||= {})[mid] ||= {})[ymd] = W.planEligible(mid, names.map(n=>LIVE.pid.get(n)));
+  clearTimeout(LIVE._planT); LIVE._planT=setTimeout(()=>W.saveLeagueState().then(afterAction), 300);
+};
+lockedN = n => LIVE.on ? !!LIVE.W.isPlayerLocked(LIVE.W.getPlayer(LIVE.pid.get(n))) : false;
 addsLeft = () => LIVE.on ? Math.max(0, LIVE.E('WAIVER_WEEKLY') - LIVE.W.waiverUsedThisWeek(LIVE.mid)) : 3 - S.wv.used;
 const _wvScout = wvScout;
 wvScout = async function(n){ if(!LIVE.on) return _wvScout(n); const was=S.wv.scouted.includes(n); await LIVE.W.toggleScout(LIVE.pid.get(n)); await afterAction(); say(was?'Removed from your Scouting Report':'Added to your Scouting Report'); };
@@ -327,7 +339,8 @@ fpFor = function(p){
 const _dayGame = dayGame;
 dayGame = function(n, di){
   if(!LIVE.on || di===TODAY_I) return _dayGame(n, di);
-  try{ const g=(LIVE.W.teamWeekGames(P(n).t)||[])[di]; return g ? `${g.home?'vs':'@'} ${g.opp||g.opponent||''}`.trim() : 'NO GAME'; }catch(e){ return ''; }
+  try{ const ymd=LIVE.W.ymd(new Date(+WEEK_START(MU.week)+di*864e5+432e5)), g=(LIVE.W.teamWeekGames(P(n).t)||[]).find(x=>String(x.date).replace(/-/g,'')===ymd);
+    return g ? `${(g.time||'').replace(/ ?(PM|AM)? ?ET$/,'').replace(' PM','P')} ${g.isHome?'vs':'@'} ${g.opp}`.trim() : 'NO GAME'; }catch(e){ return ''; }
 };
 const _fzSched = fzSched;
 fzSched = function(){

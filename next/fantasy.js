@@ -109,8 +109,8 @@ function leagueSwitcher(){
 const qfToggle = key => `<div class="qf">${['quick','full'].map(v=>`<button class="${S[key]===v?'on':''}" onclick="S.${key}='${v}';FZ.sel=null;FZ.wsel=null;save();render()">${v.toUpperCase()}</button>`).join('')}</div>`;
 function fantasy(){
   const tabs = [['battle','MATCH-UP'],['roster','ROSTER'],['waivers','WAIVERS'],['sched','SCHEDULE'],['stand','STANDINGS']];
-  const body = {battle:fzBattle, roster:()=>S.rq==='quick'?fzQuick():fzFull(), waivers:()=>S.wq==='quick'?wvQuick():wvFull(), sched:fzSched, stand:fzStand}[FZ.tab]();
-  const head = FZ.tab==='battle' ? leagueSwitcher() : FZ.tab==='roster' ? qfToggle('rq') : FZ.tab==='waivers' ? qfToggle('wq') : '';
+  const body = {battle:fzBattle, roster:rosterStage, waivers:()=>S.wq==='quick'?wvQuick():wvFull(), sched:fzSched, stand:fzStand}[FZ.tab]();
+  const head = FZ.tab==='battle' ? leagueSwitcher() : FZ.tab==='waivers' ? qfToggle('wq') : '';
   return mframe('fz'+(FZ.tab==='roster'&&S.rq==='quick'||FZ.tab==='waivers'&&S.wq==='quick'?' quick':''),'FANTASY', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${FZ.tab===k?'on':''}" onclick="FZ.tab='${k}';FZ.sel=null;FZ.wsel=null;FZ.drop=false;render()">${l}</button>`).join('')}</div>${body}`, head);
 }
 
@@ -204,9 +204,8 @@ function wvQuick(){
   const t=trending(), sel=FZ.wsel;
   const btns = sel ? `<div class="wbtns"><button class="wb add" onclick="wvAdd('${sel.replace(/'/g,"\\'")}')">+ ADD</button><button class="wb sc ${S.wv.scouted.includes(sel)?'on':''}" onclick="wvScout('${sel.replace(/'/g,"\\'")}')">${S.wv.scouted.includes(sel)?'✓ SCOUTED':'🔭 SCOUT'}</button></div>` : '';
   return `<div class="wtop">${addBar()}<button class="srep" onclick="scoutReport()">🔭 SCOUTING REPORT <b>${S.wv.scouted.length}</b></button></div>
-    ${selPanel(sel, sel?`<small>LAST 5 GAMES <span style="color:var(--green)">${P(sel).l5} FP/G</span></small>${btns}`:'')}
     <div class="qcap">TRENDING · BEST FP/G OVER THE LAST 5 GAMES</div>
-    <div class="tgrid">${t.map((p,k)=>`<div class="tt ${sel===p.n?'sel':''}" onclick="FZ.wsel=FZ.wsel==='${p.n.replace(/'/g,"\\'")}'?null:'${p.n.replace(/'/g,"\\'")}';render()">
+    <div class="tgrid">${t.map((p,k)=>`<div class="tt" data-act="1" onclick="wvOpen('${p.n.replace(/'/g,"\\'")}')">
       <div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}</div>
       <div class="nm">${p.n[0]}. ${p.s}</div><div class="l5"><b>${p.l5}</b> FP/G</div><div class="u">${gameTxt(p.n)}</div></div>`).join('')}</div>`;
 }
@@ -254,6 +253,7 @@ function scoutReport(){
 function txLog(){ overlay(`<div class="sheet" style="--c:var(--blue)"><h3>📜 TRANSACTIONS</h3><div class="tx">${S.wv.log.map(l=>`<div><span class="${l.t==='ADD'?'a':'d'}">${l.t}</span>${l.n}<small>${ME.name.toUpperCase()} · ${l.d}</small></div>`).join('')}
   <div><span class="a">ADD</span>Saddiq Bey<small>RILEY · NOV 2</small></div><div><span class="d">DROP</span>Josh Hart<small>RILEY · NOV 2</small></div></div></div>`); }
 
+function wvOpen(n){ openPlayer(n, [['+ ADD', ()=>wvAdd(n)], [S.wv.scouted.includes(n)?'✓ SCOUTED':'🔭 SCOUT', ()=>wvScout(n)]]); }
 /* SCHEDULE */
 function fzSched(){
   const w=FZ.wk, st=WEEK_START(w), rows=weekPairs(w).map((pr,k)=>{ const [a,b]=pr.map(i=>TEAMS[i]);

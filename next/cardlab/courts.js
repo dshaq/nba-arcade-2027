@@ -90,12 +90,71 @@ const COURTS = [
   {k:'c10', name:'ROYAL · FOIL', note:'The 16-bit Royal with a silver foil shimmer that moves as you tilt. Could be the back for rare packs.', o:{pal:PAL.royal, tex:'dots', border:'double', center:'ball', corners:true, label:'baselines'}, foil:true},
 ];
 
+/* ── Modern court + a touch of 16-bit ─────────────────────────────────────────
+   Smooth vector court like the original; the 16-bit lives only in small accents. */
+const SPRITE_BALL = ['..XXXXX..','.XoXoXoX.','XooXoXooX','XoooXoooX','XXXXXXXXX','XoooXoooX','XooXoXooX','.XoXoXoX.','..XXXXX..'];
+const sprite=(rows,x,y,s,c1,c2)=>rows.map((r,j)=>[...r].map((ch,i)=>ch==='.'?'':`<rect x="${x+i*s}" y="${y+j*s}" width="${s}" height="${s}" fill="${ch==='X'?c1:c2}"/>`).join('')).join('');
+const SPAL = {
+  royal:{stock:'#f7f8fc', field:'#1e44a4', field2:'#2a5ad0', line:'#eef2ff', ball:'#ff8a2a', seam:'#2a1000', text:'#eef2ff'},
+  midnight:{stock:'#0d1020', field:'#0b1230', field2:'#14215a', line:'#7fe7ff', ball:'#ff8a2a', seam:'#1a0a00', text:'#ffd93d'},
+  hardwood:{stock:'#f7f8fc', field:'#c98b52', field2:'#e3ad74', line:'#16244f', ball:'#ff8a2a', seam:'#2a1000', text:'#16244f'},
+  ink:{stock:'#f7f3e6', field:'#121521', field2:'#1d2236', line:'#e6d39a', ball:'#e6b85a', seam:'#2a1d06', text:'#e6d39a'},
+};
+function smoothCourt(o){
+  const P=o.pal, L=P.line, sw=o.sw||1.6, g=[];
+  for(const s of [1,-1]){ const y0=s>0?32:318, dir=s;
+    if(o.paint) g.push(`<rect x="94" y="${s>0?y0:y0-70}" width="62" height="70" fill="${L}" opacity=".12"/>`);
+    g.push(`<rect x="94" y="${s>0?y0:y0-70}" width="62" height="70" fill="none" stroke="${L}" stroke-width="${sw}"/>`);
+    g.push(`<circle cx="125" cy="${y0+70*dir}" r="22" fill="none" stroke="${L}" stroke-width="${sw}"/>`);
+    g.push(`<path d="M44 ${y0} V${y0+18*dir} A81 81 0 0 ${s>0?0:1} 206 ${y0+18*dir} V${y0}" fill="none" stroke="${L}" stroke-width="${sw}"/>`);
+    g.push(`<circle cx="125" cy="${y0+12*dir}" r="4" fill="none" stroke="${L}" stroke-width="${sw}"/><path d="M114 ${y0+6*dir}H136" stroke="${L}" stroke-width="${sw}"/>`); }
+  const label = (y,rot)=>`<text x="125" y="${y}" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="${o.fs||6.4}" letter-spacing="1.2" fill="${P.text}" ${rot?`transform="rotate(180 125 ${y-2.5})"`:''}>NBA ARCADE</text>`;
+  const pixBall = (cx,cy,s)=>sprite(SPRITE_BALL, cx-4.5*s, cy-4.5*s, s, P.seam, P.ball);
+  const vecBall = (cx,cy,r)=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${P.ball}" stroke="${P.seam}" stroke-width="1.4"/>${BALL(cx,cy,r,P.seam,'none',1.3)}`;
+  const center = o.center==='pixel' ? pixBall(125,175,3.2) : o.center==='pixel-big' ? pixBall(125,175,4) : vecBall(125,175,17);
+  const corners = o.corners==='pixel' ? [[33,33],[217,33],[33,317],[217,317]].map(([x,y])=>pixBall(x,y,1.5)).join('')
+                : o.corners==='line' ? [[32,32,0],[218,32,90],[218,318,180],[32,318,270]].map(([x,y,r])=>`<g transform="translate(${x} ${y}) rotate(${r})">${BALL(0,0,9,L,'none',1.3)}<path d="M14 0 Q22 -8 30 0 T46 0 M0 14 Q-8 22 0 30 T0 46" fill="none" stroke="${L}" stroke-width="1.2"/></g>`).join('') : '';
+  // a pixel-notched frame: stepped corners instead of rounded ones
+  const notch = (x0,y0,x1,y1,st)=>`<path d="M${x0+st*2} ${y0}H${x1-st*2}V${y0+st}H${x1-st}V${y0+st*2}H${x1}V${y1-st*2}H${x1-st}V${y1-st}H${x1-st*2}V${y1}H${x0+st*2}V${y1-st}H${x0+st}V${y1-st*2}H${x0}V${y0+st*2}H${x0+st}V${y0+st}H${x0+st*2}Z" fill="none" stroke="${L}" stroke-width="1.4"/>`;
+  const frame = o.frame==='pixel' ? notch(16,16,234,334,4)+notch(21,21,229,329,3)
+              : `<rect x="16" y="16" width="218" height="318" rx="5" fill="none" stroke="${L}" stroke-width="1.4"/><rect x="21" y="21" width="208" height="308" rx="3" fill="none" stroke="${L}" stroke-width=".8"/>`;
+  const tex = o.tex==='dots' ? `<rect x="9" y="9" width="232" height="332" rx="8" fill="url(#sdots)"/>`
+            : o.tex==='scan' ? `<rect x="9" y="9" width="232" height="332" rx="8" fill="url(#sscan)"/>`
+            : o.tex==='wood' ? `<rect x="9" y="9" width="232" height="332" rx="8" fill="url(#swood)"/>` : '';
+  return `<svg viewBox="0 0 250 350"><defs>
+      <pattern id="sdots" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r=".75" fill="${L}" opacity=".28"/></pattern>
+      <pattern id="sscan" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="1" fill="#000" opacity=".16"/></pattern>
+      <pattern id="swood" width="250" height="14" patternUnits="userSpaceOnUse"><rect width="250" height="1" y="13" fill="#000" opacity=".12"/><rect x="${70}" width="1" height="14" fill="#000" opacity=".1"/><rect x="190" width="1" height="14" fill="#000" opacity=".08"/></pattern>
+      <radialGradient id="sfloor-${o.k}" cx=".5" cy=".45" r=".75"><stop offset="0" stop-color="${P.field2}"/><stop offset="1" stop-color="${P.field}"/></radialGradient></defs>
+    <rect width="250" height="350" rx="14" fill="${P.stock}"/><rect x="9" y="9" width="232" height="332" rx="8" fill="${o.grad?`url(#sfloor-${o.k})`:P.field}"/>${tex}
+    ${frame}
+    <rect x="32" y="32" width="186" height="286" fill="none" stroke="${L}" stroke-width="${sw}"/>
+    <path d="M32 175H218" stroke="${L}" stroke-width="${sw}"/><circle cx="125" cy="175" r="30" fill="${o.paint?L:'none'}" fill-opacity="${o.paint?.12:0}" stroke="${L}" stroke-width="${sw}"/>
+    ${g.join('')}${center}${corners}
+    ${o.label!==false ? label(27.5,true)+label(328,false) : ''}</svg>`;
+}
+const MODERN = [
+  {k:'m1', name:'ORIGINAL + NAME', note:'Your pick, unchanged, with NBA ARCADE in tiny pixel letters under each basket (upside down at the far end).', o:{pal:SPAL.royal, tex:'dots', corners:'line'}},
+  {k:'m2', name:'PIXEL BALL', note:'Same court, but the center ball and corner balls are little 16-bit sprites: one retro wink, everything else clean.', o:{pal:SPAL.royal, tex:'dots', center:'pixel', corners:'pixel'}},
+  {k:'m3', name:'PIXEL FRAME', note:'Clean court inside a frame with stepped, pixel-cut corners. Modern center, game-cartridge edges.', o:{pal:SPAL.royal, tex:'dots', frame:'pixel', center:'pixel'}},
+  {k:'m4', name:'GLOSS FLOOR', note:'A lit, glossy floor (brighter at center court), painted keys, no texture. The most modern.', o:{pal:SPAL.royal, grad:true, paint:true, corners:'line', sw:1.8}},
+  {k:'m5', name:'CRT HINT', note:'The original with faint scanlines across the floor, like it is on an arcade screen. Subtle up close.', o:{pal:SPAL.royal, tex:'scan', grad:true, center:'pixel', corners:'line'}},
+  {k:'m6', name:'MIDNIGHT', note:'Deep navy floor, ice-blue lines, gold pixel lettering. Sleek, works great under holo fronts.', o:{pal:SPAL.midnight, grad:true, tex:'dots', center:'pixel', corners:'pixel'}},
+  {k:'m7', name:'HARDWOOD', note:'Warm wood floor with navy lines and painted keys, still clean and vector.', o:{pal:SPAL.hardwood, grad:true, tex:'wood', paint:true, center:'pixel'}},
+  {k:'m8', name:'BLACK & GOLD', note:'Ink black with gold linework and a pixel-cut frame. The premium version.', o:{pal:SPAL.ink, grad:true, tex:'dots', frame:'pixel', center:'pixel', corners:'pixel'}},
+  {k:'m9', name:'PIXEL BALL · FOIL', note:'Pixel Ball with a moving silver shimmer: same back, saved for rare packs.', o:{pal:SPAL.royal, tex:'dots', center:'pixel', corners:'pixel'}, foil:true},
+];
+MODERN.forEach(m=>m.o.k=m.k);
+
 function courtsSection(){
-  return `<h1 style="margin-top:56px">COURT BACKS · VARIATIONS</h1>
-    <p class="sub">Your pick, iterated. All drawn as real pixel art, with a small NBA ARCADE placed so the card still reads the same either way up. Tap any back to flip it.</p>
-    <div class="row courts">${COURTS.map(c=>`<div class="opt"><h2><b>${c.name}</b></h2>
-      <div class="scene"><div class="flip ${c.foil?'foil':''}"><div class="face back cback">${pixelCourt(c.o)}${c.foil?'<i class="sheen"></i>':''}</div><div class="face front">${cards()[2].html}</div></div></div>
-      <p>${c.note}</p></div>`).join('')}</div>`;
+  const tile=(c,html)=>`<div class="opt"><h2><b>${c.name}</b></h2>
+      <div class="scene"><div class="flip ${c.foil?'foil':''}"><div class="face back cback">${html}${c.foil?'<i class="sheen"></i>':''}</div><div class="face front">${cards()[2].html}</div></div></div>
+      <p>${c.note}</p></div>`;
+  return `<h1 style="margin-top:56px">COURT BACKS · MODERN</h1>
+    <p class="sub">The clean court you liked, with 16-bit only as an accent: tiny pixel lettering, a pixel ball, a pixel-cut frame. Tap any back to flip it.</p>
+    <div class="row courts">${MODERN.map(c=>tile(c, smoothCourt(c.o))).join('')}</div>
+    <details class="older"><summary>FULL PIXEL VERSIONS (TOO RETRO)</summary>
+      <div class="row courts">${COURTS.map(c=>tile(c, pixelCourt(c.o))).join('')}</div></details>`;
 }
 function renderCourts(){ const w=document.getElementById('courtsWrap'); if(!w) return; w.innerHTML=courtsSection();
   w.querySelectorAll('.flip').forEach(f=>{ f.onclick=()=>f.classList.toggle('on');
@@ -103,11 +162,12 @@ function renderCourts(){ const w=document.getElementById('courtsWrap'); if(!w) r
     f.addEventListener('pointermove',tilt); });
   requestAnimationFrame(fitAll); }
 // let the Pack Pull use the court variations too
-Object.assign(BACKS, Object.fromEntries(COURTS.map(c=>[c.k,{name:c.name, from:'Court', desc:c.note, svg:()=>pixelCourt(c.o)+(c.foil?'<i class="sheen"></i>':'')}])));
+Object.assign(BACKS, Object.fromEntries(MODERN.map(c=>[c.k,{name:c.name, from:'Court', desc:c.note, svg:()=>smoothCourt(c.o)+(c.foil?'<i class="sheen"></i>':'')}])));
 
 document.head.insertAdjacentHTML('beforeend', `<style>
 .cback{border-radius:14px;overflow:hidden;box-shadow:0 16px 26px rgba(0,0,0,.55)}
-.cback svg{width:100%;height:100%;display:block;image-rendering:pixelated}
+.cback svg{width:100%;height:100%;display:block}
+.older{margin-top:40px}.older summary{font-size:8px;color:#7d89a6;cursor:pointer;padding:10px 0}
 .row.courts{grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 16px}
 @media (max-width:1000px){.row.courts{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:640px){.row.courts{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 14px;max-width:none}.row.courts .opt p{font-size:5.5px}}

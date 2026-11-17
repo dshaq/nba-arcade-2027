@@ -84,6 +84,7 @@ h1{font-size:14px;margin:0 0 8px;color:#ffd93d;text-shadow:2px 2px 0 #c4122f}
 <div class="picks" id="picks"></div>
 <div class="row" id="row"></div>
 <p class="note" id="note"></p>
+<div id="backsWrap"></div>
 </div>
 <script>
 const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
@@ -121,6 +122,7 @@ function render(){
     document.getElementById('note').textContent='This player\'s background-free art isn\'t ready yet, so he\'s shown without the pop-out. It\'s being made now.'; };
   probe.src=cut(t,n);
   document.querySelectorAll('.card').forEach(tilt);
+  if(window.pullReset && document.getElementById('backsWrap')) pullReset();
   requestAnimationFrame(fitAll); document.fonts?.ready.then(fitAll);
 }
 // Long names shrink to stay on one line
@@ -141,4 +143,6 @@ addEventListener('deviceorientation',e=>{ if(e.gamma==null) return; document.que
 addEventListener('click',()=>{ if(window.DeviceOrientationEvent?.requestPermission) DeviceOrientationEvent.requestPermission().catch(()=>{}); },{once:true});
 render();
 </script>
+<script src="backs.js"></script>
+<script>pullReset();</script>
 </body></html>

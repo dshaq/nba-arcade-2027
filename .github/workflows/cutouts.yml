@@ -1,0 +1,39 @@
+name: Portrait cutouts
+# Makes background-free copies of player portraits (cutouts/TEAM/Name.webp) for pop-out cards.
+# Run it from the Actions tab: leave "players" as ALL for every portrait, or list TEAM/Name, one per line.
+on:
+  workflow_dispatch:
+    inputs:
+      players:
+        description: 'ALL, or TEAM/Name lines (e.g. "OKC/Shai Gilgeous-Alexander")'
+        required: true
+        default: ALL
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install "rembg[cpu]==2.0.59" pillow==10.4.0
+      - name: Make cutouts
+        env:
+          PLAYERS: ${{ inputs.players }}
+        run: |
+          export SUPABASE_ANON="$(grep -o "SUPABASE_ANON = '[^']*'" app.js | cut -d"'" -f2)"
+          mapfile -t LIST <<< "$PLAYERS"
+          python scripts/cutouts.py "${LIST[@]}"
+      - name: Save to the repo
+        run: |
+          git config user.name "portrait-cutouts"
+          git config user.email "actions@users.noreply.github.com"
+          git add cutouts
+          git diff --cached --quiet && echo "nothing new" && exit 0
+          git commit -m "Portrait cutouts: $(git diff --cached --name-only | wc -l) files"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

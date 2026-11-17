@@ -26,24 +26,25 @@ h1{font-size:14px;margin:0 0 8px;color:#ffd93d;text-shadow:2px 2px 0 #c4122f}
 .card{position:relative;aspect-ratio:5/7;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .12s ease-out;cursor:grab;
   --mx:50%;--my:50%;user-select:none;-webkit-user-select:none;touch-action:pan-y}
 .card .lay{position:absolute;inset:0;border-radius:inherit}
-.win{position:absolute;overflow:hidden}
-.win img,.pop img{position:absolute;left:50%;transform:translateX(-50%);width:118%;max-width:none;top:-2%;pointer-events:none;-webkit-user-drag:none}
-.pop{position:absolute;pointer-events:none;transform:translateZ(38px)}
-.pop img{filter:drop-shadow(0 8px 10px rgba(0,0,0,.45))}
+.art{position:absolute;transform:translateZ(26px);transform-style:preserve-3d;pointer-events:none}
+.win{position:absolute;inset:0;overflow:hidden}
+.art img.in,.pop img{position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:122%;width:auto;min-width:100%;max-width:none;object-fit:cover;object-position:50% 100%;-webkit-user-drag:none}
+/* the pop layer is the same art, shown only ABOVE the frame's top edge, so the head breaks out of the card */
+.pop{position:absolute;inset:0;clip-path:polygon(-45% -60%,145% -60%,145% 0,-45% 0)}
+.pop img{filter:drop-shadow(0 -2px 0 rgba(0,0,0,.35))}
 .nocut .pop{display:none}
+.fit{white-space:nowrap}
 
 /* A · HOLO MVP — 90s hologram, full art, ghost of the player behind */
 .A{border-radius:10px;background:#c9ced8;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
-.A .win{inset:6px;border-radius:5px;background:#0a1430}
-.A .bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 10%}
-.A .ghost{position:absolute;left:-30%;top:-10%;width:120%;opacity:.38;filter:hue-rotate(160deg) saturate(1.6) blur(.5px);transform:scaleX(-1);mix-blend-mode:screen;pointer-events:none}
+.A .art{inset:6px;transform:translateZ(18px)}.A .win{border-radius:5px;background:#0a1430}
+.A .ghost{position:absolute;left:-42%;top:-6%;width:130%;opacity:.22;filter:hue-rotate(160deg) saturate(1.6) blur(.5px);transform:scaleX(-1);mix-blend-mode:screen;pointer-events:none}
 .A .foil{position:absolute;inset:0;mix-blend-mode:color-dodge;opacity:.6;pointer-events:none;
   background:repeating-linear-gradient(115deg,#ff5fbf 0%,#ffd93d 6%,#39ff6a 12%,#4adfff 18%,#b36bff 24%,#ff5fbf 30%);background-size:220% 220%;background-position:var(--mx) var(--my)}
 .A .shine{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;background:radial-gradient(circle at var(--mx) var(--my),rgba(255,255,255,.75),transparent 45%)}
-.A .pop{inset:6px}
-.A .nm{position:absolute;right:12px;bottom:14px;transform:translateZ(50px);text-align:right;font-family:'Teko',sans-serif;font-style:italic;font-weight:700;line-height:.85;pointer-events:none}
-.A .nm span{display:block;font-size:20px;letter-spacing:.02em;background:linear-gradient(90deg,#9ef 0%,#fff 40%,#cdf 60%,#7cf 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.6))}
-.A .nm b{display:block;font-size:30px;color:#ffe066;text-shadow:0 2px 0 #7a4b00,0 0 12px rgba(255,224,102,.5)}
+.A .nm{position:absolute;left:14px;right:12px;bottom:14px;transform:translateZ(50px);text-align:right;font-family:'Teko',sans-serif;font-style:italic;font-weight:700;line-height:.85;pointer-events:none}
+.A .nm span{display:block;font-size:18px;letter-spacing:.02em;background:linear-gradient(90deg,#9ef 0%,#fff 40%,#cdf 60%,#7cf 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.6))}
+.A .nm b{display:block;font-size:34px;color:#ffe066;text-shadow:0 2px 0 #7a4b00,0 0 12px rgba(255,224,102,.5)}
 .A .mark{position:absolute;left:12px;top:12px;transform:translateZ(30px);font-family:var(--px);font-size:5px;line-height:1.5;color:#ffe066;background:#0d1a3a;border:1px solid #ffe066;padding:3px 4px}
 
 /* B · FREAK SHOW — pop-art, wavy frame, halftone, giant comic name */
@@ -53,30 +54,26 @@ h1{font-size:14px;margin:0 0 8px;color:#ffd93d;text-shadow:2px 2px 0 #c4122f}
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath fill-rule='evenodd' d='M0 0H100V140H0Z M7 7 Q9 5 11 7 T15 7 T19 7 T23 7 T27 7 T31 7 T35 7 T39 7 T43 7 T47 7 T51 7 T55 7 T59 7 T63 7 T67 7 T71 7 T75 7 T79 7 T83 7 T87 7 T91 7 L93 7 Q95 9 93 11 T93 15 T93 19 T93 23 T93 27 T93 31 T93 35 T93 39 T93 43 T93 47 T93 51 T93 55 T93 59 T93 63 T93 67 T93 71 T93 75 T93 79 T93 83 T93 87 T93 91 T93 95 T93 99 T93 103 T93 107 T93 111 T93 115 T93 119 T93 123 T93 127 T93 131 L93 133 Q91 135 89 133 T85 133 T81 133 T77 133 T73 133 T69 133 T65 133 T61 133 T57 133 T53 133 T49 133 T45 133 T41 133 T37 133 T33 133 T29 133 T25 133 T21 133 T17 133 T13 133 T9 133 L7 133 Q5 131 7 129 T7 125 T7 121 T7 117 T7 113 T7 109 T7 105 T7 101 T7 97 T7 93 T7 89 T7 85 T7 81 T7 77 T7 73 T7 69 T7 65 T7 61 T7 57 T7 53 T7 49 T7 45 T7 41 T7 37 T7 33 T7 29 T7 25 T7 21 T7 17 T7 13 T7 9Z'/%3E%3C/svg%3E") center/100% 100% no-repeat;
           mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath fill-rule='evenodd' d='M0 0H100V140H0Z M7 7 Q9 5 11 7 T15 7 T19 7 T23 7 T27 7 T31 7 T35 7 T39 7 T43 7 T47 7 T51 7 T55 7 T59 7 T63 7 T67 7 T71 7 T75 7 T79 7 T83 7 T87 7 T91 7 L93 7 Q95 9 93 11 T93 15 T93 19 T93 23 T93 27 T93 31 T93 35 T93 39 T93 43 T93 47 T93 51 T93 55 T93 59 T93 63 T93 67 T93 71 T93 75 T93 79 T93 83 T93 87 T93 91 T93 95 T93 99 T93 103 T93 107 T93 111 T93 115 T93 119 T93 123 T93 127 T93 131 L93 133 Q91 135 89 133 T85 133 T81 133 T77 133 T73 133 T69 133 T65 133 T61 133 T57 133 T53 133 T49 133 T45 133 T41 133 T37 133 T33 133 T29 133 T25 133 T21 133 T17 133 T13 133 T9 133 L7 133 Q5 131 7 129 T7 125 T7 121 T7 117 T7 113 T7 109 T7 105 T7 101 T7 97 T7 93 T7 89 T7 85 T7 81 T7 77 T7 73 T7 69 T7 65 T7 61 T7 57 T7 53 T7 49 T7 45 T7 41 T7 37 T7 33 T7 29 T7 25 T7 21 T7 17 T7 13 T7 9Z'/%3E%3C/svg%3E") center/100% 100% no-repeat;
   z-index:2;pointer-events:none}
-.B .win{inset:20px;background:var(--tc)}
+.B .art{inset:20px 20px 20px 20px}.B .win{background:var(--tc)}
 .B .win::before{content:'';position:absolute;inset:0;background:radial-gradient(rgba(0,0,0,.28) 1.2px,transparent 1.6px) 0 0/6px 6px}
 .B .win::after{content:'';position:absolute;inset:0;background:
   linear-gradient(60deg,transparent 46%,#d6ff3a 46% 48%,transparent 48%) 10% 15%/40% 30% no-repeat,
   linear-gradient(60deg,transparent 46%,#ffb6dc 46% 48%,transparent 48%) 85% 20%/35% 28% no-repeat,
   linear-gradient(60deg,transparent 46%,#d6ff3a 46% 48%,transparent 48%) 90% 70%/30% 25% no-repeat,
   linear-gradient(60deg,transparent 46%,#ffb6dc 46% 48%,transparent 48%) 5% 75%/30% 25% no-repeat}
-.B .win img{opacity:.0}
-.B.nocut .win img{opacity:1}
-.B .pop{inset:20px;clip-path:inset(-30% -12% 0 -12%);z-index:3}
+.B .art{z-index:3}.B .frame{z-index:2}
 .B .num{position:absolute;right:20px;top:18px;z-index:4;transform:translateZ(30px) rotate(-3deg);font-family:'Bangers',cursive;font-size:20px;color:#111;background:linear-gradient(180deg,#d6ff3a,#ffb6dc);border:2px solid #111;padding:0 6px;box-shadow:2px 2px 0 #111}
 .B .nm{position:absolute;left:0;right:0;bottom:22px;z-index:4;transform:translateZ(55px) rotate(-4deg);text-align:center;font-family:'Bangers',cursive;line-height:.9;pointer-events:none}
-.B .nm b{font-weight:normal;font-size:46px;letter-spacing:.02em;background:linear-gradient(180deg,#e9ff3a 15%,#ffd0e8 85%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px #111;filter:drop-shadow(3px 4px 0 #111)}
+.B .nm{left:22px;right:22px}.B .nm b{display:block;font-weight:normal;font-size:52px;letter-spacing:.02em;background:linear-gradient(180deg,#e9ff3a 15%,#ffd0e8 85%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px #111;filter:drop-shadow(3px 4px 0 #111)}
 
 /* C · CARD FIGHTER — 16-bit battle card, player bursts out of the top */
 .C{border-radius:10px;background:#f4f1e8;border:4px solid #111;box-shadow:0 0 0 3px #f4f1e8,0 0 0 6px #111,0 18px 40px rgba(0,0,0,.55);image-rendering:pixelated}
-.C .win{left:8px;right:8px;top:8px;bottom:58px;border:3px solid #111;background:linear-gradient(180deg,var(--tc2),var(--tc))}
+.C .art{left:8px;right:8px;top:30px;bottom:58px}.C .win{border:3px solid #111;background:linear-gradient(180deg,var(--tc2),var(--tc))}
 .C .win::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 2px,transparent 2px 4px),radial-gradient(circle at 70% 30%,rgba(255,255,255,.35),transparent 40%)}
 .C .burst{position:absolute;right:-10%;top:12%;width:70%;aspect-ratio:1;background:conic-gradient(from 0deg,#ffd93d 0 8deg,transparent 8deg 22deg,#ffd93d 22deg 30deg,transparent 30deg 45deg,#ffd93d 45deg 52deg,transparent 52deg 67deg,#ffd93d 67deg 75deg,transparent 75deg 90deg,#ffd93d 90deg 98deg,transparent 98deg 113deg,#ffd93d 113deg 120deg,transparent 120deg 135deg,#ffd93d 135deg 143deg,transparent 143deg 158deg,#ffd93d 158deg 165deg,transparent 165deg 180deg,#ffd93d 180deg 188deg,transparent 188deg 203deg,#ffd93d 203deg 210deg,transparent 210deg 225deg,#ffd93d 225deg 233deg,transparent 233deg 248deg,#ffd93d 248deg 255deg,transparent 255deg 270deg,#ffd93d 270deg 278deg,transparent 278deg 293deg,#ffd93d 293deg 300deg,transparent 300deg 315deg,#ffd93d 315deg 323deg,transparent 323deg 338deg,#ffd93d 338deg 345deg,transparent 345deg);border-radius:50%;opacity:.55;mix-blend-mode:screen}
-.C .win img{opacity:0}.C.nocut .win img{opacity:1}
-.C .pop{left:8px;right:8px;top:8px;bottom:58px;clip-path:inset(-34% -14% 0 -14%)}
 .C .pop img{filter:drop-shadow(3px 0 0 #111) drop-shadow(-3px 0 0 #111) drop-shadow(0 -3px 0 #111) drop-shadow(0 10px 8px rgba(0,0,0,.4))}
 .C .bar{position:absolute;left:8px;right:8px;bottom:8px;height:44px;background:#111;display:flex;align-items:center;justify-content:center;transform:translateZ(20px)}
-.C .bar b{font-family:var(--px);font-weight:normal;font-size:13px;color:#fff;letter-spacing:.04em;text-shadow:2px 2px 0 #c4122f}
+.C .bar{padding:0 10px}.C .bar b{font-family:var(--px);font-weight:normal;font-size:13px;color:#fff;letter-spacing:.04em;text-shadow:2px 2px 0 #c4122f}
 .C .pips{position:absolute;left:14px;top:-10px;display:flex;gap:3px;transform:translateZ(40px)}
 .C .pips i{width:10px;height:10px;background:#ffd93d;border:2px solid #111;transform:rotate(45deg)}
 </style>
@@ -103,14 +100,14 @@ function cards(){
   const [t,n,pos]=PLAYERS[cur], P=pimg(t,n), C=cut(t,n), num=String(cur*7+11).padStart(3,'0');
   return [
    {k:'A', title:'<b>A</b> · HOLO MVP', desc:'90s Upper Deck hologram. Full-bleed art, a giant ghost of the player behind him, rainbow foil that moves as you tilt.',
-    html:`<div class="card A" style="--tc:${TC[t]}"><div class="win"><img class="bgimg" src="${P}" alt=""><img class="ghost" src="${C}" alt="" onerror="this.remove()"><div class="foil"></div><div class="shine"></div></div>
-      <div class="pop"><img src="${C}" alt=""></div><div class="mark">NBA<br>ARCADE<br>'27</div><div class="nm"><span>${first(n).toUpperCase()}</span><b>${last(n).toUpperCase()}</b></div></div>`},
+    html:`<div class="card A" style="--tc:${TC[t]}"><div class="art"><div class="win"><img class="ghost" src="${C}" alt="" onerror="this.remove()"><img class="in" src="${P}" alt=""><div class="foil"></div><div class="shine"></div></div>
+      <div class="pop"><img src="${C}" alt=""></div></div><div class="mark">NBA<br>ARCADE<br>'27</div><div class="nm"><span>${first(n).toUpperCase()}</span><b class="fit">${last(n).toUpperCase()}</b></div></div>`},
    {k:'B', title:'<b>B</b> · FREAK SHOW', desc:'Pop-art collectible. Wavy frame, halftone and neon slashes, a giant comic-book name, the player stepping out over the frame.',
-    html:`<div class="card B" style="--tc:${TC[t]};--fc:${FRAME[t]||'#ffa64d'}"><div class="corner"></div><div class="win"><img src="${P}" alt=""></div><div class="frame"></div>
-      <div class="pop"><img src="${C}" alt=""></div><div class="num">#${num}</div><div class="nm"><b>${last(n).toUpperCase()}</b></div></div>`},
+    html:`<div class="card B" style="--tc:${TC[t]};--fc:${FRAME[t]||'#ffa64d'}"><div class="corner"></div><div class="art"><div class="win"><img class="in" src="${C}" data-alt="${P}" alt=""></div><div class="pop"><img src="${C}" alt=""></div></div><div class="frame"></div>
+      <div class="num">#${num}</div><div class="nm"><b class="fit">${last(n).toUpperCase()}</b></div></div>`},
    {k:'C', title:'<b>C</b> · CARD FIGHTER', desc:'16-bit battle card, like SNK vs. Capcom. Thick black outline, a power burst behind him, and the player breaking out of the top of the card.',
-    html:`<div class="card C" style="--tc:${TC[t]};--tc2:${TC2[t]}"><div class="win"><div class="burst"></div><img src="${P}" alt=""></div><div class="pop"><img src="${C}" alt=""></div>
-      <div class="bar"><div class="pips"><i></i><i></i><i></i></div><b>${last(n).toUpperCase()}</b></div></div>`},
+    html:`<div class="card C" style="--tc:${TC[t]};--tc2:${TC2[t]}"><div class="art"><div class="win"><div class="burst"></div><img class="in" src="${C}" data-alt="${P}" alt=""></div><div class="pop"><img src="${C}" alt=""></div></div>
+      <div class="bar"><div class="pips"><i></i><i></i><i></i></div><b class="fit">${last(n).toUpperCase()}</b></div></div>`},
   ];
 }
 function render(){
@@ -119,11 +116,15 @@ function render(){
   // No cutout yet for this player? fall back to the plain portrait (no pop-out)
   const [t,n]=PLAYERS[cur], probe=new Image();
   probe.onload=()=>{ document.getElementById('note').textContent=''; };
-  probe.onerror=()=>{ document.querySelectorAll('.card').forEach(c=>c.classList.add('nocut'));
+  probe.onerror=()=>{ document.querySelectorAll('.card').forEach(c=>c.classList.add('nocut')); document.querySelectorAll('img.in[data-alt]').forEach(i=>i.src=i.dataset.alt);
     document.getElementById('note').textContent='This player\'s background-free art isn\'t ready yet, so he\'s shown without the pop-out. It\'s being made now.'; };
   probe.src=cut(t,n);
   document.querySelectorAll('.card').forEach(tilt);
+  requestAnimationFrame(fitAll); document.fonts?.ready.then(fitAll);
 }
+// Long names shrink to stay on one line
+function fitAll(){ document.querySelectorAll('.fit').forEach(el=>{ el.style.fontSize=''; const box=el.parentElement; let fs=parseFloat(getComputedStyle(el).fontSize);
+  while(el.scrollWidth>box.clientWidth-2 && fs>8){ fs-=1; el.style.fontSize=fs+'px'; } }); }
 function tilt(card){
   const set=(x,y)=>{ card.style.setProperty('--ry',((x-.5)*26)+'deg'); card.style.setProperty('--rx',((.5-y)*22)+'deg'); card.style.setProperty('--mx',(x*100)+'%'); card.style.setProperty('--my',(y*100)+'%'); };
   const at=e=>{ const r=card.getBoundingClientRect(), p=e.touches?e.touches[0]:e; set(Math.min(1,Math.max(0,(p.clientX-r.left)/r.width)), Math.min(1,Math.max(0,(p.clientY-r.top)/r.height))); };

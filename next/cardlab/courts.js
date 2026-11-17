@@ -3,7 +3,7 @@
    then scaled up with hard edges, so lines step like a 16-bit game. A tiny 3×5 pixel font spells NBA ARCADE. */
 
 const FONT = { // 3×5 glyphs, rows top→bottom
-  N:['101','111','111','111','101'], B:['110','101','110','101','110'], A:['010','101','111','101','101'],
+  N:['1001','1101','1011','1001','1001'], B:['110','101','110','101','110'], A:['010','101','111','101','101'],
   R:['110','101','110','101','101'], C:['011','100','100','100','011'], D:['110','101','101','101','110'],
   E:['111','100','110','100','111'], ' ':['000','000','000','000','000'], '★':['010','111','010','101','000']};
 
@@ -14,7 +14,8 @@ function pixelCourt(o){
   const box=(x0,y0,x1,y1,c)=>{ for(let x=x0;x<=x1;x++){ set(x,y0,c); set(x,y1,c); } for(let y=y0;y<=y1;y++){ set(x0,y,c); set(x1,y,c); } };
   const circ=(cx,cy,r,c,keep=()=>true)=>{ let x=r,y=0,e=1-r; while(x>=y){ for(const [dx,dy] of [[x,y],[y,x],[-y,x],[-x,y],[-x,-y],[-y,-x],[y,-x],[x,-y]]) if(keep(dx,dy)) set(cx+dx,cy+dy,c); y++; if(e<0) e+=2*y+1; else { x--; e+=2*(y-x)+1; } } };
   const disc=(cx,cy,r,c)=>{ for(let y=-r;y<=r;y++) for(let x=-r;x<=r;x++) if(x*x+y*y<=r*r+r*.8) set(cx+x,cy+y,c); };
-  const text=(s,x,y,c,rot=false)=>{ const w=s.length*4-1; [...s].forEach((ch,i)=>{ const g=FONT[ch]||FONT[' ']; g.forEach((row,ry)=>[...row].forEach((b,rx)=>{ if(b==='1'){ const gx=i*4+rx, gy=ry; rot ? set(x+w-1-gx, y+4-gy, c) : set(x+gx, y+gy, c); } })); }); return w; };
+  const twidth=s=>[...s].reduce((a,ch)=>a+(FONT[ch]||FONT[' '])[0].length+1,0)-1;
+  const text=(s,x,y,c,rot=false)=>{ const w=twidth(s); let ox=0; [...s].forEach(ch=>{ const g=FONT[ch]||FONT[' ']; g.forEach((row,ry)=>[...row].forEach((b,rx)=>{ if(b==='1'){ const gx=ox+rx, gy=ry; rot ? set(x+w-1-gx, y+4-gy, c) : set(x+gx, y+gy, c); } })); ox+=g[0].length+1; }); return w; };
   const P=o.pal;
   // card stock + field
   rect(0,0,W-1,H-1,P.stock);
@@ -56,11 +57,11 @@ function pixelCourt(o){
   // corner balls
   if(o.corners){ for(const [x,y] of [[m+7,m+7],[W-8-m,m+7],[m+7,H-8-m],[W-8-m,H-8-m]]){ disc(x,y,3,P.ball||P.line); circ(x,y,3,P.line); set(x,y-3,P.line); set(x,y+3,P.line); for(let i=-3;i<=3;i++) set(x+i,y,P.line); } }
   // NBA ARCADE, small, placed so the card still reads the same either way up
-  const T=P.text||P.line, label='NBA ARCADE', lw=label.length*4-1;
+  const T=P.text||P.line, label='NBA ARCADE', lw=twidth(label);
   if(o.label==='baselines'){ text(label, cxm-Math.floor(lw/2), cy1+3, T); text(label, cxm-Math.floor(lw/2)-(W%2?0:0), cy0-8, T, true); }
   if(o.label==='midline'){ text('NBA', cx0+3, mid-6, T); text('ARCADE', cx1-25, mid-6, T); text('NBA', cx1-13, mid+2, T, true); text('ARCADE', cx0+3, mid+2, T, true); }
-  if(o.label==='center'){ disc(cxm,mid,cr-1,P.paint||P.field); text('NBA', cxm-5, mid-6, T); text('ARCADE', cxm-11, mid+2, T); }
-  if(o.label==='plaque'){ for(const end of [0,1]){ const y=end?cy1+2:cy0-9; rect(cxm-21,y,cxm+20,y+6,P.plaque||P.line); text(label, cxm-19, y+1, P.plaqueText||P.field, end===0); } }
+  if(o.label==='center'){ disc(cxm,mid,cr-1,P.paint||P.field); text('NBA', cxm-Math.floor(twidth('NBA')/2), mid-6, T); text('ARCADE', cxm-Math.floor(twidth('ARCADE')/2), mid+2, T); }
+  if(o.label==='plaque'){ for(const end of [0,1]){ const y=end?cy1+2:cy0-9; rect(cxm-Math.ceil(lw/2)-2,y,cxm+Math.ceil(lw/2)+1,y+6,P.plaque||P.line); text(label, cxm-Math.floor(lw/2), y+1, P.plaqueText||P.field, end===0); } }
   // emit: one <rect> per horizontal run of the same colour
   let out=''; for(let y=0;y<H;y++){ let x=0; while(x<W){ const c=px[y][x]; let e=x; while(e+1<W && px[y][e+1]===c) e++; if(c) out+=`<rect x="${x}" y="${y}" width="${e-x+1}" height="1" fill="${c}"/>`; x=e+1; } }
   return `<svg viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" preserveAspectRatio="none">${out}</svg>`;

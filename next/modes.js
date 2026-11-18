@@ -337,7 +337,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .srow{font-size:6.5px;padding:8px 6px;border-radius:8px;border:2px solid transparent}
 .srow .tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2)}
 .srow b{font-weight:normal;font-size:9px;text-align:right}
-.srow.top,.srow.top .tn{color:var(--orange)}
+.srow.first,.srow.first .tn{color:var(--orange)}
 .srow.me{border-color:var(--blue);background:rgba(74,158,255,.1)}
 /* VS splash */
 .vss{position:absolute;inset:0;z-index:55;overflow:hidden;cursor:pointer;background:#000}
@@ -483,43 +483,51 @@ function duelProg(){
   const side = (p,n,r) => { const k=Math.floor((live?n:0)/per), slots=Math.min(12,Math.max(6,k)); return `<div class="ps ${r?'r':''}"><div class="pc">${r?'':p.short}<b>${live?n:0}</b>${r?p.short:''}</div><div class="ic">${[...Array(slots)].map((_,j)=>threeIc(j<k?'':'e')).join('')}</div></div>`; };
   return `<div class="prog">${side(DUEL.a,DUEL_STAT.a,false)}${side(DUEL.b,DUEL_STAT.b,true)}</div>`;
 }
+/* Lifebars once the games are on: the leader is always full and green, the other side
+   is red and filled by its share of the leader's number (20 vs 5 → 100% / 25%). */
+function lifebar(v, other){
+  const mx=Math.max(v,other), lead=v>=other, pct=mx>0?Math.round(100*v/mx):100;
+  return `<div class="lbar ${lead?'lead':''}"><i style="width:${pct}%"></i><b>${v} ${DUEL_STAT.short}</b></div>`;
+}
 function duelDaily(){
-  const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live';
-  const f=(p)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)"><span class="p1tag">YOUR PICK</span>
+  const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live' && !!pick;
+  const f=(p,v,o)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}<span class="p1tag">YOUR PICK</span>
       <div class="fp" style="--tc:${p.tc}">${p.img?img(p.img,'logo'):face(p.team,p.name)}</div><div class="fname">${p.short}</div><div class="fsub">${p.sub||`${p.team} · ${fp.f} FP/G`}</div></div>`; };
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
-    : live ? `<div class="alert live">DUEL IS LIVE · ${DUEL_STAT.short} UPDATE AS THEY HAPPEN</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
-  const y=YDUEL, w=y.win.p||P(y.win.n), l=y.lose.p||P(y.lose.n), gotIt = y.mine===y.win.n;
-  return `<div class="streak"><span class="fl">🔥</span><div><small>CURRENT STREAK</small><b>${STREAK.cur} IN A ROW</b></div><div class="best">BEST<br>${STREAK.best}</div></div>
-    ${alert}
-    <div class="arena" id="arena" style="--ca:${A.tc};--cb:${B.tc}">
+    : live ? `<div class="alert live">● LIVE · ${DUEL_STAT.label}</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
+  const futs = pick && futuresToday();
+  return `<div class="arena" id="arena" style="--ca:${A.tc};--cb:${B.tc}">
+      <div class="stk" title="Current streak · best ${STREAK.best}">🔥<b>${STREAK.cur}</b></div>
       <div class="dtitle">${DUEL.title.toUpperCase()}</div><div class="dsub">${DUEL.q||'WHO MAKES MORE 3-POINTERS TODAY?'}</div>
-      <div class="fighters">${f(A)}<div class="vsbig">VS</div>${f(B)}</div>
-      ${duelProg()}
+      <div class="fighters ${live?'on':''}">${f(A,DUEL_STAT.a,DUEL_STAT.b)}<div class="vsbig">VS</div>${f(B,DUEL_STAT.b,DUEL_STAT.a)}</div>
       ${pick?'':`<div class="choose">CHOOSE YOUR FIGHTER</div>`}
     </div>
-    <div class="panel"><div class="sec">YESTERDAY'S DUEL · ${y.title}</div>
-      <div class="ydr"><div class="yf win"><span class="wt">🏆 WINNER</span><div class="ph" style="--tc:${w.c}">${w.img?img(w.img,'logo'):face(w.t,w.n)}</div><b>${w.s}</b><div class="v">${y.win.v}</div><small>${y.stat}</small></div><i>VS</i>
-        <div class="yf"><div class="ph" style="--tc:${l.c}">${l.img?img(l.img,'logo'):face(l.t,l.n)}</div><b>${l.s}</b><div class="v">${y.lose.v}</div><small>${y.stat}</small></div></div>
-      <div class="pbar2"><i style="width:${y.pct}%"></i><span></span></div><div class="pbl"><span>${y.pct}% PICKED</span><span>${100-y.pct}% PICKED</span></div>
-      <div class="ydres" style="color:${gotIt?'var(--green)':'#ff3b5c'}">${gotIt?`✓ YOU CALLED IT · STREAK 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
-      <div class="who">GOT IT RIGHT · ${y.right.length+(gotIt?1:0)}<div>${(gotIt?[[ME.name,S.active]]:[]).concat(y.right).map(([n,c])=>`<span><span class="av" data-ch="${c}"></span>${n}</span>`).join('')}</div></div></div>`;
+    ${alert}
+    ${futs?`<button class="dnext" onclick="DZ.sec='futures';render()">🔮 FUTURES DUEL${S.done.futures?' · ✓ PICKED':'<span class="dot"></span>'} ▶</button>`:''}`;
 }
 function duel(){
-  const futNeed = futuresToday() && !S.done.futures;
-  let body;
-  if(DZ.tab==='stand'){
-    const daily = DZ.st==='daily', rows = daily ? DSTAND : FSTAND;
-    body = `<div class="seg2">${[['daily','⚡ DAILY DUEL'],['fut','🔮 FUTURES DUEL']].map(([k,l])=>`<button class="${DZ.st===k?'on':''}" onclick="DZ.st='${k}';render()">${l}</button>`).join('')}</div>
-      <div class="dtab"><div class="cap">${daily?'RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT':'RANKED BY CORRECT PICKS · NBA CUP'}</div>
-      <div class="h"><span></span><span>USER</span><span>${daily?'% CORRECT':'CORRECT'}</span><span>${daily?'ALL-TIME STREAK':'PICKS'}</span><span>${daily?'CURRENT STREAK':'HIT %'}</span></div>
-      ${rows.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span>
-        ${daily?`<span>${r[2]==='—'?'—':r[2]+'%'}</span><span>${r[3]}</span><span class="cs">${r[4]?'🔥 '+r[4]:'—'}</span>`:`<span>${r[2]}</span><span>${r[3]}</span><span class="cs">${Math.round(100*r[2]/r[3])}%</span>`}</div>`; }).join('')}</div>`;
-  } else {
-    body = `<div class="seg2"><button class="${DZ.sec==='daily'?'on':''}" onclick="DZ.sec='daily';render()">⚡ DAILY DUEL${S.done.duel?'':'<span class="dot"></span>'}</button><button class="${DZ.sec==='futures'?'on':''}" onclick="DZ.sec='futures';render()">🔮 FUTURES DUEL${futNeed?'<span class="dot"></span>':''}</button></div>
-      ${DZ.sec==='futures' ? futuresBody() : duelDaily()}`;
-  }
-  return mframe('dz','DUEL', `<div class="ctabs">${[['cur','CURRENT'],['stand','STANDINGS']].map(([k,l])=>`<button class="${DZ.tab===k?'on':''}" onclick="DZ.tab='${k}';render()">${l}</button>`).join('')}</div>${body}`);
+  const body = DZ.sec==='futures' ? `<button class="dnext back" onclick="DZ.sec='daily';render()">◀ DAILY DUEL</button>${futuresBody()}` : duelDaily();
+  return mframe('dz','DUEL', body);
+}
+/* First visit of the day: yesterday's result as a VS screen. The loser's bar drains and
+   his portrait shakes and fades; then CONTINUE dissolves into today's Duel. */
+function ydSplash(){
+  const y=YDUEL; if(y.none || S.ydSeen===TODAY || document.querySelector('.dsplash')) return;
+  if(typeof LIVE!=='undefined' && LIVE.state==='connecting') return;
+  const w=y.win.p||P(y.win.n), l=y.lose.p||P(y.lose.n), hit=y.mine===y.win.n;
+  const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
+  const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
+  const side=(p,v,win)=>`<div class="yf ${win?'win':'lose'}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
+      <div class="ph" style="--tc:${p.c}">${p.img?img(p.img,'logo'):face(p.t,p.n)}</div><b>${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
+  const g=document.createElement('div'); g.className='dsplash';
+  g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
+    <div class="yar">${side(w,y.win.v,true)}<div class="vsbig">VS</div>${side(l,y.lose.v,false)}</div>
+    <div class="yres ${y.picked===false?'':hit?'ok':'bad'}">${y.picked===false?'YOU DIDN\'T PICK':hit?`✓ YOU CALLED IT · 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
+    <div class="ywho"><span>PICKED CORRECTLY · ${right.length}</span><div>${right.length?right.map(([n,c])=>`<i><span class="av" data-ch="${c}"></span>${n}</i>`).join(''):'<em>Nobody</em>'}</div></div>
+    <button class="btn" id="ygo">CONTINUE TO TODAY'S DAILY DUEL ▶</button>`;
+  g.querySelectorAll('.av[data-ch]').forEach(el=>{ if(BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
+  g.querySelector('#ygo').onclick=()=>{ S.ydSeen=TODAY; save(); dissolve(()=>g.remove(), '#02020c'); };
+  document.getElementById('app').appendChild(g);
 }
 function duelPick(short, el){
   if(S.done.duel) return;
@@ -564,46 +572,133 @@ function wlcChart(){
   return `<div class="wch"><div class="hd"><span>${WLC.pool} · FP/G</span><span>🔒 PICKS LOCKED</span></div><svg viewBox="0 0 ${W} ${H}">${grid}${xl}${lines}</svg>
     <div class="lg">${E.map((e,k)=>`<span style="color:${e.me?'var(--green)':'var(--t2)'}"><i style="background:${cols[k]}"></i>${e.m}</span>`).join('')}</div></div>`;
 }
+/* Live-site numbers for the select screen */
+function cStats(n){
+  const p=P(n); let b=null;
+  try{ if(typeof LIVE!=='undefined' && LIVE.on) b=(LIVE.E('BDL_STATS')||{})[n]; }catch(e){}
+  const f=v=>v==null||isNaN(v)?'—':(+v).toFixed(1);
+  if(b) return {pts:f(b.pts), reb:f(b.reb), ast:f(b.ast), fp:f(p.f)};
+  const r=hsh(n+'sh'); return {pts:f(p.f*(.42+r*.12)), reb:f(p.f*(.12+hsh(n+'rb')*.1)), ast:f(p.f*(.07+hsh(n+'as')*.1)), fp:f(p.f)};
+}
+/* "11/17 vs CHA" for each game the player has this Challenge week */
+const isLiveOn = () => typeof LIVE!=='undefined' && LIVE.on;
+function cMon(){ if(isLiveOn()) return WEEK_START(MU.week); const t=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); t.setHours(0,0,0,0); t.setDate(t.getDate()-((t.getDay()+6)%7)); return t; }
+function cWeekGames(n){
+  const st=cMon(), out=[];
+  for(let di=0; di<7; di++){ let g=''; try{ g=dayGame(n,di); }catch(e){} if(!g||g==='NO GAME'||g==='OUT') continue;
+    const d=new Date(+st+di*864e5), m=g.match(/(vs|@)\s*(\S+)/); out.push(`${d.getMonth()+1}/${d.getDate()} ${m?m[1]+' '+m[2]:g}`); }
+  return out;
+}
+const projFpg = list => +list.reduce((a,n)=>a+(+P(n).f||0),0).toFixed(1);
+function cDates(){ const st=cMon(), e=new Date(+st+6*864e5), f=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
+  return (typeof LIVE!=='undefined' && LIVE.on && LIVE.wlcDates) || `${f(st)} – ${f(e)} · LOCKS MON 7:00 PM ET`; }
 function challenge(){
-  const live = S.wphase==='live', saved = !!S.wsaved || live, tab = CZ.tab;
-  const banner = live ? wlcChart() : `<div class="wban"><div class="th">THIS WEEK'S THEME:<b>${WLC.pool}</b></div><div class="dt">NOV 16 – NOV 22 · LOCKS MON 7:00 PM ET</div>
-    <div class="lk">MAKE PICKS BEFORE<br>MONDAY'S FIRST TIP-OFF</div><div class="sb">Choose the players you think will average the most Fantasy Points (FP) per game this week!</div></div>`;
-  const tabs = `<div class="ctabs">${[['pick',saved?"CURRENT WEEK'S LINEUPS":'PICK PLAYERS'],['stand','STANDINGS']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="CZ.tab='${k}';render()">${l}</button>`).join('')}</div>`;
+  const live = S.wphase==='live', saved = !!S.wsaved || live;
   let body='';
-  if(tab==='stand'){
-    body = `<div class="ctab"><div class="h"><span></span><span>STANDINGS</span><span>FALL PTS</span><span>TOTAL PTS</span><span>WIN %</span></div>
-      ${CSTAND.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span><span class="fp">${r[2]}</span><span>${r[3]}</span><span>${r[4]}</span></div>`; }).join('')}</div>
-      <div class="note">Each week: 1st place earns 3 points, 2nd earns 2, 3rd earns 1.</div>`;
-  } else if(live){
-    body = cEntries().map(e=>`<div class="ment"><span class="av" data-ch="${e.me?S.active:e.ch}"></span><span style="color:${e.me?'var(--green)':'var(--t1)'}">${e.m}</span><span class="rk">${ordinal(e.rank)}</span></div>${lineupCard(e.picks,true)}`).join('');
+  if(live){
+    body = kingOfHill() + cEntries().map(e=>`<div class="ment"><span class="av" data-ch="${e.me?S.active:e.ch}"></span><span style="color:${e.me?'var(--green)':'var(--t1)'}">${e.m}</span><span class="rk">${ordinal(e.rank)}</span></div>${lineupCard(e.picks,true)}`).join('');
   } else if(saved){
-    body = `<div class="qcap" style="color:var(--t3);margin:0">YOUR LINEUP</div>${lineupCard(S.party,false,true)}
+    body = `<div class="cweek">${WLC.pool} · ${cDates()}</div><div class="qcap" style="color:var(--t3);margin:0">YOUR LINEUP</div>${lineupCard(S.party,false,true)}
       <div class="note">Your lineup is final. The only change allowed: one swap of a player listed OUT for a same-tier player whose game hasn't started.</div>
       <div class="qcap" style="color:var(--t3);margin:6px 0 0">ALL ENTRIES · PICKS REVEALED AT LOCK</div>
       ${C_LINEUPS.map(([m,ch,picks],k)=>{ const has = LIVE.on ? picks.length : k!==3; return `<div class="ment"><span class="av" data-ch="${ch}"></span>${m}</div><div class="hid ${has?'':'no'}">${has?`LINEUP SAVED · ${LIVE.on?picks.length:5} PLAYERS · HIDDEN UNTIL LOCK`:'NO LINEUP YET'}</div>`; }).join('')}`;
   } else {
     const left=BUDGET-spent(), sel=CZ.sel;
     let pv;
-    if(!sel) pv = `<div class="cpv"><div class="ph">?</div><div><b>SELECT YOUR PLAYER</b><small>TAP ANY PORTRAIT BELOW</small></div></div>`;
-    else { const p=P(sel), c=WLC_COST(sel), inL=S.party.includes(sel), can=!inL && c<=left && S.party.length<5;
-      pv = `<div class="cpv"><div class="ph" style="--tc:${p.c};--tcol:${TIER_C[c]}">${face(p.t,p.n)}<span class="tag">$${c}</span></div><div><b>${p.n.toUpperCase()}</b><small>${p.t} · ${p.p} · ${p.f} FP/G THIS SEASON</small><small>LAST 5 GAMES: ${p.l5} FP/G</small><small style="color:${p.inj==='OUT'?'#ff3b5c':'var(--t2)'}">${p.inj?p.inj+' · ':''}${GAMES[p.t]?'PLAYS TODAY':'NO GAME TODAY'}</small>
-        ${inL?`<button class="go" style="background:transparent;color:#ff3b5c;border-color:#ff3b5c;box-shadow:none" onclick="cToggle()">REMOVE FROM LINEUP</button>`:can?`<button class="go" onclick="cToggle()">ADD TO LINEUP · $${c}</button>`:`<button class="go" disabled style="opacity:.45">${S.party.length>=5?'LINEUP IS FULL':'NOT ENOUGH SALARY'}</button>`}</div></div>`; }
+    if(!sel && S.party.length){
+      const order=S.party.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a));
+      pv = `<div class="wpv sum"><div class="sh"><span>YOUR LINE-UP · ${S.party.length}/5</span><span>$${spent()} OF $${BUDGET}</span></div>
+        <div class="srow5">${order.map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="sp" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div><span>$${c}</span><i>${p.s}</i></div>`; }).join('')}${'<div class="sp empty"><div class="ph">+</div></div>'.repeat(5-S.party.length)}</div>
+        <div class="sf"><span>${projFpg(S.party)}<small> PROJ FP/G</small></span><span>${S.party.length===5||left<=0?'SAVE LINE-UP BELOW ▼':'TAP A PORTRAIT TO ADD MORE'}</span></div></div>`;
+    } else if(!sel){
+      pv = `<div class="wpv empty"><div class="pp"><span>?</span></div><div class="pi"><div class="pn blink">SELECT YOUR PLAYER</div><div class="psub">TAP ANY PORTRAIT BELOW</div></div></div>`;
+    } else {
+      const p=P(sel), c=WLC_COST(sel), inL=S.party.includes(sel), can=!inL && c<=left && S.party.length<5, st=cStats(sel), gm=cWeekGames(sel), q=sel.replace(/'/g,"\\'");
+      const box=(l,v)=>`<div class="pst"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+      pv = `<div class="wpv" style="--tcol:${TIER_C[c]}"><div class="pp" style="--tc:${p.c}" data-pn="${p.n.replace(/"/g,'&quot;')}">${face(p.t,p.n)}<span class="pr">$${c}</span></div>
+        <div class="pi"><div class="ph2"><div style="min-width:0"><div class="pn">${p.n}${p.inj?` <i class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</i>`:''}</div><div class="psub">${p.p?p.p+' · ':''}${p.t} · 2026-27 SEASON</div></div>
+          <div class="pgm"><div class="h">${gm.length} GAME${gm.length===1?'':'S'}</div>${gm.map(x=>`<div>${x}</div>`).join('')||'<div>—</div>'}</div></div>
+          <div class="psts">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
+          <div class="pbt">${inL?`<button class="b drop" onclick="cToggle()">DROP</button>`:can?`<button class="b sel" onclick="cToggle()">SELECT</button>`:`<button class="b sel" disabled>${S.party.length>=5?'LINE-UP FULL':'OVER BUDGET'}</button>`}<button class="b can" onclick="CZ.sel=null;render()">CANCEL</button></div></div></div>`;
+    }
     const grid = WLC_TIERS.map((row,k)=>{ const c=5-k; return `<div class="tg" style="--tcol:${TIER_C[c]}">$${c}</div>` + row.map(n=>{ const p=P(n), inL=S.party.includes(n), cant=!inL&&(c>left||S.party.length>=5);
       return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div><div class="nm">${p.s}</div><div class="tm">${p.t} · ${p.p}</div></div>`; }).join(''); }).join('');
-    const ready = S.party.length===5 && left>=0;
-    body = `${pv}<div class="tierg">${grid}</div>
-      <div class="cbar"><div><div class="l">SALARY REMAINING</div><div class="v" style="color:var(--teal)">$${left}</div></div><div><div class="l">PLAYERS SELECTED</div><div class="v">${S.party.length} / 5</div></div>
-        <button ${S.party.length?'':'disabled'} onclick="S.party=[];CZ.sel=null;save();render()">START<br>OVER</button><button class="save ${ready?'ready':''}" ${ready?'':'disabled'} onclick="cSave(this)">SAVE<br>LINEUP</button></div>`;
+    const ready = S.party.length>0 && (S.party.length===5 || left===0) && left>=0;
+    body = `<div class="cstick">${pv}</div><div class="tierg">${grid}</div>
+      <div class="cbar c5"><div><div class="l">SALARY LEFT</div><div class="v" style="color:var(--teal)">$${left}</div></div><div><div class="l">PLAYERS</div><div class="v">${S.party.length}/5</div></div>
+        <button ${S.party.length?'':'disabled'} onclick="S.party=[];CZ.sel=null;save();render()">START<br>OVER</button><button class="save ${ready?'ready':''}" ${ready?'':'disabled'} onclick="cSave(this)">SAVE<br>LINEUP</button>
+        <div class="proj"><div class="l">PROJ FP/G</div><div class="v">${projFpg(S.party)}</div></div></div>`;
   }
-  return mframe('cz','CHALLENGE', banner + tabs + body);
+  return mframe('cz','CHALLENGE', body, `<button class="rules" onclick="cSplash(true)">ⓘ ${WLC.pool.length>14?'RULES':WLC.pool}</button>`);
 }
-function cToggle(){ const n=CZ.sel, i=S.party.indexOf(n); if(i>=0) S.party.splice(i,1); else S.party.push(n); save(); render(); }
+function cToggle(){ const n=CZ.sel, i=S.party.indexOf(n); if(i>=0) S.party.splice(i,1); else S.party.push(n); CZ.sel=null; save(); render(); }
 function cSave(el){
   const o=overlay(`<div class="sheet" style="--c:var(--orange)"><h3>SAVE THIS LINEUP?</h3><p>Once saved, your picks are final for the week. The only change allowed: one swap of a player listed OUT.</p>
     <div class="acts"><button class="btn alt" id="no">NOT YET</button><button class="btn" id="yes">SAVE LINEUP</button></div></div>`);
   o.querySelector('#no').onclick=()=>o.remove();
-  o.querySelector('#yes').onclick=()=>{ o.remove(); S.wsaved=true; CZ.sel=null; save(); if(!S.done.wlc) complete('wlc', el); else render(); say('Lineup saved'); };
+  o.querySelector('#yes').onclick=()=>{ o.remove(); S.wsaved=true; CZ.sel=null; save(); if(!S.done.wlc) complete('wlc', el); else render(); lockedSplash(S.party); };
 }
+/* Same moment as the live site after a save */
+function lockedSplash(picks){
+  const order=picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)), spentN=picks.reduce((a,n)=>a+WLC_COST(n),0);
+  const g=document.createElement('div'); g.className='lis';
+  g.innerHTML=`<div class="lbx"><div class="lt0">${WLC.pool}</div><div class="lt">LINEUP<br>LOCKED IN!</div>
+    <div class="lcs">${order.map((n,i)=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc5" style="--tcol:${TIER_C[c]};animation-delay:${.15+i*.12}s"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}<span>$${c}</span></div><b>${p.s}</b><small>${p.t}</small></div>`; }).join('')}</div>
+    <div class="lst"><div><span>SPENT</span><b>$${spentN}</b></div><div><span>PLAYERS</span><b>${picks.length}</b></div><div><span>PROJ FP/G</span><b>${projFpg(picks)}</b></div></div>
+    <div class="lgl">GOOD LUCK!</div><button class="lbtn">VIEW ALL LINEUPS ▶</button></div>`;
+  g.querySelector('.lbtn').onclick=()=>{ g.remove(); const sc=document.querySelector('#ui .screen'); if(sc) sc.scrollTo({top:0}); };
+  document.getElementById('app').appendChild(g);
+}
+/* The week's theme, dates and short rules: first visit of each Challenge week (Monday) */
+function cSplash(force){
+  const key=WLC.pool+'|'+MU.week; if(!force && (S.cSplash===key || S.wphase==='live' || document.querySelector('.csplash'))) return;
+  if(!force && typeof LIVE!=='undefined' && (LIVE.state==='connecting' || (LIVE.on && !LIVE.week))) return;
+  const g=document.createElement('div'); g.className='csplash';
+  g.innerHTML=`<div class="cs0">THIS WEEK'S CHALLENGE</div><div class="allstar ${typeof wkStyle==='function'?wkStyle():''}">${WLC.pool}<small>${WLC.sub||''}</small></div>
+    <div class="csd">${cDates()}</div>
+    <ul><li>Pick up to <b>5 players</b> from this week's pool for <b>$15</b> or less.</li><li>Highest average <b>FP per game</b> this week wins.</li><li>Picks lock at <b>Monday's first tip-off</b>, then they're final.</li><li>Top 3 earn points: <b>3 · 2 · 1</b>.</li></ul>
+    <button class="btn">LET'S GO ▶</button>`;
+  g.querySelector('.btn').onclick=()=>{ S.cSplash=key; save(); dissolve(()=>g.remove(), '#020c18'); };
+  document.getElementById('app').appendChild(g);
+}
+/* KING OF THE HILL: whoever leads stands on the ruins with a shield; everyone else waits below
+   with a weapon. First look each day plays a short scene: a new king takes the hill, or the
+   king knocks back a challenger. */
+const KW = {
+  shield:'<svg viewBox="0 0 8 9" shape-rendering="crispEdges"><path fill="#000" d="M0 0h8v6H7v1H6v1H5v1H3V8H2V7H1V6H0z"/><path fill="#ffd93d" d="M1 1h6v5H6v1H5v1H3V7H2V6H1z"/><path fill="#c4122f" d="M3 2h2v4H3zM2 3h4v2H2z"/></svg>',
+  sword:'<svg viewBox="0 0 5 11" shape-rendering="crispEdges"><path fill="#000" d="M1 0h3v7h1v2H3v2H2V9H0V7h1z"/><path fill="#dfe8ff" d="M2 1h1v6H2z"/><path fill="#8a5a2a" d="M1 7h3v1H1zM2 8h1v2H2z"/></svg>',
+  axe:'<svg viewBox="0 0 7 11" shape-rendering="crispEdges"><path fill="#000" d="M2 0h4v1h1v4H6v1H4v5H2V5H1V4H0V1h2z"/><path fill="#b9c3d6" d="M1 1h2v3H1zM4 1h2v3H4z"/><path fill="#8a5a2a" d="M3 1h1v9H3z"/></svg>',
+  mace:'<svg viewBox="0 0 6 11" shape-rendering="crispEdges"><path fill="#000" d="M1 0h4v1h1v3H5v1H4v6H2V5H1V4H0V1h1z"/><path fill="#9aa4b8" d="M1 1h4v3H1z"/><path fill="#fff" d="M2 1h1v1H2z"/><path fill="#8a5a2a" d="M2.5 5h1v5h-1z"/></svg>',
+};
+function kingOfHill(){
+  const E=cEntries().slice().sort((a,b)=>a.rank-b.rank), king=E[0], rest=E.slice(1);
+  const left=rest.filter((_,i)=>i%2===0), right=rest.filter((_,i)=>i%2===1);
+  const wpn=['sword','axe','mace'];
+  const fig=(e,i,side)=>`<div class="kf ${e.me?'me':''}" data-i="${i}"><span class="kb" data-ch="${e.me?S.active:e.ch}"></span><span class="kw ${side}">${KW[wpn[i%3]]}</span><b>${e.m}</b><small>${ordinal(e.rank)} · ${e.tot}</small></div>`;
+  const ruins=`<svg class="ruins" viewBox="0 0 60 22" shape-rendering="crispEdges" preserveAspectRatio="none"><path fill="#3a2f45" d="M4 22 10 12h40l6 10z"/><path fill="#5a4a6a" d="M12 12h36v3H12z"/>
+    <path fill="#6b5b7b" d="M14 4h5v8h-5zM41 2h5v10h-5zM24 8h12v4H24z"/><path fill="#8a7a9a" d="M14 4h5v1h-5zM41 2h5v1h-5zM24 8h12v1H24z"/><path fill="#3a2f45" d="M15 6h1v2h-1zM43 5h1v2h-1zM29 9h1v2h-1z"/>
+    <path fill="#2a6a3a" d="M8 18h3v1H8zM48 17h3v1h-3zM20 13h2v1h-2z"/></svg>`;
+  return `<div class="koth" id="koth" data-king="${(king&&king.m||'').replace(/"/g,'')}">
+    <div class="kh">KING OF THE HILL · ${WLC.pool} · DAY ${TODAY_I+1} OF 7</div>
+    <div class="kstage"><div class="sky"></div>
+      <div class="ksd l">${left.map((e,i)=>fig(e,i*2,'r')).join('')}</div>
+      <div class="khill">${king?`<div class="kf king ${king.me?'me':''}"><span class="crown">👑</span><span class="kb" data-ch="${king.me?S.active:king.ch}"></span><span class="kw sh">${KW.shield}</span><b>${king.m}</b><small>${king.tot} FP/G</small></div>`:''}${ruins}</div>
+      <div class="ksd r">${right.map((e,i)=>fig(e,i*2+1,'l')).join('')}</div>
+      <div class="ground"></div></div></div>`;
+}
+function kothAfter(){
+  const k=document.getElementById('koth'); if(!k) return;
+  k.querySelectorAll('.kb[data-ch]').forEach(el=>{ if(!el.firstChild && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,2)); });
+  if(S.kothDay===TODAY) return;
+  const newKing = S.kothKing && S.kothKing!==k.dataset.king;
+  S.kothDay=TODAY; S.kothKing=k.dataset.king; save();
+  const kg=k.querySelector('.kf.king'); if(!kg) return;
+  if(newKing){ kg.classList.add('takes'); k.insertAdjacentHTML('beforeend',`<div class="kmsg">NEW KING: ${k.dataset.king.toUpperCase()}!</div>`); }
+  else { const att=k.querySelector('.ksd .kf'); if(att){ att.classList.add('charge'); kg.classList.add('defend'); }
+    k.insertAdjacentHTML('beforeend',`<div class="kmsg">${k.dataset.king.toUpperCase()} HOLDS THE HILL</div>`); }
+  setTimeout(()=>k.querySelector('.kmsg')?.remove(), 3200);
+}
+AFTER.wlc = ()=>{ kothAfter(); cSplash(); };
 
 /* Home-page line for the Challenge box once the week is under way */
 function wlcStatus(){ const me=cEntries().find(e=>e.me); const d=daysLeft(); return `${ordinal(me.rank)} PLACE · ${d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY'}`; }
@@ -640,6 +735,7 @@ function futNode(id){
   o.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ if(S.fut[id]) return; S.fut[id]=b.dataset.t; save(); o.remove(); complete('futures', document.querySelector('.node.today')); });
 }
 AFTER.duel = ()=>{
+  ydSplash();
   const cv=document.getElementById('stars'); if(!cv) return; const c=cv.getContext('2d');
   const W=cv.width=cv.clientWidth*devicePixelRatio, H=cv.height=cv.clientHeight*devicePixelRatio;
   const st=[...Array(120)].map(()=>({x:Math.random()*2-1,y:Math.random()*2-1,z:Math.random()}));
@@ -653,3 +749,153 @@ AFTER.duel = ()=>{
 function futures(){ DZ.tab='cur'; DZ.sec='futures'; return duel(); }
 AFTER.futures = ()=>AFTER.duel();
 Object.assign(SCREENS, {duel, wlc:challenge, futures});
+
+/* ── Duel (stripped-down) + yesterday splash + Stats page styles ── */
+document.head.insertAdjacentHTML('beforeend',`<style>
+.arena .stk{position:absolute;top:8px;right:8px;z-index:3;display:flex;align-items:center;gap:3px;font-size:12px;background:rgba(0,0,0,.6);border:2px solid #ffb020;border-radius:12px;padding:3px 7px}
+.arena .stk b{font-weight:normal;font-size:8px;color:#ffd93d}
+.lbar{position:relative;height:12px;border:2px solid #000;outline:2px solid #fff;background:#2a0a10;margin:0 4px 8px;overflow:hidden}
+.lbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#ff6b7d,#c4122f);transition:width .6s}
+.lbar.lead i{background:linear-gradient(180deg,#7dff9c,#18b84a)}
+.lbar b{position:relative;display:block;font-weight:normal;font-size:5.5px;line-height:8px;text-align:center;color:#fff;text-shadow:1px 1px 0 #000}
+.fighters.on .p1tag{display:none}
+.dnext{display:block;width:100%;font:inherit;font-size:7px;padding:12px;border-radius:10px;border:2px solid var(--violet);background:rgba(179,107,255,.12);color:#e6d4ff;cursor:pointer;position:relative}
+.dnext.back{width:auto;padding:8px 12px;border-color:var(--edge);background:var(--card);color:var(--t2);font-size:6px}
+.dnext .dot{position:relative;display:inline-block;top:-1px;margin-left:6px}
+.dsplash{position:absolute;inset:0;z-index:60;background:radial-gradient(circle at 50% 40%,#2a0d3a,#02020c 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px));text-align:center;animation:fadeIn .3s}
+.dsplash .yh{font-size:7px;color:var(--t3);letter-spacing:.1em}
+.dsplash .yt{font-size:13px;color:#fff;text-shadow:0 3px 0 #c4122f}
+.dsplash .yar{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:6px;width:100%;max-width:340px}
+.dsplash .vsbig{padding-bottom:60px;font-size:22px}
+.dsplash .yf{position:relative;min-width:0}
+.dsplash .yf .ph{height:150px;border:3px solid #000;outline:3px solid #fff;border-radius:4px;overflow:hidden;background:var(--tc)}
+.dsplash .yf .ph img{width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+.dsplash .yf.win .ph{outline-color:var(--gold);box-shadow:0 0 28px rgba(255,217,61,.55)}
+.dsplash .yf b{display:block;font-weight:normal;font-size:8px;margin-top:8px}
+.dsplash .yf .v{font-size:18px;margin-top:6px;color:var(--t1)}.dsplash .yf.win .v{color:var(--gold)}
+.dsplash .yf .v small{font-size:6px;color:var(--t2);margin-left:3px}
+.dsplash .crown{position:absolute;top:22px;left:50%;transform:translateX(-50%);font-size:6px;background:var(--gold);color:#000;padding:3px 6px;border-radius:3px;white-space:nowrap}
+.dsplash .yf.lose .lbar i{animation:drain 1.3s .9s ease-in forwards}
+.dsplash .yf.lose .ph{animation:shake .12s 1s 8 linear, dull .8s 2s forwards}
+.dsplash .yf.lose b,.dsplash .yf.lose .v{animation:dull .8s 2s forwards}
+@keyframes drain{to{width:0}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,1px)}50%{transform:translate(3px,-1px)}75%{transform:translate(-2px,0)}}
+@keyframes dull{to{filter:grayscale(1) brightness(.55);opacity:.7}}
+@keyframes fadeIn{from{opacity:0}}
+.dsplash .yres{font-size:8px;padding:8px 12px;border-radius:8px;border:2px solid var(--t3)}
+.dsplash .yres.ok{color:var(--green);border-color:var(--green)}.dsplash .yres.bad{color:#ff3b5c;border-color:#ff3b5c}
+.dsplash .ywho{font-size:6px;color:var(--t3)}
+.dsplash .ywho>div{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px}
+.dsplash .ywho i{font-style:normal;display:flex;align-items:center;gap:4px;font-size:6.5px;color:var(--t1)}
+.dsplash .ywho .av canvas{width:22px;height:22px}
+.dsplash .ywho em{font-style:normal;color:var(--t2)}
+.dsplash .btn{margin-top:6px;font-size:7px}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+.cz .mhead{align-items:center}
+.cz .rules{font:inherit;font-size:5.5px;padding:6px 8px;border-radius:12px;border:2px solid var(--orange);background:var(--card);color:var(--t1);cursor:pointer;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cweek{font-size:6px;color:var(--t3);text-align:center}
+.cstick{position:sticky;top:0;z-index:5;margin:-4px -4px 0;padding:4px;background:linear-gradient(180deg,#020c18 85%,rgba(2,12,24,0))}
+.wpv{display:flex;gap:10px;border:3px solid var(--tcol,var(--edge));border-radius:12px;background:var(--card);padding:9px;min-height:108px;box-sizing:border-box}
+.wpv .pp{position:relative;width:92px;height:92px;flex:none;border:2px solid var(--tcol,#3b4a66);border-radius:6px;overflow:hidden;background:var(--tc,#0f1830);display:grid;place-items:center;cursor:pointer}
+.wpv .pp img{width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+.wpv .pp>span:not(.pr){font-size:30px;color:#3b4a66}
+.wpv .pr{position:absolute;bottom:2px;left:2px;font-size:7px;color:#000;background:var(--tcol);padding:2px 4px;border-radius:2px}
+.wpv .pi{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;justify-content:center}
+.wpv .ph2{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.wpv .pn{font-size:8px;color:#fff;text-shadow:2px 2px 0 #000;line-height:1.4}.wpv .pn.blink{color:var(--gold);animation:blink 1.2s steps(2) infinite}
+.wpv .pn .inj{font-style:normal;font-size:5px;background:var(--gold);color:#000;padding:1px 3px;border-radius:2px;vertical-align:middle}.wpv .pn .inj.o{background:#ff3b5c;color:#fff}
+.wpv .psub{font-size:5px;color:var(--t3);margin-top:3px}
+.wpv .pgm{flex:none;text-align:right;font-size:5px;line-height:1.7;color:var(--t2)}.wpv .pgm .h{font-size:4.5px;color:#7fc8ff}
+.wpv .psts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.wpv .pst{border:2px solid #3fa9f5;border-radius:4px;text-align:center;padding:4px 0;background:#0a1226}
+.wpv .pst .l{font-size:5px;color:#7fc8ff}.wpv .pst .v{font-size:10px;color:#fff;margin-top:4px}
+.wpv .pbt{display:flex;gap:6px}
+.wpv .b{flex:1;font:inherit;font-size:8px;padding:10px 0;border-radius:5px;cursor:pointer;text-shadow:1px 1px 0 #000}
+.wpv .b.sel{background:#0f3d1e;color:#7dffa0;border:2px solid #39ff6a}.wpv .b.sel:disabled{opacity:.4;cursor:default}
+.wpv .b.drop{background:#3d360f;color:#ffd93d;border:2px solid #ffd93d}
+.wpv .b.can{background:#3d0f16;color:#ff8a9a;border:2px solid #ff3b5c}
+.wpv.sum{flex-direction:column;gap:7px}
+.wpv .sh,.wpv .sf{display:flex;justify-content:space-between;font-size:5.5px;color:var(--t2)}
+.wpv .sf span:first-child{font-size:10px;color:var(--green)}.wpv .sf small{font-size:5px;color:var(--t2)}
+.srow5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.srow5 .sp{position:relative;border:2px solid var(--tcol,#2a3858);border-radius:5px;overflow:hidden;background:#0a1226;cursor:pointer}
+.srow5 .ph{aspect-ratio:1/1;background:var(--tc,#0a1226);display:grid;place-items:center;color:#3b4a66;font-size:14px}
+.srow5 .ph img{width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+.srow5 span{position:absolute;top:2px;left:2px;font-size:5px;background:var(--tcol);color:#000;padding:1px 3px;border-radius:2px}
+.srow5 i{display:block;font-style:normal;font-size:4.5px;text-align:center;padding:3px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow5 .empty{border-style:dashed;cursor:default}
+.cbar.c5{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) auto auto minmax(0,1fr);gap:6px;padding:9px 8px}.cbar.c5 button{padding:8px 6px}.cbar .proj{text-align:right}.cbar .proj .v{color:var(--green)}
+.ruins{width:140px!important;height:58px!important}.khill{width:140px!important}
+.csplash{position:absolute;inset:0;z-index:60;background:radial-gradient(circle at 50% 30%,#3a1a10,#020c18 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;animation:fadeIn .3s}
+.csplash .cs0{font-size:7px;color:var(--t3);letter-spacing:.1em}
+.csplash .allstar{font-size:18px;white-space:normal}
+.csplash .csd{font-size:6px;color:var(--t2)}
+.csplash ul{list-style:none;margin:0;padding:12px 14px;text-align:left;border:2px solid var(--edge);border-radius:10px;background:rgba(0,0,0,.35);max-width:320px}
+.csplash li{font-size:6.5px;line-height:1.9;color:var(--t1);padding-left:14px;position:relative}.csplash li::before{content:'▸';position:absolute;left:0;color:var(--orange)}
+.csplash li b{font-weight:normal;color:var(--gold)}
+.lis{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 40%,#1f1446,#05030f 75%)}
+.lis::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px)}
+.lbx{position:relative;z-index:1;width:100%;max-width:420px;text-align:center}
+.lt0{font-size:7px;color:var(--gold);letter-spacing:.12em;margin-bottom:10px}
+.lt{font-size:20px;line-height:1.35;color:#fff;text-shadow:3px 3px 0 #b36bff,6px 6px 0 #000;animation:lisPop .5s steps(5) both}
+@keyframes lisPop{from{transform:scale(.4);opacity:0}}
+.lcs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:20px 0 16px}
+.lc5{border:2px solid var(--tcol);border-radius:6px;background:var(--card);overflow:hidden;animation:lisPop .4s steps(4) both}
+.lc5 .ph{position:relative;aspect-ratio:1/1;background:var(--tc)}.lc5 .ph img{width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+.lc5 .ph span{position:absolute;left:2px;bottom:2px;font-size:6px;color:#000;background:var(--tcol);padding:2px 3px;border-radius:2px}
+.lc5 b{display:block;font-weight:normal;font-size:5.5px;padding:5px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lc5 small{display:block;font-size:4.5px;color:#7fc8ff;padding-bottom:5px}
+.lst{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.lst div{border:2px solid #3fa9f5;border-radius:6px;background:#0a1226;padding:8px 0}.lst span{display:block;font-size:4.5px;color:#7fc8ff}.lst b{display:block;font-weight:normal;font-size:11px;margin-top:6px}
+.lgl{font-size:9px;color:var(--green);margin-bottom:16px;animation:blink 1s steps(2) infinite}
+.lbtn{width:100%;font:inherit;font-size:8px;padding:12px 0;border-radius:8px;cursor:pointer;color:#fff;background:#1fae4b;border:2px solid #5dff8a;box-shadow:0 0 12px rgba(57,255,106,.45)}
+.koth{position:relative;border:3px solid #000;box-shadow:0 0 0 2px var(--orange);border-radius:12px;overflow:hidden}
+.koth .kh{position:relative;z-index:3;font-size:5.5px;color:#fff;text-align:center;padding:8px 6px;background:rgba(0,0,0,.45)}
+.kstage{position:relative;height:210px;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;padding:0 6px 18px}
+.kstage .sky{position:absolute;inset:0;background:linear-gradient(180deg,#1a1440 0%,#5a2a5a 55%,#c8643a 100%)}
+.kstage .sky::after{content:'';position:absolute;left:12%;top:16%;width:22px;height:22px;background:#ffe9a8;box-shadow:0 0 18px #ffd27a}
+.kstage .ground{position:absolute;left:0;right:0;bottom:0;height:22px;background:repeating-linear-gradient(90deg,#2a4a22 0 6px,#244020 6px 12px);border-top:3px solid #3a6a2a}
+.ksd{position:relative;z-index:2;display:flex;align-items:flex-end;gap:2px;min-width:0}.ksd.l{justify-content:flex-start}.ksd.r{justify-content:flex-end}
+.khill{position:relative;z-index:2;width:116px;display:flex;flex-direction:column;align-items:center}
+.ruins{display:block;width:116px;height:44px;margin-bottom:-4px}
+.kf{position:relative;display:flex;flex-direction:column;align-items:center;min-width:0;width:46px}
+.kf .kb canvas{width:40px;height:40px;image-rendering:pixelated}
+.kf.king .kb canvas{width:52px;height:52px}.kf.king{width:70px;margin-bottom:-6px}
+.kf b{font-weight:normal;font-size:4.5px;color:#fff;text-shadow:1px 1px 0 #000;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.kf small{font-size:4px;color:#ffe0b0;text-shadow:1px 1px 0 #000;white-space:nowrap}
+.kf.me b{color:var(--green)}
+.kf .kw{position:absolute;top:14px;width:10px}.kf .kw.r{right:2px}.kf .kw.l{left:2px}.kf .kw svg{width:100%;display:block}
+.kf.king .kw.sh{top:22px;left:4px;width:16px}
+.kf .crown{position:absolute;top:-12px;font-size:12px;animation:bob 1.4s ease-in-out infinite}
+.kf.takes{animation:takeHill 1.1s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes takeHill{0%{transform:translate(-90px,70px) scale(.8);opacity:.2}60%{transform:translate(0,-26px)}100%{transform:none}}
+.kf.charge{animation:charge 1.6s ease-in-out both}
+@keyframes charge{0%{transform:none}40%{transform:translate(70px,-14px)}55%{transform:translate(60px,-8px) rotate(-14deg)}100%{transform:none}}
+.kf.defend .kw.sh{animation:block 1.6s both}
+@keyframes block{0%,35%{transform:none}45%{transform:translateX(-8px) scale(1.3)}60%,100%{transform:none}}
+.koth .kmsg{position:absolute;z-index:4;left:50%;top:44px;transform:translateX(-50%);font-size:8px;color:var(--gold);text-shadow:2px 2px 0 #000;white-space:nowrap;animation:lisPop .4s steps(4) both}
+</style>`);
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STATS · every leaderboard in one place, so each mode page stays bare
+   ════════════════════════════════════════════════════════════════════════════ */
+const STZ = {tab:'duel'};
+document.head.insertAdjacentHTML('beforeend','<style>.st{--mc:var(--blue)}</style>');
+function stats(){
+  const tabs=[['duel','⚡ DUEL'],['fut','🔮 FUTURES'],['wlc','⭐ CHALLENGE'],['fz','🏀 FANTASY']];
+  let body='';
+  if(STZ.tab==='duel'||STZ.tab==='fut'){
+    const daily=STZ.tab==='duel', rows=daily?DSTAND:FSTAND;
+    body=`<div class="dtab"><div class="cap">${daily?'DAILY DUEL · RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT':'FUTURES DUEL · RANKED BY CORRECT PICKS'}</div>
+      <div class="h"><span></span><span>USER</span><span>${daily?'% CORRECT':'CORRECT'}</span><span>${daily?'BEST STREAK':'PICKS'}</span><span>${daily?'CURRENT':'HIT %'}</span></div>
+      ${rows.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span>
+        ${daily?`<span>${r[2]==='—'?'—':r[2]+'%'}</span><span>${r[3]}</span><span class="cs">${r[4]?'🔥 '+r[4]:'—'}</span>`:`<span>${r[2]}</span><span>${r[3]}</span><span class="cs">${r[3]?Math.round(100*r[2]/r[3])+'%':'—'}</span>`}</div>`; }).join('')||'<div class="note">No picks yet.</div>'}</div>`;
+  } else if(STZ.tab==='wlc'){
+    body=`<div class="ctab"><div class="h"><span></span><span>WEEKLY CHALLENGE</span><span>FALL PTS</span><span>TOTAL PTS</span><span>WIN %</span></div>
+      ${CSTAND.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span><span class="fp">${r[2]}</span><span>${r[3]}</span><span>${r[4]}</span></div>`; }).join('')}</div>
+      <div class="note">Each week: 1st place earns 3 points, 2nd earns 2, 3rd earns 1.</div>`;
+  } else body = typeof fzStand==='function' ? fzStand() : '';
+  return mframe('st','STATS', `<div class="ctabs">${tabs.map(([k,l])=>`<button class="${STZ.tab===k?'on':''}" onclick="STZ.tab='${k}';render()">${l}</button>`).join('')}</div>${body}`);
+}
+SCREENS.stats = stats;

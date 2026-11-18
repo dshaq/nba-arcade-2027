@@ -202,8 +202,8 @@ async function liveFuture(id, t){ await LIVE.W.futuresPick(id, t); await afterAc
 const _duelDaily = duelDaily;
 duelDaily = function(){
   if(!LIVE.on || LIVE.duel) return _duelDaily();
-  return `<div class="streak"><span class="fl">🔥</span><div><small>CURRENT STREAK</small><b>${STREAK.cur} IN A ROW</b></div><div class="best">BEST<br>${STREAK.best}</div></div>
-    <div class="panel"><div class="sec">TODAY</div><div class="reward">No Daily Duel today. Check back tomorrow.</div></div>`;
+  return `<div class="arena" style="--ca:#333;--cb:#333;min-height:200px"><div class="stk">🔥<b>${STREAK.cur}</b></div>
+    <div class="dtitle" style="margin-top:70px">NO DAILY DUEL TODAY</div><div class="dsub">CHECK BACK TOMORROW</div></div>`;
 };
 const _duelPick = duelPick;
 duelPick = async function(short, el){
@@ -260,9 +260,7 @@ wlcChart = function(){
 const _challenge = challenge;
 challenge = function(){
   if(LIVE.on && !LIVE.week) return mframe('cz','CHALLENGE', `<div class="wban"><div class="th">WEEKLY CHALLENGE</div><div class="sb">No Challenge is open right now. The next one opens Monday at 12 AM ET.</div></div>`);
-  let h=_challenge();
-  if(LIVE.on && LIVE.wlcDates) h=h.replace('NOV 16 – NOV 22 · LOCKS MON 7:00 PM ET', LIVE.wlcDates);
-  return h;
+  return _challenge();
 };
 SCREENS.wlc = challenge;
 const _cSave = cSave;
@@ -272,7 +270,7 @@ cSave = function(el){
     <div class="acts"><button class="btn alt" id="no">NOT YET</button><button class="btn" id="yes">SAVE LINEUP</button></div></div>`);
   o.querySelector('#no').onclick=()=>o.remove();
   o.querySelector('#yes').onclick=async()=>{ o.remove(); await LIVE.W.saveWlcLineup([...S.party]); LIVE.W.document.getElementById('wlc-lockin')?.remove(); await afterAction();
-    if(S.wsaved){ CZ.sel=null; if(!S.done.wlc) complete('wlc', el); say('Lineup saved'); } else say('Didn\'t save · picks may be locked'); };
+    if(S.wsaved){ CZ.sel=null; if(!S.done.wlc) complete('wlc', el); lockedSplash([...S.party]); } else say('Didn\'t save · picks may be locked'); };
 };
 
 /* ── Fantasy: line-ups, waivers, schedule ────────────────────────────────── */

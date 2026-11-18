@@ -84,6 +84,7 @@ h1{font-size:14px;margin:0 0 8px;color:#ffd93d;text-shadow:2px 2px 0 #c4122f}
 <div class="picks" id="picks"></div>
 <div class="row" id="row"></div>
 <p class="note" id="note"></p>
+<div id="finalWrap"></div>
 <div id="courtsWrap"></div>
 <div id="backsWrap"></div>
 </div>
@@ -123,6 +124,7 @@ function render(){
     document.getElementById('note').textContent='This player\'s background-free art isn\'t ready yet, so he\'s shown without the pop-out. It\'s being made now.'; };
   probe.src=cut(t,n);
   document.querySelectorAll('.card').forEach(tilt);
+  if(window.renderFinal) renderFinal();
   if(window.renderCourts) renderCourts();
   if(window.pullReset && document.getElementById('backsWrap')) pullReset();
   requestAnimationFrame(fitAll); document.fonts?.ready.then(fitAll);
@@ -147,5 +149,6 @@ render();
 </script>
 <script src="backs.js"></script>
 <script src="courts.js"></script>
-<script>renderCourts(); pullReset();</script>
+<script src="final.js"></script>
+<script>backKey="final"; renderFinal(); renderCourts(); pullReset(); document.fonts?.ready.then(()=>{ renderFinal(); });</script>
 </body></html>

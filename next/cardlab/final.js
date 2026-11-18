@@ -35,12 +35,15 @@ function finalCourt(o){
       g.push(`<path d="M44 ${y0} V${y0+18*s} A81 81 0 0 ${s>0?0:1} 206 ${y0+18*s} V${y0}"/>`);
       g.push(`<circle cx="125" cy="${y0+12*s}" r="4"/><path d="M114 ${y0+6*s}H136"/>`); }
     return g.join('')+'</g>'; };
-  const keys = o.paintKey ? `<g fill="${P.key}"><rect x="94" y="${T}" width="62" height="70"/><rect x="94" y="${B-70}" width="62" height="70"/><circle cx="125" cy="175" r="30"/></g>` : '';
+  const keys = (o.paintKey!==false) ? `<g fill="${o.keyColor||P.key}"><rect x="94" y="${T}" width="62" height="70"/><rect x="94" y="${B-70}" width="62" height="70"/><circle cx="125" cy="175" r="30"/></g>` : '';
   // name, smaller and with more air, centred in the band between frame and court
-  const ls=.9, fs=5.4, label=(cy,rot)=>`<text x="${125+ls/2}" y="${cy+fs/2}" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="${fs}" letter-spacing="${ls}" fill="${P.text}" ${rot?`transform="rotate(180 125 ${cy})"`:''}>NBA ARCADE</text>`;
+  const ls=.9, fs=5.4, pw=78, ph=11, st=2;
+  const plaque=(cy)=>{ const x0=125-pw/2, x1=125+pw/2, y0=cy-ph/2, y1=cy+ph/2;   // stepped (pixel-cut) ends
+    return `<path d="M${x0+st*2} ${y0}H${x1-st*2}V${y0+st}H${x1-st}V${y0+st*2}H${x1}V${y1-st*2}H${x1-st}V${y1-st}H${x1-st*2}V${y1}H${x0+st*2}V${y1-st}H${x0+st}V${y1-st*2}H${x0}V${y0+st*2}H${x0+st}V${y0+st}H${x0+st*2}Z" fill="${P.plaque}"/>`; };
+  const label=(cy,rot)=>`${plaque(cy)}<text x="${125+ls/2}" y="${cy+fs/2}" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="${fs}" letter-spacing="${ls}" fill="${P.plaqueText}" ${rot?`transform="rotate(180 125 ${cy})"`:''}>NBA ARCADE</text>`;
   // the big centre ball: lightly pixelated, turned 90° so the curved seams sit top and bottom like a real ball
   const bl=o.ballLine||L, cols={line:{hex:bl, rgb:hexRgb(bl)}, fill:{hex:P.ball, rgb:hexRgb(P.ball)}};
-  const centre = pixelize(ballDraw(bl, o.ballFill?P.ball:null, 90), 20, 46, 102, 152, o.ballFill?cols:{line:cols.line});
+  const centre = `<g transform="rotate(90 125 175)"><circle cx="125" cy="175" r="21" fill="${P.ball}"/>${BALL(125,175,21,P.seam||'#2a1000','none',1.8)}</g>`;
   // corners: the stepped pixel frame, with a tiny pixel ball tucked into each step (clear of the court)
   const fc=P.frame||L;
   const notch=(x0,y0,x1,y1,st,w)=>`<path d="M${x0+st*2} ${y0}H${x1-st*2}V${y0+st}H${x1-st}V${y0+st*2}H${x1}V${y1-st*2}H${x1-st}V${y1-st}H${x1-st*2}V${y1}H${x0+st*2}V${y1-st}H${x0+st}V${y1-st*2}H${x0}V${y0+st*2}H${x0+st}V${y0+st}H${x0+st*2}Z" fill="none" stroke="${fc}" stroke-width="${w}"/>`;
@@ -56,37 +59,38 @@ function finalCourt(o){
     <rect width="250" height="350" rx="14" fill="${P.stock}"/>
     <rect x="9" y="9" width="232" height="332" rx="8" fill="${P.apron||floor}"/>
     ${P.apron?`<rect x="32" y="${T}" width="186" height="${B-T}" fill="${floor}"/>`:`<rect x="9" y="9" width="232" height="332" rx="8" fill="url(#dt-${id})"/>`}
-    ${notch(16,16,234,334,4,1.4)}${notch(21,21,229,329,3,.8)}
-    ${mini(26.5,28.5)}${mini(223.5,28.5)}${mini(26.5,321.5)}${mini(223.5,321.5)}
+    <rect x="16" y="16" width="218" height="318" rx="5" fill="none" stroke="${fc}" stroke-width="1.4"/><rect x="21" y="21" width="208" height="308" rx="3" fill="none" stroke="${fc}" stroke-width=".8"/>
     ${keys}${o.underlay?court('#000',sw+2.2,.35):''}${court(L,sw)}
     ${centre}
     ${label(28.5,true)}${label(321.5,false)}
     <rect x="9" y="9" width="232" height="332" rx="8" fill="url(#sc-${id})"/></svg>`;
 }
 
-const FINAL_PAL = {stock:'#f7f8fc', field:'#1a3f9e', field2:'#2b5bd2', line:'#eef2ff', ball:'#ff8a2a', text:'#eef2ff'};
+const FINAL_PAL = {stock:'#f7f8fc', field:'#1a3f9e', field2:'#2b5bd2', line:'#eef2ff', ball:'#f07a26', seam:'#2a1000', text:'#eef2ff', key:'#14327f', plaque:'#c8102e', plaqueText:'#ffffff'};
+const NBA_RED='#c8102e';
 const lum = h => { const [r,g,b]=hexRgb(h); return (r*299+g*587+b*114)/1000; };
 function teamPal(t){
   const a=TC[t]||'#1a3f9e', b=TC2[t]||'#ffffff', light=lum(b)>110;
   const mix=(h,k)=>'#'+hexRgb(h).map(v=>Math.round(Math.min(255,v*k)).toString(16).padStart(2,'0')).join('');
   const apron=mix(a,.5), contrast=Math.abs(lum(b)-lum(apron))>70;
-  return {stock:'#f7f8fc', field:mix(a,.85), field2:mix(a,1.18), apron, line:'#ffffff', ball:'#ff8a2a', text: light&&contrast?b:'#ffffff', frame: light&&contrast?b:'#ffffff', key: mix(a,.62)};
+  return {stock:'#f7f8fc', field:mix(a,.85), field2:mix(a,1.18), apron, line:'#ffffff', ball:'#f07a26', seam:'#2a1000', text:'#ffffff', frame: light&&contrast?b:'#ffffff', key: mix(a,.62),
+    plaque: light&&contrast?b:'#ffffff', plaqueText: apron};
 }
 let finalTeam='BOS';
 function finalSection(){
   const tile=(title, svg, note, cls='')=>`<div class="opt"><h2><b>${title}</b></h2><div class="scene"><div class="flip ${cls}"><div class="face back cback">${svg}${cls?'<i class="sheen"></i>':''}</div><div class="face front">${cards()[2].html}</div></div></div><p>${note}</p></div>`;
   const teams=Object.keys(TC).sort();
   return `<h1 style="margin-top:56px">THE COURT BACK · FINAL CANDIDATE</h1>
-    <p class="sub">Original + Name with your notes: a big, lightly pixelated ball turned like a real one, tiny pixel balls tucked into the stepped frame corners (clear of the court), a roomier name, faint CRT scanlines. No foil: backs stay basic.</p>
+    <p class="sub">Original + Name with your notes: the smooth ball from before (turned like a real one), clean corners, painted keys, and the name on solid red plaques with pixel-cut ends, so the 16-bit touch lives there. Faint CRT scanlines. No foil.</p>
     <div class="row finals">
-      ${tile('STANDARD', finalCourt({pal:FINAL_PAL, id:'s1'}), 'White line-art ball.')}
-      ${tile('STANDARD · ORANGE BALL', finalCourt({pal:FINAL_PAL, id:'s2', ballFill:true, ballLine:'#2a1000'}), 'Same back with an orange ball, like your reference photo.')}
+      ${tile('STANDARD', finalCourt({pal:FINAL_PAL, id:'s1'}), 'Darker painted keys, red name plaques (a nod to the NBA logo), orange ball.')}
+      ${tile('STANDARD · RED KEYS', finalCourt({pal:FINAL_PAL, id:'s2', keyColor:NBA_RED}), 'Same back with red keys and centre circle: the red, white and blue of the logo, more boldly.')}
     </div>
     <h1 style="margin-top:56px">TEAM SERIES</h1>
     <p class="sub">The same back in a team's colours, for special packs. A solid border keeps the name and frame readable; court lines get a soft shadow so they stay crisp on busy floors. Pick any team:</p>
     <div class="picks" id="tpick">${teams.map(t=>`<button class="${t===finalTeam?'on':''}" onclick="finalTeam='${t}';renderFinal()">${t}</button>`).join('')}</div>
     <div class="row finals two">
-      ${tile(finalTeam+' · SERIES', finalCourt({pal:teamPal(finalTeam), id:'t1', parquet:finalTeam==='BOS', paintKey:true, underlay:true, ballFill:true, ballLine:'#2a1000'}), finalTeam==='BOS'?'Celtics green on a parquet floor, gold frame and lettering.':'Team colours with painted keys; lettering in the team\'s second colour.')}
+      ${tile(finalTeam+' · SERIES', finalCourt({pal:teamPal(finalTeam), id:'t1', parquet:finalTeam==='BOS', underlay:true}), finalTeam==='BOS'?'Celtics green on a parquet floor, gold frame and lettering.':'Team colours with painted keys; lettering in the team\'s second colour.')}
     </div>`;
 }
 function renderFinal(){ const w=document.getElementById('finalWrap'); if(!w) return; w.innerHTML=finalSection();

@@ -173,10 +173,10 @@ function fzBattle(){
         <div class="bn">${OPP.name.toUpperCase()}'S<b>${OPP.team.toUpperCase()}</b></div>
         <div class="bhp two"><i style="width:${100*MU.me/tot}%"></i><span style="width:${100*MU.opp/tot}%"></span></div>
         <div class="bsc"><b class="${MU.me>=MU.opp?'up':''}">${MU.me}</b><i>YOU</i>–<span class="${MU.opp>MU.me?'up':''}">${MU.opp}</span><i>THEM</i></div>
-      </div></div>${(()=>{ const t=threat(); if(!t) return ''; return `<div class="threat" data-own="1" onclick="event.stopPropagation();openPlayer('${t.p.n.replace(/'/g,"\\'")}')"><div class="ph" style="--tc:${t.p.c}">${face(t.p.t,t.p.n)}</div><div><span>TODAY'S BOSS</span><b>“${t.nick}”</b><small>${t.p.n.toUpperCase()} · ${t.p.f} FP/G · ${gameTxt(t.p.n)}</small></div></div>`; })()}</div>
+      </div></div>${(()=>{ const t=threat(); if(!t) return ''; return `<div class="threat" data-own="1" onclick="event.stopPropagation();openPlayer('${t.p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${typeof pcard==='function'?pcard(t.p.n,{mini:1,noTap:1}):face(P(t.p.n).t,t.p.n)}</div><div><span>TODAY'S BOSS</span><b>“${t.nick}”</b><small>${t.p.n.toUpperCase()} · ${t.p.f} FP/G · ${gameTxt(t.p.n)}</small></div></div>`; })()}</div>
     <div class="zbox"><div class="rooms">${days().map(d=>`<div class="room ${d.r==='W'?'w':d.r==='L'?'l':''} ${d.live?'live':''} ${d.today&&!d.live?'tdy':''}">${d.d}<b>${d.me!=null?d.me+'–'+d.op:'·'}</b>${d.live?'LIVE':d.today?'TODAY':'&nbsp;'}</div>`).join('')}</div></div>
     <div class="dlg" id="dlg" onclick="nextLine()" title="Tap for another line"></div>
-    <div class="zbox"><span class="zl">PLAYING TODAY · ${playing.length}</span><div class="tonight">${playing.map(n=>{ const p=P(n); return `<div><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div>${p.s}<br>${GAMES[p.t].time}</div>`; }).join('')||'<span style="font-size:6px;color:var(--t3)">Nobody plays today</span>'}</div></div>
+    <div class="zbox"><span class="zl">PLAYING TODAY · ${playing.length}</span><div class="tonight">${playing.map(n=>{ const p=P(n); return `<div><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}</div>${p.s}<br>${GAMES[p.t].time}</div>`; }).join('')||'<span style="font-size:6px;color:var(--t3)">Nobody plays today</span>'}</div></div>
     ${recs().length?`<div class="todo" style="justify-content:center;cursor:pointer" onclick="FZ.tab='roster';S.rq='quick';render()"><span class="w">!</span>${recs().length} SUGGESTED MOVE${recs().length>1?'S':''} FOR TODAY ▶</div>`:''}`;
 }
 
@@ -270,7 +270,7 @@ function wvPage(){
   const L=wvList(), pages=Math.max(1,Math.ceil(L.length/6)), r=rostered();
   FZ.wpg=Math.min(FZ.wpg,pages-1);
   const card=(p,k)=>{ const own=r.has(p.n); return `<div class="tt ${own?'own':''}" data-act="1" onclick="wvOpen('${p.n.replace(/'/g,"\\'")}')">
-      <div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
+      <div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
       <div class="nm">${p.n[0]}. ${p.s}</div><div class="l5"><b>${p.l5}</b> FP/G</div><div class="u">${own?'ROSTERED':gameTxt(p.n)}</div></div>`; };
   const f=FZ.wf, chips=f?[f.q&&`“${f.q}”`, f.avail?'AVAILABLE':'ALL PLAYERS', f.hide&&'NO OUT/INJ', f.team].filter(Boolean).join(' · '):'';
   return `<div class="wtop">${addBar()}<div class="wbtn2"><button class="srep sm" onclick="scoutReport()">🔭 SCOUTING <b>${S.wv.scouted.length}</b></button><button class="srep sm blu" onclick="wvSearch()">🔍 SEARCH</button></div></div>
@@ -486,7 +486,7 @@ function draft(){
   }
   const L=drList(), pages=Math.max(1,Math.ceil(L.length/6)); DR.wpg=Math.min(DR.wpg,pages-1);
   const taken=drTaken(), canPick=m&&who===0;
-  const card=(p,k)=>`<div class="tt ${taken.has(p.n)?'own':''}" data-act="1" onclick="drOpen('${p.n.replace(/'/g,"\\'")}')"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}<span class="rk">${k+1}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
+  const card=(p,k)=>`<div class="tt ${taken.has(p.n)?'own':''}" data-act="1" onclick="drOpen('${p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}<span class="rk">${k+1}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
       <div class="nm">${p.n[0]}. ${p.s}</div><div class="l5"><b>${p.f}</b> FP/G</div><div class="u">${taken.has(p.n)?'DRAFTED':p.t+' · '+p.p}</div></div>`;
   const f=DR.wf;
   const mine=(m?.picks||[]).filter(x=>x.team===0);
@@ -495,7 +495,7 @@ function draft(){
     ${canPick?'<div class="drhint">TAP A PLAYER, THEN DRAFT HIM</div>':''}
     ${L.length?`<div class="wcar"><button class="warr" ${DR.wpg?'':'disabled'} onclick="wvGo(-1)">◀</button><div class="wtrack" id="wtrack">${Array.from({length:pages},(_,g)=>`<div class="tgrid wpage">${L.slice(g*6,g*6+6).map((p,k)=>card(p,g*6+k)).join('')}</div>`).join('')}</div><button class="warr" ${DR.wpg<pages-1?'':'disabled'} onclick="wvGo(1)">▶</button></div>
       <div class="wdots">${pages>1?Array.from({length:pages},(_,g)=>`<i class="${g===DR.wpg?'on':''}"></i>`).join(''):''}</div>`:'<div class="wnone">No players match.</div>'}
-    ${m?`<div class="zbox"><span class="zl">YOUR PICKS · ${mine.length}/${DRAFT_ROUNDS}</span><div class="drmine">${mine.map(x=>{ const p=P(x.n); return `<div data-pn="${p.n.replace(/"/g,'&quot;')}"><div class="ph" style="--tc:${p.c}">${face(p.t,p.n)}</div><small>R${x.rd}${x.auto?' · AUTO':''}</small><b>${p.s}</b></div>`; }).join('')||'<span class="dim">None yet</span>'}</div></div>
+    ${m?`<div class="zbox"><span class="zl">YOUR PICKS · ${mine.length}/${DRAFT_ROUNDS}</span><div class="drmine">${mine.map(x=>{ const p=P(x.n); return `<div data-pn="${p.n.replace(/"/g,'&quot;')}"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1,noTap:1}):face(P(p.n).t,p.n)}</div><small>R${x.rd}${x.auto?' · AUTO':''}</small><b>${p.s}</b></div>`; }).join('')||'<span class="dim">None yet</span>'}</div></div>
       <div class="zbox"><span class="zl">DRAFT LOG</span><div class="drlog">${m.picks.slice().reverse().slice(0,12).map((x,k)=>`<div class="${x.team===0?'me':''}"><span>#${m.picks.length-k}</span>${x.team===0?'YOU':tm(x.team).team.toUpperCase()}<b>${x.n}</b>${x.auto?'<i>AUTO</i>':''}</div>`).join('')||'<span class="dim">Waiting on the first pick</span>'}</div></div>`:''}`);
 }
 SCREENS.draft = draft;

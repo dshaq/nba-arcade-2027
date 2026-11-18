@@ -40,7 +40,7 @@ function card16(n, pos, o={}){
   const fp = fpFor(p);
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${face(p.t,p.n)}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${pos==='i0'?'<span class="irtag">IR</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
+    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${typeof pxLv==='function'?`<span class="lvg">${pxLv(n).lv}</span>`:''}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${pos==='i0'?'<span class="irtag">IR</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
     <div class="rc-bot"><b>${gtxt}</b></div></div></div>`;
 }
 

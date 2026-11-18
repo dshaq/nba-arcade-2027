@@ -75,10 +75,10 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .todo.ok{color:var(--green)}.todo.ok .w{background:var(--green);color:#022;clip-path:none;border-radius:50%;padding:0;animation:none}
 @keyframes blink{50%{opacity:.35}}
 
-.fan{--c:var(--green);display:grid;grid-template-columns:1fr auto;gap:12px;min-height:200px}
+.fan{--c:var(--green);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;min-height:200px}
 .fan .eyebrow{font-size:6px;color:var(--t3);margin-top:6px}
 .mu{display:grid;grid-template-columns:auto minmax(14px,46px) auto;align-items:center;justify-content:start;column-gap:10px;row-gap:7px;margin:18px 0 6px}
-.mu b{font-weight:normal;font-size:26px;text-shadow:0 3px 0 #000;text-align:center}
+.mu b{font-weight:normal;font-size:clamp(18px,6vw,26px);text-shadow:0 3px 0 #000;text-align:center}
 .mu b.lead{color:var(--green)}
 .mu .dash{height:3px;background:var(--t3)}
 .mu .tn{font-size:6px;color:var(--t2);text-align:center;white-space:nowrap}
@@ -86,7 +86,11 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .mring{position:absolute;inset:-5px;width:calc(100% + 10px)!important;height:calc(100% + 10px)!important;pointer-events:none}
 .mis-ic{position:relative}
 .live{font-size:6px;color:var(--red);margin-top:8px}.live::before{content:'● ';animation:blink 1s steps(2) infinite}
-.mvp{width:112px;align-self:center;text-align:center}
+.mvp{width:clamp(78px,24vw,104px);align-self:center;text-align:center;min-width:0}
+.mvpc{width:100%}
+.vs .f.cw{width:clamp(46px,15vw,62px)}.vs .f.pick.cw .tcard{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)}
+.chest.got{filter:none;animation:none;display:inline-flex;align-items:center;gap:4px;font-size:5.5px;color:var(--green)}
+.chest.got svg{width:18px;height:18px}
 .pcard{position:relative;width:112px;height:126px;border:3px solid #000;outline:2px solid var(--gold);border-radius:6px;overflow:hidden;background:#1d428a}
 .pcard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%}
 .pcard .alt{position:absolute;top:4px;right:4px;font-size:5px;background:rgba(0,0,0,.7);padding:3px 4px;border-radius:3px;color:var(--gold)}
@@ -372,13 +376,13 @@ function topBar(){
   return `<div class="top ${cur==='home'?'':'nos'}"><div class="logo"><b>NBA</b> <i>ARCADE</i></div><div class="sp"></div>
     ${cur==='home'||cur==='missions'?'':`<button class="ibtn mis-ic" onclick="go('missions')" aria-label="Daily Checklist">${misRing()}${I.target}${reward?'<span class="dot rd"></span>':''}</button>`}
     <button class="ibtn" onclick="say('Chat · 2 new')" aria-label="Chat">${I.chat}<span class="dot">2</span></button>
-    <button class="ibtn" onclick="go('cards')" aria-label="Cards">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
+    <button class="ibtn" onclick="go('cards')" aria-label="Collection">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
     <button class="ibtn me" onclick="go('baller')" aria-label="Your Baller"><span id="mebtn"></span><span class="lv">LV ${L.lv}</span></button></div>`
   + (cur!=='home' ? '' : `
   <div class="mstrip" onclick="go('missions')" role="button" aria-label="Daily Checklist">
     <span class="lab">DAILY CHECKLIST</span>
     <div class="pbar" id="pbar">${MIS().map((m,i)=>`<span class="${i<doneCount()?'on':''}"></span>`).join('')}</div>
-    <span class="n">${doneCount()}/${MIS().length}</span><span class="chest ${doneCount()===MIS().length?'on':''}">🎁</span></div>`);
+    <span class="n">${doneCount()}/${MIS().length}</span>${giftIc()}</div>`);
 }
 /* Segmented ring around the checklist icon: one arc per item, green when done. */
 function misRing(){
@@ -399,14 +403,14 @@ function home(){
         ${todoLine('lineup',{need:'SET LINE-UP!',done:'LINE-UP SET'})}
       </div>
       <div class="mvp">
-        <div class="pcard ${pClass(MVP.id)}" style="background:${MVP.tc}">${img(vsrc(VARIANTS.find(v=>v.k===(S.portraits[MVP.id]||'base')),MVP.team,MVP.name))}</div>
+        <div class="cw mvpc">${typeof pcard==='function'?pcard(MVP.name,{mini:1,noTap:1}):''}</div>
         <div class="plate">${MVP.label}</div><small>${P(MVP.name).s} · ${MVP.fp}</small>
       </div>
     </div>
     <div class="row2">
       <div class="box duel" onclick="go('duel')">
         <h2>DUEL</h2>
-        <div class="vs"><div class="f ${pickA?'pick':''}" style="--tc:${DUEL.a.tc}">${img(DUEL.a.img||pimg(DUEL.a.team,DUEL.a.name))}</div><i>VS</i><div class="f ${pickB?'pick':''}" style="--tc:${DUEL.b.tc}">${img(DUEL.b.img||pimg(DUEL.b.team,DUEL.b.name))}</div></div>
+        <div class="vs"><div class="f ${pickA?'pick':''} ${DUEL.a.img?'':'cw'}" style="--tc:${DUEL.a.tc}">${DUEL.a.img||typeof pcard!=='function'?img(DUEL.a.img||pimg(DUEL.a.team,DUEL.a.name)):pcard(DUEL.a.name,{mini:1,noTap:1})}</div><i>VS</i><div class="f ${pickB?'pick':''} ${DUEL.b.img?'':'cw'}" style="--tc:${DUEL.b.tc}">${DUEL.b.img||typeof pcard!=='function'?img(DUEL.b.img||pimg(DUEL.b.team,DUEL.b.name)):pcard(DUEL.b.name,{mini:1,noTap:1})}</div></div>
         <div class="tag">${DUEL.title.toUpperCase()}</div>
         ${picksLeft ? `<div class="todo"><span class="w">!</span>MAKE YOUR PICK${picksLeft>1?' (x2)':''}</div>` : `<div class="todo ok"><span class="w">✓</span>PICKS IN</div>`}
       </div>
@@ -422,8 +426,8 @@ function missions(){
   const n=doneCount(), all=n===MIS().length, a=S.active;
   return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>DAILY CHECKLIST</h1></div>
     <div class="panel"><div class="sec">TODAY · RESETS 12 AM ET</div>
-      <div class="bigbar"><div class="pbar" id="pbar">${MIS().map((m,i)=>`<span class="${i<n?'on':''}"></span>`).join('')}</div><span class="chest ${all?'on':''}" style="font-size:20px">🎁</span></div>
-      <div class="reward">${all?(S.bonus?'✓ BONUS COLLECTED':''):`FILL THE BAR: <b>+${FULL_BONUS} EXP</b> AND A <b>CARD PACK</b>`}</div>
+      <div class="bigbar"><div class="pbar" id="pbar">${MIS().map((m,i)=>`<span class="${i<n?'on':''}"></span>`).join('')}</div>${giftIc(20)}</div>
+      <div class="reward">${all?(S.bonus?`✓ REWARD CLAIMED · ${S.bonusTo&&S.bonusTo!=='baller'?`+${FULL_BONUS} EXP TO ${P(S.bonusTo).n.toUpperCase()}`:`+${FULL_BONUS} EXP TO YOUR BALLER`} · +1 PACK`:''):`FILL THE BAR: <b>+${FULL_BONUS} EXP</b> (YOUR BALLER OR ANY PLAYER) AND A <b>CARD PACK</b>`}</div>
       ${all&&!S.bonus?'<div style="text-align:center;margin-top:12px"><button class="btn" onclick="claim()">OPEN REWARD 🎁</button></div>':''}
     </div>
     <div class="panel"><div class="sec">DAILY</div>
@@ -470,7 +474,7 @@ const AFTER={};
 /* Show any error right on the screen (so a screenshot tells us what broke) */
 const ERRS=[];
 async function whyFail(f){ let info='';
-  try{ const r=await fetch(f+'.js?v=16&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
+  try{ const r=await fetch(f+'.js?v=17&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
   catch(e){ info=' (fetch: '+e.message+')'; }
   showErr('could not load '+f+'.js'+info); }
 function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
@@ -540,7 +544,7 @@ function openSheet(k){
 function openMenu(){
   const o=overlay(`<div class="sheet"><h3>MORE</h3><div class="menu">
     <a data-a="missions"><span>🎯</span>Daily Checklist<small>${doneCount()}/${MIS().length} TODAY</small></a>
-    <a data-a="cards"><span>🎴</span>Cards<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
+    <a data-a="cards"><span>🎴</span>Collection<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
     <a href="cardlab/" style="text-decoration:none"><span>🃏</span>Card Lab<small>FRONTS &amp; BACKS</small></a>
     <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
     <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
@@ -590,6 +594,12 @@ function levelUp(ch, lv){
   const look={...B(ch)}; const t=TRACK.find(x=>x[0]===lv); if(t){ if(t[1]==='cw') look.cw=t[2]; else look[t[1]]=t[2]; }
   o.querySelector('#lvc').appendChild(ballerCv(ch,4,look));
   o.querySelector('.btn').onclick=()=>o.remove();
+}
+/* the gift: grey while locked, bouncing when ready, opened with a check once claimed */
+function giftIc(sz){
+  const all=doneCount()===MIS().length;
+  if(S.bonus) return `<span class="chest got" title="Claimed"><svg viewBox="0 0 18 18" shape-rendering="crispEdges"><path fill="#000" d="M2 8h14v9H2z"/><path fill="#c4122f" d="M3 9h12v7H3z"/><path fill="#ffd93d" d="M8 9h2v7H8z"/><path fill="#000" d="M1 1h9v1h1v1h1v1h1v1h1v2h-1v1H1z" transform="rotate(-18 6 5)"/><path fill="#ff3b5c" d="M2 2h8v4H2z" transform="rotate(-18 6 5)"/><path fill="#ffd93d" d="M5 2h2v4H5z" transform="rotate(-18 6 5)"/><path fill="#39ff6a" stroke="#000" d="M10.5 11.5l2 2 4-5"/></svg>CLAIMED</span>`;
+  return `<span class="chest ${all?'on':''}" ${sz?`style="font-size:${sz}px"`:''}>🎁</span>`;
 }
 function claim(){
   S.bonus=true; const nxt=VARIANTS.find(v=>v.lock && !S.unlocked.includes(v.k)); if(nxt) S.unlocked.push(nxt.k); save();
@@ -731,18 +741,19 @@ function say(t){ const d=document.createElement('div'); d.className='toast'; d.t
 function start(){ if(start.done) return; start.done=true; dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); }
 if(document.readyState==='loading') addEventListener('DOMContentLoaded', start); else setTimeout(start);
 // If a file is stuck loading (seen on one iPhone), fetch the missing ones again and start without waiting
-const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards'];
+const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards','collect'];
 setTimeout(async()=>{ if(start.done) return;
   const miss=PARTS.filter(p=>!LOADED.has(p));
-  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=16&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
+  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=17&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=16" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=16" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=16" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=16" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=16" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=16" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="data.js?v=17" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=17" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=17" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=17" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=17" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=17" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=17" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
 </body>
 </html>

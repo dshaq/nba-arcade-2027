@@ -71,45 +71,83 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 .glare{z-index:8;mix-blend-mode:overlay;display:none;background:radial-gradient(farthest-corner circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.85) 0,rgba(255,255,255,.25) 22%,rgba(0,0,0,.35) 90%);opacity:calc(.25 + var(--hyp)*.6)}
 .base.u-shine .glare,.evo .glare{display:block}
 
-/* ═══ EVOLVED CARD: one of a kind, full-bleed, bursting out of the card ═══ */
-.evo{border-radius:16px}
-.evo .clip{border-radius:16px}
-.evo .rim{border-radius:16px;background:linear-gradient(160deg,#1a1a1a,#3a3a3a 50%,#111)}
+/* ═══ RUN BADGE: tiny set symbol in the bottom-right, like the set mark on a Pokémon card.
+   Maple leaf = Fall Run, 26 over 27 = the 2026-27 season. ═══ */
+.runb{position:absolute;right:6%;bottom:6.2%;z-index:9;width:34px;height:34px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+.runb svg{width:100%;height:100%;display:block}
+
+/* ═══ FIT CHECK (the 10x evolution): Flair-style, two pictures layered.
+   Full outfit stands in the gold mirror; the close-up sits big in front.
+   Tilt left and the outfit steps forward; tilt right and the close-up does. ═══ */
+.evo{border-radius:14px;--lean:clamp(-1,calc(var(--ry)/14),1)}
+.evo .rim{border-radius:14px;background:linear-gradient(150deg,#1b120a,#4a3412 30%,#c9952b 50%,#4a3412 70%,#1b120a);background-size:300% 300%;background-position:calc(var(--mx)*100%) 50%}
 .evo.e-prism .rim{background:conic-gradient(from calc(var(--mx)*360deg),#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf)}
-.evo .field{position:absolute;inset:3.2%;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 42%,var(--tc3) 0,var(--tc1) 30%,var(--tc2) 75%)}
-.evo .rays{position:absolute;inset:-60%;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.13) 0 7deg,rgba(255,255,255,0) 7deg 18deg);animation:rot 28s linear infinite;
-  transform-origin:50% 50%}
-@keyframes rot{to{transform:rotate(360deg)}}
-.evo .tone{position:absolute;inset:0;background:radial-gradient(rgba(0,0,0,.35) 32%,transparent 34%) 0 0/5px 5px;-webkit-mask:linear-gradient(180deg,transparent 30%,#000);mask:linear-gradient(180deg,transparent 30%,#000)}
-.evo .vname{position:absolute;left:5%;top:7%;bottom:22%;writing-mode:vertical-rl;transform:rotate(180deg);font-size:min(10.5vw,40px);line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.55);letter-spacing:.04em;text-align:center}
-.evo .aura{position:absolute;left:12%;right:12%;top:12%;bottom:20%;border-radius:50%;display:none;background:radial-gradient(closest-side,rgba(184,255,122,.9),rgba(57,255,106,.35) 55%,transparent);filter:blur(8px);animation:pulse 2.2s ease-in-out infinite}
-.evo.e-aura .aura{display:block}
-@keyframes pulse{50%{transform:scale(1.12);opacity:.65}}
-.evo .estars{display:none}.evo.e-stars .estars{display:block}
-/* the player lives OUTSIDE the clip, so his head and shoulders break past the card's edge */
-.evo .ep{position:absolute;left:-7%;width:114%;bottom:18%;aspect-ratio:944/1104;z-index:6;pointer-events:none;
-  transform:translate(calc(var(--ry)*.9px),calc(var(--rx)*-.7px)) translateZ(30px);
-  -webkit-mask:linear-gradient(180deg,#000 82%,transparent 97%);mask:linear-gradient(180deg,#000 82%,transparent 97%)}
-.evo .ep img{width:100%;display:block;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 12px 14px rgba(0,0,0,.6))}
-.evo.e-aura .ep img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 12px rgba(184,255,122,.9)) drop-shadow(0 12px 14px rgba(0,0,0,.6))}
-.evo.e-legend .ep{animation:breathe 3.2s ease-in-out infinite}
-@keyframes breathe{50%{translate:0 -4px}}
-.evo .bolts{position:absolute;inset:0;z-index:5;display:none}
-.evo.e-bolts .bolts{display:block}
-.evo .bolts path{fill:none;stroke:#eaffd0;stroke-width:2.2;filter:drop-shadow(0 0 4px #39ff6a);opacity:0;animation:zap 2.6s steps(1) infinite}
-.evo .bolts path:nth-child(2){animation-delay:.9s}.evo .bolts path:nth-child(3){animation-delay:1.7s}
-@keyframes zap{0%{opacity:1}6%{opacity:0}9%{opacity:.9}14%,100%{opacity:0}}
-.evo .eplate{position:absolute;left:6%;right:6%;bottom:4.5%;z-index:7;padding:9px 10px;border-radius:8px;background:rgba(3,10,8,.82);box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);display:flex;justify-content:space-between;align-items:center;gap:8px}
-.evo.e-legend .eplate{box-shadow:inset 0 0 0 2px #ffd93d,0 0 16px rgba(255,217,61,.5)}
-.evo .eplate .n{font-size:11px}.evo .eplate .n small{display:block;font-size:5.5px;color:var(--tc3);margin-bottom:5px}
-.evo .eplate .o{font-size:5px;color:var(--t2);text-align:right;line-height:1.8}.evo .eplate .o b{font-weight:normal;color:var(--gold)}
-.evo .etag{position:absolute;z-index:8;top:4.5%;right:6%;font-size:7px;padding:5px 7px;border-radius:4px;color:#fff;background:linear-gradient(90deg,#7a2bd6,#b36bff);box-shadow:0 0 0 2px #000}
-.evo .seal{position:absolute;z-index:8;right:5%;bottom:17%;width:46px;height:46px;border-radius:50%;display:none;place-items:center;text-align:center;font-size:5px;line-height:1.5;color:#3a2600;
+.evo .field{position:absolute;inset:3.4%;border-radius:10px;overflow:hidden;background:#0a2a18}
+.evo .fbg{position:absolute;inset:-6% -14% -6% -14%;background:url(fit/bg.jpg) 50% 38%/cover;transform:translate(calc(var(--ry)*-.5px),calc(var(--rx)*.4px));filter:saturate(1.05)}
+.evo .fstars{position:absolute;inset:-4% -24%;background:url(fit/stars.webp) center/cover;display:none;mix-blend-mode:screen;opacity:.9;transform:translate(calc(var(--ry)*2.6px),calc(var(--rx)*-1px))}
+.evo.e-stars .fstars{display:block}
+.evo .faura{position:absolute;left:18%;right:18%;top:12%;bottom:30%;border-radius:50%;display:none;background:radial-gradient(closest-side,rgba(255,226,140,.85),rgba(76,187,23,.35) 55%,transparent);filter:blur(10px);animation:pulse 2.4s ease-in-out infinite}
+.evo.e-aura .faura{display:block}
+@keyframes pulse{50%{transform:scale(1.1);opacity:.6}}
+/* full outfit: inside the mirror */
+.evo .fb{position:absolute;left:31%;width:34%;top:13%;z-index:2;transform:translate(calc(var(--ry)*.35px),calc(var(--rx)*-.25px)) scale(calc(1 - var(--lean)*.06));transform-origin:50% 100%;
+  filter:drop-shadow(0 6px 8px rgba(0,0,0,.6)) brightness(calc(1 - var(--lean)*.18));transition:filter .2s}
+.evo .fb img{width:100%;display:block}
+/* close-up: big, lower right, bleeds past the right edge of the art like the Flair card */
+.evo .cu{position:absolute;right:-12%;width:82%;bottom:13%;z-index:4;transform:translate(calc(var(--ry)*1px),calc(var(--rx)*-.6px)) scale(calc(1 + var(--lean)*.05));transform-origin:70% 100%;
+  filter:drop-shadow(-6px 6px 10px rgba(0,0,0,.6)) brightness(calc(1 + var(--lean)*.12)) saturate(calc(1 + var(--lean)*.1));
+  -webkit-mask:linear-gradient(180deg,#000 80%,transparent 99%);mask:linear-gradient(180deg,#000 80%,transparent 99%)}
+.evo .cu img{width:100%;display:block}
+.evo.e-legend .cu{animation:breathe 3.4s ease-in-out infinite}
+@keyframes breathe{50%{translate:0 -3px}}
+.evo .ftitle{position:absolute;left:6%;top:5%;z-index:6;padding:6px 8px 5px;border-radius:4px;background:#0b0703;box-shadow:0 0 0 2px #000,inset 0 0 0 1px rgba(255,233,138,.5)}
+.evo .ftitle span{display:block;font-size:9px;line-height:1.25;letter-spacing:.06em;color:transparent;background-image:linear-gradient(100deg,#7a5200,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:260% 100%;background-position:calc(var(--mx)*100%) 0;-webkit-background-clip:text;background-clip:text}
+.evo .ftitle span small{display:block;font-size:5px;letter-spacing:.14em}
+/* flashbulbs (paparazzi at the fit check) */
+.evo .flash{position:absolute;inset:0;z-index:5;display:none;pointer-events:none}
+.evo.e-flash .flash{display:block}
+.evo .flash i{position:absolute;width:22px;height:22px;opacity:0;background:radial-gradient(circle,#fff 0 3px,rgba(255,255,255,.8) 4px,rgba(255,255,255,0) 11px),
+  conic-gradient(from 45deg,transparent 0 20deg,rgba(255,255,255,.9) 22deg 23deg,transparent 25deg 110deg,rgba(255,255,255,.9) 112deg 113deg,transparent 115deg 200deg,rgba(255,255,255,.9) 202deg 203deg,transparent 205deg 290deg,rgba(255,255,255,.9) 292deg 293deg,transparent 295deg);
+  border-radius:50%;animation:pop 3.2s steps(1) infinite}
+.evo .flash i:nth-child(1){left:8%;top:30%}.evo .flash i:nth-child(2){left:62%;top:14%;animation-delay:1.1s}.evo .flash i:nth-child(3){left:20%;top:58%;animation-delay:2.2s}.evo .flash i:nth-child(4){left:80%;top:44%;animation-delay:.6s}
+@keyframes pop{0%{opacity:1;transform:scale(1.2)}5%{opacity:.6;transform:scale(.8)}9%,100%{opacity:0}}
+/* name band: name and team only, gold-foil letters like Flair */
+.evo .fband{position:absolute;left:3.4%;right:3.4%;bottom:3.4%;height:13%;z-index:7;border-radius:0 0 10px 10px;background:linear-gradient(180deg,rgba(6,14,9,.0),rgba(6,14,9,.92) 30%,#050b07);display:flex;flex-direction:column;justify-content:center;padding:0 22% 0 6%}
+.evo .fband b{font-weight:normal;font-size:10px;letter-spacing:.16em;color:transparent;background:linear-gradient(100deg,#7a5200,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:260% 100%;background-position:calc(var(--mx)*100%) 0;-webkit-background-clip:text;background-clip:text;white-space:nowrap}
+.evo .fband small{font-size:5.5px;letter-spacing:.2em;color:#9ee3a8;margin-top:6px}
+.evo.e-legend .fband{box-shadow:inset 0 2px 0 #ffd93d}
+.evo .seal{position:absolute;z-index:8;left:5%;bottom:18%;width:40px;height:40px;border-radius:50%;display:none;place-items:center;text-align:center;font-size:4.5px;line-height:1.5;color:#3a2600;
   background:radial-gradient(circle at 35% 30%,#fff2b0,#ffd93d 40%,#b07a10);box-shadow:0 0 0 2px #000,0 0 0 4px #ffd93d,0 4px 10px rgba(0,0,0,.5);transform:rotate(-12deg)}
 .evo.e-legend .seal{display:grid}
+.evo .sweep{z-index:9;display:none;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.4) 50%,transparent 60%);background-size:300% 100%;animation:sweep 3.6s ease-in-out infinite;mix-blend-mode:overlay}
 .evo.e-legend .sweep{display:block}
-.evo .sweep{z-index:9;display:none;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);background-size:300% 100%;animation:sweep 3.5s ease-in-out infinite;mix-blend-mode:overlay}
 @keyframes sweep{from{background-position:120% 0}to{background-position:-20% 0}}
+.evo .crt2{z-index:8;border-radius:10px;inset:3.4%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,rgba(0,0,0,0) 1px 3px)}
+
+/* ═══ SLEEVES, 16-bit style. Penny sleeve: thin, soft, open at the top. Toploader: rigid, thick
+   edge, a lip and a thumb notch. They live inside the card so they tilt with it. ═══ */
+.slv{position:absolute;pointer-events:none;z-index:20;transform:translateZ(1px)}
+.slv.soft{inset:-3.2% -3.2% -2.2% -3.2%;border-radius:6px;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.16) 38%,rgba(255,255,255,0) 44%,rgba(255,255,255,0) 60%,rgba(255,255,255,.09) 66%,rgba(255,255,255,0) 70%),rgba(210,230,255,.07);
+  background-size:220% 220%,auto;background-position:calc(var(--mx)*100%) calc(var(--my)*100%),0 0;
+  box-shadow:inset 0 0 0 2px rgba(230,240,255,.5),inset 0 0 0 3px rgba(0,0,0,.25);
+  clip-path:polygon(0 3%,1.5% 3%,1.5% 1.5%,3% 1.5%,3% 0,97% 0,97% 1.5%,98.5% 1.5%,98.5% 3%,100% 3%,100% 97%,98.5% 97%,98.5% 98.5%,97% 98.5%,97% 100%,3% 100%,3% 98.5%,1.5% 98.5%,1.5% 97%,0 97%)}
+.slv.soft::before{content:'';position:absolute;left:0;right:0;top:0;height:5px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 2px,transparent 2px 4px);opacity:.6}   /* the open, wavy top edge */
+.slv.soft::after{content:'';position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.12) 1px,transparent 1.2px) 0 0/4px 4px;mix-blend-mode:screen;opacity:.5}
+.slv.hard{inset:-10% -8% -6% -8%;border-radius:10px;
+  background:linear-gradient(110deg,rgba(255,255,255,0) 28%,rgba(255,255,255,.28) 34%,rgba(255,255,255,0) 40%),linear-gradient(110deg,rgba(255,255,255,0) 60%,rgba(255,255,255,.12) 64%,rgba(255,255,255,0) 68%),rgba(200,220,240,.08);
+  background-size:240% 240%,240% 240%,auto;background-position:calc(var(--mx)*100%) calc(var(--my)*100%),calc(var(--mx)*80%) calc(var(--my)*100%),0 0;
+  box-shadow:inset 0 0 0 3px rgba(0,0,0,.55),inset 0 0 0 9px rgba(215,230,245,.32),inset 0 0 0 10px rgba(0,0,0,.35),0 14px 30px rgba(0,0,0,.45)}
+.slv.hard::before{content:'';position:absolute;left:9px;right:9px;top:9px;height:6%;border-bottom:2px solid rgba(230,240,255,.45);   /* the lip */
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 2px,transparent 2px 4px)}
+.slv.hard::after{content:'';position:absolute;left:50%;top:3px;width:26%;height:5%;transform:translateX(-50%);border-radius:0 0 40px 40px/0 0 30px 30px;  /* thumb notch */
+  background:rgba(4,8,20,.85);box-shadow:inset 0 -2px 0 rgba(230,240,255,.45)}
+.slv.in{animation:slideIn .55s cubic-bezier(.3,1.3,.5,1) both}
+@keyframes slideIn{from{transform:translateY(-115%);opacity:0}}
+.prot{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.prot button{font-family:var(--px);font-size:6px;padding:10px 4px;border-radius:9px;border:2px solid var(--edge);background:var(--card);color:var(--t3);cursor:pointer;line-height:1.7}
+.prot button.on{border-color:#9ad8ff;color:#e6f6ff}
+.prot button i{display:block;font-style:normal;font-size:14px;margin-bottom:4px}
 
 /* ═══ panels ═══ */
 .panel{background:var(--bg2);border:2px solid var(--edge);border-radius:12px;padding:14px;margin-top:12px}
@@ -167,12 +205,12 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
   <a class="back" href="../">◀ BACK TO NBA ARCADE NEXT</a>
   <h1>CARD FORGE</h1>
   <p class="sub">The base set card (Holo Lab, stripped back) and the two ways to grow it. Everything here is a sandbox: tap the buttons to earn EXP and pull duplicates.</p>
-  <div class="tabs"><button id="tB" class="on" onclick="view('base')">BASE CARD</button><button id="tE" class="evo" onclick="view('evo')">🔒 EVOLVED</button></div>
+  <div class="tabs"><button id="tB" class="on" onclick="view('base')">BASE CARD</button><button id="tE" class="evo" onclick="view('evo')">🔒 FIT CHECK</button></div>
   <div class="stage" id="stage"><div id="slot"></div></div>
   <div id="panels"></div>
   <div class="panel"><div class="cap"><span>HOW IT WORKS</span></div><div class="rule">
     <b>LEVEL UP:</b> a card earns EXP when you use that player (Fantasy starts, Duel picks, Challenge line-ups) or when you feed it a duplicate. Each level unlocks an add-on, and you choose which add-ons are switched on.<br><br>
-    <b>EVOLVE:</b> trade in <b>10 copies</b> of the same base card for a one-of-a-kind <u>EVO card</u>, stamped with your name and the date. It starts back at LV 1 with its own, flashier add-ons.<br><br>
+    <b>EVOLVE:</b> trade in <b>10 copies</b> of the same base card for his next card, here <u>FIT CHECK</u>, stamped with your name and the date. It starts back at LV 1 with its own, flashier add-ons.<br><br>
     <b>THE CHOICE:</b> every duplicate is either EXP now, or one step toward an evolution.</div></div>
 </main>
 <script>
@@ -187,12 +225,12 @@ const BASE_UP=[
   {k:'stars', ic:'⭐', name:'STARS',       lv:6, d:'Two layers of team stars floating in front of the art.'},
 ];
 const EVO_UP=[
-  {k:'evo',   ic:'🧬', name:'EVO CARD',      lv:1, d:'Full-bleed team rays, the player breaks out past the card\'s edge, your name on the plate.', fixed:1},
+  {k:'evo',   ic:'👔', name:'FIT CHECK',     lv:1, d:'Two pictures layered like a Flair card: the full outfit in the gold mirror, the close-up up front. Tilt to shift which one leads.', fixed:1},
   {k:'prism', ic:'💎', name:'PRISM RIM',     lv:2, d:'A rainbow rim that turns as you tilt.'},
-  {k:'aura',  ic:'🔆', name:'AURA',          lv:3, d:'A glowing, breathing aura behind the player.'},
-  {k:'stars', ic:'🌌', name:'STAR FIELD',    lv:4, d:'Parallax stars in front of and behind him.'},
-  {k:'bolts', ic:'⚡', name:'LIGHTNING',     lv:5, d:'Energy crackles around the frame.'},
-  {k:'legend',ic:'👑', name:'LEGEND',        lv:6, d:'Gold seal, gold plate, a light sweep and a slow breathing motion.'},
+  {k:'aura',  ic:'🔆', name:'SPOTLIGHT',     lv:3, d:'A warm glow behind the outfit, breathing slowly.'},
+  {k:'stars', ic:'✨', name:'STAR FIELD',    lv:4, d:'The kelly-green stars drift across as you tilt.'},
+  {k:'flash', ic:'📸', name:'FLASHBULBS',    lv:5, d:'Camera flashes pop around him, like the tunnel walk.'},
+  {k:'legend',ic:'👑', name:'LEGEND',        lv:6, d:'A gold "evolved by" seal, a light sweep and a slow breathing motion.'},
 ];
 const KEY='forge-lab-v1';
 let st; try{ st=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
@@ -209,24 +247,42 @@ function baseCard(){
   return `<div class="card base ${cls}" id="card"><div class="clip"><div class="L frame"></div>
     <div class="win"><div class="L bg"></div><div class="L bgfoil"></div></div></div>
     <div class="L pl"><img src="../holo/tatum.png" alt="Jayson Tatum"><div class="m jf"></div><div class="m gloss"></div></div>
-    <span class="badge l">#009 · LV ${L.lv}</span><span class="badge r">${on('gold')?'GOLD':'BASE'}</span>
-    <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
-    <div class="clip" style="pointer-events:none"><div class="L stars far"></div><div class="L stars near"></div><div class="L crt"></div><div class="L glare"></div></div></div>`;
+    
+    <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOSTON CELTICS</span></div></div>${runBadge()}
+    <div class="clip" style="pointer-events:none"><div class="L stars far"></div><div class="L stars near"></div><div class="L crt"></div><div class="L glare"></div></div>${sleeves('base')}</div>`;
 }
-function evoCard(e, scale){
+function evoCard(e, scale, noSleeve){
   const L=lvOf(e.x,EVO_LV), on=k=>EVO_UP.find(u=>u.k===k).lv<=L.lv && e.on[k];
-  const cls=['prism','aura','stars','bolts','legend'].filter(on).map(k=>'e-'+k).join(' ');
+  const cls=['prism','aura','stars','flash','legend'].filter(on).map(k=>'e-'+k).join(' ');
   return `<div class="card evo ${cls}" id="card" ${scale?`style="width:${scale}"`:''}><div class="L rim"></div>
-    <div class="field"><div class="rays"></div><div class="tone"></div><div class="vname">TATUM</div><div class="aura"></div>
-      <div class="L stars far estars" style="display:${on('stars')?'block':'none'}"></div></div>
-    <div class="ep"><img src="../holo/tatum.png" alt="Jayson Tatum"></div>
-    <div class="clip" style="pointer-events:none;z-index:7"><div class="L stars near" style="display:${on('stars')?'block':'none'}"></div>
-      <svg class="bolts" viewBox="0 0 100 140" preserveAspectRatio="none"><path d="M6 20 L12 30 L8 34 L15 46"/><path d="M94 60 L88 70 L92 74 L85 88"/><path d="M20 104 L30 100 L33 106 L44 101"/></svg>
-      <div class="L sweep"></div><div class="L glare"></div></div>
-    <span class="etag">EVO · LV ${L.lv}</span>
-    <div class="seal">EVO<br>1 OF 1</div>
-    <div class="eplate"><div class="n"><small>JAYSON TATUM · BOS</small>TATUM EVO</div><div class="o">EVOLVED BY <b>${e.by}</b><br>${e.d}</div></div></div>`;
+    <div class="field"><div class="fbg"></div><div class="fstars"></div><div class="faura"></div>
+      <div class="fb"><img src="fit/full.webp" alt="Jayson Tatum, full outfit"></div>
+      <div class="cu"><img src="fit/close.webp" alt="Jayson Tatum, close-up"></div>
+      <div class="flash"><i></i><i></i><i></i><i></i></div></div>
+    <div class="ftitle"><span>FIT<br>CHECK<small>EVO · 1 OF 1</small></span></div>
+    <div class="seal">EVOLVED<br>BY<br>${e.by}</div>
+    <div class="fband"><b>JAYSON TATUM</b><small>BOSTON CELTICS</small></div>${runBadge()}
+    <div class="clip" style="pointer-events:none;z-index:8"><div class="L crt2"></div><div class="L sweep"></div><div class="L glare"></div></div>${noSleeve?'':sleeves('evo')}</div>`;
 }
+/* Fall Run set symbol: pixel maple leaf with 26 over 27 */
+function runBadge(run='fall'){
+  const leaf = run==='fall';
+  return `<span class="runb" title="${leaf?'Fall Run':'Winter Run'} · 2026-27"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+    <circle cx="8" cy="8" r="7.6" fill="#000"/><circle cx="8" cy="8" r="6.8" fill="#fff"/>
+    ${leaf?`<path fill="#d9361e" d="M7 1h2v2h1V2h2v2h1v2h1v1h1v2h-1v1h-2v1h-2v1H9v3H7v-3H5v-1H3v-1H2V9H1V7h1V6h1V4h1V2h2v1h1z"/>`
+          :`<path fill="#3aa0e0" d="M7 1h2v14H7zM1 7h14v2H1zM3 3h2v2H3zm8 0h2v2h-2zM3 11h2v2H3zm8 0h2v2h-2z"/>`}
+    <text x="8" y="7.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="3.3" fill="#fff" stroke="#000" stroke-width=".6" paint-order="stroke">26</text>
+    <text x="8" y="11.4" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="3.3" fill="#fff" stroke="#000" stroke-width=".6" paint-order="stroke">27</text></svg></span>`;
+}
+/* 0 = raw, 1 = penny sleeve, 2 = penny sleeve + toploader */
+function sleeves(k){ const n=(st.sleeve||{})[k]||0, fresh=sleeves.anim===k?' in':'';
+  return (n>=1?`<div class="slv soft${n===1?fresh:''}"></div>`:'')+(n>=2?`<div class="slv hard${fresh}"></div>`:''); }
+function protect(n){ const k=cur; (st.sleeve ||= {})[k]=n; sleeves.anim=k; draw(); sleeves.anim=null;
+  toast(['Raw card','Into a penny sleeve','Penny sleeve + toploader'][n]); }
+const protRow = k => { const n=(st.sleeve||{})[k]||0;
+  return `<div class="panel"><div class="cap"><span>PROTECTION</span><span>LIKE A REAL CARD</span></div><div class="prot">
+    ${[['🃏','RAW'],['🫧','PENNY SLEEVE'],['🛡️','+ TOPLOADER']].map(([i,l],j)=>`<button class="${n===j?'on':''}" onclick="protect(${j})"><i>${i}</i>${l}</button>`).join('')}</div>
+    <div class="why">Sleeve it first, then slide it into a toploader. Your cards show this way everywhere you see them.</div></div>`; };
 
 /* ── panels ── */
 function upRows(T, x, onMap, evo){
@@ -243,23 +299,25 @@ function panels(){
       <div class="lvrow"><span class="lv">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
       <small>${L.max?'MAX LEVEL · EVERY ADD-ON UNLOCKED':`${st.bx} / ${L.hi} EXP · NEXT: ${BASE_UP[L.lv].name}`}</small></div></div>
       <div class="btns"><button class="btn" onclick="gain(25,'Started him in Fantasy')">🏀 PLAY A GAME +25</button><button class="btn alt" onclick="feed()" ${st.dup?'':'disabled'}>🍖 FEED A DUPE +40</button></div></div>
+    ${protRow('base')}
     <div class="panel"><div class="cap"><span>ADD-ONS</span><span>TAP TO SWITCH ON/OFF</span></div>${upRows(BASE_LV,st.bx,st.bOn)}</div>
     <div class="panel"><div class="cap"><span>DUPLICATES</span><span>${st.dup} / 10</span></div>
       <div class="dupes">${Array.from({length:10},(_,i)=>`<i class="${i<st.dup?'on':''}"></i>`).join('')}</div>
       <div class="btns"><button class="btn alt" onclick="pull()">🎁 OPEN A PACK</button><button class="btn" style="background:#b36bff;color:#fff" onclick="evolve()" ${st.dup>=10?'':'disabled'}>🧬 EVOLVE ${st.dup>=10?'NOW':`(${10-st.dup} MORE)`}</button></div>
-      <div class="why">${st.evo?'You already own TATUM EVO. Evolving again makes a second, separate EVO card (its own number and history).':'Save 10 copies to evolve. Your base card stays; the 10 copies are used up.'}</div></div>`;
+      <div class="why">${st.evo?'You already own TATUM FIT CHECK. Evolving again makes a second, separate copy (its own number and history).':'Save 10 copies to evolve into TATUM FIT CHECK. Your base card stays; the 10 copies are used up.'}</div></div>`;
   } else { const e=st.evo, L=lvOf(e.x,EVO_LV);
     p.className='evomode';
     p.innerHTML=`<div class="panel"><div class="cap"><span>EVO LEVEL</span><span>EVO TRACK</span></div>
       <div class="lvrow"><span class="lv">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
       <small>${L.max?'MAX LEVEL · LEGEND':`${e.x} / ${L.hi} EXP · NEXT: ${EVO_UP[L.lv].name}`}</small></div></div>
       <div class="btns"><button class="btn" onclick="gain(40,'Played him')">🏀 PLAY A GAME +40</button><button class="btn alt" onclick="feed()" ${st.dup?'':'disabled'}>🍖 FEED A DUPE +60</button></div></div>
-    <div class="panel"><div class="cap"><span>EVO ADD-ONS</span><span>TAP TO SWITCH ON/OFF</span></div>${upRows(EVO_LV,e.x,e.on,true)}</div>`;
+    ${protRow('evo')}
+    <div class="panel"><div class="cap"><span>FIT CHECK ADD-ONS</span><span>TAP TO SWITCH ON/OFF</span></div>${upRows(EVO_LV,e.x,e.on,true)}</div>`;
   }
 }
 function draw(){
   document.getElementById('slot').innerHTML = cur==='base' ? baseCard() : evoCard(st.evo);
-  const tE=document.getElementById('tE'); tE.textContent=st.evo?'🧬 EVOLVED':'🔒 EVOLVED'; tE.disabled=!st.evo;
+  const tE=document.getElementById('tE'); tE.textContent=st.evo?'👔 FIT CHECK':'🔒 FIT CHECK'; tE.disabled=!st.evo;
   document.getElementById('tB').classList.toggle('on',cur==='base'); tE.classList.toggle('on',cur==='evo');
   panels(); save();
 }
@@ -283,7 +341,7 @@ function evolve(){
   setTimeout(()=>fx.querySelector('.flash').classList.add('go'),2250);
   setTimeout(()=>{ st.dup=0; const n=new Date();
     st.evo={x:0, on:{}, by:'DAVE', d:n.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase()};
-    fx.innerHTML=`<div class="flash go"></div><div class="big">EVOLVED!</div><div class="rev">${evoCard(st.evo,'min(260px,66vw)')}</div><button class="btn go2" id="go2">SEE YOUR EVO CARD ▶</button>`;
+    fx.innerHTML=`<div class="flash go"></div><div class="big">FIT CHECK!</div><div class="rev">${evoCard(st.evo,'min(260px,66vw)',true)}</div><button class="btn go2" id="go2">SEE YOUR FIT CHECK CARD ▶</button>`;
     fx.querySelector('#go2').onclick=()=>{ fx.remove(); cur='evo'; draw(); };
   },2500);
 }

@@ -84,50 +84,51 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 /* ═══ FIT CHECK (the 10x evolution): Flair-style, two pictures layered.
    Full outfit stands in the gold mirror; the close-up sits big in front.
    Tilt left and the outfit steps forward; tilt right and the close-up does. ═══ */
-.evo{border-radius:14px;--lean:clamp(-1,calc(var(--ry)/14),1)}
-.evo .rim{border-radius:14px;background:linear-gradient(150deg,#1b120a,#4a3412 30%,#c9952b 50%,#4a3412 70%,#1b120a);background-size:300% 300%;background-position:calc(var(--mx)*100%) 50%}
-.evo.e-prism .rim{background:conic-gradient(from calc(var(--mx)*360deg),#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf)}
-.evo .field{position:absolute;inset:3.4%;border-radius:10px;overflow:hidden;background:#0a2a18}
-.evo .fbg{position:absolute;inset:-6% -14% -6% -14%;background:url(fit/bg.jpg) 50% 38%/cover;transform:translate(calc(var(--ry)*-.5px),calc(var(--rx)*.4px));filter:saturate(1.05)}
-.evo .fstars{position:absolute;inset:-4% -24%;background:url(fit/stars.webp) center/cover;display:none;mix-blend-mode:screen;opacity:.9;transform:translate(calc(var(--ry)*2.6px),calc(var(--rx)*-1px))}
+.evo{border-radius:12px;--lean:clamp(-1,calc(var(--ry)/14),1);box-shadow:calc(var(--ry)*-.9px) calc(var(--rx)*.9px + 18px) 40px rgba(0,0,0,.65),0 0 0 1px #000}
+/* thin black card edge with a gold hairline: the art does the talking */
+.evo .rim{border-radius:12px;background:#060504}
+.evo .rim::after{content:'';position:absolute;inset:1.1%;border-radius:10px;padding:1px;background:linear-gradient(120deg,#6a4a10,#ffe9a0 30%,#b88a1c 50%,#fff6cc 70%,#6a4a10);background-size:260% 260%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.evo.e-prism .rim::after{padding:2px;background:conic-gradient(from calc(var(--mx)*360deg),#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf)}
+.evo .field{position:absolute;inset:1.9%;border-radius:9px;overflow:hidden;background:#0b0904}
+.evo .fbg{position:absolute;inset:-5% -8%;background:url(fit/bg2.jpg) 50% 0/cover;transform:translate(calc(var(--ry)*-.45px),calc(var(--rx)*.35px))}
+/* foil on the background's stripes: colour-dodge only lights the bright lines, so they shimmer as you tilt */
+.evo .ffoil{position:absolute;inset:-5% -8%;mix-blend-mode:color-dodge;opacity:calc(.1 + var(--hyp)*.3);transform:translate(calc(var(--ry)*-.45px),calc(var(--rx)*.35px));
+  background:linear-gradient(calc(100deg + var(--ry)*3deg),transparent 36%,#fff3b0 45%,#9effb0 50%,#ffd27a 55%,transparent 64%);background-size:260% 260%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%)}
+.evo .fstars{position:absolute;inset:-4% -24%;background:url(fit/stars.webp) center/cover;display:none;mix-blend-mode:screen;opacity:.8;transform:translate(calc(var(--ry)*2.6px),calc(var(--rx)*-1px))}
 .evo.e-stars .fstars{display:block}
-.evo .faura{position:absolute;left:18%;right:18%;top:12%;bottom:30%;border-radius:50%;display:none;background:radial-gradient(closest-side,rgba(255,226,140,.85),rgba(76,187,23,.35) 55%,transparent);filter:blur(10px);animation:pulse 2.4s ease-in-out infinite}
+.evo .faura{position:absolute;left:0;width:56%;top:4%;height:62%;border-radius:50%;display:none;background:radial-gradient(closest-side,rgba(255,226,140,.6),rgba(255,200,90,.2) 55%,transparent);filter:blur(10px);animation:pulse 2.6s ease-in-out infinite}
 .evo.e-aura .faura{display:block}
-@keyframes pulse{50%{transform:scale(1.1);opacity:.6}}
-/* full outfit: inside the mirror */
-.evo .fb{position:absolute;left:31%;width:34%;top:13%;z-index:2;transform:translate(calc(var(--ry)*.35px),calc(var(--rx)*-.25px)) scale(calc(1 - var(--lean)*.06));transform-origin:50% 100%;
-  filter:drop-shadow(0 6px 8px rgba(0,0,0,.6)) brightness(calc(1 - var(--lean)*.18));transition:filter .2s}
+@keyframes pulse{50%{transform:scale(1.08);opacity:.65}}
+/* full outfit, standing back in the top left */
+.evo .fb{position:absolute;left:3%;width:46%;top:2%;z-index:2;transform:translate(calc(var(--ry)*.3px),calc(var(--rx)*-.2px)) scale(calc(1 - var(--lean)*.05));transform-origin:30% 0;
+  filter:drop-shadow(0 8px 10px rgba(0,0,0,.55)) brightness(calc(1 - var(--lean)*.16))}
 .evo .fb img{width:100%;display:block}
-/* close-up: big, lower right, bleeds past the right edge of the art like the Flair card */
-.evo .cu{position:absolute;right:-12%;width:82%;bottom:13%;z-index:4;transform:translate(calc(var(--ry)*1px),calc(var(--rx)*-.6px)) scale(calc(1 + var(--lean)*.05));transform-origin:70% 100%;
-  filter:drop-shadow(-6px 6px 10px rgba(0,0,0,.6)) brightness(calc(1 + var(--lean)*.12)) saturate(calc(1 + var(--lean)*.1));
-  -webkit-mask:linear-gradient(180deg,#000 80%,transparent 99%);mask:linear-gradient(180deg,#000 80%,transparent 99%)}
+/* the close-up: big, in front, running off the right and bottom edges */
+.evo .cu{position:absolute;left:4%;width:123%;top:22.5%;z-index:4;transform:translate(calc(var(--ry)*.9px),calc(var(--rx)*-.55px)) scale(calc(1 + var(--lean)*.04));transform-origin:60% 100%;
+  filter:drop-shadow(-10px 6px 14px rgba(0,0,0,.6)) brightness(calc(1 + var(--lean)*.1))}
 .evo .cu img{width:100%;display:block}
-.evo.e-legend .cu{animation:breathe 3.4s ease-in-out infinite}
+.evo.e-legend .cu{animation:breathe 3.6s ease-in-out infinite}
 @keyframes breathe{50%{translate:0 -3px}}
-.evo .ftitle{position:absolute;left:6%;top:5%;z-index:6;padding:6px 8px 5px;border-radius:4px;background:#0b0703;box-shadow:0 0 0 2px #000,inset 0 0 0 1px rgba(255,233,138,.5)}
-.evo .ftitle span{display:block;font-size:9px;line-height:1.25;letter-spacing:.06em;color:transparent;background-image:linear-gradient(100deg,#7a5200,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:260% 100%;background-position:calc(var(--mx)*100%) 0;-webkit-background-clip:text;background-clip:text}
-.evo .ftitle span small{display:block;font-size:5px;letter-spacing:.14em}
-/* flashbulbs (paparazzi at the fit check) */
-.evo .flash{position:absolute;inset:0;z-index:5;display:none;pointer-events:none}
+.evo .fshade{position:absolute;left:0;right:0;bottom:0;height:34%;z-index:5;background:linear-gradient(180deg,transparent,rgba(0,0,0,.55) 70%,rgba(0,0,0,.7))}
+/* FIT CHECK, small, gold foil, top-right */
+.evo .ftitle{position:absolute;right:7%;top:5%;z-index:9;text-align:right;transform:translateZ(40px);font-family:'Teko',sans-serif;font-style:italic;font-weight:700;line-height:.8}
+.evo .ftitle span{display:block;font-size:30px;letter-spacing:.02em;color:transparent;background-image:linear-gradient(100deg,#8a6000,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:260% 100%;background-position:calc(var(--mx)*100%) 0;-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 2px 0 rgba(0,0,0,.6))}
+.evo .ftitle small{display:block;font-family:var(--px);font-style:normal;font-size:5px;letter-spacing:.2em;color:#f3e2b0;margin-top:5px;text-shadow:0 1px 0 #000}
+/* flashbulbs */
+.evo .flash{position:absolute;inset:0;z-index:6;display:none;pointer-events:none}
 .evo.e-flash .flash{display:block}
-.evo .flash i{position:absolute;width:22px;height:22px;opacity:0;background:radial-gradient(circle,#fff 0 3px,rgba(255,255,255,.8) 4px,rgba(255,255,255,0) 11px),
-  conic-gradient(from 45deg,transparent 0 20deg,rgba(255,255,255,.9) 22deg 23deg,transparent 25deg 110deg,rgba(255,255,255,.9) 112deg 113deg,transparent 115deg 200deg,rgba(255,255,255,.9) 202deg 203deg,transparent 205deg 290deg,rgba(255,255,255,.9) 292deg 293deg,transparent 295deg);
-  border-radius:50%;animation:pop 3.2s steps(1) infinite}
-.evo .flash i:nth-child(1){left:8%;top:30%}.evo .flash i:nth-child(2){left:62%;top:14%;animation-delay:1.1s}.evo .flash i:nth-child(3){left:20%;top:58%;animation-delay:2.2s}.evo .flash i:nth-child(4){left:80%;top:44%;animation-delay:.6s}
-@keyframes pop{0%{opacity:1;transform:scale(1.2)}5%{opacity:.6;transform:scale(.8)}9%,100%{opacity:0}}
-/* name band: name and team only, gold-foil letters like Flair */
-.evo .fband{position:absolute;left:3.4%;right:3.4%;bottom:3.4%;height:13%;z-index:7;border-radius:0 0 10px 10px;background:linear-gradient(180deg,rgba(6,14,9,.0),rgba(6,14,9,.92) 30%,#050b07);display:flex;flex-direction:column;justify-content:center;padding:0 22% 0 6%}
-.evo .fband b{font-weight:normal;font-size:10px;letter-spacing:.16em;color:transparent;background:linear-gradient(100deg,#7a5200,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:260% 100%;background-position:calc(var(--mx)*100%) 0;-webkit-background-clip:text;background-clip:text;white-space:nowrap}
-.evo .fband small{font-size:5.5px;letter-spacing:.2em;color:#9ee3a8;margin-top:6px}
-.evo.e-legend .fband{box-shadow:inset 0 2px 0 #ffd93d}
-.evo .seal{position:absolute;z-index:8;left:5%;bottom:18%;width:40px;height:40px;border-radius:50%;display:none;place-items:center;text-align:center;font-size:4.5px;line-height:1.5;color:#3a2600;
-  background:radial-gradient(circle at 35% 30%,#fff2b0,#ffd93d 40%,#b07a10);box-shadow:0 0 0 2px #000,0 0 0 4px #ffd93d,0 4px 10px rgba(0,0,0,.5);transform:rotate(-12deg)}
-.evo.e-legend .seal{display:grid}
-.evo .sweep{z-index:9;display:none;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.4) 50%,transparent 60%);background-size:300% 100%;animation:sweep 3.6s ease-in-out infinite;mix-blend-mode:overlay}
+.evo .flash i{position:absolute;width:22px;height:22px;opacity:0;background:radial-gradient(circle,#fff 0 3px,rgba(255,255,255,.8) 4px,rgba(255,255,255,0) 11px);border-radius:50%;animation:bulb 3.2s steps(1) infinite}
+.evo .flash i:nth-child(1){left:6%;top:72%}.evo .flash i:nth-child(2){left:55%;top:12%;animation-delay:1.1s}.evo .flash i:nth-child(3){left:40%;top:50%;animation-delay:2.2s}.evo .flash i:nth-child(4){left:84%;top:30%;animation-delay:.6s}
+@keyframes bulb{0%{opacity:1;transform:scale(1.3)}5%{opacity:.6;transform:scale(.8)}9%,100%{opacity:0}}
+/* legend: an engraved line along the bottom edge and a slow light sweep */
+.evo .engr{position:absolute;left:0;right:0;bottom:.35%;z-index:9;text-align:center;font-size:4px;letter-spacing:.3em;color:#c9a54a;display:none}
+.evo.e-legend .engr{display:block}
+.evo.e-legend .rim::after{padding:2px}
+.evo .sweep{z-index:9;display:none;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.35) 50%,transparent 60%);background-size:300% 100%;animation:sweep 3.8s ease-in-out infinite;mix-blend-mode:overlay}
 .evo.e-legend .sweep{display:block}
 @keyframes sweep{from{background-position:120% 0}to{background-position:-20% 0}}
-.evo .crt2{z-index:8;border-radius:10px;inset:3.4%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,rgba(0,0,0,0) 1px 3px)}
+.evo .fname{left:7%;bottom:6%}
 
 /* ═══ SLEEVES, 16-bit style. Penny sleeve: thin, soft, open at the top. Toploader: rigid, thick
    edge, a lip and a thumb notch. They live inside the card so they tilt with it. ═══ */
@@ -230,12 +231,12 @@ const BASE_UP=[
   {k:'stars', ic:'⭐', name:'STARS',       lv:6, d:'Two layers of team stars floating in front of the art.'},
 ];
 const EVO_UP=[
-  {k:'evo',   ic:'👔', name:'FIT CHECK',     lv:1, d:'Two pictures layered like a Flair card: the full outfit in the gold mirror, the close-up up front. Tilt to shift which one leads.', fixed:1},
+  {k:'evo',   ic:'👔', name:'FIT CHECK',     lv:1, d:'Full-bleed, two pictures layered like a Flair card: the full outfit standing back, the close-up up front. The background stripes shimmer, and tilting shifts which picture leads.', fixed:1},
   {k:'prism', ic:'💎', name:'PRISM RIM',     lv:2, d:'A rainbow rim that turns as you tilt.'},
-  {k:'aura',  ic:'🔆', name:'SPOTLIGHT',     lv:3, d:'A warm glow behind the outfit, breathing slowly.'},
+  {k:'aura',  ic:'🔆', name:'SPOTLIGHT',     lv:3, d:'A warm glow behind the full outfit, breathing slowly.'},
   {k:'stars', ic:'✨', name:'STAR FIELD',    lv:4, d:'The kelly-green stars drift across as you tilt.'},
   {k:'flash', ic:'📸', name:'FLASHBULBS',    lv:5, d:'Camera flashes pop around him, like the tunnel walk.'},
-  {k:'legend',ic:'👑', name:'LEGEND',        lv:6, d:'A gold "evolved by" seal, a light sweep and a slow breathing motion.'},
+  {k:'legend',ic:'👑', name:'LEGEND',        lv:6, d:'A heavier gold edge engraved with who evolved it and when, a light sweep and a slow breathing motion.'},
 ];
 const KEY='forge-lab-v1';
 let st; try{ st=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
@@ -260,14 +261,13 @@ function evoCard(e, scale, noSleeve){
   const L=lvOf(e.x,EVO_LV), on=k=>EVO_UP.find(u=>u.k===k).lv<=L.lv && e.on[k];
   const cls=['prism','aura','stars','flash','legend'].filter(on).map(k=>'e-'+k).join(' ');
   return `<div class="card evo ${cls}" id="card" ${scale?`style="width:${scale}"`:''}><div class="L rim"></div>
-    <div class="field"><div class="fbg"></div><div class="fstars"></div><div class="faura"></div>
+    <div class="field"><div class="fbg"></div><div class="ffoil"></div><div class="fstars"></div><div class="faura"></div>
       <div class="fb"><img src="fit/full.webp" alt="Jayson Tatum, full outfit"></div>
       <div class="cu"><img src="fit/close.webp" alt="Jayson Tatum, close-up"></div>
-      <div class="flash"><i></i><i></i><i></i><i></i></div></div>
-    <div class="ftitle"><span>FIT<br>CHECK<small>EVO · 1 OF 1</small></span></div>
-    <div class="seal">EVOLVED<br>BY<br>${e.by}</div>
-    <div class="fband"><b>JAYSON TATUM</b><small>BOSTON CELTICS</small></div>${runBadge()}
-    <div class="clip" style="pointer-events:none;z-index:8"><div class="L crt2"></div><div class="L sweep"></div><div class="L glare"></div></div>${noSleeve?'':sleeves('evo')}</div>`;
+      <div class="fshade"></div><div class="flash"><i></i><i></i><i></i><i></i></div><div class="L sweep"></div><div class="L glare"></div></div>
+    <div class="ftitle"><span>FIT CHECK</span><small>EVO · 1 OF 1</small></div>
+    <div class="fname"><span>JAYSON</span><b>TATUM</b><small>BOSTON CELTICS</small></div>${runBadge()}
+    <div class="engr">EVOLVED BY ${e.by} · ${e.d}</div>${noSleeve?'':sleeves('evo')}</div>`;
 }
 /* Fall Run set symbol: pixel maple leaf with 26 over 27 */
 function runBadge(run='fall'){

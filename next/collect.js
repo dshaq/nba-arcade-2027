@@ -199,6 +199,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 /* the card at small sizes */
 .tcard.pc{box-shadow:0 0 0 2px #000,0 4px 10px rgba(0,0,0,.45)}
 .tcard.mini{padding:6%;border-radius:7%/5%}
+.tcard.pc{height:auto!important;aspect-ratio:5/7}
+.tcard.pc .in{position:absolute;left:5%;right:5%;top:3.6%;bottom:3.6%;height:auto}
+.tcard.pc.mini .in{left:6%;right:6%;top:4.3%;bottom:4.3%}
 .tcard.mini .in{border-radius:5%/3.6%}
 .tcard .lvg{position:absolute;top:-1px;left:-1px;z-index:8}
 .lvg{display:grid;place-items:center;min-width:15px;height:15px;padding:0 2px;font-size:6px;color:#000;background:#7dffa0;border:2px solid #000;border-radius:3px;font-family:var(--px)}

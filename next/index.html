@@ -476,7 +476,7 @@ const AFTER={};
 /* Show any error right on the screen (so a screenshot tells us what broke) */
 const ERRS=[];
 async function whyFail(f){ let info='';
-  try{ const r=await fetch(f+'.js?v=19&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
+  try{ const r=await fetch(f+'.js?v=20&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
   catch(e){ info=' (fetch: '+e.message+')'; }
   showErr('could not load '+f+'.js'+info); }
 function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
@@ -747,17 +747,17 @@ if(document.readyState==='loading') addEventListener('DOMContentLoaded', start);
 const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards','collect','nba'];
 setTimeout(async()=>{ if(start.done) return;
   const miss=PARTS.filter(p=>!LOADED.has(p));
-  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=19&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
+  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=20&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=19" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=19" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=19" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=19" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=19" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=19" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=19" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
-<script src="nba.js?v=19" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
+<script src="data.js?v=20" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=20" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=20" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=20" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=20" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=20" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=20" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=20" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
 </body>
 </html>

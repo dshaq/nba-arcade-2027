@@ -53,7 +53,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .tcard.r-holo .art::after{content:'';position:absolute;inset:0;z-index:2;mix-blend-mode:color-dodge;opacity:.55;background:linear-gradient(115deg,transparent 18%,#ff5fbf 32%,#ffd93d 42%,#39ff6a 52%,#4a9eff 62%,#b36bff 70%,transparent 84%);background-size:320% 320%;background-position:calc(var(--px,.5)*100%) calc(var(--py,.5)*100%)}
 .tcard.r-holo .art::before{content:'';position:absolute;inset:0;z-index:3;mix-blend-mode:color-dodge;opacity:.45;background:radial-gradient(circle,#fff 0 1px,transparent 1.5px) 0 0/17px 17px,radial-gradient(circle,#ffe9a0 0 1px,transparent 1.5px) 7px 9px/23px 23px}
 .tcard.r-gold .fr{background:linear-gradient(135deg,#7a5200,#ffe98a 30%,#c88a10 50%,#fff6c0 70%,#8a6000);background-size:250% 250%;background-position:calc(var(--px,.5)*100%) calc(var(--py,.5)*100%)}
-.tcard.r-gold .art img{filter:sepia(1) saturate(2.2) hue-rotate(-8deg) contrast(1.15)}
+.tcard.r-gold .art img{filter:sepia(.55) saturate(1.5) hue-rotate(-6deg) contrast(1.1)}
 .tcard.r-gold .ft{background:linear-gradient(90deg,#3a2600,#000)}
 .tcard.r-moment .fr{background:repeating-linear-gradient(135deg,#c4122f 0 8px,#8a0a20 8px 16px)}
 .tcard.r-moment .in{background:#000}

@@ -2,7 +2,7 @@
    Tabs: MATCH-UP · ROSTER · WAIVERS · SCHEDULE · STANDINGS.
    Roster and Waivers each have QUICK (default, one screen) and FULL (like the live site). */
 
-const FZ = {tab:'roster', sel:null, drop:false, view:0, day:TODAY_I, fpm:'WEEK', wk:MU.week, wsel:null, wq:'', wteam:'', wall:false, wsort:'fp', whide:false, wrook:false, wpg:0, wavail:true, wf:null, rdrop:false, ssort:'wl'};
+const FZ = {tab:'roster', sel:null, drop:false, view:0, day:TODAY_I, fpm:null, wk:MU.week, wsel:null, wq:'', wteam:'', wall:false, wsort:'fp', whide:false, wrook:false, wpg:0, wavail:true, wf:null, rdrop:false, ssort:'wl'};
 S.run ||= 'fall';
 S.rq ||= 'quick'; S.wq ||= 'quick';
 S.wv ||= {used:1, scouted:['Saddiq Bey'], log:[{t:'ADD',n:'Dyson Daniels',d:'Nov 3'},{t:'DROP',n:'Klay Thompson',d:'Nov 3'}]};
@@ -546,7 +546,6 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .threat{margin-top:10px}
 .dlg{height:calc(3 * 2em + 24px);min-height:0!important;overflow-y:auto;scrollbar-width:none}.dlg::-webkit-scrollbar{display:none}
 .tonight>div{flex:none;width:64px;text-align:center;font-size:5.5px;color:var(--t2);line-height:1.7}
-.tonight div:not(.ph){width:auto}.tonight .tcard div{width:auto;text-align:left;line-height:normal}
 .tonight .ph.cw{width:64px!important;margin-bottom:4px}
 .tonight .tcard img{height:auto;object-fit:initial}
 </style>`);

@@ -93,7 +93,7 @@ function nbaStand(j){
   const conf=(j.children||[]);
   if(!conf.length) return '<div class="nbx">No standings yet.</div>';
   const sv=(e,n)=>{ const s=(e.stats||[]).find(x=>x.name===n); return s?(s.displayValue??s.value):''; };
-  return conf.map(cf=>{ const ent=[...(cf.standings&&cf.standings.entries||[])].sort((a,b)=>(+sv(b,'winPercent'))-(+sv(a,'winPercent')));
+  return conf.map(cf=>{ const seed=e=>{ const v=(e.stats||[]).find(x=>x.name==='playoffSeed'); return v?+v.value:99; }, ent=[...(cf.standings&&cf.standings.entries||[])].sort((a,b)=>seed(a)-seed(b)||(+sv(b,'winPercent'))-(+sv(a,'winPercent')));
     return `<div class="ncf"><div class="nch">${cf.name.toUpperCase()}</div><div class="nsh"><span>#</span><span>TEAM</span><span>W-L</span><span>GB</span><span>STRK</span></div>
       ${ent.map((e,k)=>`<div class="nsr ${k===5||k===9?'cut':''}"><span>${k+1}</span><span class="tm"><img src="${(e.team.logos&&e.team.logos[0]&&e.team.logos[0].href)||''}" alt="">${e.team.abbreviation}</span><span>${sv(e,'wins')}-${sv(e,'losses')}</span><span>${sv(e,'gamesBehind')}</span><span>${sv(e,'streak')}</span></div>`).join('')}</div>`; }).join('')
     + '<div class="nbx" style="padding:8px 0">— AFTER 6TH: PLAY-IN · AFTER 10TH: OUT</div>';

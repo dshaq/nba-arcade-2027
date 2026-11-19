@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Top 3 Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#070b18;--ink:#e8ecf6;--dim:#7d89a6;--gold:#ffd93d;--green:#39ff6a;--red:#ff3b5c;--px:'Press Start 2P',ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:radial-gradient(120% 60% at 50% 0%,#16224a,#070b18 70%) fixed;color:var(--ink);font-family:var(--px)}
+.wrap{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) 70px max(16px,env(safe-area-inset-left,0px))}
+a.back{font-size:7px;color:var(--dim);text-decoration:none}
+h1{font-size:14px;margin:12px 0 8px;color:var(--gold);text-shadow:2px 2px 0 #c4122f}
+.sub{font-size:7px;line-height:1.9;color:var(--dim);margin:0 0 14px}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:20;padding:8px 0;background:linear-gradient(#0b1129 80%,transparent)}
+.ctl button{font-family:var(--px);font-size:6.5px;padding:9px 10px;border-radius:16px;border:2px solid #24325a;background:#0e1630;color:var(--ink);cursor:pointer}
+.ctl button.y{background:var(--gold);border-color:var(--gold);color:#1a1200}
+.ctl .day{font-size:6.5px;color:var(--dim);align-self:center;margin-left:auto}
+.opt{margin-top:34px}
+.opt h2{font-size:10px;margin:0 0 6px;color:#fff}.opt h2 b{color:var(--gold)}
+.opt p{font-size:6.5px;line-height:1.9;color:var(--dim);margin:0 0 12px}
+.stage{position:relative;max-width:390px;margin:0 auto;border-radius:14px;overflow:hidden;border:3px solid #000;box-shadow:0 0 0 2px #e8742a,0 10px 30px rgba(0,0,0,.5)}
+.rp{display:block;margin:10px auto 0;font-family:var(--px);font-size:6px;padding:8px 12px;border-radius:14px;border:2px solid #24325a;background:#0e1630;color:var(--ink);cursor:pointer}
+canvas.px{image-rendering:pixelated;display:block}
+/* the prize box (TBD) */
+.prize{display:inline-flex;align-items:center;gap:5px;font-size:5px;color:var(--gold);white-space:nowrap}
+.mbox{position:relative;width:16px;height:14px;flex:none;background:#c4122f;border:2px solid #000;box-shadow:inset 0 3px 0 #ff5a6e}
+.mbox::before{content:'';position:absolute;left:5px;top:-2px;width:2px;height:12px;background:var(--gold)}
+.mbox::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;font-size:6px;color:#fff;text-shadow:1px 1px 0 #000}
+.mbox.g{background:#d9a400;box-shadow:inset 0 3px 0 #ffe98a}.mbox.s{background:#8d97ad;box-shadow:inset 0 3px 0 #d7deec}.mbox.b{background:#a0522d;box-shadow:inset 0 3px 0 #d98a5a}
+.you{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:5.5px;padding:8px 10px;background:rgba(0,0,0,.55);color:var(--ink)}
+.you b{font-weight:normal;color:var(--green)}
+@keyframes blink{50%{opacity:0}}
+@keyframes bob{50%{transform:translateY(-3px)}}
+@keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15)}100%{transform:none;opacity:1}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,0)}}
+
+/* ═══ 2 · HIGH SCORES ═══ */
+.hs{background:#05050a;padding:16px 14px 0;min-height:330px;position:relative}
+.hs::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.6))}
+.hs .t{text-align:center;font-size:13px;color:#ff3b5c;text-shadow:3px 3px 0 #3b0010;letter-spacing:.05em}
+.hs .th{text-align:center;font-size:6px;color:#4adfff;margin:8px 0 14px}
+.hs .hd,.hs .r{display:grid;grid-template-columns:30px 30px 42px 1fr 46px 62px;align-items:center;gap:6px}
+.hs .hd{font-size:5px;color:#7d89a6;padding-bottom:6px;border-bottom:2px dashed #222}
+.hs .rows{position:relative;height:150px}
+.hs .r{position:absolute;left:0;right:0;height:46px;font-size:8px;transition:transform .7s cubic-bezier(.5,1.6,.5,1)}
+.hs .r .rk{font-size:8px}.hs .r:nth-child(n) .dots{color:#555;overflow:hidden;white-space:nowrap;font-size:7px}
+.hs .r.c1{color:#ffd93d}.hs .r.c2{color:#e8ecf6}.hs .r.c3{color:#ff9a4a}
+.hs .r .sp canvas{width:28px;height:28px;animation:bob .8s steps(2) infinite}
+.hs .r .sc{text-align:right}
+.hs .r .nw{position:absolute;left:-2px;top:2px;font-size:5px;color:#000;background:var(--green);padding:2px 3px;animation:blink .5s steps(2) infinite}
+.hs .coin{text-align:center;font-size:7px;color:#fff;margin:14px 0 10px;animation:blink 1s steps(2) infinite}
+.hs .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5}
+.hs .flash.go{animation:fl .35s}
+@keyframes fl{20%{opacity:.6}}
+
+/* ═══ 3 · DRAG STRIP ═══ */
+.rc{background:#1b2a14;position:relative;padding-top:30px}
+.rc .hdr{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;font-size:6px;background:#000;color:#fff;z-index:3}
+.rc .hdr b{font-weight:normal;color:var(--gold)}
+.rc .crowd{height:30px;background:repeating-linear-gradient(90deg,#3a2a5a 0 4px,#5a3a7a 4px 8px,#2a3a6a 8px 12px,#7a3a3a 12px 16px);position:relative}
+.rc .crowd::after{content:'';position:absolute;left:0;right:0;bottom:0;height:6px;background:#888;border-top:2px solid #ccc}
+.rc .lanes{position:relative;background:#3a3a44}
+.rc .lane{position:relative;height:62px;border-bottom:3px dashed #e8ecf6}
+.rc .lane:last-child{border-bottom:0}
+.rc .lane .lb{position:absolute;left:4px;top:4px;font-size:5px;color:#c8cfdd;z-index:2}
+.rc .start{position:absolute;left:30px;top:0;bottom:0;width:4px;background:#fff;opacity:.6}
+.rc .fin{position:absolute;right:56px;top:0;bottom:0;width:12px;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/6px 6px}
+.rc .kart{position:absolute;left:20px;bottom:6px;width:58px;height:46px;transform:translateX(0);will-change:transform}
+.rc .kart .sp{position:absolute;left:14px;bottom:12px}.rc .kart .sp canvas{width:32px;height:32px}
+.rc .kart .body{position:absolute;left:4px;right:6px;bottom:6px;height:12px;background:var(--kc);border:2px solid #000;border-radius:2px 8px 2px 2px}
+.rc .kart .w1,.rc .kart .w2{position:absolute;bottom:0;width:12px;height:12px;background:#111;border:2px solid #000;border-radius:50%}
+.rc .kart .w1{left:4px}.rc .kart .w2{right:6px}
+.rc .kart.go .w1,.rc .kart.go .w2{animation:spin .2s linear infinite;background:repeating-conic-gradient(#111 0 25%,#555 0 50%)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rc .kart .tag{position:absolute;right:-30px;bottom:14px;font-size:6px;color:#fff;text-shadow:1px 1px 0 #000;white-space:nowrap}
+.rc .kart.go::before{content:'';position:absolute;left:-14px;bottom:6px;width:12px;height:8px;background:repeating-linear-gradient(90deg,#ccc 0 2px,transparent 2px 4px);opacity:.7}
+.rc .stand{position:absolute;right:4px;top:0;bottom:0;width:48px;display:flex;flex-direction:column;justify-content:space-around;align-items:center;background:#24242c}
+.rc .stand div{text-align:center;font-size:4.5px;color:var(--gold)}
+.rc .stand .mbox{margin:0 auto 3px}
+.rc .banner{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:12px;color:#fff;text-shadow:3px 3px 0 #c4122f;z-index:6;white-space:nowrap;animation:pop .4s steps(4) both}
+.rc .pass{position:absolute;font-size:6px;color:#000;background:var(--gold);padding:3px 5px;border:2px solid #000;z-index:5;animation:pop .3s steps(3) both;white-space:nowrap}
+
+/* ═══ 4 · FIGHTER RANKINGS ═══ */
+.fg{background:linear-gradient(180deg,#1a0630,#3d0a24 60%,#0a0a1a);padding:14px 10px 0;position:relative;overflow:hidden}
+.fg .t{text-align:center;font-size:11px;color:#fff;text-shadow:3px 3px 0 #ff3b5c,-1px -1px 0 #000;font-style:italic}
+.fg .th{text-align:center;font-size:5.5px;color:#ffb3c6;margin:6px 0 12px}
+.fg .pn{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:6px;align-items:end;height:250px;position:relative}
+.fg .p{position:relative;border:3px solid #000;outline:2px solid var(--pc);background:linear-gradient(180deg,var(--pc2),#0a0618);height:var(--h);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:8px;transition:transform .6s cubic-bezier(.5,1.5,.5,1)}
+.fg .p::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px)}
+.fg .p .rk{position:absolute;z-index:3;top:-2px;left:-2px;font-size:9px;color:#000;background:var(--pc);padding:4px 6px}
+.fg .p .sp canvas{width:var(--sz);height:var(--sz);animation:bob 1s steps(2) infinite}
+.fg .p.c1 .sp canvas{animation:win 1.2s steps(3) infinite}
+@keyframes win{0%,100%{transform:none}33%{transform:translateY(-10px)}66%{transform:translateY(-4px) scaleX(-1)}}
+.fg .p b{font-weight:normal;font-size:7px;color:#fff;text-shadow:2px 2px 0 #000;margin-top:6px}
+.fg .p small{font-size:5.5px;color:var(--pc);margin-top:4px}
+.fg .p .prize{margin-top:7px}
+.fg .p.c1{--pc:#ffd93d;--pc2:#6a4a00;--h:236px;--sz:76px}
+.fg .p.c2{--pc:#c8d2e8;--pc2:#3a4460;--h:196px;--sz:56px}
+.fg .p.c3{--pc:#ff9a4a;--pc2:#5a2a10;--h:176px;--sz:56px}
+.fg .p .crown{position:absolute;z-index:3;top:26px;font-size:7px;color:#000;background:var(--gold);padding:3px 5px;border:2px solid #000;animation:blink 1s steps(2) infinite}
+.fg .p.in-l{animation:inL .45s cubic-bezier(.3,1.4,.5,1) both}.fg .p.in-r{animation:inR .45s cubic-bezier(.3,1.4,.5,1) both}.fg .p.in-t{animation:inT .5s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes inL{from{transform:translateX(-160%)}}@keyframes inR{from{transform:translateX(160%)}}@keyframes inT{from{transform:translateY(-130%)}}
+.fg .bigtx{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-6deg);font-size:18px;color:var(--gold);text-shadow:4px 4px 0 #c4122f,-2px -2px 0 #000;z-index:8;white-space:nowrap;font-style:italic;animation:pop .45s steps(5) both}
+.fg .flash{position:absolute;inset:0;background:#fff;z-index:7;opacity:0;pointer-events:none}.fg .flash.go{animation:fl .4s}
+.fg.shk{animation:shake .25s 3}
+.fg .you{margin:10px -10px 0}
+
+/* ═══ 6 · THE CLIMB ═══ */
+.mt{position:relative;height:360px;overflow:hidden}
+.mt.whiteout{--sky1:#0d2a5a;--sky2:#6aa8e8;--rock:#4a5a7a;--rock2:#36435e;--cap:#f4f8ff;--cap2:#c9dbf2;--ttl:#bfe6ff}
+.mt.heat{--sky1:#1a0505;--sky2:#c8401a;--rock:#3a2a2a;--rock2:#281a1a;--cap:#ff7a18;--cap2:#ffd93d;--ttl:#ffd0a0}
+.mt .sky{position:absolute;inset:0;background:linear-gradient(180deg,var(--sky1),var(--sky2))}
+.mt .ttl{position:absolute;top:10px;left:12px;font-size:6px;color:var(--ttl);z-index:4;line-height:1.8}
+.mt .ttl b{font-weight:normal;font-size:10px;color:#fff;text-shadow:2px 2px 0 #000;display:block}
+.mt svg.mtn{position:absolute;left:0;right:0;bottom:0;width:100%;height:100%}
+.mt .snow{position:absolute;inset:0;pointer-events:none;z-index:3}
+.mt .snow i{position:absolute;top:-6px;width:3px;height:3px;background:var(--cap);animation:fall linear infinite}
+.mt.heat .snow i{background:#ff9a4a;width:2px;height:2px;animation-name:rise}
+@keyframes fall{to{transform:translate(-30px,380px)}}@keyframes rise{from{transform:translateY(380px)}to{transform:translate(20px,-10px);opacity:0}}
+.mt .cl{position:absolute;z-index:5;width:48px;margin-left:-24px;text-align:center;transition:left 1.6s steps(12),bottom 1.6s steps(12)}
+.mt .cl .sp canvas{width:32px;height:32px;margin:0 auto;animation:bob .5s steps(2) infinite}
+.mt .cl.c1 .sp canvas{width:40px;height:40px}
+.mt .cl b{display:block;font-weight:normal;font-size:5px;color:#fff;text-shadow:1px 1px 0 #000,-1px -1px 0 #000;margin-top:2px;white-space:nowrap}
+.mt .cl small{display:block;font-size:4.5px;color:var(--ttl);text-shadow:1px 1px 0 #000}
+.mt .flag{position:absolute;z-index:4;width:20px;height:34px;transform-origin:bottom left;transform:scaleY(0);transition:transform .4s steps(4)}
+.mt .flag.up{transform:none}
+.mt .flag::before{content:'';position:absolute;left:0;bottom:0;width:2px;height:34px;background:#ddd;border-left:1px solid #000}
+.mt .flag::after{content:'1';position:absolute;left:2px;top:0;width:16px;height:11px;background:#c4122f;border:1px solid #000;font-size:5px;color:#fff;display:grid;place-items:center;animation:wave .6s steps(2) infinite}
+@keyframes wave{50%{transform:skewY(8deg)}}
+.mt .chest{position:absolute;z-index:4;text-align:center}
+.mt .chest .prize{flex-direction:column;gap:2px;text-shadow:1px 1px 0 #000}
+.mt .chest.c1 .mbox{width:22px;height:18px;box-shadow:inset 0 3px 0 #ffe98a,0 0 14px #ffd93d}
+.mt .slip{position:absolute;z-index:6;font-size:6px;color:#000;background:#fff;border:2px solid #000;padding:3px 5px;white-space:nowrap;animation:pop .3s steps(3) both}
+.mt .you{position:absolute;left:0;right:0;bottom:0;z-index:7}
+.note{margin-top:40px;font-size:6.5px;line-height:2;color:var(--dim);border-top:1px solid #1d2a4d;padding-top:16px}
+</style></head><body><div class="wrap">
+<a class="back" href="../">◀ BACK TO NBA ARCADE NEXT</a>
+<h1>TOP 3 LAB</h1>
+<p class="sub">Four ways to show the Weekly Challenge leaders on top of the Challenge page. Each plays its intro the first time you open the page that day. Tap <b style="color:#ffd93d">NEXT DAY</b> to see what happens when the standings change overnight. Prizes show as mystery boxes until we decide what's at stake.</p>
+<div class="ctl"><button class="y" onclick="nextDay()">NEXT DAY ▶</button><button onclick="replayAll()">↻ REPLAY ALL</button><button onclick="theme=theme==='whiteout'?'heat':'whiteout';climb.play(null)" id="thm">THEME: WHITEOUT</button><span class="day" id="dl"></span></div>
+
+<section class="opt"><h2><b>2</b> · HIGH SCORES</h2><p>The classic arcade leaderboard. Rows type in letter by letter; anyone who moved up flashes NEW! and slides past. Prize boxes sit at the end of each row.</p><div class="stage" id="s-hs"></div><button class="rp" onclick="hs.play(null)">↻ REPLAY</button></section>
+<section class="opt"><h2><b>3</b> · DRAG STRIP</h2><p>Each leader drives a kart. How far down the track = how many days have gone by, scaled by FP/G against the leader. The finish line is Sunday night, with the prizes waiting at the end.</p><div class="stage" id="s-rc"></div><button class="rp" onclick="rc.play(null)">↻ REPLAY</button></section>
+<section class="opt"><h2><b>4</b> · FIGHTER RANKINGS</h2><p>A fighting-game select screen. Panels slam in, the champion does a victory hop. A new leader gets a NEW CHAMPION! splash with a flash and screen shake.</p><div class="stage" id="s-fg"></div><button class="rp" onclick="fg.play(null)">↻ REPLAY</button></section>
+<section class="opt"><h2><b>6</b> · THE CLIMB</h2><p>The week's theme becomes the mountain (WHITEOUT = ice peak, try HEAT for a volcano). Ballers climb to ledges by FP/G, the leader plants a flag at the summit, and the prizes sit on the ledges.</p><div class="stage" id="s-mt"></div><button class="rp" onclick="climb.play(null)">↻ REPLAY</button></section>
+
+<p class="note">Sample standings for the preview. In the real version these use the live Challenge standings, play once a day per person, and show the top 3 plus your own spot. Prize boxes become the real prizes (packs, card versions, EXP, whatever we decide) once they're set.</p>
+</div>
+<script src="../../balls.js"></script>
+<script>
+const WEEK='WHITEOUT', DAYS=7;
+const PPL={Dan:'bolt',Lauren:'nova',Riley:'hoot',Dave:'jalen',Sam:'zorp',Cade:'karl',Max:'bee'};
+// two days of sample standings (FP/G). Day 2: Lauren passes Dan, Riley drops, Dave climbs.
+const DAYDATA=[
+  {d:3, rows:[['Dan',41.8],['Lauren',40.2],['Riley',38.9],['Sam',37.7],['Dave',36.4],['Cade',35.0],['Max',33.1]]},
+  {d:4, rows:[['Lauren',42.6],['Dan',41.1],['Dave',39.3],['Riley',38.2],['Sam',37.9],['Cade',35.4],['Max',33.6]]},
+  {d:5, rows:[['Dave',43.0],['Lauren',42.1],['Dan',40.5],['Riley',38.8],['Sam',37.2],['Cade',35.8],['Max',34.0]]},
+];
+const ME='Dave';
+let di=0, theme='whiteout';
+const cur=()=>DAYDATA[di], prev=()=>di?DAYDATA[di-1]:null;
+const top3=d=>d.rows.slice(0,3).map(([m,v],i)=>({m,v,ch:PPL[m],r:i+1}));
+const meRow=d=>{ const i=d.rows.findIndex(r=>r[0]===ME); return {r:i+1, v:d.rows[i][1], gap:+(d.rows[2][1]-d.rows[i][1]).toFixed(1)}; };
+const ord=n=>n+(['TH','ST','ND','RD'][n%100>10&&n%100<14?0:n%10]||'TH');
+function spr(ch, sc=3){ const cv=document.createElement('canvas'); cv.className='px'; try{ BB.draw(cv, BB.fresh(ch), ch, sc); }catch(e){} return cv; }
+function fillSprites(root){ root.querySelectorAll('.sp[data-ch]').forEach(el=>{ el.innerHTML=''; el.appendChild(spr(el.dataset.ch)); }); }
+const prizeHtml=(r,lab=true)=>`<span class="prize"><span class="mbox ${['g','s','b'][r-1]}"></span>${lab?`${ord(r)} PRIZE<br>TBD`:''}</span>`;
+const youBar=d=>{ const y=meRow(d); return `<div class="you"><span>YOU · <b>${ord(y.r)}</b> · ${y.v} FP/G</span><span>${y.r<=3?'<b>IN THE MONEY</b>':`${y.gap} FP/G BEHIND 3RD`}</span></div>`; };
+const T=[]; const later=(f,ms)=>T.push(setTimeout(f,ms));
+
+/* ═══ 2 · HIGH SCORES ═══ */
+const hs={ el:document.getElementById('s-hs'),
+  play(p){ const d=cur(), t=top3(d), old=p?top3(p).map(x=>x.m):null;
+    this.el.innerHTML=`<div class="hs"><div class="flash"></div><div class="t">HIGH SCORES</div><div class="th">WEEKLY CHALLENGE · ${WEEK} · DAY ${d.d}/7</div>
+      <div class="hd"><span>RANK</span><span></span><span>NAME</span><span></span><span style="text-align:right">FP/G</span><span style="text-align:right">PRIZE</span></div>
+      <div class="rows">${t.map(x=>{ const oi=old?old.indexOf(x.m):-1, from=p?(oi<0?3:oi):x.r-1, up=p&&from>x.r-1;
+        return `<div class="r c${x.r}" data-m="${x.m}" style="transform:translateY(${from*48}px)">${up?'<span class="nw">NEW!</span>':''}<span class="rk">${ord(x.r)}</span><span class="sp" data-ch="${x.ch}"></span><span class="nm" data-full="${x.m.slice(0,3).toUpperCase()}">${p?x.m.slice(0,3).toUpperCase():''}</span><span class="dots">${'.'.repeat(30)}</span><span class="sc" data-v="${x.v}">${p?(p.rows.find(r=>r[0]===x.m)||[0,x.v])[1].toFixed(1):''}</span><span style="text-align:right">${prizeHtml(x.r,false)}</span></div>`; }).join('')}</div>
+      <div class="coin">${p?'STANDINGS UPDATED':'INSERT COIN'}</div>${youBar(d)}</div>`;
+    fillSprites(this.el);
+    const rows=[...this.el.querySelectorAll('.r')];
+    if(!p){ rows.forEach(r=>r.style.opacity=0);
+      rows.forEach((r,i)=>later(()=>{ r.style.opacity=1; const nm=r.querySelector('.nm'), full=nm.dataset.full, sc=r.querySelector('.sc');
+        [...full].forEach((c,k)=>later(()=>{ nm.textContent=full.slice(0,k+1); },120*(k+1)));
+        let v=0; const tgt=+sc.dataset.v; const iv=setInterval(()=>{ v=Math.min(tgt,v+tgt/12); sc.textContent=v.toFixed(1); if(v>=tgt) clearInterval(iv); },40);
+      }, 500+i*700)); }
+    else { later(()=>{ this.el.querySelector('.flash').classList.add('go'); rows.forEach(r=>{ r.style.transform=`translateY(${(+r.classList[1].slice(1)-1)*48}px)`; const sc=r.querySelector('.sc'); sc.textContent=(+sc.dataset.v).toFixed(1); }); }, 700); }
+  }};
+
+/* ═══ 3 · DRAG STRIP ═══ */
+const KC=['#ffd93d','#c8d2e8','#ff9a4a'];
+const rc={ el:document.getElementById('s-rc'),
+  pos(v,lead,day){ return Math.max(.05,(day/DAYS)*(v/lead)); },   // 0..1 of the track
+  play(p){ const d=cur(), t=top3(d), lead=t[0].v;
+    this.el.innerHTML=`<div class="rc"><div class="hdr"><span>${WEEK} GRAND PRIX</span><span>DAY <b>${d.d}</b> OF 7 · FINISH SUN</span></div><div class="crowd"></div>
+      <div class="lanes"><div class="start"></div><div class="fin"></div>${t.map(x=>`<div class="lane"><span class="lb">${ord(x.r)}</span><div class="kart" data-m="${x.m}" style="--kc:${KC[x.r-1]}"><span class="sp" data-ch="${x.ch}"></span><div class="body"></div><div class="w1"></div><div class="w2"></div><span class="tag">${x.m.toUpperCase()} ${x.v}</span></div></div>`).join('')}
+      <div class="stand">${t.map(x=>`<div>${prizeHtml(x.r,false)}${ord(x.r)}</div>`).join('')}</div></div>${youBar(d)}</div>`;
+    fillSprites(this.el);
+    const lanes=this.el.querySelector('.lanes'), W=()=>lanes.clientWidth-20-56-58-6;
+    const karts=[...this.el.querySelectorAll('.kart')];
+    const prevPos=m=>{ if(!p) return 0; const r=p.rows.find(r=>r[0]===m); return r?this.pos(r[1],p.rows[0][1],p.d):0; };
+    karts.forEach(k=>{ k.style.transition='none'; k.style.transform=`translateX(${prevPos(k.dataset.m)*W()}px)`; });
+    later(()=>{ if(!p){ const b=document.createElement('div'); b.className='banner'; b.textContent='GO!'; lanes.appendChild(b); later(()=>b.remove(),700); }
+      karts.forEach((k,i)=>{ const x=t[i], dur=p?1.6:2.2+(2-i)*.25; k.classList.add('go'); k.style.transition=`transform ${dur}s cubic-bezier(.45,.05,.3,1)`; k.style.transform=`translateX(${this.pos(x.v,lead,d.d)*W()}px)`;
+        later(()=>k.classList.remove('go'), dur*1000);
+        if(p){ const pr=p.rows.findIndex(r=>r[0]===x.m)+1; if(pr>x.r){ later(()=>{ const s=document.createElement('div'); s.className='pass'; s.textContent=`${x.m.toUpperCase()} TAKES ${ord(x.r)}!`; s.style.left='38%'; s.style.top=(i*65+18)+'px'; lanes.appendChild(s); later(()=>s.remove(),1800); }, 900); } }
+      }); }, p?300:900);
+  }};
+
+/* ═══ 4 · FIGHTER RANKINGS ═══ */
+const fg={ el:document.getElementById('s-fg'),
+  play(p){ const d=cur(), t=top3(d), slot=[t[1],t[0],t[2]], newChamp=p && top3(p)[0].m!==t[0].m;
+    this.el.innerHTML=`<div class="fg"><div class="flash"></div><div class="t">WORLD RANKINGS</div><div class="th">${WEEK} · DAY ${d.d} OF 7</div>
+      <div class="pn">${slot.map((x,i)=>`<div class="p c${x.r} ${p&&!newChamp?'':['in-l','in-t','in-r'][i]}" style="animation-delay:${[.15,.55,.3][i]}s"><span class="rk">${ord(x.r)}</span>${x.r===1?'<span class="crown">CHAMPION</span>':''}<span class="sp" data-ch="${x.ch}"></span><b>${x.m.toUpperCase()}</b><small>${x.v} FP/G</small>${prizeHtml(x.r)}</div>`).join('')}</div>${youBar(d)}</div>`;
+    fillSprites(this.el);
+    const f=this.el.querySelector('.fg');
+    const big=(txt,ms)=>later(()=>{ const b=document.createElement('div'); b.className='bigtx'; b.textContent=txt; f.appendChild(b); f.querySelector('.flash').classList.add('go'); f.classList.add('shk'); later(()=>{ b.remove(); f.classList.remove('shk'); },1500); },ms);
+    if(!p) big('READY?', 1100);
+    else if(newChamp) big('NEW CHAMPION!', 1000);
+    else big('CHAMPION HOLDS!', 300);
+  }};
+
+/* ═══ 6 · THE CLIMB ═══ */
+// mountain outline in a 390x360 box; ledges are points along the trail
+const climb={ el:document.getElementById('s-mt'),
+  spot(v,lead,r){ const gap=Math.min(1,(lead-v)/6), h=r===1?1:r===2?.62-gap*.12:.38-gap*.12; // 0..1 up the mountain
+    const side=r===2?-1:r===3?1:0; return {x:50+side*(1-h)*30, y:6+h*72}; },          // % left, % bottom
+  play(p){ const d=cur(), t=top3(d), lead=t[0].v, heat=theme==='heat';
+    document.getElementById('thm').textContent='THEME: '+theme.toUpperCase();
+    const flake=Array.from({length:26},(_,i)=>`<i style="left:${(i*37)%100}%;animation-duration:${3+(i%5)}s;animation-delay:${-(i%7)}s"></i>`).join('');
+    const mtn=`<svg class="mtn" viewBox="0 0 390 360" preserveAspectRatio="none" shape-rendering="crispEdges">
+      <path fill="var(--rock2)" d="M-10 360 L60 210 L100 240 L150 150 L170 170 L195 70 L222 150 L245 130 L300 230 L330 205 L400 360Z"/>
+      <path fill="var(--rock)" d="M30 360 L120 220 L150 240 L195 70 L240 210 L270 195 L360 360Z"/>
+      <path fill="var(--cap)" d="M195 70 L170 140 L182 132 L190 146 L200 130 L210 144 L220 134 L195 70Z"/>
+      <path fill="var(--cap2)" d="M195 70 L200 130 L210 144 L220 134Z"/>
+      ${heat?'<path fill="#ffd93d" d="M188 74h14v6h-14z"/><path fill="#ff7a18" d="M190 80l-6 40 8-10 4 18 4-20 6 12z" opacity=".85"/>':''}
+      <path fill="${heat?'#2a1a1a':'#e8f2ff'}" d="M0 330 Q100 310 195 325 T390 320 V360 H0Z"/>
+      <path stroke="#000" stroke-opacity=".25" stroke-width="2" stroke-dasharray="5 5" fill="none" d="M110 330 L130 290 L165 268 L150 230 L178 196 L172 160 L195 92"/></svg>`;
+    this.el.innerHTML=`<div class="mt ${theme}"><div class="sky"></div><div class="ttl">WEEKLY CHALLENGE · DAY ${d.d}/7<b>${heat?'HEAT':'WHITEOUT'} PEAK</b></div>${mtn}<div class="snow">${flake}</div>
+      ${t.map(x=>{ const s=this.spot(x.v,lead,x.r); return `<div class="chest c${x.r}" style="left:calc(${s.x}% + 26px);bottom:calc(${s.y}% + 4px)">${prizeHtml(x.r,x.r===1)}</div>`; }).join('')}
+      <div class="flag"></div>
+      ${t.map(x=>`<div class="cl c${x.r}" data-m="${x.m}"><span class="sp" data-ch="${x.ch}"></span><b>${x.m.toUpperCase()}</b><small>${ord(x.r)} · ${x.v}</small></div>`).join('')}
+      ${youBar(d)}</div>`;
+    fillSprites(this.el);
+    const cls=[...this.el.querySelectorAll('.cl')], flag=this.el.querySelector('.flag'), box=this.el.querySelector('.mt');
+    const startOf=m=>{ if(!p) return {x:28+Math.random()*44, y:4}; const i=p.rows.findIndex(r=>r[0]===m); return i<3?this.spot(p.rows[i][1],p.rows[0][1],i+1):{x:30,y:4}; };
+    cls.forEach(c=>{ const s=startOf(c.dataset.m); c.style.transition='none'; c.style.left=s.x+'%'; c.style.bottom=s.y+'%'; });
+    const fs=this.spot(lead,lead,1); flag.style.left=`calc(${fs.x}% - 2px)`; flag.style.bottom=`calc(${fs.y}% + 30px)`;
+    later(()=>{ cls.forEach((c,i)=>{ const x=t[i], s=this.spot(x.v,lead,x.r); later(()=>{ c.style.transition=''; c.style.left=s.x+'%'; c.style.bottom=s.y+'%'; }, p?0:i*350);
+        if(p){ const pr=p.rows.findIndex(r=>r[0]===x.m)+1; if(pr!==x.r){ later(()=>{ const m=document.createElement('div'); m.className='slip'; m.textContent=pr>x.r?`${x.m.toUpperCase()} CLIMBS!`:`${x.m.toUpperCase()} SLIPS!`; m.style.left=`calc(${s.x}% - 30px)`; m.style.bottom=`calc(${s.y}% + 52px)`; box.appendChild(m); later(()=>m.remove(),1800); },1700); } } });
+      later(()=>flag.classList.add('up'), p?1700:2600); }, 400);
+  }};
+
+const ALL=[hs,rc,fg,climb];
+function clearT(){ T.splice(0).forEach(clearTimeout); }
+function replayAll(){ clearT(); ALL.forEach(x=>x.play(null)); upd(); }
+function nextDay(){ clearT(); const old=cur(); di=(di+1)%DAYDATA.length; ALL.forEach(x=>x.play(di?old:null)); upd(); }
+function upd(){ document.getElementById('dl').textContent=`SAMPLE DAY ${cur().d} OF 7`; }
+replayAll();
+</script></body></html>

@@ -179,6 +179,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 @keyframes fade{from{opacity:0}}
 .sheet{width:100%;background:var(--bg2);border-top:3px solid var(--c,var(--edge));border-radius:16px 16px 0 0;
   padding:18px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 22px) max(16px,env(safe-area-inset-left,0px));animation:up .25s ease-out}
+.sheet{max-height:calc(100% - env(safe-area-inset-top,0px) - 24px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 @keyframes up{from{transform:translateY(40%)}}
 .sheet h3{margin:0 0 6px;font-size:11px;font-weight:normal}
 .sheet p{font-size:7px;color:var(--t2);line-height:1.9;margin:0 0 14px}
@@ -474,7 +475,7 @@ const AFTER={};
 /* Show any error right on the screen (so a screenshot tells us what broke) */
 const ERRS=[];
 async function whyFail(f){ let info='';
-  try{ const r=await fetch(f+'.js?v=17&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
+  try{ const r=await fetch(f+'.js?v=18&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
   catch(e){ info=' (fetch: '+e.message+')'; }
   showErr('could not load '+f+'.js'+info); }
 function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
@@ -744,16 +745,16 @@ if(document.readyState==='loading') addEventListener('DOMContentLoaded', start);
 const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards','collect'];
 setTimeout(async()=>{ if(start.done) return;
   const miss=PARTS.filter(p=>!LOADED.has(p));
-  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=17&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
+  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=18&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=17" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=17" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=17" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=17" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=17" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=17" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=17" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="data.js?v=18" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=18" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=18" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=18" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=18" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=18" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=18" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>NBA Arcade · Card Forge</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:ital,wght@1,600;1,700&display=swap" rel="stylesheet"/>
 <style>
 /* Card Forge: the base set card from Holo Lab, with two ways to grow it.
    LEVEL UP  – earn EXP and switch on add-ons (glare, gold foil, holo, jersey foil, stars).
@@ -37,14 +37,14 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 .base.u-gold .frame{background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 3px,rgba(255,250,220,.22) 3px 4px),
    linear-gradient(125deg,#5a3a00,#c8901a 18%,#fff2b0 30%,#d9a520 42%,#7a5200 55%,#f5d061 68%,#fff8d6 76%,#b07a10 88%,#5a3a00);
   background-size:100% 100%,320% 320%;background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%)}
-.win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:24%;border-radius:8px;overflow:hidden;background:#000;box-shadow:inset 0 0 0 2px rgba(0,0,0,.8)}
+.win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:5.5%;border-radius:8px;overflow:hidden;background:#000;box-shadow:inset 0 0 0 2px rgba(0,0,0,.8)}
 .bg{position:absolute;inset:-8%;background:url(../holo/bg.jpg) center/cover;filter:brightness(.62) saturate(.85) blur(.6px);transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px)) scale(1.04)}
 .bgfoil{inset:-8%;mix-blend-mode:color-dodge;opacity:calc(.2 + var(--hyp)*.4);display:none;
   background:repeating-linear-gradient(105deg,#0a5d2a 0%,#4cbb17 7%,#b8ff7a 13%,#00c48c 19%,#e8ffd6 24%,#127a3c 30%);
   background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
 .base.u-holo .bgfoil{display:block}
-.pl{inset:0;clip-path:inset(0 5.5% 24% 5.5% round 0 0 8px 8px)}
-.pl img,.pl .m{position:absolute;left:3%;width:94%;bottom:21.5%;aspect-ratio:944/1104;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px))}
+.pl{inset:0;clip-path:inset(0 5.5% 5.5% 5.5% round 0 0 8px 8px)}
+.pl img,.pl .m{position:absolute;left:3%;width:94%;bottom:5.5%;aspect-ratio:944/1104;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px))}
 .pl img{filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.5)) drop-shadow(0 8px 10px rgba(0,0,0,.55))}
 .pl .gloss{-webkit-mask:url(../holo/tatum.png) 0 0/100% 100%;mask:url(../holo/tatum.png) 0 0/100% 100%;mix-blend-mode:soft-light;display:none;
   background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);background-size:220% 220%;background-position:calc(var(--mx)*100%) 50%}
@@ -59,8 +59,13 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 .stars.far{z-index:7;background-image:url(../holo/stars-far.png);opacity:.75;transform:translate(calc(var(--ry)*3px),calc(var(--rx)*-1px));filter:drop-shadow(0 0 1.5px rgba(76,187,23,.6))}
 .stars.near{z-index:7;background-image:url(../holo/stars-near.png);transform:translate(calc(var(--ry)*5px),calc(var(--rx)*-1.8px)) scale(1.06);filter:drop-shadow(0 0 2px rgba(76,187,23,.8)) brightness(calc(1 + var(--hyp)*.4))}
 .base.u-stars .stars{display:block}
-.crt{z-index:7;clip-path:inset(5.5% 5.5% 24% 5.5% round 8px);
+.crt{z-index:7;clip-path:inset(5.5% 5.5% 5.5% 5.5% round 8px);
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,rgba(0,0,0,0) 1px 3px),repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px),radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 60%,rgba(0,0,0,.38) 100%)}
+.fname{position:absolute;left:9%;right:9%;bottom:8.5%;z-index:10;transform:translateZ(50px) translate(calc(var(--ry)*.9px),calc(var(--rx)*-.6px));font-family:'Teko',sans-serif;font-style:italic;font-weight:700;line-height:.82;pointer-events:none}
+.fname span{display:block;font-size:20px;letter-spacing:.03em;background:linear-gradient(90deg,#d8ffe6 0%,#fff 40%,#b8f0c8 60%,#7fe0a0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.7))}
+.fname b{display:block;font-size:46px;letter-spacing:.01em;color:#ffe066;text-shadow:0 3px 0 #7a4b00,0 0 14px rgba(0,0,0,.6)}
+.fname small{display:block;font-family:var(--px);font-style:normal;font-size:6px;letter-spacing:.14em;color:#fff;margin-top:6px;text-shadow:0 1px 0 #000,0 0 6px #000}
+.base .shade{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:32%;border-radius:0 0 8px 8px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.62));pointer-events:none}
 .plate{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:17%;border-radius:8px;background:linear-gradient(180deg,#0c1426,#05080f);
   box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);display:flex;flex-direction:column;justify-content:center;padding:0 6%;gap:7px;z-index:6}
 .plate .n{font-size:12px;letter-spacing:-.02em;text-shadow:0 2px 0 #000}.plate .n small{display:block;font-size:6.5px;color:var(--t2);margin-bottom:5px}
@@ -73,7 +78,7 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 
 /* ═══ RUN BADGE: tiny set symbol in the bottom-right, like the set mark on a Pokémon card.
    Maple leaf = Fall Run, 26 over 27 = the 2026-27 season. ═══ */
-.runb{position:absolute;right:5.5%;bottom:5.6%;z-index:9;width:40px;height:40px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+.runb{position:absolute;right:1.8%;bottom:1.4%;z-index:11;width:36px;height:36px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
 .runb img,.runb svg{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
 
 /* ═══ FIT CHECK (the 10x evolution): Flair-style, two pictures layered.
@@ -246,9 +251,9 @@ function baseCard(){
   const cls=['shine','gold','holo','jersey','stars'].filter(on).map(k=>'u-'+k).join(' ');
   return `<div class="card base ${cls}" id="card"><div class="clip"><div class="L frame"></div>
     <div class="win"><div class="L bg"></div><div class="L bgfoil"></div></div></div>
-    <div class="L pl"><img src="../holo/tatum.png" alt="Jayson Tatum"><div class="m jf"></div><div class="m gloss"></div></div>
+    <div class="L pl"><img src="../holo/tatum.png" alt="Jayson Tatum"><div class="m jf"></div><div class="m gloss"></div></div><div class="shade"></div>
     
-    <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOSTON CELTICS</span></div></div>${runBadge()}
+    <div class="fname"><span>JAYSON</span><b>TATUM</b><small>BOSTON CELTICS</small></div>${runBadge()}
     <div class="clip" style="pointer-events:none"><div class="L stars far"></div><div class="L stars near"></div><div class="L crt"></div><div class="L glare"></div></div>${sleeves('base')}</div>`;
 }
 function evoCard(e, scale, noSleeve){

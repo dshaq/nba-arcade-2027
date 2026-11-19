@@ -154,7 +154,7 @@ function syncDuel(ls, mid, nameOf, today){
   LIVE.duel=duel||null;
   if(duel){
     const lbl=labels[duel.stat]||String(duel.stat||'').toUpperCase()||'FP';
-    Object.assign(DUEL,{title:duel.theme||'Daily Duel', a:side(duel,1), b:side(duel,2), q:duel.type==='team'?'WHICH TEAM WINS TODAY?':`WHO HAS MORE ${lbl} TODAY?`});
+    Object.assign(DUEL,{stat:duel.type==='team'?'team':duel.stat,title:duel.theme||'Daily Duel', a:side(duel,1), b:side(duel,2), q:duel.type==='team'?'WHICH TEAM WINS TODAY?':`WHO HAS MORE ${lbl} TODAY?`});
     const tips=[DUEL.a.team,DUEL.b.team].map(t=>GAMES[t]?.time).filter(Boolean).sort(); DUEL.lock=tips[0]||'TIP-OFF';
     const val = s => { if(duel.type==='team'){ const g=GAMES[s.team]; return g&&g.score?+g.score.split('-')[0]:0; }
       const lv=E('livePlayerStats')?.[s.pid]; let v=lv?W.getDuelStatValue(lv, duel.stat):null; if(v==null) v=W.getDuelStatValue(W.findSavedStat(s.pid, LIVE.today), duel.stat); return v||0; };
@@ -329,7 +329,7 @@ txLog = function(){
 const _fpFor = fpFor;
 fpFor = function(p){
   if(!LIVE.on) return _fpFor(p);
-  if(FZ.fpm==='WEEK') return p.wk; if(FZ.fpm==='FALL') return p.fall;
+  if(fpMode()==='AVG') return (+p.f).toFixed(1);
   if(FZ.day===TODAY_I) return GAMES[p.t] ? p.td : '—';
   const d=LIVE.W.ymd(new Date(+WEEK_START(MU.week)+FZ.day*864e5+432e5)), e=(LIVE.byPid.get(String(p.id))||[]).find(x=>String(x.date)===d);
   return e ? Math.round(e.fp||0) : '—';

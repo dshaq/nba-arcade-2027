@@ -41,7 +41,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .logo{white-space:nowrap}
 .top.nos{gap:8px;padding-bottom:10px;background:linear-gradient(180deg,#020c18 80%,rgba(2,12,24,0))}.top.nos .logo{font-size:12px}.top.nos .ibtn{width:38px;height:38px}
 .top.nos ~ .screen{padding-top:calc(env(safe-area-inset-top,0px) + 74px)}
-.mis-ic{border-color:#ff3b5c}
+.mis-ic{border-color:transparent;background:transparent}
 .dot.rd{min-width:12px;height:12px;padding:0}
 .recap b.bad{color:#ff3b5c}
 .todo.st{color:var(--gold)}.todo.st::before{content:'★';margin-right:2px}
@@ -308,7 +308,8 @@ const MISSIONS = [
 ];
 const FULL_BONUS = 50;
 /* Today's checklist: the Futures pick only counts on days there is a Futures Duel open. */
-const MIS = () => MISSIONS.filter(m=>m.k!=='futures' || S.done.futures || (typeof futuresToday==='function' && futuresToday()));
+/* the Challenge item is only on Mondays, when the week's line-up is due */
+const MIS = () => MISSIONS.filter(m=>(m.k!=='futures' || S.done.futures || (typeof futuresToday==='function' && futuresToday())) && (m.k!=='wlc' || TODAY_I===0));
 
 /* Baller levels: each Baller keeps its own EXP; levels unlock looks for that Baller. */
 const need = lv => 60 + lv*40;                          // EXP from lv to lv+1
@@ -320,7 +321,7 @@ const TODAY = new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'
 const KEY='nba-next-proto-v2';
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
 let S = Object.assign({active:'nova', ballers:{}, portraits:{}, unlocked:[], day:null, done:{}}, load());
-if(S.day!==TODAY){ S.day=TODAY; S.done={}; S.greeted=false; S.bonus=false; if(S.wsaved) S.done.wlc=true; }
+if(S.day!==TODAY){ S.day=TODAY; S.done={}; S.greeted=false; S.bonus=false; }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 const B = ch => (S.ballers[ch] ||= {exp:0, cw:0, head:null, face:null});
 function lvOf(exp){ let lv=1; while(exp>=need(lv)){ exp-=need(lv); lv++; } return {lv, into:exp, next:need(lv)}; }
@@ -411,7 +412,7 @@ function home(){
     <div class="row2">
       <div class="box duel" onclick="go('duel')">
         <h2>DUEL</h2>
-        <div class="vs"><div class="f ${pickA?'pick':''} ${DUEL.a.img?'':'cw'}" style="--tc:${DUEL.a.tc}">${DUEL.a.img||typeof pcard!=='function'?img(DUEL.a.img||pimg(DUEL.a.team,DUEL.a.name)):pcard(DUEL.a.name,{mini:1,noTap:1})}</div><i>VS</i><div class="f ${pickB?'pick':''} ${DUEL.b.img?'':'cw'}" style="--tc:${DUEL.b.tc}">${DUEL.b.img||typeof pcard!=='function'?img(DUEL.b.img||pimg(DUEL.b.team,DUEL.b.name)):pcard(DUEL.b.name,{mini:1,noTap:1})}</div></div>
+        <div class="vs"><div class="f dc ${pickA?'pick':''}">${duelCard(DUEL.a,'')}</div><i>VS</i><div class="f dc ${pickB?'pick':''}">${duelCard(DUEL.b,'')}</div></div>
         <div class="tag">${DUEL.title.toUpperCase()}</div>
         ${picksLeft ? `<div class="todo"><span class="w">!</span>MAKE YOUR PICK${picksLeft>1?' (x2)':''}</div>` : `<div class="todo ok"><span class="w">✓</span>PICKS IN</div>`}
       </div>
@@ -475,7 +476,7 @@ const AFTER={};
 /* Show any error right on the screen (so a screenshot tells us what broke) */
 const ERRS=[];
 async function whyFail(f){ let info='';
-  try{ const r=await fetch(f+'.js?v=18&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
+  try{ const r=await fetch(f+'.js?v=19&probe='+Date.now(),{cache:'no-store'}); const t=await r.text(); info=` (status ${r.status}, ${r.headers.get('content-type')}, ${t.length} bytes: ${t.slice(0,50).replace(/\s+/g,' ')})`; }
   catch(e){ info=' (fetch: '+e.message+')'; }
   showErr('could not load '+f+'.js'+info); }
 function showErr(msg){ ERRS.push(msg); let b=document.getElementById('errbox');
@@ -549,9 +550,8 @@ function openMenu(){
     <a href="cardlab/" style="text-decoration:none"><span>🃏</span>Card Lab<small>FRONTS &amp; BACKS</small></a><a href="toplab/" style="text-decoration:none"><span>🏆</span>Top 3 Lab<small>CHALLENGE LEADERS</small></a><a href="forge/" style="text-decoration:none"><span>🧬</span>Card Forge<small>LEVEL UP &amp; EVOLVE</small></a>
     <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
     <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
-    <a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="stats"><span>🏆</span>Stats &amp; Standings<small>DUEL · CHALLENGE · FANTASY</small></a><a data-a="tx"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="x"><span>⚙️</span>Settings</a>
+    <a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="stats"><span>🏆</span>Stats<small>EVERY PLAYER IN THE LEAGUE</small></a><a data-a="nba"><span>🏀</span>NBA Scores<small>SCORES · STANDINGS</small></a><a data-a="tx"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="prof"><span>⚙️</span>Settings<small>PROFILE</small></a>
     <div class="mcap">PREVIEW SWITCHES</div>
-    <a data-a="src"><span>🧪</span>Data<small>${LIVE.on?'TEST LEAGUE':'SAMPLE'} ⇄</small></a>
     <a data-a="gs"><span>🏀</span>Today's games<small>${gs()==='live'?'LIVE NOW':'BEFORE TIP-OFF'} ⇄</small></a>
     <a data-a="wph"><span>⭐</span>Weekly Challenge<small>${S.wphase==='live'?'IN PROGRESS':'PICKING'} ⇄</small></a>
     <a data-a="vs"><span>⚔️</span>Replay the Fantasy VS splash<small>PREVIEW</small></a>
@@ -568,6 +568,8 @@ function openMenu(){
     else if(v==='tx'){ txLog(); }
     else if(v==='stats'){ go('stats'); }
     else if(v==='draft'){ go('draft'); }
+    else if(v==='nba'){ go('nba'); }
+    else if(v==='prof'){ BZ.tab='profile'; go('baller'); }
     else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{},fl:JSON.parse(JSON.stringify(MY_START)),party:[]}; save(); location.reload(); } else say('We\'ll design this one later'); });
 }
 
@@ -742,19 +744,20 @@ function say(t){ const d=document.createElement('div'); d.className='toast'; d.t
 function start(){ if(start.done) return; start.done=true; dust(document.getElementById('dust')); render(); if(!S.greeted) greet(); }
 if(document.readyState==='loading') addEventListener('DOMContentLoaded', start); else setTimeout(start);
 // If a file is stuck loading (seen on one iPhone), fetch the missing ones again and start without waiting
-const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards','collect'];
+const LOADED=new Set(), PARTS=['data','modes','fantasy','roster','live','cards','collect','nba'];
 setTimeout(async()=>{ if(start.done) return;
   const miss=PARTS.filter(p=>!LOADED.has(p));
-  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=18&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
+  for(const p of miss){ await new Promise(res=>{ const s=document.createElement('script'); s.src=`${p}.js?v=19&retry=${Date.now()}`; s.onload=()=>{ LOADED.add(p); res(); }; s.onerror=()=>{ showErr('retry failed: '+p+'.js'); res(); }; document.head.appendChild(s); }); }
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=18" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=18" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=18" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=18" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=18" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=18" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=18" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="data.js?v=19" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=19" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=19" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=19" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=19" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=19" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=19" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=19" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
 </body>
 </html>

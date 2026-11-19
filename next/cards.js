@@ -173,6 +173,25 @@ function keep(pull){
     return {...p, isNew}; });
 }
 
+/* The card back: Card Lab's Court back, Celtics series (parquet, green and gold) */
+const CARD_BACK = `<svg viewBox="0 0 250 350"><defs>
+      <radialGradient id="fl-cbk" cx=".5" cy=".46" r=".78"><stop offset="0" stop-color="#00903c"/><stop offset="1" stop-color="#00682b"/></radialGradient>
+      <pattern id="pq-cbk" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="#00682b"/>
+        <rect x="0" y="0" width="10" height="2" fill="#00903c"/><rect x="0" y="2" width="10" height="2" fill="#00682b"/><rect x="0" y="4" width="10" height="2" fill="#00903c"/><rect x="0" y="6" width="10" height="2" fill="#00682b"/><rect x="0" y="8" width="10" height="2" fill="#00903c"/><rect x="0" y="10" width="2" height="10" fill="#00903c"/><rect x="2" y="10" width="2" height="10" fill="#00682b"/><rect x="4" y="10" width="2" height="10" fill="#00903c"/><rect x="6" y="10" width="2" height="10" fill="#00682b"/><rect x="8" y="10" width="2" height="10" fill="#00903c"/><rect x="10" y="0" width="2" height="10" fill="#00903c"/><rect x="12" y="0" width="2" height="10" fill="#00682b"/><rect x="14" y="0" width="2" height="10" fill="#00903c"/><rect x="16" y="0" width="2" height="10" fill="#00682b"/><rect x="18" y="0" width="2" height="10" fill="#00903c"/><rect x="10" y="10" width="10" height="2" fill="#00903c"/><rect x="10" y="12" width="10" height="2" fill="#00682b"/><rect x="10" y="14" width="10" height="2" fill="#00903c"/><rect x="10" y="16" width="10" height="2" fill="#00682b"/><rect x="10" y="18" width="10" height="2" fill="#00903c"/>
+        <rect width="20" height="20" fill="none" stroke="#000" stroke-opacity=".15" stroke-width=".5"/></pattern>
+      <pattern id="dt-cbk" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r=".75" fill="#ffffff" opacity=".22"/></pattern>
+      <pattern id="sc-cbk" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="1" fill="#000" opacity=".16"/></pattern></defs>
+    <rect width="250" height="350" rx="14" fill="#f7f8fc"/>
+    <rect x="9" y="9" width="232" height="332" rx="8" fill="#003d1a"/>
+    <rect x="32" y="36" width="186" height="278" fill="url(#pq-cbk)"/>
+    <rect x="16" y="16" width="218" height="318" rx="5" fill="none" stroke="#ba9653" stroke-width="1.4"/><rect x="21" y="21" width="208" height="308" rx="3" fill="none" stroke="#ba9653" stroke-width=".8"/>
+    <g fill="#004c20"><rect x="94" y="36" width="62" height="70"/><rect x="94" y="244" width="62" height="70"/><circle cx="125" cy="175" r="30"/></g><g fill="none" stroke="#000" stroke-width="3.8000000000000003" stroke-opacity="0.35"><rect x="32" y="36" width="186" height="278"/><path d="M32 175H218"/><circle cx="125" cy="175" r="30"/><rect x="94" y="36" width="62" height="70"/><circle cx="125" cy="106" r="22"/><path d="M44 36 V54 A81 81 0 0 0 206 54 V36"/><circle cx="125" cy="48" r="4"/><path d="M114 42H136"/><rect x="94" y="244" width="62" height="70"/><circle cx="125" cy="244" r="22"/><path d="M44 314 V296 A81 81 0 0 1 206 296 V314"/><circle cx="125" cy="302" r="4"/><path d="M114 308H136"/></g><g fill="none" stroke="#ffffff" stroke-width="1.6" stroke-opacity="1"><rect x="32" y="36" width="186" height="278"/><path d="M32 175H218"/><circle cx="125" cy="175" r="30"/><rect x="94" y="36" width="62" height="70"/><circle cx="125" cy="106" r="22"/><path d="M44 36 V54 A81 81 0 0 0 206 54 V36"/><circle cx="125" cy="48" r="4"/><path d="M114 42H136"/><rect x="94" y="244" width="62" height="70"/><circle cx="125" cy="244" r="22"/><path d="M44 314 V296 A81 81 0 0 1 206 296 V314"/><circle cx="125" cy="302" r="4"/><path d="M114 308H136"/></g>
+    <g transform="rotate(90 125 175)"><circle cx="125" cy="175" r="21" fill="#f07a26"/><g fill="none" stroke="#2a1000" stroke-width="1.8">
+  <circle cx="125" cy="175" r="21"/><path d="M104 175H146M125 154V196"/>
+  <path d="M109.88 160.51C119.75 168.7 119.75 181.3 109.88 189.49"/>
+  <path d="M140.12 160.51C130.25 168.7 130.25 181.3 140.12 189.49"/></g></g>
+    <path d="M90 23H160V25H162V27H164V30H162V32H160V34H90V32H88V30H86V27H88V25H90Z" fill="#ba9653"/><text x="125.45" y="31.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="5.4" letter-spacing="0.9" fill="#003d1a" transform="rotate(180 125 28.5)">NBA ARCADE</text><path d="M90 316H160V318H162V320H164V323H162V325H160V327H90V325H88V323H86V320H88V318H90Z" fill="#ba9653"/><text x="125.45" y="324.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="5.4" letter-spacing="0.9" fill="#003d1a" >NBA ARCADE</text>
+    <rect x="9" y="9" width="232" height="332" rx="8" fill="url(#sc-cbk)"/></svg>`;
 function openPack(){
   if(S.packs<=0){ say('No packs yet · fill your Missions bar to earn one'); return; }
   const app=document.getElementById('app');
@@ -208,7 +227,7 @@ function reveal(po, pull){
   pull.forEach((p,i)=>{ const f=document.createElement('div'); const sp=RAR[p.v].rank>=2;
     f.className='flip down'+(sp?' special':''); f.style.zIndex=10+pull.length-i; f.style.transform=`rotateY(180deg) translateY(${-i*3}px)`;
     if(p.v==='gold') f.style.setProperty('--glow','#ffd93d'); if(p.v==='moment') f.style.setProperty('--glow','#ff3b5c'); if(p.v==='holo') f.style.setProperty('--glow','#b36bff');
-    f.innerHTML=`<div class="front">${cardHtml(p.v==='moment'?p.m:p.c, p.v, {isNew:p.isNew})}</div><div class="tback"><div class="lg"><b>NBA</b><br><i>ARCADE</i></div></div>`;
+    f.innerHTML=`<div class="front">${cardHtml(p.v==='moment'?p.m:p.c, p.v, {isNew:p.isNew})}</div><div class="tback cb">${CARD_BACK}</div>`;
     st.appendChild(f); });
   const ct=document.createElement('div'); ct.className='ct'; st.appendChild(ct);
   po.append(nm, st);
@@ -274,3 +293,5 @@ SCREENS.cards = cardsScreen;
 const _claim = claim;
 claim = function(){ S.packs=(S.packs||0)+1; save(); _claim(); setTimeout(()=>say('+1 card pack · open it in Cards'), 2600); };
 render();
+
+document.head.insertAdjacentHTML('beforeend','<style>.tback.cb{padding:0!important;background:none!important;border:0!important;overflow:hidden;border-radius:9px;box-shadow:0 6px 16px rgba(0,0,0,.5)!important}.tback.cb::before{display:none}.tback.cb svg,.cbk svg{width:100%;height:100%;display:block}.cbk{aspect-ratio:5/7;border-radius:7%/5%;overflow:hidden;box-shadow:0 0 0 2px #000}</style>');

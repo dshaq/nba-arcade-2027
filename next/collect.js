@@ -45,12 +45,13 @@ const met = n => pxXp(n)>0 || Object.values(S.own[n]||{}).some(x=>x>0);
 function pcard(n, o={}){
   const p=P(n); if(!p||!p.n) return '';
   const v=o.v||pxShow(n), L=pxLv(n), parts=p.n.split(' ');
+  if(!o.full) o={...o, mini:1};   // no text on the art, ever (o.full keeps the old name strip)
   return `<div class="tcard pc r-${v} ${o.mini?'mini':''}" ${o.noTap?'':`data-pn="${escA(p.n)}"`} style="--tc:${p.c}"><div class="fr"></div><div class="in">
     <div class="art">${img(pimg(p.t,p.n))}</div>
     ${o.mini?'':`<div class="top"><span>${p.t} · ${p.p||''}</span><span>${VK[v].name}</span></div>
     <div class="nm">${parts[0].toUpperCase()}<b>${parts.slice(1).join(' ').toUpperCase()}</b></div>
     <div class="ft"><span>LV ${L.lv}</span><span class="fpg">${(+p.f).toFixed(1)} FP/G</span></div>`}</div>
-    <div class="glare"></div>${o.lv===false?'':`<span class="lvg ${L.max?'max':''}" title="Player level">${L.lv}</span>`}</div>`;
+    <div class="glare"></div>${o.lv===true?`<span class="lvg ${L.max?'max':''}" title="Player level">${L.lv}</span>`:''}</div>`;
 }
 /* class for the 16-bit roster cards, so they show the chosen version too */
 const pxArt = n => 'va-'+pxShow(n);
@@ -165,7 +166,7 @@ function collection(){
       ${S.packs?'<button class="btn" onclick="openPack()">OPEN PACK ▶</button>':`<button class="go" style="background:var(--card);color:var(--t2);border-color:var(--edge)" onclick="S.packs=(S.packs||0)+1;save();render()">+1 PACK (PREVIEW ONLY)</button>`}</div></div></div>
     <div class="ladder">${VERS.map(v=>`<div><div class="cw">${pcard(myNames()[0]||all[0].n,{v:v.k,mini:1,lv:false,noTap:1})}</div><b>LV ${v.lv}</b><small>${v.name}</small></div>`).join('')}</div>
     <div class="ctabs">${tab('mine','MY TEAM')}${tab('close','NEXT UP')}${tab('met','COLLECTED')}${tab('all','ALL')}</div>
-    <div class="clg">${list.map(p=>{ const L=pxLv(p.n), m=met(p.n); return `<div class="cli ${m?'':'unmet'}"><div class="cw">${pcard(p.n,{mini:1})}</div><b>${p.s}</b>
+    <div class="clg">${list.map(p=>{ const L=pxLv(p.n), m=met(p.n); return `<div class="cli ${m?'':'unmet'}"><div class="cw">${m?pcard(p.n,{mini:1}):`<div class="cbk" data-pn="${escA(p.n)}">${CARD_BACK}</div>`}</div><b>${p.s}</b>
       <div class="xb"><i style="width:${L.pct}%"></i></div><small>${m?(L.max?'MAX':`${ownedVers(p.n).length}/${VERS.length} CARDS`):'NOT YET'}</small></div>`; }).join('')}</div>
   </div></div>`;
 }
@@ -263,7 +264,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .clg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .cli{text-align:center;min-width:0}.cli b{display:block;font-weight:normal;font-size:5.5px;margin:6px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cli small{display:block;font-size:4.5px;color:var(--t3);margin-top:4px}
-.cli.unmet .cw{filter:grayscale(1) brightness(.4)}
+.cli.unmet .cw{opacity:.85}
 .ybon{font-size:7px;color:var(--green)}
 .lxp{font-size:7px;color:var(--green);margin:-6px 0 10px}
 </style>`);

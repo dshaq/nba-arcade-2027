@@ -107,9 +107,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .stand td:first-child{color:var(--t3);width:18px}.stand td.r{text-align:right;color:var(--t2)}
 .stand small{display:block;font-size:5.5px;color:var(--t3);margin-top:4px}
 .tonight{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
-.tonight div{flex:none;width:70px;text-align:center;font-size:5.5px;color:var(--t2);line-height:1.7}
+.tonight>div{flex:none;width:70px;text-align:center;font-size:5.5px;color:var(--t2);line-height:1.7}
 .tonight .ph{width:70px;height:80px;border:2px solid #3b4a66;border-radius:4px;overflow:hidden;background:var(--tc)}
-.tonight img{width:100%;height:100%;object-fit:cover;object-position:50% 10%}
+.tonight .ph:not(.cw) img{width:100%;height:100%;object-fit:cover;object-position:50% 10%}
 
 /* Duel · fighting game */
 .dz{--mc:var(--pink)}
@@ -259,7 +259,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rsec{display:flex;justify-content:space-between;align-items:center;font-size:6.5px;color:var(--green);padding:10px 10px;border-top:1px solid var(--edge)}
 .rsec:first-child{border-top:none}.rsec>span:last-child:not(:first-child){color:var(--t3)}
 .fpt{display:flex;border:2px solid var(--edge);border-radius:6px;overflow:hidden}
-.fpt button{font-size:5px;padding:4px 6px;border:none;background:none;color:var(--t3);cursor:pointer}.fpt button.on{background:var(--blue);color:#001}
+.fpt button{font-size:5px;padding:4px 6px;border:none;background:none;color:var(--t3);cursor:pointer}.fpt button.on.avg{background:#ff9a1f;color:#1a0d00}.fpt button.on.day{background:#4adfff;color:#001}
+.fpt .fpl{font-size:5.5px;color:var(--t1);padding:4px 5px;align-self:center;border-right:2px solid var(--edge)}
 .rr{display:grid;grid-template-columns:52px 1fr auto auto;gap:8px;align-items:center;padding:0 8px 0 0;border-top:1px solid var(--edge);min-height:58px}
 .rr.sel{background:rgba(255,217,61,.08)}
 .rp{position:relative;width:52px;height:58px;overflow:hidden;background:var(--tc,#0f1830)}
@@ -464,7 +465,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 /* ── shared bits ─────────────────────────────────────────────────────────── */
 const mframe = (cls, title, inner, extraHead='') => topBar() + `<div class="screen"><div class="mode ${cls}"><div class="mhead"><h1>${title}</h1>${extraHead}</div>${inner}</div></div>`;
 const face = (team, name, cls='') => img(pimg(team, name), cls).replace('<img ', `<img data-pn="${String(name).replace(/"/g,'&quot;')}" `);
-function typewrite(el, text, speed=22){ if(!el) return; clearInterval(el._t); let i=0; el.textContent=''; const t=el._t=setInterval(()=>{ el.textContent=text.slice(0,++i); if(i>=text.length){ clearInterval(t); el.insertAdjacentHTML('beforeend','<span class="more">▼</span>'); } }, speed); }
+function typewrite(el, text, speed=22){ if(!el) return; clearInterval(el._t); let i=0; el.textContent=''; el.scrollTop=0; const t=el._t=setInterval(()=>{ el.textContent=text.slice(0,++i); el.scrollTop=el.scrollHeight; if(i>=text.length){ clearInterval(t); el.insertAdjacentHTML('beforeend','<span class="more">▼</span>'); } }, speed); }
 
 /* ════════════════════════════════════════════════════════════════════════════
    DUEL · fighting game look, live-site flow (CURRENT · STANDINGS, Daily · Futures)
@@ -485,14 +486,35 @@ function duelProg(){
 }
 /* Lifebars once the games are on: the leader is always full and green, the other side
    is red and filled by its share of the leader's number (20 vs 5 → 100% / 25%). */
+/* Duel cards use the 16-bit roster card look. side = {name, short, team, tc, img?} */
+const DUEL_AVG_KEY = {pts:'pts',reb:'reb',ast:'ast',stl:'stl',blk:'blk',tpm:'fg3m',ftm:'ftm',fp:'fpPG'};
+function duelAvg(name, stat){
+  stat = stat || DUEL.stat || 'tpm';
+  try{ if(typeof LIVE!=='undefined' && LIVE.on){ const b=(LIVE.E('BDL_STATS')||{})[name]; if(b){
+    const g=k=>+b[DUEL_AVG_KEY[k]||k]||0;
+    const v = stat==='reb+ast'?g('reb')+g('ast') : stat==='stl+blk'?g('stl')+g('blk') : stat==='pra'||stat==='dd'?g('pts')+g('reb')+g('ast') : stat==='parlay'?g('pts') : g(stat);
+    return v.toFixed(1); } } }catch(e){}
+  const p=P(name), f=+p.f||30;   // sample: a believable number for the stat
+  const base = {tpm:f/9, pts:f*.55, reb:f*.2, ast:f*.14, fp:f, 'reb+ast':f*.34, 'stl+blk':f*.06, pra:f*.9}[stat] ?? f/14;
+  return (base*(.8+hsh(name+stat)*.4)).toFixed(1);
+}
+function duelCard(side, foot, cls=''){
+  const team=!!side.img, p=team?null:P(side.name), rr=team?'gold':rarity(+p.f||0);
+  const nm=team?side.short:(p.s||side.short);
+  return `<div class="rc16 dcard r-${rr} ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm">${nm}</span></div>
+    <div class="rc-art ${team?'logo':''}">${team?img(side.img,'logo'):face(side.team,side.name)}</div>
+    <div class="rc-bot"><b>${foot}</b></div></div></div>`;
+}
 function lifebar(v, other){
   const mx=Math.max(v,other), lead=v>=other, pct=mx>0?Math.round(100*v/mx):100;
   return `<div class="lbar ${lead?'lead':''}"><i style="width:${pct}%"></i><b>${v} ${DUEL_STAT.short}</b></div>`;
 }
 function duelDaily(){
   const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live' && !!pick;
-  const f=(p,v,o)=>{ const fp=P(p.name); return `<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}<span class="p1tag">YOUR PICK</span>
-      <div class="fp ${p.img?'':'cw'}" style="--tc:${p.tc}">${p.img?img(p.img,'logo'):typeof pcard==='function'?pcard(p.name,{mini:1,noTap:1}):face(p.team,p.name)}</div><div class="fname">${p.short}</div><div class="fsub">${p.sub||`${p.team} · ${fp.f} FP/G`}</div></div>`; };
+  const sub = p => p.img ? (GAMES[p.team]&&GAMES[p.team].score ? `${GAMES[p.team].final?'FINAL':'LIVE'} · ${GAMES[p.team].score}` : `${GAMES[p.team]?GAMES[p.team].time+' ':''}${GAMES[p.team]?(GAMES[p.team].home?'vs ':'@ ')+GAMES[p.team].opp:''}`)
+    : `${duelAvg(p.name)} ${DUEL_STAT.short}/G`;
+  const f=(p,v,o)=>`<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}
+      ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.short}</div><div class="fsub">${sub(p)}</div></div>`;
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
     : live ? `<div class="alert live">● LIVE · ${DUEL_STAT.label}</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
   const futs = pick && futuresToday();
@@ -517,8 +539,8 @@ function ydSplash(){
   const w=y.win.p||P(y.win.n), l=y.lose.p||P(y.lose.n), hit=y.mine===y.win.n;
   const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
   const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
-  const side=(p,v,win)=>`<div class="yf ${win?'win':'lose'}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
-      <div class="ph ${p.img?'':'cw'}" style="--tc:${p.c}">${p.img?img(p.img,'logo'):typeof pcard==='function'?pcard(p.n,{mini:1,noTap:1}):face(p.t,p.n)}</div><b>${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
+  const side=(p,v,win)=>`<div class="yf ${win?'win':'lose'}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
+      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b>${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
   const g=document.createElement('div'); g.className='dsplash';
   g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
     <div class="yar">${side(w,y.win.v,true)}<div class="vsbig">VS</div>${side(l,y.lose.v,false)}</div>
@@ -596,7 +618,7 @@ function challenge(){
   const live = S.wphase==='live', saved = !!S.wsaved || live;
   let body='';
   if(live){
-    body = kingOfHill() + cEntries().map(e=>`<div class="ment"><span class="av" data-ch="${e.me?S.active:e.ch}"></span><span style="color:${e.me?'var(--green)':'var(--t1)'}">${e.m}</span><span class="rk">${ordinal(e.rank)}</span></div>${lineupCard(e.picks,true)}`).join('');
+    body = hiScores() + cEntries().map(e=>`<div class="ment"><span class="av" data-ch="${e.me?S.active:e.ch}"></span><span style="color:${e.me?'var(--green)':'var(--t1)'}">${e.m}</span><span class="rk">${ordinal(e.rank)}</span></div>${lineupCard(e.picks,true)}`).join('');
   } else if(saved){
     body = `<div class="cweek">${WLC.pool} · ${cDates()}</div><div class="qcap" style="color:var(--t3);margin:0">YOUR LINEUP</div>${lineupCard(S.party,false,true)}
       <div class="note">Your lineup is final. The only change allowed: one swap of a player listed OUT for a same-tier player whose game hasn't started.</div>
@@ -698,7 +720,61 @@ function kothAfter(){
     k.insertAdjacentHTML('beforeend',`<div class="kmsg">${k.dataset.king.toUpperCase()} HOLDS THE HILL</div>`); }
   setTimeout(()=>k.querySelector('.kmsg')?.remove(), 3200);
 }
-AFTER.wlc = ()=>{ kothAfter(); cSplash(); };
+/* HIGH SCORES: the Challenge top 3 as an arcade leaderboard.
+   First look each day: names type in and scores count up; anyone who moved up flashes NEW!
+   The bottom line cycles through words of encouragement instead of INSERT COIN. */
+function hiScores(){
+  const E=cEntries().slice().sort((a,b)=>a.rank-b.rank), t=E.slice(0,3), me=E.find(e=>e.me), third=t[2];
+  const prev=(S.hsPrev&&S.hsPrev.day!==TODAY)?S.hsPrev.order:null;
+  const ini=m=>String(m).replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'???';
+  const box=r=>`<span class="mbox ${['g','s','b'][r-1]}"></span>`;
+  return `<div class="hs" id="hs"><div class="flash"></div><div class="t">HIGH SCORES</div><div class="th">${WLC.pool} · DAY ${Math.min(7,TODAY_I+1)} OF 7</div>
+    <div class="hd"><span>RANK</span><span></span><span>NAME</span><span></span><span>FP/G</span><span>PRIZE</span></div>
+    <div class="rows">${t.map((e,i)=>{ const was=prev?prev.indexOf(e.m):i, up=prev&&(was<0||was>i);
+      return `<div class="r c${i+1} ${e.me?'me':''}" data-v="${e.tot}" data-ini="${ini(e.m)}">${up?'<span class="nw">NEW!</span>':''}<span>${ordinal(i+1).toUpperCase()}</span><span class="sp" data-ch="${e.me?S.active:e.ch}"></span><span class="nm">${ini(e.m)}</span><span class="dots">${'.'.repeat(30)}</span><span class="sc">${e.tot}</span><span class="pz">${box(i+1)}</span></div>`; }).join('')}</div>
+    <div class="coin" id="hsc"></div>
+    ${me?`<div class="you"><span>YOU · <b>${ordinal(me.rank).toUpperCase()}</b> · ${me.tot} FP/G</span><span>${me.rank<=3?'<b>IN THE MONEY</b>':third?`${(third.tot-me.tot).toFixed(1)} FP/G BEHIND 3RD`:''}</span></div>`:''}</div>`;
+}
+const HS_WORDS = ['YOU GOT THIS!','EVERY BUCKET COUNTS','KEEP CLIMBING!','NOBODY IS SAFE','THE PODIUM AWAITS','HEAT CHECK!','STAY HUNGRY','ONE GOOD NIGHT CHANGES EVERYTHING','BALL DON\'T LIE','IT AIN\'T OVER!'];
+function hsAfter(){
+  const h=document.getElementById('hs'); if(!h) return;
+  h.querySelectorAll('.sp[data-ch]').forEach(el=>{ if(!el.firstChild && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
+  const c=h.querySelector('#hsc'); let k=Math.floor(hsh(TODAY)*HS_WORDS.length);
+  const me=cEntries().find(e=>e.me), rank=me?me.rank:0;
+  const words=[rank===1?'DEFEND YOUR CROWN!':rank&&rank<=3?'HOLD YOUR SPOT!':`${Math.max(1,6-TODAY_I)} DAYS TO MAKE YOUR MOVE`, ...HS_WORDS];
+  const show=()=>{ if(!c.isConnected){ clearInterval(hsAfter.iv); return; } c.textContent=words[k++%words.length]; };
+  clearInterval(hsAfter.iv); show(); hsAfter.iv=setInterval(show, 2600);
+  if(S.hsSeen===TODAY) return;
+  const rows=[...h.querySelectorAll('.r')]; rows.forEach(r=>{ r.style.opacity=0; r.querySelector('.nm').textContent=''; r.querySelector('.sc').textContent=''; });
+  rows.forEach((r,i)=>setTimeout(()=>{ r.style.opacity=1; const full=r.dataset.ini, nm=r.querySelector('.nm'), sc=r.querySelector('.sc'), tgt=+r.dataset.v;
+    [...full].forEach((ch,j)=>setTimeout(()=>nm.textContent=full.slice(0,j+1),110*(j+1)));
+    let v=0; const iv=setInterval(()=>{ v=Math.min(tgt,v+tgt/12); sc.textContent=v.toFixed(1); if(v>=tgt) clearInterval(iv); },40); }, 400+i*650));
+  if(rows.some(r=>r.querySelector('.nw'))) setTimeout(()=>h.querySelector('.flash').classList.add('go'), 2400);
+  S.hsSeen=TODAY; S.hsPrev={day:TODAY, order:cEntries().slice().sort((a,b)=>a.rank-b.rank).slice(0,3).map(e=>e.m)}; save();
+}
+AFTER.wlc = ()=>{ hsAfter(); cSplash(); };
+document.head.insertAdjacentHTML('beforeend',`<style>
+.hs{position:relative;background:#05050a;border:3px solid #000;box-shadow:0 0 0 2px var(--orange);border-radius:12px;padding:14px 12px 0;overflow:hidden}
+.hs::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.6))}
+.hs .t{text-align:center;font-size:13px;color:#ff3b5c;text-shadow:3px 3px 0 #3b0010}
+.hs .th{text-align:center;font-size:5.5px;color:#4adfff;margin:8px 0 10px}
+.hs .hd,.hs .r{display:grid;grid-template-columns:30px 26px 34px minmax(0,1fr) 40px 26px;align-items:center;gap:5px}
+.hs .hd{font-size:4.5px;color:#7d89a6;padding-bottom:5px;border-bottom:2px dashed #222}.hs .hd span:nth-child(5),.hs .hd span:nth-child(6){text-align:right}
+.hs .r{position:relative;height:38px;font-size:8px;transition:opacity .2s}
+.hs .r.c1{color:#ffd93d}.hs .r.c2{color:#e8ecf6}.hs .r.c3{color:#ff9a4a}
+.hs .r .sp canvas{width:24px;height:24px;image-rendering:pixelated;animation:bob .8s steps(2) infinite}
+.hs .r .dots{color:#555;overflow:hidden;white-space:nowrap;font-size:6px}
+.hs .r .sc{text-align:right}.hs .r .pz{display:flex;justify-content:flex-end}
+.hs .r .nw{position:absolute;left:-2px;top:0;font-size:4.5px;color:#000;background:var(--green);padding:2px 3px;animation:blink .5s steps(2) infinite}
+.hs .mbox{position:relative;width:16px;height:14px;background:#c4122f;border:2px solid #000;box-shadow:inset 0 3px 0 #ff5a6e}
+.hs .mbox::before{content:'';position:absolute;left:5px;top:-2px;width:2px;height:12px;background:var(--gold)}
+.hs .mbox::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;font-size:6px;color:#fff;text-shadow:1px 1px 0 #000}
+.hs .mbox.g{background:#d9a400;box-shadow:inset 0 3px 0 #ffe98a}.hs .mbox.s{background:#8d97ad;box-shadow:inset 0 3px 0 #d7deec}.hs .mbox.b{background:#a0522d;box-shadow:inset 0 3px 0 #d98a5a}
+.hs .coin{text-align:center;font-size:7px;color:#fff;margin:10px 0;min-height:9px;animation:blink 1.3s steps(2) infinite}
+.hs .you{display:flex;justify-content:space-between;gap:8px;font-size:5.5px;padding:8px 10px;margin:0 -12px;background:rgba(255,255,255,.06);color:var(--t1)}.hs .you b{font-weight:normal;color:var(--green)}
+.hs .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5}.hs .flash.go{animation:hsfl .4s}
+@keyframes hsfl{20%{opacity:.6}}
+</style>`);
 
 /* Home-page line for the Challenge box once the week is under way */
 function wlcStatus(){ const me=cEntries().find(e=>e.me); const d=daysLeft(); return `${ordinal(me.rank)} PLACE · ${d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY'}`; }
@@ -880,12 +956,13 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 /* ════════════════════════════════════════════════════════════════════════════
    STATS · every leaderboard in one place, so each mode page stays bare
    ════════════════════════════════════════════════════════════════════════════ */
-const STZ = {tab:'duel'};
+const STZ = {tab:'users'};
 document.head.insertAdjacentHTML('beforeend','<style>.st{--mc:var(--blue)}</style>');
 function stats(){
-  const tabs=[['duel','⚡ DUEL'],['fut','🔮 FUTURES'],['wlc','⭐ CHALLENGE'],['fz','🏀 FANTASY']];
+  const tabs=[['users','BALLERS'],['duel','DUEL'],['fut','FUTURES'],['wlc','CHALLENGE'],['fz','FANTASY']];
   let body='';
-  if(STZ.tab==='duel'||STZ.tab==='fut'){
+  if(STZ.tab==='users') body = typeof statsUsers==='function' ? statsUsers() : '';
+  else if(STZ.tab==='duel'||STZ.tab==='fut'){
     const daily=STZ.tab==='duel', rows=daily?DSTAND:FSTAND;
     body=`<div class="dtab"><div class="cap">${daily?'DAILY DUEL · RANKED BY CURRENT STREAK · TIEBREAK: % CORRECT':'FUTURES DUEL · RANKED BY CORRECT PICKS'}</div>
       <div class="h"><span></span><span>USER</span><span>${daily?'% CORRECT':'CORRECT'}</span><span>${daily?'BEST STREAK':'PICKS'}</span><span>${daily?'CURRENT':'HIT %'}</span></div>
@@ -896,6 +973,27 @@ function stats(){
       ${CSTAND.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span><span class="fp">${r[2]}</span><span>${r[3]}</span><span>${r[4]}</span></div>`; }).join('')}</div>
       <div class="note">Each week: 1st place earns 3 points, 2nd earns 2, 3rd earns 1.</div>`;
   } else body = typeof fzStand==='function' ? fzStand() : '';
-  return mframe('st','STATS', `<div class="ctabs">${tabs.map(([k,l])=>`<button class="${STZ.tab===k?'on':''}" onclick="STZ.tab='${k}';render()">${l}</button>`).join('')}</div>${body}`);
+  return mframe('st','STATS', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${STZ.tab===k?'on':''}" onclick="STZ.tab='${k}';render()">${l}</button>`).join('')}</div>${body}`);
 }
 SCREENS.stats = stats;
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* duel cards: the roster card, big */
+.rc16.dcard{width:100%}
+.rc16.dcard .rc-top .nm{font-size:7px}
+.rc16.dcard .rc-bot{justify-content:center;font-size:6px;padding:4px 3px}
+.rc16.dcard .rc-art.logo{background:radial-gradient(circle,#fff 0,#e8ecf5 60%,#c9d0de)}
+.rc16.dcard .rc-art.logo img{object-fit:contain;padding:14%;width:100%;height:100%}
+.ftr .rc16.dcard{margin:0 auto}
+.ftr.p1 .rc16.dcard{box-shadow:0 0 0 3px #3cf,0 0 24px rgba(51,204,255,.6)}
+.ftr .p1tag{margin:6px 0 0}
+.fighters{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important}
+.fname{font-size:11px!important;margin-top:4px!important}
+.dsplash .yar{max-width:360px}
+.dsplash .yf .ph{height:auto!important;border:0!important;outline:0!important;background:none!important;overflow:visible!important;width:100%}
+.dsplash .yf.win .ph .rc16{box-shadow:0 0 0 3px var(--gold),0 0 28px rgba(255,217,61,.55)}
+.dsplash .yf.lose .ph{animation:shake .12s 1s 8 linear, dull .8s 2s forwards}
+.vs .f.dc{width:clamp(56px,19vw,76px)!important;height:auto!important;border:0!important;background:none!important;overflow:visible!important;aspect-ratio:auto!important}
+.vs .f.dc .rc16 .rc-top .nm{font-size:4.5px}.vs .f.dc .rc16 .rc-bot{display:none}
+.vs .f.dc.pick .rc16{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)}
+</style>`);

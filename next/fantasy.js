@@ -50,7 +50,7 @@ const BATTLE = {
 };
 let btI = 0;
 function battleText(){
-  const pick = (arr,k) => arr[Math.floor(hsh(k+btI)*arr.length)];
+  const pick = (arr,k) => arr[Math.floor(hsh(k+TODAY+MU.week)*arr.length)];   // one set of lines per day
   const mine = myNames().map(P).sort((a,b)=>b.yd-a.yd)[0], theirs = OTHER[1].map(P).sort((a,b)=>b.yd-a.yd)[0];
   const d = Math.abs(MU.me-MU.opp), lead = MU.me-MU.opp;
   const playing = S.fl.act.filter(plays).map(P).sort((a,b)=>GAMES[a.t].time.localeCompare(GAMES[b.t].time));
@@ -88,7 +88,7 @@ function mondayText(pick){
   ].filter(Boolean);
   return pick(opp,'mo') + ' ' + pick(you.slice(0, you.length>1?you.length-1:1),'my');
 }
-function nextLine(){ btI++; typewrite(document.getElementById('dlg'), battleText()); }
+function nextLine(){ typewrite(document.getElementById('dlg'), battleText()); }   // tap = type it out again
 
 /* ── Roster moves ─────────────────────────────────────────────────────────── */
 const getSlot = pos => ({a:S.fl.act, b:S.fl.bench, i:S.fl.ir})[pos[0]][+pos.slice(1)];
@@ -124,8 +124,8 @@ function fzTap(pos){
 /* ── page ─────────────────────────────────────────────────────────────────── */
 function openFantasy(){
   if(cur!=='fantasy'){ FZ.tab='roster'; FZ.sel=null; FZ.view=0; }
-  const first = S.vsWeek!==MU.week;
-  go('fantasy').then(()=>{ if(first){ S.vsWeek=MU.week; save(); vsSplash(); } });
+  const wk=weekKey(), first = S.vsWeek!==wk && !(typeof LIVE!=='undefined' && LIVE.state==='connecting');
+  go('fantasy').then(()=>{ if(first){ S.vsWeek=wk; save(); vsSplash(); } });
 }
 function leagueSwitcher(){
   const L = LEAGUES.find(l=>l.id===S.league)||LEAGUES[0];
@@ -139,8 +139,8 @@ function fantasy(){
   const tabs = [['battle','MATCH-UP'],['roster','ROSTER'],['waivers','WAIVERS'],['sched','SCHEDULE'],['stand','STANDINGS']];
   const body = {battle:fzBattle, roster:rosterStage, waivers:wvPage, sched:fzSched, stand:fzStand}[FZ.tab]();
   const head = runHead();
-  if(S.run==='winter') return mframe('fz','FANTASY', winterBody(), head);
-  return mframe('fz'+(FZ.tab==='roster'&&S.rq==='quick'||FZ.tab==='waivers'?' quick':''),'FANTASY', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${FZ.tab===k?'on':''}" onclick="FZ.tab='${k}';FZ.sel=null;FZ.wsel=null;FZ.drop=false;render()">${l}</button>`).join('')}</div>${body}`, head);
+  if(S.run==='winter') return mframe('fz run-winter','FANTASY', winterBody(), head);
+  return mframe('fz run-'+S.run+(FZ.tab==='roster'&&S.rq==='quick'||FZ.tab==='waivers'?' quick':''),'FANTASY', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${FZ.tab===k?'on':''}" onclick="FZ.tab='${k}';FZ.sel=null;FZ.wsel=null;FZ.drop=false;render()">${l}</button>`).join('')}</div>${body}`, head);
 }
 
 /* Run picker beside the title: Fall Run now, Winter Run after the December draft.
@@ -165,6 +165,9 @@ function threat(){
   return {p, nick:L[Math.floor(hsh(p.n+'nick')*L.length)]};
 }
 
+/* calendar week (Monday's date, ET): the VS splash plays once per week */
+function weekKey(){ const t=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); t.setDate(t.getDate()-((t.getDay()+6)%7)); return t.toDateString(); }
+
 /* MATCH-UP */
 function fzBattle(){
   const tot=Math.max(1,MU.me+MU.opp), playing=S.fl.act.filter(plays);
@@ -173,11 +176,11 @@ function fzBattle(){
         <div class="bn">${OPP.name.toUpperCase()}'S<b>${OPP.team.toUpperCase()}</b></div>
         <div class="bhp two"><i style="width:${100*MU.me/tot}%"></i><span style="width:${100*MU.opp/tot}%"></span></div>
         <div class="bsc"><b class="${MU.me>=MU.opp?'up':''}">${MU.me}</b><i>YOU</i>–<span class="${MU.opp>MU.me?'up':''}">${MU.opp}</span><i>THEM</i></div>
-      </div></div>${(()=>{ const t=threat(); if(!t) return ''; return `<div class="threat" data-own="1" onclick="event.stopPropagation();openPlayer('${t.p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${typeof pcard==='function'?pcard(t.p.n,{mini:1,noTap:1}):face(P(t.p.n).t,t.p.n)}</div><div><span>TODAY'S BOSS</span><b>“${t.nick}”</b><small>${t.p.n.toUpperCase()} · ${t.p.f} FP/G · ${gameTxt(t.p.n)}</small></div></div>`; })()}</div>
-    <div class="zbox"><div class="rooms">${days().map(d=>`<div class="room ${d.r==='W'?'w':d.r==='L'?'l':''} ${d.live?'live':''} ${d.today&&!d.live?'tdy':''}">${d.d}<b>${d.me!=null?d.me+'–'+d.op:'·'}</b>${d.live?'LIVE':d.today?'TODAY':'&nbsp;'}</div>`).join('')}</div></div>
-    <div class="dlg" id="dlg" onclick="nextLine()" title="Tap for another line"></div>
+      </div></div>
+      <div class="rooms in">${days().map(d=>`<div class="room ${d.r==='W'?'w':d.r==='L'?'l':''} ${d.live?'live':''} ${d.today&&!d.live?'tdy':''}">${d.d}<b>${d.me!=null?d.me+'–'+d.op:'·'}</b></div>`).join('')}</div>${(()=>{ const t=threat(); if(!t) return ''; return `<div class="threat" data-own="1" onclick="event.stopPropagation();openPlayer('${t.p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${typeof pcard==='function'?pcard(t.p.n,{mini:1,noTap:1}):face(P(t.p.n).t,t.p.n)}</div><div><span>TODAY'S BOSS</span><b>“${t.nick}”</b><small>${t.p.n.toUpperCase()} · ${t.p.f} FP/G · ${gameTxt(t.p.n)}</small></div></div>`; })()}</div>
+    <div class="dlg" id="dlg" onclick="nextLine()" title="Tap to replay"></div>
     <div class="zbox"><span class="zl">PLAYING TODAY · ${playing.length}</span><div class="tonight">${playing.map(n=>{ const p=P(n); return `<div><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}</div>${p.s}<br>${GAMES[p.t].time}</div>`; }).join('')||'<span style="font-size:6px;color:var(--t3)">Nobody plays today</span>'}</div></div>
-    ${recs().length?`<div class="todo" style="justify-content:center;cursor:pointer" onclick="FZ.tab='roster';S.rq='quick';render()"><span class="w">!</span>${recs().length} SUGGESTED MOVE${recs().length>1?'S':''} FOR TODAY ▶</div>`:''}`;
+`;
 }
 
 /* ROSTER · QUICK */
@@ -218,8 +221,10 @@ function dayGame(n, di){
   const p=P(n); if(hsh(p.t+di)<.45) return 'NO GAME';
   const opp=Object.keys(TC)[Math.floor(hsh(p.t+'o'+di)*30)]; return `${['7:00','7:30','8:00','10:00'][Math.floor(hsh(p.t+'t'+di)*4)]}P ${hsh(p.t+'h'+di)<.5?'vs':'@'} ${opp===p.t?'MEM':opp}`;
 }
-function fpFor(p){ if(FZ.fpm==='DAY') return FZ.day===TODAY_I ? (gs()==='live'&&GAMES[p.t]&&!isOut(p.n)?p.td:'—') : FZ.day<TODAY_I ? (hsh(p.n+FZ.day)<.4?'—':Math.round(p.f*(.6+hsh(p.n+'x'+FZ.day)))) : '—';
-  return FZ.fpm==='WEEK' ? p.wk : p.fall; }
+/* FP shown on cards: FP/G (orange) or today's FP (blue). Default: finished days and live games show the day's FP. */
+function fpMode(){ return FZ.fpm || (FZ.day<TODAY_I || (FZ.day===TODAY_I && gs()==='live') ? 'DAY' : 'AVG'); }
+function fpFor(p){ if(fpMode()==='AVG') return (+p.f).toFixed(1); if(true) return FZ.day===TODAY_I ? (gs()==='live'&&GAMES[p.t]&&!isOut(p.n)?p.td:'—') : FZ.day<TODAY_I ? (hsh(p.n+FZ.day)<.4?'—':Math.round(p.f*(.6+hsh(p.n+'x'+FZ.day)))) : '—';
+  return '—'; }
 function rrow(n, pos, mine){
   if(!n) return `<div class="rr empty"><div class="rp"></div><div class="rt"><b>— OPEN —</b></div>${mine?`<button class="sw ${FZ.sel===pos?'on':''}" onclick="fzTap('${pos}')">⇅</button>`:''}</div>`;
   const p=P(n), live = gs()==='live' && FZ.day===TODAY_I && GAMES[p.t] && !isOut(n);
@@ -244,7 +249,7 @@ function fzFull(){
     <div class="dstrip">${DAYN.map((d,k)=>`<button class="${k===FZ.day?'on':''} ${k===TODAY_I?'tdy':''}" onclick="FZ.day=${k};render()">${d}<b>${WEEK_START(MU.week).getDate()+k}</b>${k===TODAY_I?'<small>TODAY</small>':''}</button>`).join('')}</div>
     <div class="rlist">${body}</div>`;
 }
-const fpTog = () => `<div class="fpt">${['DAY','WEEK','FALL'].map(m=>`<button class="${FZ.fpm===m?'on':''}" onclick="FZ.fpm='${m}';render()">${m}</button>`).join('')}</div>`;
+const fpTog = () => `<div class="fpt"><span class="fpl">FP</span>${[['AVG','FP/G'],['DAY','TODAY']].map(([m,l])=>`<button class="${fpMode()===m?'on '+m.toLowerCase():''}" onclick="FZ.fpm='${m}';render()">${l}</button>`).join('')}</div>`;
 
 /* WAIVERS */
 const pool = () => { const r=rostered(); return PL.filter(p=>!r.has(p.n)); };
@@ -364,8 +369,7 @@ function fzSched(){
 function fzStand(){
   const s=[...standings()]; if(FZ.ssort==='fp') s.sort((a,b)=>b.pf-a.pf);
   return `<div class="lbox"><h3>FALL RUN STANDINGS</h3><div class="sub">OCT 20 – DEC 27 · WEEK ${MU.week} OF 10</div>
-    <div class="ssort">SORT <div class="seg">${[['wl','W-L'],['fp','FP']].map(([k,l])=>`<button class="${FZ.ssort===k?'on':''}" onclick="FZ.ssort='${k}';render()">${l}</button>`).join('')}</div></div>
-    <div class="shead"><span>#</span><span>TEAM</span><span>W-L</span><span>FP</span></div>
+    <div class="shead"><span>#</span><span>TEAM</span><span class="sk ${FZ.ssort==='wl'?'on':''}" onclick="FZ.ssort='wl';render()">W-L${FZ.ssort==='wl'?' ▼':''}</span><span class="sk ${FZ.ssort==='fp'?'on':''}" onclick="FZ.ssort='fp';render()">FP${FZ.ssort==='fp'?' ▼':''}</span></div>
     ${s.map((t,k)=>`<div class="srow ${t.me?'me':''} ${k===0?'first':''}" style="cursor:pointer" onclick="FZ.tab='roster';S.rq='full';FZ.view=${t.i};FZ.sel=null;render()"><span>${k+1}</span><span class="av" data-ch="${chOf(t)}"></span><span class="tn"><em>${t.team.toUpperCase()}</em></span><span class="${FZ.ssort==='wl'?'hl':''}">${t.w}-${t.l}</span><b class="${FZ.ssort==='fp'?'hl':''}">${t.pf.toLocaleString()}</b></div>`).join('')}
     <div class="foot">TAP A TEAM FOR ITS ROSTER</div></div>`;
 }
@@ -465,10 +469,18 @@ function drTick(){
     const el=document.getElementById('drclock'); if(el){ const L=who===0?Math.max(0,left):PICK_SECS-Math.floor((Date.now()-m.t0)/1000); el.textContent=`${Math.floor(L/60)}:${String(L%60).padStart(2,'0')}`; el.classList.toggle('low', who===0 && L<=20); }
   }, 250);
 }
+/* tapping a player: DRAFT · CANCEL · STATS */
 function drOpen(n){
-  const mine = drOnClock()===0 && !drTaken().has(n);
-  openPlayer(n, mine?[['DRAFT HIM', ()=>drPick(n)]]:[]);
+  const p=P(n), taken=drTaken().has(n), mine=drOnClock()===0 && !taken;
+  const o=overlay(`<div class="sheet drp" style="--c:#9ad8ff"><div class="drpc">${typeof pcard==='function'?pcard(n,{noTap:1}):face(p.t,p.n)}</div>
+    <h3>${p.n.toUpperCase()}</h3><p>${p.t} · ${p.p} · ${p.f} FP/G${p.inj?` · <b style="color:#ff3b5c">${p.inj}</b>`:''}</p>
+    <div class="acts3"><button class="btn" id="dd" ${mine?'':'disabled'}>${taken?'DRAFTED':mine?'DRAFT':DR.mock?'NOT YOUR PICK':'DRAFT NOT STARTED'}</button><button class="btn alt" id="dc">CANCEL</button><button class="btn alt" id="ds">STATS</button></div></div>`);
+  o.querySelector('#dd').onclick=()=>{ o.remove(); drPick(n); };
+  o.querySelector('#dc').onclick=()=>o.remove();
+  o.querySelector('#ds').onclick=()=>{ o.remove(); openPlayer(n); };
 }
+document.head.insertAdjacentHTML('beforeend',`<style>.drp{text-align:center}.drpc{width:120px;margin:0 auto 12px}.drp p{font-size:6.5px;color:var(--t2)}
+.acts3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px;margin-top:14px}.acts3 .btn{font-size:7px;padding:12px 4px}.acts3 .btn:disabled{opacity:.4}</style>`);
 function draft(){
   const m=DR.mock, now=new Date(), who=drOnClock(), tm=i=>TEAMS[i]||{team:'?'};
   const fmt=d=>d.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).toUpperCase()+' ET';
@@ -523,4 +535,31 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .drlog>div{display:grid;grid-template-columns:26px auto 1fr auto;gap:6px;align-items:center;font-size:5.5px;color:var(--t2);padding:5px 0;border-bottom:1px solid #16223c}
 .drlog>div.me{color:var(--green)}.drlog b{font-weight:normal;color:var(--t1);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.drlog i{font-style:normal;color:var(--gold)}
 .dim{font-size:6px;color:var(--t3)}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* match-up on one screen */
+.boss{gap:10px}.boss .sp canvas{width:62px!important;height:62px!important}
+.boss .bn{font-size:5.5px;line-height:1.6}.boss .bn b{font-size:7px}
+.bhp{height:8px;margin:5px 0 3px}.bsc{font-size:14px!important;margin-top:4px}.bsc i{font-size:6px}
+.rooms.in{margin-top:10px;gap:4px}.rooms.in .room{padding:4px 0;font-size:5px}.rooms.in .room b{font-size:5.5px}
+.threat{margin-top:10px}
+.dlg{height:calc(3 * 2em + 24px);min-height:0!important;overflow-y:auto;scrollbar-width:none}.dlg::-webkit-scrollbar{display:none}
+.tonight>div{flex:none;width:64px;text-align:center;font-size:5.5px;color:var(--t2);line-height:1.7}
+.tonight div:not(.ph){width:auto}.tonight .tcard div{width:auto;text-align:left;line-height:normal}
+.tonight .ph.cw{width:64px!important;margin-bottom:4px}
+.tonight .tcard img{height:auto;object-fit:initial}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* run colors: Fall = orange, Winter = light blue */
+.fz.run-fall{--mc:#ff9a1f}.fz.run-winter{--mc:#7fd4ff}
+.fz .mtabs button{border-color:color-mix(in srgb,var(--mc) 45%,var(--edge))}
+.fz .rsel{border-color:var(--mc)}.fz .rsegs i.on{background:var(--mc)}
+.rdrop a.on{border:2px solid var(--mc);border-radius:6px}
+.shead .sk{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.shead .sk.on{color:var(--mc);text-decoration:none}
+/* waiver arrows, styled like the roster team arrows */
+.warr{height:40px!important;align-self:center;border:2px solid #000!important;border-radius:6px;background:#e94560!important;color:#fff!important;font-size:10px!important;box-shadow:0 3px 0 #7a1020}
+.warr:disabled{background:#3b2a40!important;box-shadow:none;opacity:.5!important}
+.wcar{grid-template-columns:30px minmax(0,1fr) 30px!important}
 </style>`);

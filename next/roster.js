@@ -36,12 +36,14 @@ function paintPix(root=document){
 /* ── One card ── */
 function card16(n, pos, o={}){
   if(!n) return `<div class="rc16 empty ${pos&&pos[0]==='i'?'irs':''}" ${pos?`data-pos="${pos}"`:''}><div class="rc-in"><div class="rc-art"><span class="plus">${pos&&pos[0]==='i'?'IR':'+'}</span></div><div class="rc-bot"><b>${pos&&pos[0]==='i'?'EMPTY IR':'OPEN SLOT'}</b></div></div></div>`;
-  const p=P(n), rr=rarity(p.f), di=FZ.day, gtxt = p.inj==='OUT' ? 'OUT' : dayGame(n, di), off = gtxt==='NO GAME';
-  const fp = fpFor(p);
+  const p=P(n), rr=rarity(p.f), di=FZ.day, g = p.inj==='OUT' ? 'OUT' : dayGame(n, di), off = g==='NO GAME';
+  const fp = fpFor(p), fm = fpMode();
+  /* footer: game on the left (start time, LIVE/FINAL, OFF or OUT), FP on the right (orange = FP/G, blue = today) */
+  const gl = g==='OUT' ? 'OUT' : off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0] : 'LIVE';
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${typeof pxLv==='function'?`<span class="lvg">${pxLv(n).lv}</span>`:''}<span class="fpg">${p.f}</span><span class="pos">${p.p||''}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}${o.p1?'<span class="p1t">P1</span>':''}${pos==='i0'?'<span class="irtag">IR</span>':''}${fp!=='—'?`<span class="fpn">${fp}</span>`:''}</div>
-    <div class="rc-bot"><b>${gtxt}</b></div></div></div>`;
+    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}</div>
+    <div class="rc-bot"><b class="gm ${gl==='OUT'?'o':gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
 
 /* ── Line-up helpers (live.js swaps these for the real engine) ── */
@@ -103,59 +105,51 @@ function rosterStage(){
   const i=FZ.view, mine=i===0, T=TEAMS[i];
   const names = mine ? null : OTHER[i]||[];
   const act = mine ? S.fl.act : names.slice(0,8), bench = mine ? S.fl.bench : names.slice(8);
-  const top = act.filter(Boolean).filter(n=>playsOn(n,FZ.day)).sort((a,b)=>P(b).f-P(a).f)[0];
-  const iss = mine ? lineupIssues(FZ.day) : [];
+  const selN = mine && FZ.pick ? getSlot(FZ.pick) : null;
   return `<div class="stage ${mine?'':'ro'}">
     <div class="sg-head"><button class="ar" onclick="FZ.view=(FZ.view+TEAMS.length-1)%TEAMS.length;render()">◀</button>
       <div class="sg-t"><small>${mine?'SELECT YOUR STARTERS':T.m.toUpperCase()+"'S ROSTER"}</small><b>${T.team.toUpperCase()}</b></div>
       <button class="ar" onclick="FZ.view=(FZ.view+1)%TEAMS.length;render()">▶</button></div>
-    <div class="dstrip dmini">${DAYN.map((d,k)=>`<button class="${k===FZ.day?'on':''}" onclick="FZ.day=${k};render()">${d}${k===TODAY_I?'<small>TODAY</small>':''}</button>`).join('')}</div>
-    ${mine?`<div class="autos"><button onclick="autoDay()">⚡ AUTO-SET ${FZ.day===TODAY_I?'TODAY':'TODAY'}</button><button onclick="autoWeek()">📅 AUTO-SET WEEK</button></div>
-      ${iss.length?`<div class="issues">${iss.slice(0,3).map(x=>`<div class="iss" ${x.w==='ir'?'onclick="autoDay()"':''}>! ${x.t}</div>`).join('')}</div>`:'<div class="okline sm">✓ LINE-UP READY</div>'}`:''}
+    <div class="dstrip dmini">${DAYN.map((d,k)=>`<button class="${k===FZ.day?'on':''}" onclick="FZ.day=${k};FZ.fpm=null;FZ.pick=null;render()">${d}${k===TODAY_I?'<small>TODAY</small>':''}</button>`).join('')}</div>
+    ${mine?`<div class="autos"><button onclick="autoDay()">⚡ AUTO-SET TODAY</button><button onclick="autoWeek()">📅 AUTO-SET WEEK</button></div>`:''}
     <div class="sg-lbl"><span>ACTIVE ${act.filter(Boolean).length}/8</span>${fpTog()}</div>
-    <div class="cgrid">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:n&&n===top})).join('')}</div>
-    <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?'<span>HOLD &amp; DRAG A CARD TO SWAP</span>':''}</div>
-    <div class="cgrid">${bench.map((n,k)=>card16(n, mine?'b'+k:null)).join('')}${mine?card16(S.fl.ir[0],'i0'):''}</div>
+    <div class="cgrid">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:mine&&FZ.pick==='a'+k&&!!n})).join('')}</div>
+    <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?`<span>${FZ.pick?'TAP A CARD TO SWAP · TAP AGAIN TO CANCEL':'TAP TWO CARDS TO SWAP · HOLD FOR PROFILE'}</span>`:'<span>HOLD A CARD FOR PROFILE</span>'}</div>
+    <div class="cgrid">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]}):''}</div>
   </div>`;
 }
 
 /* ── Hold & drag ── */
-function killGhosts(){ document.querySelectorAll('.rc16.ghost').forEach(g=>g.remove()); document.querySelectorAll('.rc16.lifted,.rc16.over').forEach(c=>c.classList.remove('lifted','over')); }
-// Safety net: no drag card can outlive the gesture, a page change or the app going to the background
-['touchend','touchcancel','mouseup'].forEach(ev=>document.addEventListener(ev, ()=>setTimeout(()=>{ if(document.querySelector('.rc16.ghost') && !document.querySelector('.rc16.lifted')) killGhosts(); }, 60), true));
-document.addEventListener('visibilitychange', killGhosts);
-addEventListener('pagehide', killGhosts);
+/* Tap a card to pick it up (P1 blinks on it), tap another to swap, tap it again to put it down.
+   Hold any card for its profile. */
 function stageDrag(){
-  const stage=document.querySelector('.stage'); if(!stage || FZ.view!==0) {
-    document.querySelectorAll('.stage .rc16[data-pn]').forEach(c=>c.onclick=()=>openPlayer(c.dataset.pn)); return; }
-  stage.querySelectorAll('.rc16[data-pos]').forEach(card=>{
-    let t=null, sx=0, sy=0, drag=false, moved=false, ghost=null, over=null, fin=true;
-    const place=(x,y)=>{ ghost.style.left=(x-ghost.offsetWidth/2)+'px'; ghost.style.top=(y-ghost.offsetHeight*.6)+'px';
-      const el=document.elementFromPoint(x,y)?.closest('.rc16[data-pos]'); if(over&&over!==el) over.classList.remove('over'); over=el&&el!==card?el:null; over?.classList.add('over'); };
-    const begin=(x,y)=>{ drag=true; navigator.vibrate?.(12); const r=card.getBoundingClientRect();
-      ghost=card.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=r.width+'px'; ghost.style.height=r.height+'px';
-      ghost.querySelectorAll('canvas.pix').forEach((c,k)=>c.getContext('2d').drawImage(card.querySelectorAll('canvas.pix')[k],0,0));
-      document.body.appendChild(ghost); card.classList.add('lifted'); place(x,y);
-      // follow the finger even if the card under it gets redrawn or the finger leaves it
-      const dm=e=>{ const p=e.touches?e.touches[0]:e; move(p.clientX,p.clientY,e); }, de=()=>{ document.removeEventListener('touchmove',dm); document.removeEventListener('touchend',de); document.removeEventListener('touchcancel',de); end(); };
-      document.addEventListener('touchmove',dm,{passive:false}); document.addEventListener('touchend',de); document.addEventListener('touchcancel',de); };
-    const start=(x,y)=>{ sx=x; sy=y; moved=false; drag=false; fin=false; t=setTimeout(()=>begin(x,y), 260); };
-    const move=(x,y,e)=>{ if(drag){ e.preventDefault(); place(x,y); } else if(Math.hypot(x-sx,y-sy)>9){ clearTimeout(t); moved=true; } };
-    const end=()=>{ clearTimeout(t); if(fin) return; fin=true;
-      if(drag){ killGhosts(); card.classList.remove('lifted'); over?.classList.remove('over');
-        if(over){ const a=card.dataset.pos, b=over.dataset.pos; if(swapPos(a,b)){ render(); say('Swapped'); lineupCheck(); } } }
-      else if(!moved && card.dataset.pn) openPlayer(card.dataset.pn, rosterActions(card.dataset.pos));
-      drag=false; ghost=null; over=null; };
+  const stage=document.querySelector('.stage'); if(!stage) return;
+  stage.querySelectorAll('.rc16[data-pn],.rc16[data-pos]').forEach(card=>{
+    let t=null, held=false, sx=0, sy=0, moved=false;
+    const start=(x,y)=>{ held=false; moved=false; sx=x; sy=y; clearTimeout(t);
+      t=setTimeout(()=>{ if(moved||!card.dataset.pn) return; held=true; navigator.vibrate?.(12); card.classList.add('held');
+        setTimeout(()=>card.classList.remove('held'),250);
+        openPlayer(card.dataset.pn, FZ.view===0&&card.dataset.pos?rosterActions(card.dataset.pos):[]); }, 450); };
+    const move=(x,y)=>{ if(Math.hypot(x-sx,y-sy)>10){ moved=true; clearTimeout(t); } };
+    const end=()=>{ clearTimeout(t); if(held||moved) return; tap(card); };
     card.addEventListener('touchstart', e=>{ const p=e.touches[0]; start(p.clientX,p.clientY); }, {passive:true});
-    card.addEventListener('touchmove', e=>{ const p=e.touches[0]; move(p.clientX,p.clientY,e); }, {passive:false});
+    card.addEventListener('touchmove', e=>{ const p=e.touches[0]; move(p.clientX,p.clientY); }, {passive:true});
     card.addEventListener('touchend', e=>{ e.preventDefault(); end(); });
-    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); killGhosts(); drag=false; ghost=null; });
+    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); });
     card.addEventListener('mousedown', e=>{ if(e.button) return; start(e.clientX,e.clientY);
-      const mm=ev=>move(ev.clientX,ev.clientY,ev), mu=()=>{ removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); end(); };
-      addEventListener('mousemove',mm); addEventListener('mouseup',mu); });
+      const mu=()=>{ removeEventListener('mouseup',mu); end(); }; addEventListener('mouseup',mu); });
     card.addEventListener('contextmenu', e=>e.preventDefault());
   });
 }
+function tap(card){
+  const pos=card.dataset.pos;
+  if(FZ.view!==0 || !pos){ if(card.dataset.pn) say('Hold a card to see the player'); return; }
+  if(!FZ.pick){ if(!card.dataset.pn) return; FZ.pick=pos; render(); return; }
+  if(FZ.pick===pos){ FZ.pick=null; render(); return; }
+  const a=FZ.pick; FZ.pick=null;
+  if(swapPos(a,pos)){ render(); say('Swapped'); lineupCheck(); } else render();
+}
+function killGhosts(){}
 function rosterActions(pos){
   const n=getSlot(pos); if(!n) return [];
   const a=[];
@@ -181,6 +175,7 @@ function openPlayer(n, actions=[]){
     ${log?`<div class="cap">LAST GAMES</div><table class="glog"><tr><th></th><th>OPP</th><th>PTS</th><th>REB</th><th>AST</th><th>FP</th></tr>${log}</table>`:''}
     ${actions.length?`<div class="acts">${actions.map((a,k)=>`<button class="btn ${k?'alt':''}" data-k="${k}">${a[0]}</button>`).join('')}</div>`:''}</div>`);
   o.querySelector('.pb-top .rc16')?.classList.add('big');
+  const x=document.createElement('button'); x.className='pbx'; x.setAttribute('aria-label','Close'); x.textContent='✕'; x.onclick=()=>o.remove(); o.querySelector('.pbox').prepend(x);
   paintPix(o);
   o.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ o.remove(); actions[+b.dataset.k][1](); });
 }
@@ -221,16 +216,19 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .rc-art .pos{position:absolute;left:2px;bottom:2px;font-size:4.5px;background:#000;color:#fff;padding:1px 2px}
 .rc-art .inj{position:absolute;left:2px;top:2px;font-size:4.5px;background:var(--gold);color:#1a1200;padding:1px 2px}.rc-art .inj.o{background:#ff3b5c;color:#fff}
 .rc-art .plus{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:rgba(255,255,255,.35)}
-.rc-art .p1t{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:5px;color:#fff;background:#e94560;padding:1px 3px;border:1px solid #000;animation:bob .8s steps(2) infinite}
-.rc-bot{display:flex;justify-content:center;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;font-size:4.5px;min-width:0}
-.rc-bot b{font-weight:normal;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.rc-bot i{font-style:normal;color:var(--gold);white-space:nowrap}
+.rc-art .p1t{position:absolute;left:2px;top:2px;z-index:6;font-size:6px;color:#fff;background:#e94560;padding:2px 3px;border:1px solid #000;animation:blink .7s steps(2) infinite}
+.rc-bot{display:flex;justify-content:space-between;align-items:center;gap:2px;background:#10162a;border:1px solid #000;padding:2px 3px;font-size:4.5px;min-width:0}
+.rc-bot b{font-weight:normal;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.rc-bot b.x{color:var(--t3)}.rc-bot b.o{color:#ff3b5c}
+.rc-bot i{font-style:normal;white-space:nowrap}.rc-bot i.a{color:#ff9a1f}.rc-bot i.d{color:#4adfff}
+.rc-art .fpg,.rc-art .pos,.rc-art .inj,.rc-art .irtag,.rc-art .fpn,.rc-art .lvg{display:none!important}
+.rc16.held{transform:scale(.94)}
 .rc16.idle .rc-bot b{color:var(--t3)}.rc16.idle .rc-art img{filter:grayscale(.65) brightness(.75)}
 .rc16.out .rc-bot b{color:#ff3b5c}.rc16.out .rc-art img{filter:grayscale(1) brightness(.5)}
 .rc16.empty{animation:none;background:transparent;box-shadow:none;border:2px dashed #3b4a66;padding:2px}.rc16.empty .rc-in{background:rgba(59,74,102,.15);box-shadow:none}
 .rc16.empty .rc-in::after{display:none}.rc16.empty .rc-art{background:transparent;border:none;box-shadow:none}.rc16.empty .rc-bot{background:transparent;border:none;justify-content:center}.rc16.empty .rc-bot b{color:var(--t3)}
 .rc16.irs{border-color:var(--violet)}
 .rc-art .irtag{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-12deg);font-size:9px;color:#fff;background:var(--violet);border:2px solid #000;padding:2px 6px;box-shadow:2px 2px 0 #000}
-.rc16.p1{box-shadow:0 0 0 2px #e94560,0 0 14px rgba(233,69,96,.6),0 3px 0 #000}
+.rc16.p1{box-shadow:0 0 0 3px #e94560,0 0 16px rgba(233,69,96,.7),0 3px 0 #000;transform:translateY(-3px)}
 .rc16.lifted{opacity:.25;animation:none}
 .rc16.over{outline:3px solid var(--gold);outline-offset:2px;animation:none;transform:scale(1.05)}
 .rc-art img{-webkit-user-drag:none;user-select:none;-webkit-touch-callout:none}
@@ -282,5 +280,6 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .wkrows{display:flex;flex-direction:column;gap:4px;margin-top:8px}
 .wkrow{display:grid;grid-template-columns:34px 1fr 14px;gap:8px;align-items:center;font-size:6.5px;padding:7px 8px;border-radius:6px;background:#0a1020;border:1px solid var(--edge)}
 .wkrow b{font-weight:normal;color:var(--gold)}.wkrow i{font-style:normal;color:var(--green)}.wkrow.warn i{color:#ff3b5c}.wkrow.warn span{color:#ffd0d8}
+.pbx{position:sticky;top:0;float:right;z-index:5;width:34px;height:34px;margin:-6px -4px 0 8px;border-radius:50%;border:2px solid #000;background:#e94560;color:#fff;font-size:12px;cursor:pointer;box-shadow:0 3px 0 #7a1020}
 @media (prefers-reduced-motion: reduce){ .rc16,.stage,.rc16 .rc-in::after{animation:none!important} }
 </style>`);

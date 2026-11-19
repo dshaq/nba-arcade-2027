@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Card Forge</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<style>
+/* Card Forge: the base set card from Holo Lab, with two ways to grow it.
+   LEVEL UP  – earn EXP and switch on add-ons (glare, gold foil, holo, jersey foil, stars).
+   EVOLVE    – trade in 10 copies of the same base card for a one-of-a-kind EVO card,
+               which has its own, bigger level track. */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--t1:#e8ecf6;--t2:#a8c0e8;--t3:#506080;--gold:#ffd93d;--green:#39ff6a;--edge:#1e3258;--card:#0d1530;--bg2:#08122a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(90% 60% at 50% 30%,#10284e,#020c18 75%) fixed;color:#fff;font-family:var(--px)}
+main{max-width:460px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 40px) max(16px,env(safe-area-inset-left,0px))}
+a.back{font-size:7px;color:var(--t2);text-decoration:none}
+h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-shadow:2px 2px 0 #c4122f}
+.sub{font-size:6.5px;line-height:1.9;color:var(--t2);margin:0 0 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tabs button{font-family:var(--px);font-size:7px;padding:10px 6px;border-radius:9px;border:2px solid var(--edge);background:var(--card);color:var(--t3);cursor:pointer}
+.tabs button.on{border-color:var(--gold);color:var(--gold)}.tabs button.evo.on{border-color:#b36bff;color:#e6d4ff}
+.tabs button:disabled{opacity:.45;cursor:default}
+.stage{perspective:1100px;touch-action:none;padding:42px 18px 26px;display:flex;justify-content:center}
+
+/* ═══ shared card mechanics ═══ */
+.card{--rx:0;--ry:0;--mx:.5;--my:.35;--hyp:0;--tc1:#007a33;--tc2:#0a3d1e;--tc3:#b8ff7a;
+  position:relative;width:min(300px,76vw);aspect-ratio:5/7;border-radius:14px;
+  transform:rotateX(calc(var(--rx)*1deg)) rotateY(calc(var(--ry)*1deg));transform-style:preserve-3d;
+  box-shadow:calc(var(--ry)*-.9px) calc(var(--rx)*.9px + 18px) 40px rgba(0,0,0,.6),0 0 0 2px #000;isolation:isolate}
+.L{position:absolute;inset:0;pointer-events:none;border-radius:inherit}
+.clip{position:absolute;inset:0;border-radius:14px;overflow:hidden}
+
+/* ═══ BASE CARD (Holo Lab, stripped back) ═══ */
+.base .frame{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
+.base .frame::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.5),transparent 45%);mix-blend-mode:overlay}
+.base.u-gold .frame{background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 3px,rgba(255,250,220,.22) 3px 4px),
+   linear-gradient(125deg,#5a3a00,#c8901a 18%,#fff2b0 30%,#d9a520 42%,#7a5200 55%,#f5d061 68%,#fff8d6 76%,#b07a10 88%,#5a3a00);
+  background-size:100% 100%,320% 320%;background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%)}
+.win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:24%;border-radius:8px;overflow:hidden;background:#000;box-shadow:inset 0 0 0 2px rgba(0,0,0,.8)}
+.bg{position:absolute;inset:-8%;background:url(../holo/bg.jpg) center/cover;filter:brightness(.62) saturate(.85) blur(.6px);transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px)) scale(1.04)}
+.bgfoil{inset:-8%;mix-blend-mode:color-dodge;opacity:calc(.2 + var(--hyp)*.4);display:none;
+  background:repeating-linear-gradient(105deg,#0a5d2a 0%,#4cbb17 7%,#b8ff7a 13%,#00c48c 19%,#e8ffd6 24%,#127a3c 30%);
+  background-size:300% 300%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%);transform:translate(calc(var(--ry)*-.55px),calc(var(--rx)*.55px))}
+.base.u-holo .bgfoil{display:block}
+.pl{inset:0;clip-path:inset(0 5.5% 24% 5.5% round 0 0 8px 8px)}
+.pl img,.pl .m{position:absolute;left:3%;width:94%;bottom:21.5%;aspect-ratio:944/1104;transform:translate(calc(var(--ry)*.5px),calc(var(--rx)*-.4px))}
+.pl img{filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.5)) drop-shadow(0 8px 10px rgba(0,0,0,.55))}
+.pl .gloss{-webkit-mask:url(../holo/tatum.png) 0 0/100% 100%;mask:url(../holo/tatum.png) 0 0/100% 100%;mix-blend-mode:soft-light;display:none;
+  background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);background-size:220% 220%;background-position:calc(var(--mx)*100%) 50%}
+.base.u-shine .gloss{display:block}
+.pl .jf{display:none;-webkit-mask:url(../holo/mask-trim.png) 0 0/100% 100%;mask:url(../holo/mask-trim.png) 0 0/100% 100%;mix-blend-mode:color-dodge;opacity:calc(.55 + var(--hyp)*.45);
+  background:repeating-linear-gradient(105deg,#0a5d2a 0%,#4cbb17 7%,#b8ff7a 13%,#00c48c 19%,#e8ffd6 24%,#127a3c 30%);background-size:260% 260%;background-position:calc(var(--mx)*100%) calc(var(--my)*100%)}
+.base.u-jersey .jf{display:block}
+.stars{inset:-6% -30%;background:center/cover no-repeat;display:none;
+  -webkit-mask-image:radial-gradient(ellipse 22% 30% at 50% 38%,transparent 55%,#000 100%),linear-gradient(180deg,#000 66%,transparent 74%);
+          mask-image:radial-gradient(ellipse 22% 30% at 50% 38%,transparent 55%,#000 100%),linear-gradient(180deg,#000 66%,transparent 74%);
+  -webkit-mask-composite:source-in;mask-composite:intersect}
+.stars.far{z-index:7;background-image:url(../holo/stars-far.png);opacity:.75;transform:translate(calc(var(--ry)*3px),calc(var(--rx)*-1px));filter:drop-shadow(0 0 1.5px rgba(76,187,23,.6))}
+.stars.near{z-index:7;background-image:url(../holo/stars-near.png);transform:translate(calc(var(--ry)*5px),calc(var(--rx)*-1.8px)) scale(1.06);filter:drop-shadow(0 0 2px rgba(76,187,23,.8)) brightness(calc(1 + var(--hyp)*.4))}
+.base.u-stars .stars{display:block}
+.crt{z-index:7;clip-path:inset(5.5% 5.5% 24% 5.5% round 8px);
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,rgba(0,0,0,0) 1px 3px),repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px),radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 60%,rgba(0,0,0,.38) 100%)}
+.plate{position:absolute;left:5.5%;right:5.5%;bottom:5.5%;height:17%;border-radius:8px;background:linear-gradient(180deg,#0c1426,#05080f);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);display:flex;flex-direction:column;justify-content:center;padding:0 6%;gap:7px;z-index:6}
+.plate .n{font-size:12px;letter-spacing:-.02em;text-shadow:0 2px 0 #000}.plate .n small{display:block;font-size:6.5px;color:var(--t2);margin-bottom:5px}
+.plate .s{display:flex;justify-content:space-between;font-size:6.5px;color:var(--t2)}.plate .s b{font-weight:normal;color:var(--gold)}
+.badge{position:absolute;z-index:7;top:2.2%;font-size:6.5px;padding:4px 6px;border-radius:4px;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.badge.l{left:7%}.badge.r{right:7%;background:#d8dee8;color:#000}
+.base.u-gold .badge.r{background:linear-gradient(90deg,#b07a10,#fff2b0,#d9a520,#fff8d6,#b07a10);background-size:300%;background-position:calc(var(--mx)*100%) 0}
+.glare{z-index:8;mix-blend-mode:overlay;display:none;background:radial-gradient(farthest-corner circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.85) 0,rgba(255,255,255,.25) 22%,rgba(0,0,0,.35) 90%);opacity:calc(.25 + var(--hyp)*.6)}
+.base.u-shine .glare,.evo .glare{display:block}
+
+/* ═══ EVOLVED CARD: one of a kind, full-bleed, bursting out of the card ═══ */
+.evo{border-radius:16px}
+.evo .clip{border-radius:16px}
+.evo .rim{border-radius:16px;background:linear-gradient(160deg,#1a1a1a,#3a3a3a 50%,#111)}
+.evo.e-prism .rim{background:conic-gradient(from calc(var(--mx)*360deg),#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf)}
+.evo .field{position:absolute;inset:3.2%;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 42%,var(--tc3) 0,var(--tc1) 30%,var(--tc2) 75%)}
+.evo .rays{position:absolute;inset:-60%;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.13) 0 7deg,rgba(255,255,255,0) 7deg 18deg);animation:rot 28s linear infinite;
+  transform-origin:50% 50%}
+@keyframes rot{to{transform:rotate(360deg)}}
+.evo .tone{position:absolute;inset:0;background:radial-gradient(rgba(0,0,0,.35) 32%,transparent 34%) 0 0/5px 5px;-webkit-mask:linear-gradient(180deg,transparent 30%,#000);mask:linear-gradient(180deg,transparent 30%,#000)}
+.evo .vname{position:absolute;left:5%;top:7%;bottom:22%;writing-mode:vertical-rl;transform:rotate(180deg);font-size:min(10.5vw,40px);line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.55);letter-spacing:.04em;text-align:center}
+.evo .aura{position:absolute;left:12%;right:12%;top:12%;bottom:20%;border-radius:50%;display:none;background:radial-gradient(closest-side,rgba(184,255,122,.9),rgba(57,255,106,.35) 55%,transparent);filter:blur(8px);animation:pulse 2.2s ease-in-out infinite}
+.evo.e-aura .aura{display:block}
+@keyframes pulse{50%{transform:scale(1.12);opacity:.65}}
+.evo .estars{display:none}.evo.e-stars .estars{display:block}
+/* the player lives OUTSIDE the clip, so his head and shoulders break past the card's edge */
+.evo .ep{position:absolute;left:-7%;width:114%;bottom:18%;aspect-ratio:944/1104;z-index:6;pointer-events:none;
+  transform:translate(calc(var(--ry)*.9px),calc(var(--rx)*-.7px)) translateZ(30px);
+  -webkit-mask:linear-gradient(180deg,#000 82%,transparent 97%);mask:linear-gradient(180deg,#000 82%,transparent 97%)}
+.evo .ep img{width:100%;display:block;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 12px 14px rgba(0,0,0,.6))}
+.evo.e-aura .ep img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 12px rgba(184,255,122,.9)) drop-shadow(0 12px 14px rgba(0,0,0,.6))}
+.evo.e-legend .ep{animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{translate:0 -4px}}
+.evo .bolts{position:absolute;inset:0;z-index:5;display:none}
+.evo.e-bolts .bolts{display:block}
+.evo .bolts path{fill:none;stroke:#eaffd0;stroke-width:2.2;filter:drop-shadow(0 0 4px #39ff6a);opacity:0;animation:zap 2.6s steps(1) infinite}
+.evo .bolts path:nth-child(2){animation-delay:.9s}.evo .bolts path:nth-child(3){animation-delay:1.7s}
+@keyframes zap{0%{opacity:1}6%{opacity:0}9%{opacity:.9}14%,100%{opacity:0}}
+.evo .eplate{position:absolute;left:6%;right:6%;bottom:4.5%;z-index:7;padding:9px 10px;border-radius:8px;background:rgba(3,10,8,.82);box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.evo.e-legend .eplate{box-shadow:inset 0 0 0 2px #ffd93d,0 0 16px rgba(255,217,61,.5)}
+.evo .eplate .n{font-size:11px}.evo .eplate .n small{display:block;font-size:5.5px;color:var(--tc3);margin-bottom:5px}
+.evo .eplate .o{font-size:5px;color:var(--t2);text-align:right;line-height:1.8}.evo .eplate .o b{font-weight:normal;color:var(--gold)}
+.evo .etag{position:absolute;z-index:8;top:4.5%;right:6%;font-size:7px;padding:5px 7px;border-radius:4px;color:#fff;background:linear-gradient(90deg,#7a2bd6,#b36bff);box-shadow:0 0 0 2px #000}
+.evo .seal{position:absolute;z-index:8;right:5%;bottom:17%;width:46px;height:46px;border-radius:50%;display:none;place-items:center;text-align:center;font-size:5px;line-height:1.5;color:#3a2600;
+  background:radial-gradient(circle at 35% 30%,#fff2b0,#ffd93d 40%,#b07a10);box-shadow:0 0 0 2px #000,0 0 0 4px #ffd93d,0 4px 10px rgba(0,0,0,.5);transform:rotate(-12deg)}
+.evo.e-legend .seal{display:grid}
+.evo.e-legend .sweep{display:block}
+.evo .sweep{z-index:9;display:none;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);background-size:300% 100%;animation:sweep 3.5s ease-in-out infinite;mix-blend-mode:overlay}
+@keyframes sweep{from{background-position:120% 0}to{background-position:-20% 0}}
+
+/* ═══ panels ═══ */
+.panel{background:var(--bg2);border:2px solid var(--edge);border-radius:12px;padding:14px;margin-top:12px}
+.cap{font-size:6px;color:var(--t3);letter-spacing:.08em;margin-bottom:10px;display:flex;justify-content:space-between}
+.lvrow{display:flex;align-items:center;gap:12px}
+.lv{display:grid;place-items:center;min-width:38px;height:38px;font-size:12px;color:#000;background:var(--green);border:3px solid #000;border-radius:7px}
+.evomode .lv{background:#b36bff;color:#fff}
+.xb{position:relative;height:10px;background:#0a1226;border:2px solid #000;box-shadow:0 0 0 1px #2a3b64;overflow:hidden}
+.xb i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#39ff6a,#b8ff7a);transition:width .6s ease-out}
+.evomode .xb i{background:linear-gradient(90deg,#7a2bd6,#e6a8ff)}
+.lvrow small{display:block;font-size:5.5px;color:var(--t2);margin-top:7px;line-height:1.7}
+.btns{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.btn{font-family:var(--px);font-size:6.5px;padding:10px 10px;border-radius:8px;border:2px solid #000;background:var(--gold);color:#1a1200;box-shadow:0 3px 0 #000;cursor:pointer;flex:1}
+.btn.alt{background:var(--card);color:var(--t1);border-color:var(--edge);box-shadow:none}
+.btn:disabled{opacity:.4;cursor:default}
+.ups{display:flex;flex-direction:column;gap:6px}
+.up{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.03);border:2px solid transparent}
+.up .ic{font-size:15px;text-align:center}
+.up b{display:block;font-weight:normal;font-size:7px}.up small{display:block;font-size:5px;color:var(--t3);margin-top:5px;line-height:1.7}
+.up.lock{opacity:.45}.up.on{border-color:var(--green)}.evomode .up.on{border-color:#b36bff}
+.tg{width:42px;height:22px;border-radius:12px;border:2px solid #000;background:#2a3858;position:relative;cursor:pointer;padding:0}
+.tg::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#8a96b0;transition:left .15s}
+.tg.on{background:var(--green)}.tg.on::after{left:22px;background:#fff}.evomode .tg.on{background:#b36bff}
+.lk{font-size:5.5px;color:var(--t3);text-align:right}
+.dupes{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px}
+.dupes i{aspect-ratio:5/7;border-radius:3px;border:1px solid #2a3858;background:#0a1226}
+.dupes i.on{border-color:#000;background:linear-gradient(160deg,#eef1f6,#8e98ab);box-shadow:inset 0 -40% 0 #0c1426}
+.dupes i.on::after{content:'';display:block;height:100%;background:url(../holo/tatum.png) center 10%/120% auto no-repeat}
+.why{font-size:5.5px;color:var(--t2);line-height:1.9;margin-top:10px}
+.rule{font-size:6.5px;line-height:2;color:var(--t2)}.rule b{font-weight:normal;color:var(--gold)}.rule u{text-decoration:none;color:#e6d4ff}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:90;font-size:7px;padding:10px 14px;border-radius:10px;background:#000;border:2px solid var(--gold);color:#fff;white-space:nowrap;animation:tin .25s}
+@keyframes tin{from{opacity:0;transform:translate(-50%,10px)}}
+.lvpop{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;font-size:11px;color:var(--gold);text-shadow:3px 3px 0 #000;white-space:nowrap;animation:pop .5s steps(5) both}
+@keyframes pop{0%{transform:translateX(-50%) scale(.3);opacity:0}70%{transform:translateX(-50%) scale(1.15)}100%{transform:translateX(-50%);opacity:1}}
+
+/* ═══ evolve sequence ═══ */
+.fx{position:fixed;inset:0;z-index:80;background:radial-gradient(circle,#2a0d4a,#02020c 70%);display:grid;place-items:center;overflow:hidden}
+.fx .ring{position:relative;width:260px;height:260px;animation:spinup 2.4s cubic-bezier(.5,0,.9,.4) forwards}
+@keyframes spinup{to{transform:rotate(1080deg) scale(.15)}}
+.fx .mc{position:absolute;left:50%;top:50%;width:46px;aspect-ratio:5/7;margin:-32px 0 0 -23px;border-radius:4px;border:2px solid #000;background:linear-gradient(160deg,#eef1f6,#8e98ab);overflow:hidden}
+.fx .mc::after{content:'';position:absolute;inset:0;background:url(../holo/tatum.png) center 10%/130% auto no-repeat}
+.fx .flash{position:absolute;inset:0;background:#fff;opacity:0}
+.fx .flash.go{animation:fl 1s ease-out forwards}
+@keyframes fl{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.fx .msg{position:absolute;top:16%;left:0;right:0;text-align:center;font-size:9px;color:#e6d4ff}
+.fx .big{position:absolute;top:12%;left:0;right:0;text-align:center;font-size:18px;color:var(--gold);text-shadow:4px 4px 0 #7a2bd6,-2px -2px 0 #000;animation:pop2 .5s steps(5) both}
+@keyframes pop2{from{transform:scale(.3);opacity:0}}
+.fx .rev{perspective:1100px;animation:rise .9s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes rise{from{transform:scale(.2) rotateY(540deg);opacity:0}}
+.fx .go2{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);left:50%;transform:translateX(-50%);width:min(300px,80vw)}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">◀ BACK TO NBA ARCADE NEXT</a>
+  <h1>CARD FORGE</h1>
+  <p class="sub">The base set card (Holo Lab, stripped back) and the two ways to grow it. Everything here is a sandbox: tap the buttons to earn EXP and pull duplicates.</p>
+  <div class="tabs"><button id="tB" class="on" onclick="view('base')">BASE CARD</button><button id="tE" class="evo" onclick="view('evo')">🔒 EVOLVED</button></div>
+  <div class="stage" id="stage"><div id="slot"></div></div>
+  <div id="panels"></div>
+  <div class="panel"><div class="cap"><span>HOW IT WORKS</span></div><div class="rule">
+    <b>LEVEL UP:</b> a card earns EXP when you use that player (Fantasy starts, Duel picks, Challenge line-ups) or when you feed it a duplicate. Each level unlocks an add-on, and you choose which add-ons are switched on.<br><br>
+    <b>EVOLVE:</b> trade in <b>10 copies</b> of the same base card for a one-of-a-kind <u>EVO card</u>, stamped with your name and the date. It starts back at LV 1 with its own, flashier add-ons.<br><br>
+    <b>THE CHOICE:</b> every duplicate is either EXP now, or one step toward an evolution.</div></div>
+</main>
+<script>
+/* ── tracks ── */
+const BASE_LV=[0,40,100,180,280,400], EVO_LV=[0,80,200,360,560,800];
+const BASE_UP=[
+  {k:'base',  ic:'🃏', name:'BASE CARD',   lv:1, d:'Silver frame, CRT screen, player pops out of the window.', fixed:1},
+  {k:'shine', ic:'✨', name:'SHINE',       lv:2, d:'A gloss on the player and a glare that follows the light.'},
+  {k:'gold',  ic:'🥇', name:'GOLD FOIL',   lv:3, d:'Etched gold frame and badge that shift as you tilt.'},
+  {k:'holo',  ic:'🌈', name:'HOLO FOIL',   lv:4, d:'The background lines turn into team-colored holo.'},
+  {k:'jersey',ic:'👕', name:'JERSEY FOIL', lv:5, d:'Foil on the jersey trim. Never on the face.'},
+  {k:'stars', ic:'⭐', name:'STARS',       lv:6, d:'Two layers of team stars floating in front of the art.'},
+];
+const EVO_UP=[
+  {k:'evo',   ic:'🧬', name:'EVO CARD',      lv:1, d:'Full-bleed team rays, the player breaks out past the card\'s edge, your name on the plate.', fixed:1},
+  {k:'prism', ic:'💎', name:'PRISM RIM',     lv:2, d:'A rainbow rim that turns as you tilt.'},
+  {k:'aura',  ic:'🔆', name:'AURA',          lv:3, d:'A glowing, breathing aura behind the player.'},
+  {k:'stars', ic:'🌌', name:'STAR FIELD',    lv:4, d:'Parallax stars in front of and behind him.'},
+  {k:'bolts', ic:'⚡', name:'LIGHTNING',     lv:5, d:'Energy crackles around the frame.'},
+  {k:'legend',ic:'👑', name:'LEGEND',        lv:6, d:'Gold seal, gold plate, a light sweep and a slow breathing motion.'},
+];
+const KEY='forge-lab-v1';
+let st; try{ st=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+st=st||{bx:60, dup:3, bOn:{shine:1}, evo:null};
+const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(st)); }catch(e){} };
+let cur='base';
+const lvOf=(x,T)=>{ let lv=1; T.forEach((t,i)=>{ if(x>=t) lv=i+1; }); const max=lv>=T.length; return {lv,max,lo:T[lv-1],hi:max?T[lv-1]:T[lv],pct:max?100:Math.round(100*(x-T[lv-1])/(T[lv]-T[lv-1]))}; };
+const toast=t=>{ document.querySelectorAll('.toast').forEach(x=>x.remove()); const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),1800); };
+
+/* ── cards ── */
+function baseCard(){
+  const L=lvOf(st.bx,BASE_LV), on=k=>BASE_UP.find(u=>u.k===k).lv<=L.lv && st.bOn[k];
+  const cls=['shine','gold','holo','jersey','stars'].filter(on).map(k=>'u-'+k).join(' ');
+  return `<div class="card base ${cls}" id="card"><div class="clip"><div class="L frame"></div>
+    <div class="win"><div class="L bg"></div><div class="L bgfoil"></div></div></div>
+    <div class="L pl"><img src="../holo/tatum.png" alt="Jayson Tatum"><div class="m jf"></div><div class="m gloss"></div></div>
+    <span class="badge l">#009 · LV ${L.lv}</span><span class="badge r">${on('gold')?'GOLD':'BASE'}</span>
+    <div class="plate"><div class="n"><small>JAYSON</small>TATUM</div><div class="s"><span>BOS · F</span><b>45.6 FP/G</b></div></div>
+    <div class="clip" style="pointer-events:none"><div class="L stars far"></div><div class="L stars near"></div><div class="L crt"></div><div class="L glare"></div></div></div>`;
+}
+function evoCard(e, scale){
+  const L=lvOf(e.x,EVO_LV), on=k=>EVO_UP.find(u=>u.k===k).lv<=L.lv && e.on[k];
+  const cls=['prism','aura','stars','bolts','legend'].filter(on).map(k=>'e-'+k).join(' ');
+  return `<div class="card evo ${cls}" id="card" ${scale?`style="width:${scale}"`:''}><div class="L rim"></div>
+    <div class="field"><div class="rays"></div><div class="tone"></div><div class="vname">TATUM</div><div class="aura"></div>
+      <div class="L stars far estars" style="display:${on('stars')?'block':'none'}"></div></div>
+    <div class="ep"><img src="../holo/tatum.png" alt="Jayson Tatum"></div>
+    <div class="clip" style="pointer-events:none;z-index:7"><div class="L stars near" style="display:${on('stars')?'block':'none'}"></div>
+      <svg class="bolts" viewBox="0 0 100 140" preserveAspectRatio="none"><path d="M6 20 L12 30 L8 34 L15 46"/><path d="M94 60 L88 70 L92 74 L85 88"/><path d="M20 104 L30 100 L33 106 L44 101"/></svg>
+      <div class="L sweep"></div><div class="L glare"></div></div>
+    <span class="etag">EVO · LV ${L.lv}</span>
+    <div class="seal">EVO<br>1 OF 1</div>
+    <div class="eplate"><div class="n"><small>JAYSON TATUM · BOS</small>TATUM EVO</div><div class="o">EVOLVED BY <b>${e.by}</b><br>${e.d}</div></div></div>`;
+}
+
+/* ── panels ── */
+function upRows(T, x, onMap, evo){
+  const L=lvOf(x,T);
+  return `<div class="ups">${(evo?EVO_UP:BASE_UP).map(u=>{ const open=u.lv<=L.lv, isOn=u.fixed||onMap[u.k];
+    return `<div class="up ${open?'':'lock'} ${open&&isOn?'on':''}"><span class="ic">${u.ic}</span><span><b>${u.name}</b><small>${u.d}</small></span>
+      ${u.fixed?'<span class="lk">ALWAYS</span>':open?`<button class="tg ${isOn?'on':''}" onclick="tog('${u.k}')" aria-label="${u.name}"></button>`:`<span class="lk">🔒<br>LV ${u.lv}</span>`}</div>`; }).join('')}</div>`;
+}
+function panels(){
+  const p=document.getElementById('panels');
+  if(cur==='base'){ const L=lvOf(st.bx,BASE_LV);
+    p.className='';
+    p.innerHTML=`<div class="panel"><div class="cap"><span>CARD LEVEL</span><span>BASE TRACK</span></div>
+      <div class="lvrow"><span class="lv">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
+      <small>${L.max?'MAX LEVEL · EVERY ADD-ON UNLOCKED':`${st.bx} / ${L.hi} EXP · NEXT: ${BASE_UP[L.lv].name}`}</small></div></div>
+      <div class="btns"><button class="btn" onclick="gain(25,'Started him in Fantasy')">🏀 PLAY A GAME +25</button><button class="btn alt" onclick="feed()" ${st.dup?'':'disabled'}>🍖 FEED A DUPE +40</button></div></div>
+    <div class="panel"><div class="cap"><span>ADD-ONS</span><span>TAP TO SWITCH ON/OFF</span></div>${upRows(BASE_LV,st.bx,st.bOn)}</div>
+    <div class="panel"><div class="cap"><span>DUPLICATES</span><span>${st.dup} / 10</span></div>
+      <div class="dupes">${Array.from({length:10},(_,i)=>`<i class="${i<st.dup?'on':''}"></i>`).join('')}</div>
+      <div class="btns"><button class="btn alt" onclick="pull()">🎁 OPEN A PACK</button><button class="btn" style="background:#b36bff;color:#fff" onclick="evolve()" ${st.dup>=10?'':'disabled'}>🧬 EVOLVE ${st.dup>=10?'NOW':`(${10-st.dup} MORE)`}</button></div>
+      <div class="why">${st.evo?'You already own TATUM EVO. Evolving again makes a second, separate EVO card (its own number and history).':'Save 10 copies to evolve. Your base card stays; the 10 copies are used up.'}</div></div>`;
+  } else { const e=st.evo, L=lvOf(e.x,EVO_LV);
+    p.className='evomode';
+    p.innerHTML=`<div class="panel"><div class="cap"><span>EVO LEVEL</span><span>EVO TRACK</span></div>
+      <div class="lvrow"><span class="lv">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
+      <small>${L.max?'MAX LEVEL · LEGEND':`${e.x} / ${L.hi} EXP · NEXT: ${EVO_UP[L.lv].name}`}</small></div></div>
+      <div class="btns"><button class="btn" onclick="gain(40,'Played him')">🏀 PLAY A GAME +40</button><button class="btn alt" onclick="feed()" ${st.dup?'':'disabled'}>🍖 FEED A DUPE +60</button></div></div>
+    <div class="panel"><div class="cap"><span>EVO ADD-ONS</span><span>TAP TO SWITCH ON/OFF</span></div>${upRows(EVO_LV,e.x,e.on,true)}</div>`;
+  }
+}
+function draw(){
+  document.getElementById('slot').innerHTML = cur==='base' ? baseCard() : evoCard(st.evo);
+  const tE=document.getElementById('tE'); tE.textContent=st.evo?'🧬 EVOLVED':'🔒 EVOLVED'; tE.disabled=!st.evo;
+  document.getElementById('tB').classList.toggle('on',cur==='base'); tE.classList.toggle('on',cur==='evo');
+  panels(); save();
+}
+function view(v){ if(v==='evo'&&!st.evo) return; cur=v; draw(); }
+function tog(k){ const m=cur==='base'?st.bOn:st.evo.on; m[k]=m[k]?0:1; draw(); }
+function gain(n,why){
+  const T=cur==='base'?BASE_LV:EVO_LV, before=lvOf(cur==='base'?st.bx:st.evo.x,T).lv;
+  if(cur==='base') st.bx+=n; else st.evo.x+=n;
+  const L=lvOf(cur==='base'?st.bx:st.evo.x,T);
+  if(L.lv>before){ const U=(cur==='base'?BASE_UP:EVO_UP)[L.lv-1], m=cur==='base'?st.bOn:st.evo.on; m[U.k]=1; draw();
+    const s=document.getElementById('stage'), pp=document.createElement('div'); pp.className='lvpop'; pp.textContent=`LV ${L.lv}! ${U.name}`; s.appendChild(pp); setTimeout(()=>pp.remove(),1800);
+  } else { draw(); toast(`+${n} EXP · ${why}`); }
+}
+function feed(){ if(!st.dup) return; st.dup--; gain(cur==='base'?40:60,'Fed a duplicate'); }
+function pull(){ st.dup=Math.min(10,st.dup+1); draw(); toast(st.dup>=10?'10 copies! Ready to evolve':'Pulled another Tatum'); }
+function evolve(){
+  if(st.dup<10) return;
+  const fx=document.createElement('div'); fx.className='fx';
+  fx.innerHTML=`<div class="msg">10 × TATUM</div><div class="ring">${Array.from({length:10},(_,i)=>`<div class="mc" style="transform:rotate(${i*36}deg) translateY(-110px) rotate(${-i*36}deg)"></div>`).join('')}</div><div class="flash"></div>`;
+  document.body.appendChild(fx);
+  setTimeout(()=>fx.querySelector('.flash').classList.add('go'),2250);
+  setTimeout(()=>{ st.dup=0; const n=new Date();
+    st.evo={x:0, on:{}, by:'DAVE', d:n.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase()};
+    fx.innerHTML=`<div class="flash go"></div><div class="big">EVOLVED!</div><div class="rev">${evoCard(st.evo,'min(260px,66vw)')}</div><button class="btn go2" id="go2">SEE YOUR EVO CARD ▶</button>`;
+    fx.querySelector('#go2').onclick=()=>{ fx.remove(); cur='evo'; draw(); };
+  },2500);
+}
+
+/* ── tilt (from Holo Lab) ── */
+const stage=document.getElementById('stage');
+const tgt={rx:0,ry:0,mx:.5,my:.35,h:0}, cv={...tgt}; let mode='idle', last=0, down=false;
+function aim(px,py){ tgt.ry=(px-.5)*32; tgt.rx=(.5-py)*26; tgt.mx=px; tgt.my=py; tgt.h=Math.min(1,Math.hypot(px-.5,py-.5)*2.2); last=performance.now(); }
+const rel=e=>{ const c=document.getElementById('card'); if(!c) return [.5,.5]; const r=c.getBoundingClientRect(); return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))]; };
+stage.addEventListener('pointerdown',e=>{ down=true; mode='hand'; stage.setPointerCapture(e.pointerId); aim(...rel(e)); });
+stage.addEventListener('pointermove',e=>{ if(down||e.pointerType==='mouse'){ mode='hand'; aim(...rel(e)); } });
+const rest=()=>{ down=false; mode='idle'; Object.assign(tgt,{rx:0,ry:0,mx:.5,my:.35,h:0}); last=performance.now(); };
+stage.addEventListener('pointerup',rest); stage.addEventListener('pointercancel',rest); stage.addEventListener('pointerleave',()=>{ if(!down) rest(); });
+(function tick(t){
+  if(mode==='idle' && performance.now()-last>1200){ const a=t/1700; tgt.ry=Math.sin(a)*9; tgt.rx=Math.cos(a*.8)*5; tgt.mx=.5+Math.sin(a)*.32; tgt.my=.38+Math.cos(a*.8)*.22; tgt.h=.3; }
+  for(const k in cv) cv[k]+=(tgt[k]-cv[k])*.12;
+  document.querySelectorAll('.card').forEach(c=>{ const s=c.style; s.setProperty('--rx',cv.rx.toFixed(2)); s.setProperty('--ry',cv.ry.toFixed(2)); s.setProperty('--mx',cv.mx.toFixed(3)); s.setProperty('--my',cv.my.toFixed(3)); s.setProperty('--hyp',cv.h.toFixed(3)); });
+  requestAnimationFrame(tick); })(0);
+draw();
+</script>
+</body>
+</html>

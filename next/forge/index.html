@@ -73,8 +73,8 @@ h1{margin:14px 0 4px;font-size:12px;font-weight:normal;color:var(--gold);text-sh
 
 /* ═══ RUN BADGE: tiny set symbol in the bottom-right, like the set mark on a Pokémon card.
    Maple leaf = Fall Run, 26 over 27 = the 2026-27 season. ═══ */
-.runb{position:absolute;right:6%;bottom:6.2%;z-index:9;width:34px;height:34px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
-.runb svg{width:100%;height:100%;display:block}
+.runb{position:absolute;right:5.5%;bottom:5.6%;z-index:9;width:40px;height:40px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+.runb img,.runb svg{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
 
 /* ═══ FIT CHECK (the 10x evolution): Flair-style, two pictures layered.
    Full outfit stands in the gold mirror; the close-up sits big in front.
@@ -266,13 +266,10 @@ function evoCard(e, scale, noSleeve){
 }
 /* Fall Run set symbol: pixel maple leaf with 26 over 27 */
 function runBadge(run='fall'){
-  const leaf = run==='fall';
-  return `<span class="runb" title="${leaf?'Fall Run':'Winter Run'} · 2026-27"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-    <circle cx="8" cy="8" r="7.6" fill="#000"/><circle cx="8" cy="8" r="6.8" fill="#fff"/>
-    ${leaf?`<path fill="#d9361e" d="M7 1h2v2h1V2h2v2h1v2h1v1h1v2h-1v1h-2v1h-2v1H9v3H7v-3H5v-1H3v-1H2V9H1V7h1V6h1V4h1V2h2v1h1z"/>`
-          :`<path fill="#3aa0e0" d="M7 1h2v14H7zM1 7h14v2H1zM3 3h2v2H3zm8 0h2v2h-2zM3 11h2v2H3zm8 0h2v2h-2z"/>`}
-    <text x="8" y="7.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="3.3" fill="#fff" stroke="#000" stroke-width=".6" paint-order="stroke">26</text>
-    <text x="8" y="11.4" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="3.3" fill="#fff" stroke="#000" stroke-width=".6" paint-order="stroke">27</text></svg></span>`;
+  // Dave's pixel maple leaf, filled solid orange, with 26 over 27 (the 2026-27 season) on top
+  return `<span class="runb" title="Fall Run · 2026-27"><img src="../img/leaf-fall.png" alt=""><svg viewBox="0 0 40 40">
+    <text x="20" y="18.5" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="8" fill="#fff" stroke="#28100a" stroke-width="2.4" paint-order="stroke">26</text>
+    <text x="20" y="29" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="8" fill="#fff" stroke="#28100a" stroke-width="2.4" paint-order="stroke">27</text></svg></span>`;
 }
 /* 0 = raw, 1 = penny sleeve, 2 = penny sleeve + toploader */
 function sleeves(k){ const n=(st.sleeve||{})[k]||0, fresh=sleeves.anim===k?' in':'';

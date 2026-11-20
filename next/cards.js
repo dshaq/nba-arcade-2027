@@ -233,7 +233,7 @@ function reveal(po, pull){
   po.append(nm, st);
   let k=0, flipped=false;
   const cards=[...st.querySelectorAll('.flip')];
-  const label=p=> p.v==='moment' ? `${SET[p.m.pid-1].n.toUpperCase()}<small style="color:#ff6b81">★ MOMENT · ${p.m.fp} FP ★</small>` : `${p.c.n.toUpperCase()}<small style="color:${p.v==='gold'?'#ffd93d':p.v==='holo'?'#b36bff':p.v==='neon'?'#ff5fbf':'#a8c0e8'}">${RAR[p.v].name}${p.isNew?' · NEW!':''}</small>`;
+  const label=p=> p.v==='moment' ? `${SET[p.m.pid-1].n.toUpperCase()}<small style="color:#ff6b81">★ MOMENT · ${p.m.fp} FP ★</small>` : (p.dupe!=null ? `${p.c.n.toUpperCase()}<small style="color:${p.isNew?'#7dffa0':'#ffd93d'}">${p.isNew?'NEW CARD!':`DUPLICATE · +40 EXP · ${Math.min(p.copies,10)}/10 TO EVOLVE`}</small>` : `${p.c.n.toUpperCase()}<small style="color:#a8c0e8">${RAR[p.v].name}${p.isNew?' · NEW!':''}</small>`);
   const upd=()=>{ ct.textContent = `${k+1} / ${pull.length}`; cards.forEach((c,j)=>c.classList.toggle('top',j===k)); };
   upd();
   attachTilt(st, ()=>flipped?cards[k]?.querySelector('.tcard'):null, .9);

@@ -352,7 +352,7 @@ fzSched = function(){
     return `<div class="mrow ${me?'me':''}"><div class="side"><span class="av" data-ch="${chOf(a)}"></span><span class="wl">${ra.wins}-${ra.losses}</span><small>${a.team.toUpperCase()}</small></div>
       <b class="${sa>sb?'hi':''}">${sa}</b><i>VS</i><b class="${sb>sa?'hi':''}">${sb}</b>
       <div class="side r"><span class="wl">${rb.wins}-${rb.losses}</span><span class="av" data-ch="${chOf(b)}"></span><small>${b.team.toUpperCase()}</small></div></div>`; }).join('');
-  return `<div class="wkn"><button onclick="FZ.wk=Math.max(1,FZ.wk-1);render()">◀</button><div>${w-1===LIVE.widx?'▸ THIS WEEK':w-1<LIVE.widx?'FINAL':'UPCOMING'}<b>${fmtD(wr.mon)} – ${fmtD(wr.sun)}</b></div><button onclick="FZ.wk=Math.min(${n||8},FZ.wk+1);render()">▶</button></div>
+  return `<div class="wkn"><button class="warr" ${w<=1?'disabled':''} onclick="FZ.wk=Math.max(1,FZ.wk-1);render()">◀</button><div>${w-1===LIVE.widx?'▸ THIS WEEK':w-1<LIVE.widx?'FINAL':'UPCOMING'}<b>${fmtD(wr.mon)} – ${fmtD(wr.sun)}</b></div><button class="warr" ${w>=(n||8)?'disabled':''} onclick="FZ.wk=Math.min(${n||8},FZ.wk+1);render()">▶</button></div>
     <div class="lbox"><h3>WEEK ${w} MATCH-UPS</h3><div class="sub">${fmtD(wr.mon).toUpperCase()} – ${fmtD(wr.sun).toUpperCase()}</div>${rows}<div class="foot">${n} WEEKS IN THE FALL RUN</div></div>`;
 };
 const _standings = standings;

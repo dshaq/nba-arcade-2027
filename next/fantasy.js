@@ -88,7 +88,7 @@ function mondayText(pick){
   ].filter(Boolean);
   return pick(opp,'mo') + ' ' + pick(you.slice(0, you.length>1?you.length-1:1),'my');
 }
-function nextLine(){ typewrite(document.getElementById('dlg'), battleText()); }   // tap = type it out again
+function nextLine(){ typewrite(document.getElementById('dlg'), battleText(), 45); }   // tap = type it out again
 
 /* ── Roster moves ─────────────────────────────────────────────────────────── */
 const getSlot = pos => ({a:S.fl.act, b:S.fl.bench, i:S.fl.ir})[pos[0]][+pos.slice(1)];
@@ -122,8 +122,8 @@ function fzTap(pos){
 }
 
 /* ── page ─────────────────────────────────────────────────────────────────── */
-function openFantasy(){
-  if(cur!=='fantasy'){ FZ.tab='roster'; FZ.sel=null; FZ.view=0; }
+function openFantasy(tab='roster'){
+  if(cur!=='fantasy'){ FZ.tab=tab; FZ.sel=null; FZ.view=0; }
   const wk=weekKey(), first = S.vsWeek!==wk && !(typeof LIVE!=='undefined' && LIVE.state==='connecting');
   go('fantasy').then(()=>{ if(first){ S.vsWeek=wk; save(); vsSplash(); } });
 }
@@ -362,7 +362,7 @@ function fzSched(){
     return `<div class="mrow ${me?'me':''}" onclick="say('Preview: box scores come later')"><div class="side"><span class="av" data-ch="${chOf(a)}"></span><span class="wl">${ra.w}-${ra.l}</span><small>${a.team.toUpperCase()}</small></div>
       <b class="${sa>sb?'hi':''}">${sa}</b><i>VS</i><b class="${sb>sa?'hi':''}">${sb}</b>
       <div class="side r"><span class="wl">${rb.w}-${rb.l}</span><span class="av" data-ch="${chOf(b)}"></span><small>${b.team.toUpperCase()}</small></div></div>`; }).join('');
-  return `<div class="wkn"><button onclick="FZ.wk=Math.max(1,FZ.wk-1);render()">◀</button><div>${w===MU.week?'▸ THIS WEEK':w<MU.week?'FINAL':'UPCOMING'}<b>${fmtD(st)} – ${fmtD(new Date(+st+6*864e5))}</b></div><button onclick="FZ.wk=Math.min(8,FZ.wk+1);render()">▶</button></div>
+  return `<div class="wkn"><button class="warr" ${w<=1?'disabled':''} onclick="FZ.wk=Math.max(1,FZ.wk-1);render()">◀</button><div>${w===MU.week?'▸ THIS WEEK':w<MU.week?'FINAL':'UPCOMING'}<b>${fmtD(st)} – ${fmtD(new Date(+st+6*864e5))}</b></div><button class="warr" ${w>=8?'disabled':''} onclick="FZ.wk=Math.min(8,FZ.wk+1);render()">▶</button></div>
     <div class="lbox"><h3>WEEK ${w} MATCH-UPS</h3><div class="sub">${fmtD(st).toUpperCase()} – ${fmtD(new Date(+st+6*864e5)).toUpperCase()}</div>${rows}<div class="foot">TAP A MATCH-UP FOR ITS BOX SCORE</div></div>`;
 }
 /* STANDINGS */
@@ -370,7 +370,7 @@ function fzStand(){
   const s=[...standings()]; if(FZ.ssort==='fp') s.sort((a,b)=>b.pf-a.pf);
   return `<div class="lbox"><h3>FALL RUN STANDINGS</h3><div class="sub">OCT 20 – DEC 27 · WEEK ${MU.week} OF 10</div>
     <div class="shead"><span>#</span><span>TEAM</span><span class="sk ${FZ.ssort==='wl'?'on':''}" onclick="FZ.ssort='wl';render()">W-L${FZ.ssort==='wl'?' ▼':''}</span><span class="sk ${FZ.ssort==='fp'?'on':''}" onclick="FZ.ssort='fp';render()">FP${FZ.ssort==='fp'?' ▼':''}</span></div>
-    ${s.map((t,k)=>`<div class="srow ${t.me?'me':''} ${k===0?'first':''}" style="cursor:pointer" onclick="FZ.tab='roster';S.rq='full';FZ.view=${t.i};FZ.sel=null;render()"><span>${k+1}</span><span class="av" data-ch="${chOf(t)}"></span><span class="tn"><em>${t.team.toUpperCase()}</em></span><span class="${FZ.ssort==='wl'?'hl':''}">${t.w}-${t.l}</span><b class="${FZ.ssort==='fp'?'hl':''}">${t.pf.toLocaleString()}</b></div>`).join('')}
+    ${s.map((t,k)=>`<div class="srow ${t.me?'me':''} ${k===0?'first':''}" style="cursor:pointer" onclick="FZ.tab='roster';S.rq='full';FZ.view=${t.i};FZ.sel=null;render()"><span>${k+1}</span><span class="av" data-ch="${chOf(t)}"></span><span class="tn"><em>${t.team.toUpperCase()}</em></span><span class="${FZ.ssort==='wl'?'hl':''}">${t.w}-${t.l}</span><b class="${FZ.ssort==='fp'?'hl':''}" data-v="${t.pf}" title="${t.pf.toLocaleString()} FP">${kFmt(t.pf)}</b></div>`).join('')}
     <div class="foot">TAP A TEAM FOR ITS ROSTER</div></div>`;
 }
 
@@ -389,8 +389,18 @@ function vsSplash(){
 AFTER.fantasy = ()=>{
   wvTrackHook();
   const b=document.getElementById('bossSp'); if(b) b.appendChild(ballerCv(OPP.ch||'bee',3));
-  const d=document.getElementById('dlg'); if(d) typewrite(d, battleText());
+  const d=document.getElementById('dlg'); if(d) typewrite(d, battleText(), 45);
+  standUp();
 };
+/* Standings: the first visit each day rolls every FP total up from zero, like the Challenge scores */
+function kFmt(n){ n=+n||0; return n>=1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(Math.round(n)); }
+function standUp(){
+  const els=[...document.querySelectorAll('.srow b[data-v]')]; if(!els.length || S.stUp===TODAY) return;
+  S.stUp=TODAY; save();
+  els.forEach((el,i)=>{ const tgt=+el.dataset.v; let v=0, t0=null; el.classList.add('roll');
+    const step=ts=>{ if(t0==null) t0=ts; const k=Math.min(1,(ts-t0)/(1100+i*120)); v=tgt*(1-Math.pow(1-k,3)); el.textContent=kFmt(v); if(k<1) requestAnimationFrame(step); else { el.textContent=kFmt(tgt); el.classList.remove('roll'); } };
+    el.textContent='0'; setTimeout(()=>requestAnimationFrame(step), 150+i*90); });
+}
 SCREENS.fantasy = fantasy;
 
 /* Fantasy styles for this batch */
@@ -561,4 +571,13 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .warr{height:40px!important;align-self:center;border:2px solid #000!important;border-radius:6px;background:#e94560!important;color:#fff!important;font-size:10px!important;box-shadow:0 3px 0 #7a1020}
 .warr:disabled{background:#3b2a40!important;box-shadow:none;opacity:.5!important}
 .wcar{grid-template-columns:30px minmax(0,1fr) 30px!important}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Nov 20 · Fantasy */
+.fz .mtabs button.on{background:var(--mc);border-color:var(--mc);color:#000;box-shadow:0 0 10px color-mix(in srgb,var(--mc) 45%,transparent)}
+.dlg{height:calc(2 * 2em + 20px)!important}
+.shead span:nth-child(3),.shead span:nth-child(4),.srow>span:nth-child(4),.srow>b{text-align:center!important;justify-self:center}
+.srow b.roll{color:var(--gold)}
+.wkn .warr{height:32px!important;width:100%}
 </style>`);

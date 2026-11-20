@@ -36,14 +36,14 @@ function paintPix(root=document){
 /* ── One card ── */
 function card16(n, pos, o={}){
   if(!n) return `<div class="rc16 empty ${pos&&pos[0]==='i'?'irs':''}" ${pos?`data-pos="${pos}"`:''}><div class="rc-in"><div class="rc-art"><span class="plus">${pos&&pos[0]==='i'?'IR':'+'}</span></div><div class="rc-bot"><b>${pos&&pos[0]==='i'?'EMPTY IR':'OPEN SLOT'}</b></div></div></div>`;
-  const p=P(n), rr=rarity(p.f), di=FZ.day, g = p.inj==='OUT' ? 'OUT' : dayGame(n, di), off = g==='NO GAME';
-  const fp = fpFor(p), fm = fpMode();
+  const p=P(n), rr=rarity(p.f), di=FZ.day, g = (()=>{ const sv=p.inj; if(sv!=='OUT') return dayGame(n,di); p.inj=null; try{ return dayGame(n,di); } finally{ p.inj=sv; } })(), off = g==='NO GAME';
+  const fm = fpMode(), fr = fpFor(p), fp = (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
   /* footer: game on the left (start time, LIVE/FINAL, OFF or OUT), FP on the right (orange = FP/G, blue = today) */
-  const gl = g==='OUT' ? 'OUT' : off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0] : 'LIVE';
+  const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}</div>
-    <div class="rc-bot"><b class="gm ${gl==='OUT'?'o':gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
+    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
+    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
 
 /* ── Line-up helpers (live.js swaps these for the real engine) ── */
@@ -114,47 +114,50 @@ function rosterStage(){
     ${mine?`<div class="autos"><button onclick="autoDay()">⚡ AUTO-SET TODAY</button><button onclick="autoWeek()">📅 AUTO-SET WEEK</button></div>`:''}
     <div class="sg-lbl"><span>ACTIVE ${act.filter(Boolean).length}/8</span>${fpTog()}</div>
     <div class="cgrid">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:mine&&FZ.pick==='a'+k&&!!n})).join('')}</div>
-    <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?`<span>${FZ.pick?'TAP A CARD TO SWAP · TAP AGAIN TO CANCEL':'TAP TWO CARDS TO SWAP · HOLD FOR PROFILE'}</span>`:'<span>HOLD A CARD FOR PROFILE</span>'}</div>
+    <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?`<span>HOLD + DRAG TO SWAP · TAP FOR PROFILE</span>`:'<span>TAP A CARD FOR PROFILE</span>'}</div>
     <div class="cgrid">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]}):''}</div>
   </div>`;
 }
 
 /* ── Hold & drag ── */
-/* Tap a card to pick it up (P1 blinks on it), tap another to swap, tap it again to put it down.
-   Hold any card for its profile. */
+/* Tap a card for the player card. Hold a beat, then drag onto another card to swap. */
 function stageDrag(){
   const stage=document.querySelector('.stage'); if(!stage) return;
   stage.querySelectorAll('.rc16[data-pn],.rc16[data-pos]').forEach(card=>{
-    let t=null, held=false, sx=0, sy=0, moved=false;
-    const start=(x,y)=>{ held=false; moved=false; sx=x; sy=y; clearTimeout(t);
-      t=setTimeout(()=>{ if(moved||!card.dataset.pn) return; held=true; navigator.vibrate?.(12); card.classList.add('held');
-        setTimeout(()=>card.classList.remove('held'),250);
-        openPlayer(card.dataset.pn, FZ.view===0&&card.dataset.pos?rosterActions(card.dataset.pos):[]); }, 450); };
-    const move=(x,y)=>{ if(Math.hypot(x-sx,y-sy)>10){ moved=true; clearTimeout(t); } };
-    const end=()=>{ clearTimeout(t); if(held||moved) return; tap(card); };
+    let t=null, held=false, sx=0, sy=0, moved=false, ghost=null, over=null, dx=0, dy=0;
+    const canDrag = ()=> FZ.view===0 && !!card.dataset.pos && !!card.dataset.pn;
+    const lift=()=>{ held=true; navigator.vibrate?.(12); const r=card.getBoundingClientRect(); dx=sx-r.left; dy=sy-r.top;
+      ghost=card.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=r.width+'px'; ghost.style.height=r.height+'px'; ghost.style.left=r.left+'px'; ghost.style.top=r.top+'px';
+      document.body.appendChild(ghost); card.classList.add('lifted'); };
+    const start=(x,y)=>{ held=false; moved=false; sx=x; sy=y; clearTimeout(t); if(canDrag()) t=setTimeout(lift, 280); };
+    const move=(x,y)=>{
+      if(!held){ if(Math.hypot(x-sx,y-sy)>10){ moved=true; clearTimeout(t); } return; }
+      ghost.style.left=(x-dx)+'px'; ghost.style.top=(y-dy)+'px';
+      const el=document.elementFromPoint(x,y)?.closest('.stage .rc16[data-pos]');
+      const tgt = el && el!==card ? el : null;
+      if(tgt!==over){ over?.classList.remove('over'); over=tgt; over?.classList.add('over'); }
+    };
+    const drop=()=>{ const a=card.dataset.pos, b=over?.dataset.pos; ghost?.remove(); ghost=null; card.classList.remove('lifted'); over?.classList.remove('over'); over=null; held=false;
+      if(a&&b){ FZ.pick=null; if(swapPos(a,b)){ render(); say('Swapped'); lineupCheck(); } else render(); } };
+    const end=()=>{ clearTimeout(t); if(held){ drop(); return; } if(moved) return;
+      if(card.dataset.pn) openPlayer(card.dataset.pn, FZ.view===0&&card.dataset.pos?rosterActions(card.dataset.pos):[]); };
     card.addEventListener('touchstart', e=>{ const p=e.touches[0]; start(p.clientX,p.clientY); }, {passive:true});
-    card.addEventListener('touchmove', e=>{ const p=e.touches[0]; move(p.clientX,p.clientY); }, {passive:true});
+    card.addEventListener('touchmove', e=>{ const p=e.touches[0]; if(held) e.preventDefault(); move(p.clientX,p.clientY); }, {passive:false});
     card.addEventListener('touchend', e=>{ e.preventDefault(); end(); });
-    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); });
-    card.addEventListener('mousedown', e=>{ if(e.button) return; start(e.clientX,e.clientY);
-      const mu=()=>{ removeEventListener('mouseup',mu); end(); }; addEventListener('mouseup',mu); });
+    card.addEventListener('touchcancel', ()=>{ clearTimeout(t); if(held){ over=null; drop(); } });
+    card.addEventListener('mousedown', e=>{ if(e.button) return; e.preventDefault(); start(e.clientX,e.clientY);
+      const mm=ev=>move(ev.clientX,ev.clientY), mu=()=>{ removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); end(); };
+      addEventListener('mousemove',mm); addEventListener('mouseup',mu); });
     card.addEventListener('contextmenu', e=>e.preventDefault());
   });
 }
-function tap(card){
-  const pos=card.dataset.pos;
-  if(FZ.view!==0 || !pos){ if(card.dataset.pn) say('Hold a card to see the player'); return; }
-  if(!FZ.pick){ if(!card.dataset.pn) return; FZ.pick=pos; render(); return; }
-  if(FZ.pick===pos){ FZ.pick=null; render(); return; }
-  const a=FZ.pick; FZ.pick=null;
-  if(swapPos(a,pos)){ render(); say('Swapped'); lineupCheck(); } else render();
-}
+function tap(card){ if(card.dataset.pn) openPlayer(card.dataset.pn, FZ.view===0&&card.dataset.pos?rosterActions(card.dataset.pos):[]); }
 function killGhosts(){}
 function rosterActions(pos){
   const n=getSlot(pos); if(!n) return [];
   const a=[];
   if(isOut(n) && pos[0]!=='i' && !S.fl.ir[0]) a.push(['MOVE TO IR', ()=>{ if(swapPos(pos,'i0')){ render(); say(`${nm(n)} moved to IR`); lineupCheck(); } }]);
-  if(pos[0]==='a') a.push(['BENCH HIM', ()=>{ const b=S.fl.bench.findIndex(x=>x==null); if(b>=0){ if(swapPos(pos,'b'+b)){ render(); say('Benched'); } } else say('Bench is full · drag him onto a bench card to swap'); }]);
+  if(pos[0]==='a') a.push(['BENCH HIM', ()=>{ const b=S.fl.bench.findIndex(x=>x==null); if(b>=0){ if(swapPos(pos,'b'+b)){ render(); say('Benched'); } } else say('Bench is full · hold and drag him onto a bench card to swap'); }]);
   if(pos[0]==='b'){ const open=S.fl.act.findIndex(x=>x==null); a.push(['START HIM', ()=>{ const k=open>=0?open:S.fl.act.map((x,i)=>[x,i]).filter(([x])=>x).sort((p,q)=>lineupScore(p[0],TODAY_I)-lineupScore(q[0],TODAY_I))[0][1]; if(swapPos(pos,'a'+k)){ render(); say(`${nm(n)} is in`); lineupCheck(); } }]); }
   return a;
 }
@@ -168,7 +171,7 @@ function openPlayer(n, actions=[]){
     return `<div class="sd ${di===TODAY_I?'tdy':''} ${g?'':'off'}"><b>${d}</b><span>${g||'—'}</span><i>${fp!=null?fp:''}</i></div>`; }).join('');
   const log = gameLog(p).map(r=>`<tr><td>${r.d}</td><td>${r.o}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td><b>${r.fp}</b></td></tr>`).join('');
   const o=overlay(`<div class="sheet pbox" style="--c:${({legend:'#ff5fbf',gold:'#ffd93d',silver:'#c8d0e0',bronze:'#d98a4e'})[rarity(p.f)]}">
-    <div class="pb-top">${card16(n,null)}<div class="pb-id"><small>${RARE_LBL[rarity(p.f)]} · ${owner}</small><h3>${p.n.toUpperCase()}</h3><p>${p.t} · ${p.p}${p.inj?` · <b style="color:${p.inj==='OUT'?'#ff3b5c':'var(--gold)'};font-weight:normal">${p.inj}</b>`:''}</p>
+    <div class="pb-top">${card16(n,null,{noinj:1})}<div class="pb-id"><small>${RARE_LBL[rarity(p.f)]} · ${owner}</small><h3>${p.n.toUpperCase()}</h3><p>${p.t} · ${p.p}${p.inj?` · <b style="color:${p.inj==='OUT'?'#ff3b5c':'var(--gold)'};font-weight:normal">${p.inj}</b>`:''}</p>
       <p class="tdg">${GAMES[p.t]?`TODAY ${GAMES[p.t].time} ${GAMES[p.t].home?'vs':'@'} ${GAMES[p.t].opp}`:'NO GAME TODAY'}</p></div></div>
     <div class="pstats"><div><b>${p.f}</b>FP/G</div><div><b>${p.l5}</b>LAST 5</div><div><b>${p.wk}</b>THIS WEEK</div><div><b>${p.fall}</b>FALL</div></div>
     <div class="cap">THIS WEEK</div><div class="sched7">${sched}</div>
@@ -282,4 +285,14 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .wkrow b{font-weight:normal;color:var(--gold)}.wkrow i{font-style:normal;color:var(--green)}.wkrow.warn i{color:#ff3b5c}.wkrow.warn span{color:#ffd0d8}
 .pbx{position:sticky;top:0;float:right;z-index:5;width:34px;height:34px;margin:-6px -4px 0 8px;border-radius:50%;border:2px solid #000;background:#e94560;color:#fff;font-size:12px;cursor:pointer;box-shadow:0 3px 0 #7a1020}
 @media (prefers-reduced-motion: reduce){ .rc16,.stage,.rc16 .rc-in::after{animation:none!important} }
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Nov 20 · roster cards */
+.rc-bot i.d,.fpt button.on.day{color:#ffd93d}
+.fpt button.on.day{background:#ffd93d!important;color:#1a1200!important}
+.rc-art .injb{position:absolute;left:-12%;right:-12%;top:50%;z-index:5;transform:translateY(-50%) rotate(-14deg);text-align:center;font-size:6px;letter-spacing:.06em;color:#1a1200;background:repeating-linear-gradient(45deg,#ffd93d 0 6px,#f5b400 6px 12px);border-top:1px solid #000;border-bottom:1px solid #000;padding:2px 0;text-shadow:none;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.rc-art .injb.o{color:#fff;background:repeating-linear-gradient(45deg,#ff3b5c 0 6px,#c4122f 6px 12px);text-shadow:1px 1px 0 #000}
+.rc16.ghost{transition:none}
+.stage .rc-bot{padding:2px 2px;gap:3px}.stage .rc-bot b.gm{overflow:visible;text-overflow:clip}.stage .rc-bot i{flex:none}
 </style>`);

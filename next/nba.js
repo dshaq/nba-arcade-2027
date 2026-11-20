@@ -20,21 +20,45 @@ applyTheme();
 const nb_render = render;
 render = function(){ if(S.profile.name) ME.name=S.profile.name; if(S.profile.team){ ME.team=S.profile.team; if(TEAMS[0]) TEAMS[0].team=S.profile.team; } if(S.profile.name && TEAMS[0]) TEAMS[0].m=S.profile.name; return nb_render.apply(this, arguments); };
 
-/* ── BALLERS: two tabs ── */
+/* ── TEXT SIZE ── Large (default) = every font 30% bigger than the original design; Small = original.
+   Works by scaling each px font-size in the page's styles once (remembering the original), plus any
+   inline font-sizes in rendered markup. Switching back and forth always starts from the originals. */
+S.text ||= 'large';
+const TXT_K = () => S.text==='small' ? 1 : 1.3;
+const _fsOrig = new WeakMap();
+function scaleFonts(){
+  const k=TXT_K();
+  for(const sh of document.styleSheets){ let rs; try{ rs=sh.cssRules; }catch(e){ continue; }
+    const walk=rs=>{ for(const r of rs){ if(r.cssRules) walk(r.cssRules);
+      const st=r.style; if(!st||!st.fontSize) continue;
+      let o=_fsOrig.get(r); if(o===undefined){ const m=st.fontSize.match(/^([\d.]+)px$/); o=m?+m[1]:null; _fsOrig.set(r,o); }
+      if(o) st.setProperty('font-size',(o*k).toFixed(2)+'px', st.getPropertyPriority('font-size')); } };
+    walk(rs); }
+  document.querySelectorAll('[style*="font-size"]').forEach(el=>{
+    if(el.closest('svg')) return;
+    if(el.dataset.fs0===undefined){ const m=el.style.fontSize.match(/^([\d.]+)px$/); el.dataset.fs0=m?m[1]:''; }
+    if(el.dataset.fs0) el.style.fontSize=(+el.dataset.fs0*k).toFixed(2)+'px'; });
+  document.documentElement.dataset.text=S.text;
+}
+let _fsQ=0; const queueFonts=()=>{ if(_fsQ) return; _fsQ=requestAnimationFrame(()=>{ _fsQ=0; scaleFonts(); }); };
+new MutationObserver(queueFonts).observe(document.head,{childList:true});
+new MutationObserver(muts=>{ if(muts.some(m=>[...m.addedNodes].some(n=>n.nodeType===1 && (n.matches?.('[style*="font-size"]') || n.querySelector?.('[style*="font-size"]'))))) queueFonts(); }).observe(document.body,{childList:true,subtree:true});
+scaleFonts();
+
+/* ── BALLERS is only Ballers again; profile, theme and text size live in SETTINGS ── */
 const BZ = {tab:'baller'};
-const nb_baller = SCREENS.baller;
-SCREENS.baller = function(){
-  const tabs=`<div class="mtabs bzt">${[['baller','🎨 BALLER'],['profile','👤 PROFILE']].map(([k,l])=>`<button class="${BZ.tab===k?'on':''}" onclick="BZ.tab='${k}';render()">${l}</button>`).join('')}</div>`;
-  if(BZ.tab==='baller') return nb_baller().replace('<h1>BALLERS</h1></div>','<h1>BALLERS</h1></div>'+tabs);
+function settings(){
   const f=(id,l,v,ph)=>`<label class="pf"><span>${l}</span><input id="${id}" value="${String(v||'').replace(/"/g,'&quot;')}" placeholder="${ph}" maxlength="24"></label>`;
-  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>BALLERS</h1></div>${tabs}
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>SETTINGS</h1></div>
     <div class="panel"><div class="sec">PROFILE</div>
       ${f('pfn','DISPLAY NAME',ME.name,'Your name')}${f('pft','FANTASY TEAM NAME',ME.team,'Your team')}
       <button class="go" style="width:100%;margin-top:12px" onclick="saveProfile()">SAVE</button>
       <div class="reward" style="margin:12px 0 0">Preview: saved on this phone only, so the real league isn't touched.</div></div>
+    <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
     <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
   </div>`;
-};
+}
+SCREENS.settings = settings;
 function saveProfile(){ const n=document.getElementById('pfn').value.trim(), t=document.getElementById('pft').value.trim();
   if(n.length<2){ say('Name is too short'); return; } S.profile={name:n, team:t||ME.team}; save(); render(); say('Profile saved'); }
 
@@ -45,22 +69,41 @@ function statsUsers(){
   const users=TEAMS.map((t,i)=>({i, m:i===0?ME.name:t.m, team:i===0?ME.team:t.team, ch:i===0?S.active:chOf(t), me:i===0}));
   SU.sel=Math.min(SU.sel,users.length-1);
   const u=users[SU.sel], row=st.find(x=>x.i===u.i)||{w:0,l:0,pf:0}, rank=sorted.findIndex(x=>x.i===u.i)+1;
-  const roster=(u.i===0?myNames():(OTHER[u.i]||[])).map(P).filter(p=>p&&p.n), mvp=roster.sort((a,b)=>(+b.fall||0)-(+a.fall||0))[0];
+  const roster=(u.i===0?myNames():(OTHER[u.i]||[])).filter(Boolean), cap=captainOf(u.i, roster), cp=cap?P(cap):null;
   const byName=(rows)=>rows.find(r=>u.me?r[1]==null:r[0]===u.m);
   const d=byName(DSTAND), c=byName(CSTAND);
   const stat=(l,v,sub)=>`<div class="ust"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
-  return `<div class="usel"><div class="ugrid">${users.map((x,k)=>`<button class="ut ${k===SU.sel?'on':''} ${x.me?'me':''}" onclick="SU.sel=${k};render()"><span class="av" data-ch="${x.ch}"></span>${k===SU.sel?'<i class="p1">P1</i>':''}<em>${x.m}</em></button>`).join('')}</div>
-    <div class="upick"><div class="ubig"><span class="av big" data-ch="${u.ch}"></span><div class="ush"></div></div>
-      <div class="uid"><b>${u.m.toUpperCase()}</b><small>${u.team.toUpperCase()}</small></div>
-      <div class="usts">
-        ${stat('FANTASY RECORD', `${row.w}-${row.l}`, `${ordinal(rank).toUpperCase()} OF ${users.length}`)}
-        ${stat('RUN TOTAL FP', (+row.pf||0).toLocaleString())}
-        ${stat('FANTASY MVP', mvp?mvp.s:'—', mvp?`${(+mvp.fall||0).toLocaleString()} FP`:'')}
-        ${stat('DUEL', d?(d[2]==='—'?'—':d[2]+'%'):'—', d?`🔥 ${d[4]} STREAK`:'')}
-        ${stat('CHALLENGE', c?c[4]:'—', c?`${c[3]} PTS`:'')}
-        ${stat('CARDS', '—', 'COMING SOON')}
-      </div></div></div>`;
+  return `<div class="usel"><div class="ugrid" style="grid-template-columns:repeat(${Math.min(6,users.length)},minmax(0,1fr))">${users.map((x,k)=>`<button class="ut ${k===SU.sel?'on':''} ${x.me?'me':''}" onclick="SU.sel=${k};render()"><span class="av" data-ch="${x.ch}"></span>${k===SU.sel?'<i class="p1">P1</i>':''}<em>${x.m}</em></button>`).join('')}</div>
+    <div class="ustage" id="ustage"><span class="u1p">${u.me?'1P':'CPU'}</span>
+      <div class="uhero"><span class="av" data-ch="${u.ch}"></span></div>
+      <div class="ubio"><div class="uname">${u.m}</div><div class="uteam">${u.team.toUpperCase()}</div><div class="urank">${ordinal(rank).toUpperCase()} OF ${users.length}</div></div></div>
+    <div class="usts">
+      ${stat('FANTASY', `${row.w}-${row.l}`, `${(+row.pf||0).toLocaleString()} FP`)}
+      ${stat('DUEL', d?(d[2]==='—'?'—':d[2]+'%'):'—', d?`🔥 ${d[4]} STREAK`:'')}
+      ${stat('CHALLENGE', c?c[4]:'—', c?`${c[3]} PTS`:'')}
+    </div>
+    <div class="ucap ${u.me?'mine':''}" ${u.me?'onclick="pickCaptain()"':''}>
+      <div class="cc">${cp?pcard(cap,{noTap:1}):'<div class="tcard pc mini"></div>'}</div>
+      <div class="ci"><span>FANTASY CAPTAIN</span>${cp?`${(()=>{ const l=cp.n.split(' ').slice(-1)[0].toUpperCase(); return `<b style="font-size:${Math.min(24,Math.floor(150/l.length))}px">${l}</b>`; })()}<small>${cp.n.toUpperCase()} · ${cp.t}</small>
+        <div class="cst"><i>${(+cp.f||0).toFixed(1)}<em>FP/G</em></i><i>${(+cp.fall||0).toLocaleString()}<em>RUN FP</em></i></div>`:'<b>—</b>'}
+        ${u.me?`<button class="go">${S.captain&&roster.includes(S.captain)?'CHANGE CAPTAIN':'PICK YOUR CAPTAIN'}</button>`:''}</div></div></div>`;
 }
+/* Your captain is your pick; everyone else's is their top scorer this run until they choose one */
+function captainOf(i, roster){
+  if(i===0 && S.captain && roster.includes(S.captain)) return S.captain;
+  return [...roster].sort((a,b)=>(+P(b).fall||0)-(+P(a).fall||0))[0]||null;
+}
+function pickCaptain(){
+  const ns=myNames().filter(Boolean);
+  const o=overlay(`<div class="sheet capk" style="--c:var(--gold)"><h3>⭐ FANTASY CAPTAIN</h3><p>Pick the player who fronts your profile. Only players on your Fantasy team.</p>
+    <div class="capg">${ns.map(n=>`<button data-n="${escA(n)}" class="${S.captain===n?'on':''}">${pcard(n,{noTap:1})}<em>${P(n).s}</em></button>`).join('')}</div></div>`);
+  (o||document).querySelectorAll('.capg button').forEach(b=>b.onclick=()=>{ S.captain=b.dataset.n; save(); document.querySelector('.ov')?.remove(); document.querySelectorAll('.overlay,.ovl').forEach(x=>x.remove()); render(); say(`${P(b.dataset.n).s} is your captain`); });
+}
+/* stage colour = the baller's own colour */
+AFTER.stats = (prev=>()=>{ prev&&prev(); const st=document.getElementById('ustage'); if(!st) return;
+  setTimeout(()=>{ const cv=st.querySelector('.uhero canvas'); if(!cv) return; try{ const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data; const bins={};
+    for(let k=0;k<d.length;k+=4){ if(d[k+3]<200) continue; const r=d[k],g=d[k+1],b=d[k+2], mx=Math.max(r,g,b), mn=Math.min(r,g,b); if(mx-mn<50||mx<70) continue; const key=(r>>5)+','+(g>>5)+','+(b>>5); (bins[key]||=[0,0,0,0]); bins[key][0]++; bins[key][1]+=r; bins[key][2]+=g; bins[key][3]+=b; }
+    const top=Object.values(bins).sort((a,b)=>b[0]-a[0])[0]; if(top) st.style.setProperty('--bc',`rgb(${top[1]/top[0]|0},${top[2]/top[0]|0},${top[3]/top[0]|0})`); }catch(e){} }, 30); })(AFTER.stats);
 
 /* ── NBA SCORES ── */
 const NZ = {tab:'scores', d:0, cache:{}};
@@ -114,7 +157,10 @@ ydSplash = function(){
 };
 
 document.head.insertAdjacentHTML('beforeend',`<style>
-.bzt{margin-bottom:10px}
+.tsz{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tsz button{font:inherit;font-size:6px;color:var(--t2);background:var(--bg);border:2px solid var(--edge);border-radius:8px;padding:10px 4px;cursor:pointer;line-height:1.8}
+.tsz button b{display:block;font-weight:normal;color:var(--t1);margin-bottom:4px}.tsz button small{display:block;font-size:5px;color:var(--t3)}
+.tsz button.on{border-color:var(--gold);color:var(--gold)}
 .pf{display:block;margin-top:12px}.pf span{display:block;font-size:6px;color:var(--t3);margin-bottom:6px}
 .pf input{width:100%;font:inherit;font-size:9px;padding:11px 10px;border-radius:8px;border:2px solid var(--edge);background:var(--bg);color:var(--t1)}
 .thm{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -158,4 +204,37 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .nsr{padding:4px 0;border-bottom:1px solid #12203c;color:var(--t1)}.nsr.cut{border-bottom:2px dashed var(--t3)}
 .nsr .tm{display:flex;align-items:center;gap:6px}.nsr img{width:16px;height:16px;object-fit:contain}
 .nsr span:nth-child(n+3),.nsh span:nth-child(n+3){text-align:right}
+</style>`);
+
+if(!document.querySelector('link[href*="Bungee"]')) document.head.insertAdjacentHTML('beforeend','<link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">');
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Nov 20 · Stats */
+.st .mhead{align-items:center}
+.stdd{position:relative;margin-left:auto;display:inline-block}
+.stdd span{display:block;font-size:6.5px;padding:8px 10px;border-radius:14px;border:2px solid var(--blue);background:var(--card);color:var(--t1);white-space:nowrap;pointer-events:none}
+.stdd select{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:16px;width:100%}
+.ustage{--bc:#ff6a1a;position:relative;height:150px;border:3px solid #000;box-shadow:0 0 0 2px #2d2668,0 8px 24px rgba(0,0,0,.5);overflow:hidden;border-radius:4px;
+  background:repeating-linear-gradient(-62deg,transparent 0 14px,color-mix(in srgb,var(--bc) 22%,transparent) 14px 16px),radial-gradient(ellipse at 22% 35%,color-mix(in srgb,var(--bc) 55%,#000) 0%,#0b0726 62%)}
+.ustage::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+.u1p{position:absolute;right:9px;top:9px;font-size:7px;color:#000;background:#ff3b5c;padding:4px 6px;transform:skewX(-12deg);z-index:2;box-shadow:2px 2px 0 #000}
+.uhero{position:absolute;left:8px;top:8px;z-index:1}
+.uhero .av canvas{width:96px;height:96px;image-rendering:pixelated;filter:drop-shadow(5px 5px 0 rgba(0,0,0,.45));animation:float 2.4s ease-in-out infinite}
+.ubio{position:absolute;right:12px;left:42%;top:34px;bottom:10px;display:flex;flex-direction:column;align-items:flex-end;gap:7px;text-align:right;z-index:2}
+.uname{font-family:'Bungee','Arial Black',Impact,sans-serif;font-size:30px;line-height:.9;transform:skewX(-12deg);color:#f4f2ff;text-shadow:3px 3px 0 var(--bc),5px 5px 0 #000;word-break:break-word}
+.uteam{font-size:6.5px;color:#ffd23d;letter-spacing:.1em;line-height:1.5}
+.urank{margin-top:auto;font-size:5.5px;color:#c8c2ff}
+.usts{grid-template-columns:repeat(3,minmax(0,1fr))!important;margin-top:0!important}
+.ucap{display:grid;grid-template-columns:118px 1fr;gap:12px;align-items:center;padding:12px;border:3px solid #000;box-shadow:0 0 0 2px var(--gold);border-radius:10px;background:radial-gradient(circle at 20% 30%,#3a2a10,#0a0818 70%);min-height:190px}
+.ucap.mine{cursor:pointer}
+.ucap .cc .tcard{width:118px}
+.ucap .ci{display:flex;flex-direction:column;gap:7px;min-width:0}
+.ucap .ci>span{font-size:6px;color:var(--gold);letter-spacing:.1em}
+.ucap .ci b{font-family:'Bungee','Arial Black',Impact,sans-serif;font-weight:normal;font-size:24px;line-height:.95;color:#fff;transform:skewX(-10deg);text-shadow:2px 2px 0 #c4122f,4px 4px 0 #000;white-space:nowrap}
+.ucap .ci small{font-size:5.5px;color:var(--t2);line-height:1.6}
+.ucap .cst{display:flex;gap:10px}.ucap .cst i{font-style:normal;font-size:10px;color:#fff}.ucap .cst em{display:block;font-style:normal;font-size:4.5px;color:var(--t3);margin-top:4px}
+.ucap .go{align-self:flex-start;font-size:6px;padding:8px 10px}
+.capg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-height:52vh;overflow-y:auto;padding:2px}
+.capg button{font:inherit;background:none;border:2px solid transparent;border-radius:6px;padding:3px;cursor:pointer;color:var(--t2);display:flex;flex-direction:column;gap:4px;align-items:center}
+.capg button.on{border-color:var(--gold)}
+.capg em{font-style:normal;font-size:5px}
 </style>`);

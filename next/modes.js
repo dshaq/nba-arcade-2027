@@ -513,15 +513,15 @@ function duelDaily(){
   const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live' && !!pick;
   const sub = p => p.img ? (GAMES[p.team]&&GAMES[p.team].score ? `${GAMES[p.team].final?'FINAL':'LIVE'} · ${GAMES[p.team].score}` : `${GAMES[p.team]?GAMES[p.team].time+' ':''}${GAMES[p.team]?(GAMES[p.team].home?'vs ':'@ ')+GAMES[p.team].opp:''}`)
     : `${duelAvg(p.name)} ${DUEL_STAT.short}/G`;
-  const f=(p,v,o)=>`<div class="ftr ${pick===p.short?'p1':pick?'dim':''}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}
+  const f=(p,v,o,k)=>`<div class="ftr ${pick===p.short?'p1':pick&&!live?'dim':''} ${k}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}
       ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.short}</div><div class="fsub">${sub(p)}</div></div>`;
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
-    : live ? `<div class="alert live">● LIVE · ${DUEL_STAT.label}</div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
+    : live ? `<div class="livemq"><b class="lvb">LIVE</b><div class="mq"><span>${(()=>{ const t=`${A.short} ${DUEL_STAT.a} · ${B.short} ${DUEL_STAT.b} · ${DUEL_STAT.label} · `; return t.repeat(4); })()}</span></div></div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
   const futs = pick && futuresToday();
   return `<div class="arena" id="arena" style="--ca:${A.tc};--cb:${B.tc}">
       <div class="stk" title="Current streak · best ${STREAK.best}">🔥<b>${STREAK.cur}</b></div>
       <div class="dtitle">${DUEL.title.toUpperCase()}</div><div class="dsub">${DUEL.q||'WHO MAKES MORE 3-POINTERS TODAY?'}</div>
-      <div class="fighters ${live?'on':''}">${f(A,DUEL_STAT.a,DUEL_STAT.b)}<div class="vsbig">VS</div>${f(B,DUEL_STAT.b,DUEL_STAT.a)}</div>
+      <div class="fighters ${live?'on':''}">${f(A,DUEL_STAT.a,DUEL_STAT.b,'fa')}<div class="vsbig">VS</div>${f(B,DUEL_STAT.b,DUEL_STAT.a,'fb')}</div>
       ${pick?'':`<div class="choose">CHOOSE YOUR FIGHTER</div>`}
     </div>
     ${alert}
@@ -539,13 +539,13 @@ function ydSplash(){
   const w=y.win.p||P(y.win.n), l=y.lose.p||P(y.lose.n), hit=y.mine===y.win.n;
   const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
   const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
-  const side=(p,v,win)=>`<div class="yf ${win?'win':'lose'}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
-      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b>${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
+  const side=(p,v,win,k)=>`<div class="yf ${win?'win':'lose'} ${k}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
+      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
   const g=document.createElement('div'); g.className='dsplash';
   g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
-    <div class="yar">${side(w,y.win.v,true)}<div class="vsbig">VS</div>${side(l,y.lose.v,false)}</div>
+    <div class="yar arena" style="--ca:${w.c};--cb:${l.c}">${side(w,y.win.v,true,'fa')}<div class="vsbig">VS</div>${side(l,y.lose.v,false,'fb')}</div>
     <div class="yres ${y.picked===false?'':hit?'ok':'bad'}">${y.picked===false?'YOU DIDN\'T PICK':hit?`✓ YOU CALLED IT · 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
-    <div class="ywho"><span>PICKED CORRECTLY · ${right.length}</span><div>${right.length?right.map(([n,c])=>`<i><span class="av" data-ch="${c}"></span>${n}</i>`).join(''):'<em>Nobody</em>'}</div></div>
+    <div class="ywho"><span>PICKED CORRECTLY</span><div>${right.length?right.map(([n,c])=>`<i title="${n}"><span class="av" data-ch="${c}"></span></i>`).join(''):'<em>Nobody</em>'}</div></div>
     <button class="btn" id="ygo">CONTINUE TO TODAY'S DAILY DUEL ▶</button>`;
   g.querySelectorAll('.av[data-ch]').forEach(el=>{ if(BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
   g.querySelector('#ygo').onclick=()=>{ S.ydSeen=TODAY; save(); dissolve(()=>g.remove(), '#02020c'); };
@@ -720,7 +720,7 @@ function kothAfter(){
     k.insertAdjacentHTML('beforeend',`<div class="kmsg">${k.dataset.king.toUpperCase()} HOLDS THE HILL</div>`); }
   setTimeout(()=>k.querySelector('.kmsg')?.remove(), 3200);
 }
-/* HIGH SCORES: the Challenge top 3 as an arcade leaderboard.
+/* LEADERBOARD (arcade high-score style): the Challenge top 3 as an arcade leaderboard.
    First look each day: names type in and scores count up; anyone who moved up flashes NEW!
    The bottom line cycles through words of encouragement instead of INSERT COIN. */
 function hiScores(){
@@ -728,7 +728,7 @@ function hiScores(){
   const prev=(S.hsPrev&&S.hsPrev.day!==TODAY)?S.hsPrev.order:null;
   const ini=m=>String(m).replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'???';
   const box=r=>`<span class="mbox ${['g','s','b'][r-1]}"></span>`;
-  return `<div class="hs" id="hs"><div class="flash"></div><div class="t">HIGH SCORES</div><div class="th">${WLC.pool} · DAY ${Math.min(7,TODAY_I+1)} OF 7</div>
+  return `<div class="hs" id="hs"><div class="flash"></div><div class="t">LEADERBOARD</div><div class="th">${WLC.pool} · DAY ${Math.min(7,TODAY_I+1)} OF 7</div>
     <div class="hd"><span>RANK</span><span></span><span>NAME</span><span></span><span>FP/G</span><span>PRIZE</span></div>
     <div class="rows">${t.map((e,i)=>{ const was=prev?prev.indexOf(e.m):i, up=prev&&(was<0||was>i);
       return `<div class="r c${i+1} ${e.me?'me':''}" data-v="${e.tot}" data-ini="${ini(e.m)}">${up?'<span class="nw">NEW!</span>':''}<span>${ordinal(i+1).toUpperCase()}</span><span class="sp" data-ch="${e.me?S.active:e.ch}"></span><span class="nm">${ini(e.m)}</span><span class="dots">${'.'.repeat(30)}</span><span class="sc">${e.tot}</span><span class="pz">${box(i+1)}</span></div>`; }).join('')}</div>
@@ -736,14 +736,33 @@ function hiScores(){
     ${me?`<div class="you"><span>YOU · <b>${ordinal(me.rank).toUpperCase()}</b> · ${me.tot} FP/G</span><span>${me.rank<=3?'<b>IN THE MONEY</b>':third?`${(third.tot-me.tot).toFixed(1)} FP/G BEHIND 3RD`:''}</span></div>`:''}</div>`;
 }
 const HS_WORDS = ['YOU GOT THIS!','EVERY BUCKET COUNTS','KEEP CLIMBING!','NOBODY IS SAFE','THE PODIUM AWAITS','HEAT CHECK!','STAY HUNGRY','ONE GOOD NIGHT CHANGES EVERYTHING','BALL DON\'T LIE','IT AIN\'T OVER!'];
+/* The line under the scores: the player whose game yesterday moved his weekly average the most.
+   "JOKIC'S BIG NIGHT SET HIS WEEKLY AVERAGE AT 34.0 FP/G" / "DONCIC HAD A STINKER AND LOWERED HIS WEEKLY AVERAGE TO 23.5 FP/G" */
+function wlcStory(){
+  const E=cEntries(), names=[...new Set(E.flatMap(e=>e.picks||[]))].filter(n=>P(n)&&P(n).n);
+  if(!names.length) return null;
+  const ydStr=(()=>{ if(typeof LIVE!=='undefined'&&LIVE.on&&LIVE.today){ const t=LIVE.today, d=new Date(+t.slice(0,4),+t.slice(4,6)-1,+t.slice(6,8)-1); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; } return null; })();
+  let best=null;
+  for(const n of names){
+    const p=P(n); let yFp=null, prior=[];
+    if(ydStr){ const id=LIVE.pid?.get(n); let ws='0', we='99999999'; try{ [ws,we]=LIVE.W.wlcWeekRange(LIVE.wk); }catch(e){}
+      const lines=(LIVE.byPid?.get(String(id))||[]).filter(e=>String(e.date)>=ws && String(e.date)<=we);
+      const y=lines.find(e=>String(e.date)===ydStr); if(!y) continue; yFp=+y.fp||0; prior=lines.filter(e=>String(e.date)<ydStr).map(e=>+e.fp||0);
+    } else { if(TODAY_I===0) continue; yFp=Math.round((+p.f||20)*(.35+hsh(n+TODAY)*1.3)); prior=Array.from({length:Math.max(0,TODAY_I-1)},(_,i)=>Math.round((+p.f||20)*(.7+hsh(n+i)*.6))); }
+    const before = prior.length ? prior.reduce((a,b)=>a+b,0)/prior.length : (+p.f||0);
+    const after = (prior.reduce((a,b)=>a+b,0)+yFp)/(prior.length+1);
+    const swing = Math.abs(yFp-before);
+    if(!best || swing>best.swing) best={n:p.s, up:yFp>=before, after:after.toFixed(1), swing};
+  }
+  if(!best) return null;
+  return best.up ? `${best.n}'S BIG NIGHT SET HIS WEEKLY AVERAGE AT ${best.after} FP/G` : `${best.n} HAD A STINKER AND LOWERED HIS WEEKLY AVERAGE TO ${best.after} FP/G`;
+}
 function hsAfter(){
   const h=document.getElementById('hs'); if(!h) return;
   h.querySelectorAll('.sp[data-ch]').forEach(el=>{ if(!el.firstChild && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
-  const c=h.querySelector('#hsc'); let k=Math.floor(hsh(TODAY)*HS_WORDS.length);
-  const me=cEntries().find(e=>e.me), rank=me?me.rank:0;
-  const words=[rank===1?'DEFEND YOUR CROWN!':rank&&rank<=3?'HOLD YOUR SPOT!':`${Math.max(1,6-TODAY_I)} DAYS TO MAKE YOUR MOVE`, ...HS_WORDS];
-  const show=()=>{ if(!c.isConnected){ clearInterval(hsAfter.iv); return; } c.textContent=words[k++%words.length]; };
-  clearInterval(hsAfter.iv); show(); hsAfter.iv=setInterval(show, 2600);
+  const c=h.querySelector('#hsc'); clearInterval(hsAfter.iv);
+  let story=null; try{ story=wlcStory(); }catch(e){}
+  c.textContent = story || 'ALL EYES ON TONIGHT\'S GAMES';
   if(S.hsSeen===TODAY) return;
   const rows=[...h.querySelectorAll('.r')]; rows.forEach(r=>{ r.style.opacity=0; r.querySelector('.nm').textContent=''; r.querySelector('.sc').textContent=''; });
   rows.forEach((r,i)=>setTimeout(()=>{ r.style.opacity=1; const full=r.dataset.ini, nm=r.querySelector('.nm'), sc=r.querySelector('.sc'), tgt=+r.dataset.v;
@@ -770,7 +789,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .hs .mbox::before{content:'';position:absolute;left:5px;top:-2px;width:2px;height:12px;background:var(--gold)}
 .hs .mbox::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;font-size:6px;color:#fff;text-shadow:1px 1px 0 #000}
 .hs .mbox.g{background:#d9a400;box-shadow:inset 0 3px 0 #ffe98a}.hs .mbox.s{background:#8d97ad;box-shadow:inset 0 3px 0 #d7deec}.hs .mbox.b{background:#a0522d;box-shadow:inset 0 3px 0 #d98a5a}
-.hs .coin{text-align:center;font-size:7px;color:#fff;margin:10px 0;min-height:9px;animation:blink 1.3s steps(2) infinite}
+.hs .coin{text-align:center;font-size:6px;line-height:1.9;color:#ffd93d;margin:10px 0;min-height:9px;text-wrap:balance}
 .hs .you{display:flex;justify-content:space-between;gap:8px;font-size:5.5px;padding:8px 10px;margin:0 -12px;background:rgba(255,255,255,.06);color:var(--t1)}.hs .you b{font-weight:normal;color:var(--green)}
 .hs .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5}.hs .flash.go{animation:hsfl .4s}
 @keyframes hsfl{20%{opacity:.6}}
@@ -973,7 +992,8 @@ function stats(){
       ${CSTAND.map((r,k)=>{ const me=r[1]==null; return `<div class="r ${me?'me':''}"><span>${k+1}</span><span class="av" data-ch="${me?S.active:r[1]}"></span><span>${r[0]}</span><span class="fp">${r[2]}</span><span>${r[3]}</span><span>${r[4]}</span></div>`; }).join('')}</div>
       <div class="note">Each week: 1st place earns 3 points, 2nd earns 2, 3rd earns 1.</div>`;
   } else body = typeof fzStand==='function' ? fzStand() : '';
-  return mframe('st','STATS', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${STZ.tab===k?'on':''}" onclick="STZ.tab='${k}';render()">${l}</button>`).join('')}</div>${body}`);
+  const dd=`<label class="stdd"><select onchange="STZ.tab=this.value;render()">${tabs.map(([k,l])=>`<option value="${k}" ${STZ.tab===k?'selected':''}>${l}</option>`).join('')}</select><span>${(tabs.find(t=>t[0]===STZ.tab)||tabs[0])[1]} ▾</span></label>`;
+  return mframe('st','STATS', body, dd);
 }
 SCREENS.stats = stats;
 
@@ -996,4 +1016,27 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .vs .f.dc{width:clamp(56px,19vw,76px)!important;height:auto!important;border:0!important;background:none!important;overflow:visible!important;aspect-ratio:auto!important}
 .vs .f.dc .rc16 .rc-top .nm{font-size:4.5px}.vs .f.dc .rc16 .rc-bot{display:none}
 .vs .f.dc.pick .rc16{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Nov 20 · Duel */
+.vsbig{position:relative;z-index:5}
+.fighters .ftr.fb .rc16,.yar .yf.fb .rc16{--d:-2.3s;animation-duration:4.9s}
+.fighters .ftr.fb .rc16 .rc-in::after,.yar .yf.fb .rc16 .rc-in::after{animation-delay:-3.6s;animation-duration:8.3s}
+.livemq{display:flex;align-items:stretch;border:3px solid #000;box-shadow:0 0 0 2px #ff3b5c,0 0 22px rgba(255,59,92,.55);border-radius:8px;overflow:hidden;background:#1a0008;animation:lvpulse 1.4s ease-in-out infinite}
+.livemq .lvb{flex:none;display:flex;align-items:center;gap:6px;font-weight:normal;font-size:11px;color:#fff;background:#ff3b5c;padding:9px 12px;text-shadow:2px 2px 0 #7a0016}
+.livemq .lvb::before{content:'';width:9px;height:9px;border-radius:50%;background:#fff;animation:blink .8s steps(2) infinite}
+.livemq .mq{flex:1;min-width:0;overflow:hidden;display:flex;align-items:center}
+.livemq .mq span{white-space:nowrap;font-size:8px;color:#ffe066;padding-left:10px;animation:mq 9s linear infinite}
+@keyframes mq{to{transform:translateX(-50%)}}
+@keyframes lvpulse{50%{box-shadow:0 0 0 2px #ff3b5c,0 0 34px rgba(255,59,92,.9)}}
+.dsplash .yar.arena{padding:16px 10px 14px;max-width:360px;box-shadow:0 0 0 2px var(--pink)}
+.dsplash .yar.arena>*{position:relative;z-index:2}
+.dsplash .yf,.dsplash .yf.win{border:0!important;background:none!important;padding:0}
+.dsplash .yf.win .ph .rc16{box-shadow:0 3px 0 #000,0 6px 10px rgba(0,0,0,.45)!important}
+.dsplash .yf .fname{font-weight:normal;font-size:11px!important;margin-top:6px!important;display:block}
+.dsplash .yf.win .fname{color:#7dff9c;-webkit-text-stroke:1px #0a5c22}
+.dsplash .yf.lose .fname{color:#ff8fa0;-webkit-text-stroke:1px #7a0016}
+.dsplash .crown{top:-8px}
+.dsplash .ywho .av canvas{width:30px;height:30px}
 </style>`);

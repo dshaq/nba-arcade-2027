@@ -376,7 +376,7 @@ function topBar(){
   const a=S.active, L=lvOf(B(a).exp);
   const reward = doneCount()===MIS().length && !S.bonus;
   return `<div class="top ${cur==='home'?'':'nos'}"><div class="logo"><b>NBA</b> <i>ARCADE</i></div><div class="sp"></div>
-    ${cur==='home'||cur==='missions'?'':`<button class="ibtn mis-ic" onclick="go('missions')" aria-label="Daily Checklist">${misRing()}${I.target}${reward?'<span class="dot rd"></span>':''}</button>`}
+    ${`<button class="ibtn mis-ic" onclick="go('missions')" aria-label="Daily Checklist">${misRing()}${I.target}${reward?'<span class="dot rd"></span>':''}</button>`}
     <button class="ibtn" onclick="say('Chat · 2 new')" aria-label="Chat">${I.chat}<span class="dot">2</span></button>
     <button class="ibtn" onclick="go('cards')" aria-label="Collection">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
     <button class="ibtn me" onclick="go('baller')" aria-label="Your Baller"><span id="mebtn"></span><span class="lv">LV ${L.lv}</span></button></div>`
@@ -509,7 +509,7 @@ function renderInner(){
 }
 function nav(){
   const need = a => MIS().some(m=>m.area===a && !S.done[m.k]);
-  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,openFantasy,need('fantasy')],['wlc',I.orb,()=>go('wlc'),need('wlc')],['duel',I.bolt,()=>go('duel'),need('duel')],['menu',I.menu,openMenu]];
+  const items=[['home',I.home,()=>go('home')],['fantasy',I.ball,()=>openFantasy('battle'),need('fantasy')],['wlc',I.orb,()=>go('wlc'),need('wlc')],['duel',I.bolt,()=>go('duel'),need('duel')],['menu',I.menu,openMenu]];
   const el=document.getElementById('nav'); el.innerHTML='';
   items.forEach(([k,ic,fn,dot])=>{ const b=document.createElement('button'); b.className=(k===cur||(k==='duel'&&cur==='futures'))?'on':''; b.innerHTML=ic+(dot?'<span class="dot"></span>':''); b.setAttribute('aria-label',k); b.onclick=fn; el.appendChild(b); });
 }
@@ -569,7 +569,7 @@ function openMenu(){
     else if(v==='stats'){ go('stats'); }
     else if(v==='draft'){ go('draft'); }
     else if(v==='nba'){ go('nba'); }
-    else if(v==='prof'){ BZ.tab='profile'; go('baller'); }
+    else if(v==='prof'){ go('settings'); }
     else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{},fl:JSON.parse(JSON.stringify(MY_START)),party:[]}; save(); location.reload(); } else say('We\'ll design this one later'); });
 }
 
@@ -751,13 +751,13 @@ setTimeout(async()=>{ if(start.done) return;
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=20" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=20" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=20" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=20" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=20" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=20" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=20" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
-<script src="nba.js?v=20" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
+<script src="data.js?v=21" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=21" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=21" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=21" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=21" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=21" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=21" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=21" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
 </body>
 </html>

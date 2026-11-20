@@ -2056,7 +2056,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026110902;
+const APP_BUILD = 2026112001;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge' + (IS_TEST ? ':'+LEAGUE_KEY : '');
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -2224,7 +2224,8 @@ async function shrinkLeaguePhotos(){
 // A team that never touched its lineup had no saved Active 8, so the site re-ranked its
 // roster by FP every time and the "Active" players shifted on their own. Save whatever the
 // team shows right now as its lineup, once; from then on only the manager changes it.
-async function freezeDefaultLineups(){
+async function freezeDefaultLineups(){ return withLineupWrites(_freezeDefaultLineups); }
+async function _freezeDefaultLineups(){
   if(!leagueState?.rosters) return;
   let changed = false;
   for(const m of (leagueState.managers||[])){
@@ -2282,8 +2283,13 @@ function logActiveChanges(){
   if(!leagueState) return;
   if(!leagueState.activeLog) leagueState.activeLog = {};
   const now = new Date().toISOString();
+  // Only my own team. Every path that changes someone else's lineup (plans, commissioner tools)
+  // logs it itself. Logging everyone here let a device holding an old copy write that old lineup
+  // into other teams' history (Nov 19: two teams' planned lineups reverted to the day before).
+  const mine = myProfile?.id != null ? String(myProfile.id) : null;
   for(const [mid, act] of Object.entries(leagueState.active||{})){
     if(!Array.isArray(act)) continue;
+    if(!_lineupWriteOK && mid !== mine) continue;
     const log = leagueState.activeLog[mid] || (leagueState.activeLog[mid] = []);
     const last = log[log.length-1]?.active || null;
     const same = last && last.length===act.length && [...last].map(String).sort().join()===[...act].map(String).sort().join();
@@ -2347,14 +2353,48 @@ function applyOps(obj, ops){
   }
   return obj;
 }
+// ── LINEUP GUARD ──
+// A device may only change its OWN team's lineup, unless it's doing one of the jobs that
+// legitimately touch other teams (applying plans, ghost-starter cleanup, commissioner tools,
+// test-league bots). Anything else is an old copy talking, and is dropped before it's sent.
+let _lineupWriteOK = 0;
+async function withLineupWrites(fn){ _lineupWriteOK++; try{ return await fn(); } finally { _lineupWriteOK--; } }
+const _LINEUP_KEYS = new Set(['active','inactive','activeLog']);
+function _othersLineupPath(path){
+  if(!path?.length || !_LINEUP_KEYS.has(path[0])) return false;
+  if(IS_TEST || _lineupWriteOK) return false;
+  const mine = myProfile?.id != null ? String(myProfile.id) : null;
+  if(path.length === 1) return true;            // replacing the whole map
+  return String(path[1]) !== mine;
+}
+// Put other teams' lineups back to what we last had from the server, so they're never sent
+function _restoreOthersLineups(target, from){
+  if(IS_TEST || _lineupWriteOK || !target || !from) return 0;
+  const mine = myProfile?.id != null ? String(myProfile.id) : null;
+  let n = 0;
+  for(const k of _LINEUP_KEYS){
+    const t = target[k], f = from[k] || {};
+    if(!_isPlainObj(t)) continue;
+    for(const mid of new Set([...Object.keys(t), ...Object.keys(f)])){
+      if(mid === mine) continue;
+      if(!_jsonEq(t[mid], f[mid])){ if(f[mid] === undefined) delete t[mid]; else t[mid] = JSON.parse(JSON.stringify(f[mid])); n++; }
+    }
+  }
+  if(n) console.warn('[lineup guard] kept', n, "other teams' lineup value(s) from being overwritten by this device");
+  return n;
+}
 function _saveOutbox(){ try{ localStorage.setItem(OUTBOX_KEY, JSON.stringify({uid:currentUser?.id||null, items:_outbox})); }catch(e){ console.warn('[outbox] could not store', e); } }
 function commitLeague(){
   if(_staleReloading) return Promise.resolve();
   logActiveChanges();
   leagueState.minBuild = Math.max(+leagueState.minBuild||0, APP_BUILD);
-  let ops;
-  try{ ops = diffOps(JSON.parse(_shadowJson), leagueState); }
+  let ops, shadow;
+  try{ shadow = JSON.parse(_shadowJson); _restoreOthersLineups(leagueState, shadow); ops = diffOps(shadow, leagueState).filter(o=>!_othersLineupPath(o.path)); }
   catch(e){ console.warn('[commit] diff failed, using a full save', e); return _saveLeagueBlob(); }
+  // Remember what each value was when this change was made. If the change has to be re-sent
+  // later (tab closed, no signal) and someone else has changed that value since, it's dropped
+  // instead of overwriting their newer change.
+  for(const o of ops) if(o.op!=='push' && o.path[0]!=='playerStats'){ const w = _getPath(shadow, o.path); o.was = w === undefined ? '__none__' : JSON.parse(JSON.stringify(w)); }
   if(!ops.length){ _lastSaveOk = _outbox.length ? 'pending' : true; return Promise.resolve(); }
   _shadowJson = JSON.stringify(leagueState);
   const id = `${Date.now().toString(36)}-${(++_opSeq).toString(36)}`;
@@ -2381,7 +2421,7 @@ async function flushOutbox(){
       it.tries = (it.tries||0) + 1;
       let error = null;
       // Hard cap on the whole call (sign-in refresh included), so nothing can hang the outbox
-      try{ ({error} = await _withTimeout(db.rpc('league_apply', {p_id:LEAGUE_KEY, p_ops:it.ops}), 15000, 'save')); }
+      try{ ({error} = await _withTimeout(db.rpc('league_apply', {p_id:LEAGUE_KEY, p_ops:it.ops.map(({was, ...o})=>o)}), 15000, 'save')); }
       catch(e){ error = {message:String(e?.message||e)}; }
       if(!error){
         _outbox.shift(); _saveOutbox();
@@ -2447,6 +2487,22 @@ function replayOutbox(){
   // These were queued in an earlier session; the league we just loaded is the truth. Anything they
   // meant to *create* that now already exists (e.g. today's Duel) is skipped, never overwritten.
   for(const it of fresh) it.ops = it.ops.filter(o=>!(o.ifMissing && _getPath(leagueState, o.path) !== undefined));
+  // A queued change only goes out if nobody has changed that value since it was made. This is what
+  // made a phone's picks vanish on a computer that still had an old, unsent change queued: on reload
+  // the old change was re-sent over the newer one. Old-format items (no record) only if under 30 min old.
+  let dropped = 0;
+  for(const it of fresh){
+    const n0 = it.ops.length;
+    it.ops = it.ops.filter(o=>{
+      if(o.op==='push') return !_othersLineupPath(o.path) && (o.path[0]!=='activeLog' || Date.now()-(it.at||0) < 30*60*1000);
+      if(_othersLineupPath(o.path)) return false;
+      if(!('was' in o)) return Date.now()-(it.at||0) < 30*60*1000 || o.path[0]==='playerStats';
+      const now = _getPath(leagueState, o.path);
+      return _jsonEq(now === undefined ? '__none__' : now, o.was);
+    });
+    dropped += n0 - it.ops.length;
+  }
+  if(dropped) console.warn(`[outbox] skipped ${dropped} queued change(s) that newer saves had already replaced`);
   for(let i=fresh.length-1;i>=0;i--) if(!fresh[i].ops.length) fresh.splice(i,1);
   if(!fresh.length){ try{ localStorage.removeItem(OUTBOX_KEY); }catch(e){} return; }
   for(const it of fresh) applyOps(leagueState, it.ops);
@@ -2506,6 +2562,7 @@ function _saveLeagueBlob(){
     _lastSaveOk = false; _saveTimedOut = false; const _t0 = Date.now();
     if(_staleReloading) return;
     logActiveChanges();
+    if(_leagueBaseJson){ try{ _restoreOthersLineups(leagueState, JSON.parse(_leagueBaseJson)); }catch(e){} }
     for(let attempt=0; attempt<6; attempt++){
       const startJson = JSON.stringify(leagueState);
       _setSaveStep(`checking for others' changes (try ${attempt+1})`);
@@ -3825,7 +3882,10 @@ function removeGhostStarters(){
   }
   return changed;
 }
-async function applyLineupPlans(){
+async function applyLineupPlans(){ return withLineupWrites(_applyLineupPlans); }
+async function _applyLineupPlans(){
+  // Work on a fresh copy: a device that slept through midnight must not apply yesterday's view
+  try{ if(_leagueBaseJson) await pullLeagueState(); }catch(e){}
   if(removeGhostStarters()) await saveLeagueState();
   if(_applyingPlans || !leagueState?.lineupPlans) return;
   const t = todayYmd();
@@ -9106,7 +9166,8 @@ function _commLog(mid, pid, type){
   if(!leagueState.waiverLog[mid]) leagueState.waiverLog[mid] = [];
   leagueState.waiverLog[mid].push({pid, date:todayStr(), type, ts:new Date().toISOString(), comm:true});
 }
-async function adminRosterAdd(mid){
+async function adminRosterAdd(mid){ return withLineupWrites(()=>_adminRosterAdd(mid)); }
+async function _adminRosterAdd(mid){
   const name = (document.getElementById('adm-add-player')?.value||'').trim();
   const p = PLAYERS.find(x=>x.name===name) || PLAYERS.find(x=>normName(x.name)===normName(name));
   if(!p){ toast('Pick a player from the list'); return; }
@@ -9123,7 +9184,8 @@ async function adminRosterAdd(mid){
   await saveLeagueState();
   toast(`${p.name} added ✓`); renderAdminContent();
 }
-async function adminRosterDrop(mid, pid){
+async function adminRosterDrop(mid, pid){ return withLineupWrites(()=>_adminRosterDrop(mid, pid)); }
+async function _adminRosterDrop(mid, pid){
   const p = getPlayer(pid);
   await pullLeagueState();
   leagueState.rosters[mid] = (leagueState.rosters[mid]||[]).filter(id=>String(id)!==String(pid));
@@ -9134,7 +9196,8 @@ async function adminRosterDrop(mid, pid){
   await saveLeagueState();
   toast(`${p?.name||'Player'} dropped ✓`); renderAdminContent();
 }
-async function adminRosterIr(mid, pid){
+async function adminRosterIr(mid, pid){ return withLineupWrites(()=>_adminRosterIr(mid, pid)); }
+async function _adminRosterIr(mid, pid){
   await pullLeagueState();
   if(!leagueState.ir) leagueState.ir = {};
   if(pid!=null){
@@ -9181,7 +9244,8 @@ function renderAdminLineupOverrideSection(){
   </div>`;
 }
 
-async function adminLineupOverride(){
+async function adminLineupOverride(){ return withLineupWrites(()=>_adminLineupOverride()); }
+async function _adminLineupOverride(){
   const mid = adminOvTeam;
   const outPid = document.getElementById('ov-out')?.value || '';
   const inPid = document.getElementById('ov-in')?.value || '';
@@ -9299,7 +9363,7 @@ async function adminFixPick(v){
 // ── COMMISSIONER: FIX PAST LINEUPS ──────────────────────────────────────────
 // Lists every player with saved stats on a date, per team, with a checkbox for
 // "was active that day". Saving writes leagueState.lineupOverrides[date][mid].
-let adminLineupFixDate = '2026-10-20';
+let adminLineupFixDate = (()=>{ const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();   // yesterday (ET)
 function renderAdminLineupFixSection(){
   const dateStr = adminLineupFixDate.replace(/-/g,'');
   const stats = Object.values(leagueState.playerStats||{}).filter(v=>String(v.date)===dateStr);

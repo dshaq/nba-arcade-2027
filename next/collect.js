@@ -284,7 +284,7 @@ render();
 
 document.head.insertAdjacentHTML('beforeend', `<style>
 /* ═══ THE card ═══ */
-.tcard.pc{container-type:inline-size;border-radius:6.5cqw}
+.tcard.pc{container-type:inline-size;border-radius:7%/5%}
 .tcard.pc .fr{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
 .tcard.pc .fr::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--px,.5)*100%) calc(var(--py,.3)*100%),rgba(255,255,255,.5),transparent 45%);mix-blend-mode:overlay}
 .tcard.pc .in,.tcard.pc.mini .in{position:absolute;left:4.5%;right:4.5%;top:3.2%;bottom:3.2%;height:auto;display:flex;flex-direction:column;background:#05070d;border-radius:3.5cqw;box-shadow:inset 0 0 0 1px #000}

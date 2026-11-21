@@ -44,18 +44,28 @@ const addOn = (n,k) => k!=='base' && owns(n,k) && !((S.px[n]||{}).off||{})[k];
 const copies = n => (S.own[n]||{}).base||0;
 const met = n => pxXp(n)>0 || copies(n)>0;
 
-/* ── the card, at any size. The square portrait sits whole at the bottom of the window;
-   above it, the same picture blurred fills the space, so nothing gets cropped.
-   o.upTo = preview with every add-on up to that level switched on. ── */
+/* ── THE card. One design everywhere on the site (roster, waivers, duel, packs, collection, lightbox).
+   Square portrait on top, uncropped. Name + team + run badge in the panel below.
+   Anything situational (game time, FP, stats) goes UNDER the card, never on it.
+   o.upTo = preview with every add-on up to that level switched on · o.ov = overlay html on the portrait ── */
+const TEAM_FULL = {ATL:'Atlanta Hawks',BOS:'Boston Celtics',BKN:'Brooklyn Nets',CHA:'Charlotte Hornets',CHI:'Chicago Bulls',CLE:'Cleveland Cavaliers',DAL:'Dallas Mavericks',DEN:'Denver Nuggets',DET:'Detroit Pistons',GSW:'Golden State Warriors',HOU:'Houston Rockets',IND:'Indiana Pacers',LAC:'LA Clippers',LAL:'Los Angeles Lakers',MEM:'Memphis Grizzlies',MIA:'Miami Heat',MIL:'Milwaukee Bucks',MIN:'Minnesota Timberwolves',NOP:'New Orleans Pelicans',NYK:'New York Knicks',OKC:'Oklahoma City Thunder',ORL:'Orlando Magic',PHI:'Philadelphia 76ers',PHX:'Phoenix Suns',POR:'Portland Trail Blazers',SAC:'Sacramento Kings',SAS:'San Antonio Spurs',TOR:'Toronto Raptors',UTA:'Utah Jazz',WAS:'Washington Wizards'};
+const fitCq = (t, max, room=84) => Math.min(max, room/Math.max(1,t.length)).toFixed(2)+'cqw';
+function cardFace({src, name, team, tc, cls='', tap='', ov='', logo=false, lv=''}){
+  const N=String(name||'').toUpperCase(), sp=N.lastIndexOf(' '), two=N.length>13 && sp>0;
+  const nm = two ? `<b class="f1" style="font-size:${fitCq(N.slice(0,sp),5.5)}">${N.slice(0,sp)}</b><b style="font-size:${fitCq(N.slice(sp+1),8)}">${N.slice(sp+1)}</b>` : `<b style="font-size:${fitCq(N,8)}">${N}</b>`;
+  const T=String(team||'').toUpperCase();
+  return `<div class="tcard pc mini ${cls}" ${tap} style="--tc:${tc||'#1d428a'}"><div class="fr"></div><div class="in">
+    <div class="art ${logo?'logo':''}">${img(src)}<div class="jf"></div><div class="sk"></div><div class="crt"></div>${ov}</div>
+    <div class="nmp"><div class="hf"></div><div class="nt">${nm}<small style="font-size:${fitCq(T,4.6,78)}">${T}</small></div><img class="runb" src="img/leaf-fall.png" alt=""></div>
+    <div class="gl"></div></div><div class="glare"></div>${lv}</div>`;
+}
 function pcard(n, o={}){
   const p=P(n); if(!p||!p.n) return '';
-  const L=pxLv(n), src=pimg(p.t,p.n);
+  const L=pxLv(n);
   const on = k => o.upTo!=null ? VK[k].lv<=o.upTo && k!=='base' : addOn(n,k);
-  const cls = VERS.filter(v=>on(v.k)).map(v=>'u-'+v.k).join(' ');
-  return `<div class="tcard pc mini ${cls}" ${o.noTap?'':`data-pn="${escA(p.n)}"`} style="--tc:${p.c}"><div class="fr"></div><div class="in">
-    <div class="bgb" style="background-image:url('${src}')"></div><div class="hf"></div>
-    <div class="art">${img(src)}</div><div class="jf"></div><div class="gl"></div><div class="sk"></div><div class="crt"></div></div>
-    <div class="glare"></div>${o.lv===true?`<span class="lvg ${L.max?'max':''}" title="Player level">${L.lv}</span>`:''}</div>`;
+  return cardFace({src:pimg(p.t,p.n), name:p.n, team:TEAM_FULL[p.t]||p.t, tc:p.c, ov:o.ov||'',
+    cls:VERS.filter(v=>on(v.k)).map(v=>'u-'+v.k).join(' '), tap:o.noTap?'':`data-pn="${escA(p.n)}"`,
+    lv:o.lv===true?`<span class="lvg ${L.max?'max':''}" title="Player level">${L.lv}</span>`:''});
 }
 /* 16-bit roster cards keep their own look (no filters) */
 const pxArt = n => '';
@@ -273,36 +283,55 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 render();
 
 document.head.insertAdjacentHTML('beforeend', `<style>
-/* ═══ the one card (Card Forge base, for every player) ═══ */
+/* ═══ THE card ═══ */
+.tcard.pc{container-type:inline-size;border-radius:6.5cqw}
 .tcard.pc .fr{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
 .tcard.pc .fr::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--px,.5)*100%) calc(var(--py,.3)*100%),rgba(255,255,255,.5),transparent 45%);mix-blend-mode:overlay}
-.tcard.pc .in{background:#05070d}
-/* the fill above the portrait: the picture's own top rows, stretched upward, so it just continues his background (no ghost of his face) */
-.tcard.pc .bgb{position:absolute;inset:-6px;background:var(--tc) 50% 0/100% 4000% no-repeat;filter:blur(4px) brightness(.9)}
-.tcard.pc .art{position:absolute;left:-6%;right:-6%;bottom:0;top:auto;aspect-ratio:1/1;
-  -webkit-mask:linear-gradient(180deg,transparent 0,#000 16%);mask:linear-gradient(180deg,transparent 0,#000 16%)}
-.tcard.pc .art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%;display:block}
+.tcard.pc .in,.tcard.pc.mini .in{position:absolute;left:4.5%;right:4.5%;top:3.2%;bottom:3.2%;height:auto;display:flex;flex-direction:column;background:#05070d;border-radius:3.5cqw;box-shadow:inset 0 0 0 1px #000}
+.tcard.pc .art{position:relative;inset:auto;flex:none;width:100%;aspect-ratio:1/1;overflow:hidden;background:var(--tc);border-bottom:.8cqw solid color-mix(in srgb,var(--tc) 70%,#fff)}
+.tcard.pc .art>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.tcard.pc .art.logo{background:radial-gradient(circle,#fff 0,#e8ecf5 60%,#c9d0de)}.tcard.pc .art.logo>img{object-fit:contain;padding:14%}
+.tcard.pc .nmp{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:2cqw 5cqw;overflow:hidden}
+.tcard.pc .nt{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2.4cqw;max-width:100%}
+.tcard.pc .nt b{display:block;font-weight:normal;color:#fff;line-height:1;white-space:nowrap;text-shadow:0 .6cqw 0 #000}
+.tcard.pc .nt b.f1{color:#dfe6f5;margin-bottom:-.8cqw}
+.tcard.pc .nt small{display:block;line-height:1;white-space:nowrap;color:color-mix(in srgb,var(--tc) 45%,#fff)}
+.tcard.pc .runb{position:absolute;right:2.5cqw;bottom:2.5cqw;width:9cqw;height:9cqw;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 .5cqw 0 rgba(0,0,0,.6))}
 .tcard.pc .hf,.tcard.pc .jf,.tcard.pc .gl,.tcard.pc .sk{position:absolute;inset:0;pointer-events:none;display:none}
-.tcard.pc .crt{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),radial-gradient(120% 90% at 50% 45%,transparent 60%,rgba(0,0,0,.35))}
+.tcard.pc .crt{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
 /* SHINE */
-.tcard.pc.u-shine .gl{display:block;mix-blend-mode:soft-light;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.75) 48%,transparent 62%);background-size:240% 240%;background-position:calc(var(--px,.5)*100%) 50%}
+.tcard.pc.u-shine .gl{display:block;z-index:4;mix-blend-mode:soft-light;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.75) 48%,transparent 62%);background-size:240% 240%;background-position:calc(var(--px,.5)*100%) 50%}
 .tcard.pc.u-shine .glare{opacity:calc(var(--go,.2) + .25)}
-/* GOLD FOIL */
+/* GOLD FOIL: frame */
 .tcard.pc.u-gold .fr{background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 3px,rgba(255,250,220,.22) 3px 4px),
   linear-gradient(125deg,#5a3a00,#c8901a 18%,#fff2b0 30%,#d9a520 42%,#7a5200 55%,#f5d061 68%,#fff8d6 76%,#b07a10 88%,#5a3a00);
   background-size:100% 100%,320% 320%;background-position:0 0,calc(var(--px,.5)*100%) calc(var(--py,.5)*100%)}
-/* HOLO FOIL: the blurred backdrop above the portrait */
-.tcard.pc.u-holo .hf{display:block;mix-blend-mode:color-dodge;opacity:.55;
-  background:repeating-linear-gradient(105deg,#ff5fbf 0%,#ffd93d 6%,#39ff6a 12%,#4adfff 18%,#b36bff 24%,#ff5fbf 30%);background-size:300% 300%;background-position:calc(var(--px,.5)*100%) calc(var(--py,.5)*100%);
-  -webkit-mask:linear-gradient(180deg,#000 22%,transparent 46%);mask:linear-gradient(180deg,#000 22%,transparent 46%)}
-/* JERSEY FOIL: the bottom of the portrait, where the jersey is */
+/* HOLO FOIL: the name panel */
+.tcard.pc.u-holo .hf{display:block;opacity:.38;mix-blend-mode:screen;
+  background:repeating-linear-gradient(105deg,#ff5fbf 0%,#ffd93d 6%,#39ff6a 12%,#4adfff 18%,#b36bff 24%,#ff5fbf 30%);background-size:300% 300%;background-position:calc(var(--px,.5)*100%) calc(var(--py,.5)*100%);animation:holo 6s linear infinite}
+/* JERSEY FOIL: bottom of the portrait */
 .tcard.pc.u-jersey .jf{display:block;mix-blend-mode:color-dodge;opacity:.5;
   background:repeating-linear-gradient(105deg,color-mix(in srgb,var(--tc) 70%,#fff) 0%,#fff 6%,var(--tc) 12%,color-mix(in srgb,var(--tc) 40%,#fff) 18%);background-size:260% 260%;background-position:calc(var(--px,.5)*100%) calc(var(--py,.5)*100%);
-  -webkit-mask:linear-gradient(180deg,transparent 74%,#000 86%);mask:linear-gradient(180deg,transparent 74%,#000 86%)}
-/* STARS: around the edges, never on the face */
+  -webkit-mask:linear-gradient(180deg,transparent 70%,#000 84%);mask:linear-gradient(180deg,transparent 70%,#000 84%)}
+/* STARS: around the head, never on the face */
 .tcard.pc.u-stars .sk{display:block;z-index:3;
   background:radial-gradient(circle,#fff 0 1px,transparent 1.6px) 0 0/19px 21px,radial-gradient(circle,#ffe9a0 0 1.2px,transparent 1.8px) 9px 11px/27px 25px,radial-gradient(circle,#7ef7ff 0 .9px,transparent 1.5px) 4px 15px/23px 31px;
-  -webkit-mask:radial-gradient(ellipse 38% 34% at 50% 62%,transparent 70%,#000 100%);mask:radial-gradient(ellipse 38% 34% at 50% 62%,transparent 70%,#000 100%);
-  transform:translate(calc((var(--px,.5) - .5)*6px),calc((var(--py,.5) - .5)*4px));animation:twk 2.4s ease-in-out infinite}
+  -webkit-mask:radial-gradient(ellipse 34% 40% at 50% 52%,transparent 72%,#000 100%);mask:radial-gradient(ellipse 34% 40% at 50% 52%,transparent 72%,#000 100%);animation:twk 2.4s ease-in-out infinite}
 @keyframes twk{50%{opacity:.55}}
+
+/* ═══ roster + duel cards are the same card, with the game/FP line underneath ═══ */
+.rc16:not(.empty){aspect-ratio:auto;padding:0;background:none;box-shadow:none!important;border-radius:0}
+.rc16:not(.empty) .rc-in{height:auto;display:block;padding:0;background:none!important;box-shadow:none;border-radius:8px;overflow:visible;animation:none}
+.rc16:not(.empty) .rc-in::after{display:none}
+.rc16:not(.empty) .tcard.pc{box-shadow:0 0 0 1.5px #000,0 4px 8px rgba(0,0,0,.45)}
+.rc16:not(.empty)>.rc-bot{background:none;border:0;padding:4px 1px 0;justify-content:space-between}
+.rc16.dcard>.rc-bot{justify-content:center}
+.rc16.p1 .tcard.pc,.ftr.p1 .rc16 .tcard.pc{box-shadow:0 0 0 3px #e94560,0 0 16px rgba(233,69,96,.7)!important}
+.ftr.p1 .rc16 .tcard.pc{box-shadow:0 0 0 3px #3cf,0 0 24px rgba(51,204,255,.6)!important}
+.dsplash .yf.win .rc16 .tcard.pc{box-shadow:0 0 0 3px var(--gold),0 0 28px rgba(255,217,61,.55)!important}
+.vs .f.dc.pick .rc16 .tcard.pc{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)!important}
+.rc16.idle .tcard .art>img{filter:grayscale(.65) brightness(.75)}.rc16.out .tcard .art>img{filter:grayscale(1) brightness(.5)}
+.tcard .art .p1t{position:absolute;left:3px;top:3px;z-index:6;font-size:6px;color:#fff;background:#e94560;padding:2px 3px;border:1px solid #000;animation:blink .7s steps(2) infinite}
+.tcard .art .injb{position:absolute;left:-12%;right:-12%;top:50%;z-index:5;transform:translateY(-50%) rotate(-14deg);text-align:center;font-size:6px;letter-spacing:.06em;color:#1a1200;background:repeating-linear-gradient(45deg,#ffd93d 0 6px,#f5b400 6px 12px);border-top:1px solid #000;border-bottom:1px solid #000;padding:2px 0;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.tcard .art .injb.o{color:#fff;background:repeating-linear-gradient(45deg,#ff3b5c 0 6px,#c4122f 6px 12px);text-shadow:1px 1px 0 #000}
 </style>`);

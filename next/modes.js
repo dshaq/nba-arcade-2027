@@ -501,9 +501,8 @@ function duelAvg(name, stat){
 function duelCard(side, foot, cls=''){
   const team=!!side.img, p=team?null:P(side.name), rr=team?'gold':rarity(+p.f||0);
   const nm=team?side.short:(p.s||side.short);
-  return `<div class="rc16 dcard r-${rr} ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm">${nm}</span></div>
-    <div class="rc-art ${team?'logo':''}">${team?img(side.img,'logo'):face(side.team,side.name)}</div>
-    <div class="rc-bot"><b>${foot}</b></div></div></div>`;
+  const face = typeof pcard!=='function' ? '' : team ? cardFace({src:side.img, name:side.name||side.short, team:side.team||'', tc:side.tc, logo:true}) : pcard(side.name,{noTap:1});
+  return `<div class="rc16 dcard r-${rr} ${cls}" style="--tc:${side.tc}"><div class="rc-in">${face}</div>${foot?`<div class="rc-bot"><b>${foot}</b></div>`:''}</div>`;
 }
 function lifebar(v, other){
   const mx=Math.max(v,other), lead=v>=other, pct=mx>0?Math.round(100*v/mx):100;

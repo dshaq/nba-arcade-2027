@@ -40,10 +40,10 @@ function card16(n, pos, o={}){
   const fm = fpMode(), fr = fpFor(p), fp = (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
   /* footer: game on the left (start time, LIVE/FINAL, OFF or OUT), FP on the right (orange = FP/G, blue = today) */
   const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
+  const ov=`${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}`;
   return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
-    <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art ${typeof pxArt==='function'?pxArt(n):''}">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
-    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
+    <div class="rc-in">${typeof pcard==="function"?pcard(n,{noTap:1, ov}):""}</div>
+    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div>`;
 }
 
 /* ── Line-up helpers (live.js swaps these for the real engine) ── */

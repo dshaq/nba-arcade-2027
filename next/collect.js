@@ -277,8 +277,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .tcard.pc .fr{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
 .tcard.pc .fr::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--px,.5)*100%) calc(var(--py,.3)*100%),rgba(255,255,255,.5),transparent 45%);mix-blend-mode:overlay}
 .tcard.pc .in{background:#05070d}
-.tcard.pc .bgb{position:absolute;inset:-12%;background:var(--tc) center 85%/cover no-repeat;filter:blur(7px) brightness(.5) saturate(1.2)}
-.tcard.pc .art{position:absolute;left:0;right:0;bottom:0;top:auto;aspect-ratio:1/1;
+/* the fill above the portrait: the picture's own top rows, stretched upward, so it just continues his background (no ghost of his face) */
+.tcard.pc .bgb{position:absolute;inset:-6px;background:var(--tc) 50% 0/100% 4000% no-repeat;filter:blur(4px) brightness(.9)}
+.tcard.pc .art{position:absolute;left:-6%;right:-6%;bottom:0;top:auto;aspect-ratio:1/1;
   -webkit-mask:linear-gradient(180deg,transparent 0,#000 16%);mask:linear-gradient(180deg,transparent 0,#000 16%)}
 .tcard.pc .art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%;display:block}
 .tcard.pc .hf,.tcard.pc .jf,.tcard.pc .gl,.tcard.pc .sk{position:absolute;inset:0;pointer-events:none;display:none}

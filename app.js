@@ -2056,7 +2056,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026112201;
+const APP_BUILD = 2026112202;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge' + (IS_TEST ? ':'+LEAGUE_KEY : '');
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -10459,6 +10459,13 @@ function applyWlcPoolTweaks(weekKey, pool){
 // Hand-picked weeks: theme + 25 players in tier order (first 5 = $5 ... last 5 = $1).
 // Generating that week proposes this pool; it still goes through the usual approve step.
 const WLC_SET_POOLS = {
+  // Commissioner's 5 per team; tiers by this season's league FP/G (as of Nov 22)
+  '2026-11-23': {theme:'Southwest Division', tiers:[
+    ['Victor Wembanyama','Alperen Sengun','Cooper Flagg','Zion Williamson','Ty Jerome'],
+    ['Kevin Durant','Kyrie Irving','Cedric Coward','Amen Thompson','Jabari Smith Jr.'],
+    ['Stephon Castle','Trey Murphy III','Jeremiah Fears','Fred VanVleet','Cam Spencer'],
+    ["De'Aaron Fox",'Saddiq Bey','Derik Queen','Daniel Gafford','Zach Edey'],
+    ['Devin Vassell','Javon Small','Julian Champagnie','Naji Marshall','Zaccharie Risacher']]},
   '2026-11-02': {theme:'Rookie Class', names:[
     'Cameron Boozer','Yaxel Lendeborg','Caleb Wilson','AJ Dybantsa','Darius Acuff Jr.',
     'Keaton Wagler','Aday Mara','Trevon Brazile','Darryn Peterson','Kingston Flemings',

@@ -2056,7 +2056,7 @@ function _replaceLeagueState(next){
 // Build number of this code. Every save stamps state.minBuild with the newest build that
 // has saved; a tab running older code sees a higher minBuild, stops saving and reloads.
 // Bump this whenever a deploy changes how league data is written.
-const APP_BUILD = 2026112001;
+const APP_BUILD = 2026112201;
 let _staleReloading = false;
 const PENDING_MERGE_KEY = 'nba-pending-merge' + (IS_TEST ? ':'+LEAGUE_KEY : '');
 // After an update reload: put back the changes the old tab couldn't save (merged over whatever
@@ -10513,7 +10513,9 @@ function generateWlcProposal(forDate){
     {name:'Centers & Bigs',    filter: p => ['C','PF'].some(pos=>{ const dbP = PLAYERS.find(pl=>pl.name===p.n); return dbP && dbP.pos && dbP.pos.includes(pos); })},
     {name:'Point Guards',      filter: p => { const dbP = PLAYERS.find(pl=>pl.name===p.n); return dbP && dbP.pos && dbP.pos.includes('PG'); }},
   ];
-  const theme = themes[weekNum % themes.length];
+  // Commissioner's pick for a week overrides the rotation
+  const WLC_THEME_PICKS = { '2026-11-23':'Southwest Division' };
+  const theme = themes.find(t=>t.name===WLC_THEME_PICKS[wk]) || themes[weekNum % themes.length];
   // Projections file teams can be stale; use each player's current team, and
   // skip anyone not on an active roster
   // Ranked by this season's FP/G (not the preseason projections)

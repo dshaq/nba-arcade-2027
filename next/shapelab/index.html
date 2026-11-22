@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Card Shape Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:ital,wght@0,600;0,700;1,600;1,700&display=swap" rel="stylesheet"/>
+<style>
+/* Card Shape Lab: four ways to put a SQUARE portrait on a 5:7 card, each shown at the sizes the site really uses.
+   72px = roster · 104px = waivers / collection · 230px = pack / player pop-up */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--tk:'Teko','Arial Narrow',sans-serif;--gold:#ffd93d;--t2:#a8c0e8;--t3:#5d6f93;--edge:#1e3258;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(90% 50% at 50% 0%,#10284e,#020c18 70%) fixed;color:#fff;font-family:var(--px)}
+main{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 22px) max(16px,env(safe-area-inset-right,0px)) 60px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:34px}
+header h1{margin:0 0 10px;font-size:12px;font-weight:normal;color:var(--gold);letter-spacing:.08em}
+header p{margin:0;font-size:7px;line-height:2;color:var(--t2)}
+section{display:flex;flex-direction:column;gap:14px;padding-top:24px;border-top:2px dashed var(--edge)}
+section h2{margin:0;font-size:10px;font-weight:normal;color:#fff;line-height:1.6}
+section h2 i{font-style:normal;color:#000;background:var(--gold);padding:3px 6px;margin-right:8px}
+section .why{margin:0;font-size:6.5px;line-height:2.1;color:var(--t2)}
+section .why b{font-weight:normal;color:#7dffa0}
+section .why u{text-decoration:none;color:#ff8fa0}
+.row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.row.sizes .lab{font-size:5.5px;color:var(--t3);text-align:center;margin-top:7px}
+.row .cell{display:flex;flex-direction:column;align-items:center}
+.sub{font-size:5.5px;color:var(--t3);margin:4px 0 -6px}
+
+/* shared card shell */
+.c{--tc:#007a33;position:relative;aspect-ratio:5/7;border-radius:7%/5%;overflow:hidden;container-type:inline-size;flex:none;box-shadow:0 0 0 1.5px #000,0 6px 14px rgba(0,0,0,.5)}
+.c img.pt{position:absolute;display:block;object-fit:cover}
+.fr-silver{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
+.fr-gold{background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 3px,rgba(255,250,220,.22) 3px 4px),linear-gradient(125deg,#5a3a00,#c8901a 18%,#fff2b0 30%,#d9a520 42%,#7a5200 55%,#f5d061 68%,#fff8d6 76%,#b07a10 88%,#5a3a00);background-size:100% 100%,300% 300%;animation:sh 6s ease-in-out infinite alternate}
+@keyframes sh{to{background-position:0 0,100% 100%}}
+.leaf{position:absolute;width:10cqw;height:10cqw;object-fit:contain;filter:drop-shadow(0 .5cqw 0 rgba(0,0,0,.6));z-index:6}
+
+/* ── A · HOLO LAB, EVERY SIZE ── portrait on top, its bottom melts into a team-colour field; Teko name floats there */
+.A .win{position:absolute;inset:4.5% 4.5% 3.2%;border-radius:3.5cqw;overflow:hidden;background:radial-gradient(120% 70% at 50% 100%,color-mix(in srgb,var(--tc) 85%,#fff) 0%,var(--tc) 35%,color-mix(in srgb,var(--tc) 55%,#000) 100%)}
+.A img.pt{left:0;top:0;width:100%;aspect-ratio:1/1;-webkit-mask:linear-gradient(180deg,#000 62%,transparent 96%);mask:linear-gradient(180deg,#000 62%,transparent 96%)}
+.A .nm{position:absolute;left:6%;right:6%;bottom:5%;z-index:3;font-family:var(--tk);font-style:italic;font-weight:700;line-height:.8;text-align:left}
+.A .nm span{display:block;color:#eaf3ff;text-shadow:0 .6cqw 0 rgba(0,0,0,.6)}
+.A .nm b{display:block;color:#ffe066;text-shadow:0 .8cqw 0 #7a4b00,0 0 3cqw rgba(0,0,0,.5);white-space:nowrap}
+.A .nm small{display:block;font-family:var(--px);font-style:normal;color:#fff;letter-spacing:.08em;margin-top:2.6cqw;text-shadow:0 .4cqw 0 #000}
+.A .leaf{right:6%;bottom:4.5%}
+
+/* ── B · TEAM PLATE ── same split as now, but the panel is the team's colour, not black */
+.B .win{position:absolute;inset:4.5% 4.5% 3.2%;border-radius:3.5cqw;overflow:hidden;display:flex;flex-direction:column;background:#000}
+.B .art{position:relative;width:100%;aspect-ratio:1/1;flex:none}
+.B img.pt{inset:0;width:100%;height:100%}
+.B .plate{flex:1;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1.5cqw;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 90%,#fff),var(--tc) 40%,color-mix(in srgb,var(--tc) 60%,#000));border-top:1cqw solid rgba(255,255,255,.55)}
+.B .plate::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-55deg,rgba(255,255,255,.07) 0 2cqw,transparent 2cqw 4cqw)}
+.B .plate b{position:relative;font-family:var(--tk);font-style:italic;font-weight:700;color:#fff;line-height:.85;white-space:nowrap;text-shadow:0 .8cqw 0 rgba(0,0,0,.45)}
+.B .plate small{position:relative;font-family:var(--px);color:rgba(255,255,255,.85);white-space:nowrap}
+.B .leaf{right:6%;bottom:4.5%;width:8cqw;height:8cqw}
+
+/* ── C · SHORTER CARD (4:5) ── square portrait + a slim name bar; nothing to fill */
+.C{aspect-ratio:4/5}
+.C .win{position:absolute;inset:4.5% 4.5% 4%;border-radius:3.5cqw;overflow:hidden;display:flex;flex-direction:column;background:#0b1020}
+.C .art{position:relative;width:100%;aspect-ratio:1/1;flex:none;overflow:hidden}
+.C img.pt{inset:0;width:100%;height:100%}
+.C .bar{flex:1;display:flex;align-items:center;justify-content:space-between;gap:2cqw;padding:0 4cqw;background:linear-gradient(90deg,var(--tc),color-mix(in srgb,var(--tc) 55%,#000))}
+.C .bar b{font-family:var(--tk);font-style:italic;font-weight:700;line-height:1;color:#fff;white-space:nowrap;padding-top:.8cqw}
+.C .leaf{position:static;width:9cqw;height:9cqw}
+
+/* ── D · NAMEPLATE IN THE FRAME ── the frame is thicker at the bottom and the name is stamped into the foil */
+.D .win{position:absolute;left:4.5%;right:4.5%;top:3.4%;aspect-ratio:1/1;border-radius:3cqw;overflow:hidden;box-shadow:inset 0 0 0 .8cqw rgba(0,0,0,.6)}
+.D img.pt{inset:0;width:100%;height:100%}
+.D .stamp{position:absolute;left:4.5%;right:4.5%;top:calc(3.4% + 91cqw + 2cqw);bottom:3%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.6cqw}
+.D .stamp b{font-family:var(--tk);font-style:italic;font-weight:700;line-height:.85;white-space:nowrap;color:#3a2600;text-shadow:0 .5cqw 0 rgba(255,255,255,.45)}
+.D.fr-silver .stamp b{color:#1d2433}
+.D .stamp small{font-family:var(--px);white-space:nowrap;color:rgba(40,26,0,.75)}
+.D.fr-silver .stamp small{color:rgba(20,26,40,.7)}
+.D .leaf{right:5.5%;bottom:3.5%;width:8cqw;height:8cqw}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>CARD SHAPE LAB</h1>
+    <p>Four ways to put a square portrait on a tall card. Each is shown at the three sizes the site actually uses: roster (72px), waivers and collection (104px), and pack or pop-up (230px). The second row is the hard case: long names, small cards. Every name uses Teko, the condensed font from Holo Lab, which fits about twice the letters of the pixel font in the same width.</p>
+  </header>
+  <div id="opts"></div>
+</main>
+<script>
+const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
+const pimg=(t,n)=>`${PORTRAITS}/${t}/${encodeURIComponent(n)}.jpeg`;
+const TEAM={BOS:['Boston Celtics','#007a33'],OKC:['Oklahoma City Thunder','#007ac1'],SAS:['San Antonio Spurs','#8a96a0'],WAS:['Washington Wizards','#002b5c'],PHI:['Philadelphia 76ers','#006bb6']};
+const HERO=['Jayson Tatum','BOS'];
+const CAST=[['Shai Gilgeous-Alexander','OKC'],['Victor Wembanyama','SAS'],['AJ Dybantsa','WAS'],['Tyrese Maxey','PHI']];
+const fit=(t,max,room)=>Math.min(max,room/Math.max(1,t.length)).toFixed(2)+'cqw';
+const split=n=>{const i=n.lastIndexOf(' ');return [n.slice(0,i).toUpperCase(),n.slice(i+1).toUpperCase()];};
+const leaf='<img class="leaf" src="../img/leaf-fall.png" alt="">';
+
+/* Teko is narrow: roughly .42em per capital, so room/len gives a size that fills the width. */
+const OPTS=[
+ {k:'A',t:'HOLO LAB, EVERY SIZE',fr:'fr-gold',why:`The Holo Lab look on every card. The portrait's bottom fades into a team-colour glow, and the name floats over it: first name small, <b>LAST NAME BIG IN GOLD</b>. No box at all. <b>On small cards only the last name shows</b>, which stays readable down to the roster size. <u>The jersey under the name is half-covered by the fade.</u>`,
+  html:(n,t,w)=>{const [f,l]=split(n),[tn]=TEAM[t],small=w<120;return `<div class="win"><img class="pt" src="${pimg(t,n)}" alt=""><div class="nm">${small?'':`<span style="font-size:${fit(f,11,70)}">${f}</span>`}<b style="font-size:${fit(l,small?30:24,small?190:150)}">${l}</b>${small?'':`<small style="font-size:${fit(tn,3.6,70)}">${tn.toUpperCase()}</small>`}</div>${leaf}</div>`;}},
+ {k:'B',t:'TEAM PLATE',fr:'fr-silver',why:`Closest to what's live now, but the panel is <b>the team's colour with a light stripe pattern</b> instead of black, so it reads as part of the card and not a block of nothing. The name is in Teko and centred, about 2× bigger than the pixel font. <u>Still a split card: picture on top, plate below.</u>`,
+  html:(n,t,w)=>{const [tn]=TEAM[t],small=w<120,[f,l]=split(n),txt=small?l:n.toUpperCase();return `<div class="win"><div class="art"><img class="pt" src="${pimg(t,n)}" alt=""></div><div class="plate"><b style="font-size:${fit(txt,small?22:16,small?150:150)}">${txt}</b>${small?'':`<small style="font-size:${fit(tn,3.4,70)}">${tn.toUpperCase()}</small>`}</div></div>${leaf}`;}},
+ {k:'C',t:'SHORTER CARD (4:5)',fr:'fr-silver',why:`Change the card, not the picture. At 4:5 the square portrait leaves only a <b>slim name bar</b>, so there's no empty space to fill or style. Roster cards get shorter too, so <b>the whole roster fits on one screen again</b>. <u>The cards get less "trading card" and more "sticker".</u>`,
+  html:(n,t,w)=>{const [f,l]=split(n),small=w<120,txt=small?l:n.toUpperCase();return `<div class="win"><div class="art"><img class="pt" src="${pimg(t,n)}" alt=""></div><div class="bar"><b style="font-size:${fit(txt,small?15:13,small?120:118)}">${txt}</b>${leaf}</div></div>`;}},
+ {k:'D',t:'NAMEPLATE IN THE FRAME',fr:'fr-gold',why:`No inner panel at all: the frame is just thicker at the bottom, and <b>the name is stamped into the foil</b> like a classic card nameplate. It feels lighter than a black box, and the foil frame (silver, or gold once he levels up) does the work. <u>The name colour has to work on both silver and gold.</u>`,
+  html:(n,t,w)=>{const [tn]=TEAM[t],small=w<120,[f,l]=split(n),txt=small?l:n.toUpperCase();return `<div class="win"><img class="pt" src="${pimg(t,n)}" alt=""></div><div class="stamp"><b style="font-size:${fit(txt,small?22:16,small?150:150)}">${txt}</b>${small?'':`<small style="font-size:${fit(tn,3.4,70)}">${tn.toUpperCase()}</small>`}</div>${leaf}`;}},
+];
+const card=(o,[n,t],w,fr)=>`<div class="c ${o.k} ${fr||o.fr}" style="width:${w}px;--tc:${TEAM[t][1]}">${o.html(n,t,w)}</div>`;
+document.getElementById('opts').innerHTML=OPTS.map(o=>`<section><h2><i>${o.k}</i>${o.t}</h2><p class="why">${o.why}</p>
+  <div class="row sizes">${[[72,'ROSTER 72'],[104,'WAIVERS 104'],[230,'PACK 230']].map(([w,l])=>`<div class="cell">${card(o,HERO,w)}<div class="lab">${l}</div></div>`).join('')}</div>
+  <div class="sub">LONG NAMES · 104 AND 72</div>
+  <div class="row">${CAST.map(p=>card(o,p,104)).join('')}</div>
+  <div class="row">${CAST.map(p=>card(o,p,72,'fr-silver')).join('')}</div></section>`).join('');
+</script>
+</body>
+</html>

@@ -501,8 +501,9 @@ function duelAvg(name, stat){
 function duelCard(side, foot, cls=''){
   const team=!!side.img, p=team?null:P(side.name), rr=team?'gold':rarity(+p.f||0);
   const nm=team?side.short:(p.s||side.short);
-  const face = typeof pcard!=='function' ? '' : team ? cardFace({src:side.img, name:side.name||side.short, team:side.team||'', tc:side.tc, logo:true}) : pcard(side.name,{noTap:1});
-  return `<div class="rc16 dcard r-${rr} ${cls}" style="--tc:${side.tc}"><div class="rc-in">${face}</div>${foot?`<div class="rc-bot"><b>${foot}</b></div>`:''}</div>`;
+  return `<div class="rc16 dcard ${team?'r-gold':(typeof addOn==='function'?VERS.filter(v=>addOn(side.name,v.k)).map(v=>'u-'+v.k).join(' '):'')} ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm">${nm}</span></div>
+    <div class="rc-art ${team?'logo':''}">${team?img(side.img,'logo'):face(side.team,side.name)}</div>
+    <div class="rc-bot"><b>${foot}</b></div></div></div>`;
 }
 function lifebar(v, other){
   const mx=Math.max(v,other), lead=v>=other, pct=mx>0?Math.round(100*v/mx):100;
@@ -580,7 +581,7 @@ const spent = () => S.party.reduce((a,n)=>a+WLC_COST(n),0);
 function lineupCard(picks, live, mine){
   const tot = live ? picks.reduce((a,n)=>a+wkFpg(n),0).toFixed(1) : '—';
   return `<div class="lcard"><div class="lh"><span>5 PLAYERS · $${picks.reduce((a,n)=>a+WLC_COST(n),0)} SPENT</span><b>${tot}<small>FP/G</small></b></div>
-    <div class="l5c">${picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)).map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc" style="--tcol:${TIER_C[c]}"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(p.t,p.n)}</div><span class="tag">$${c}</span><div class="nm">${p.s}</div><div class="fp">${live?wkFpg(n):p.f}</div><small>${live?'THIS WEEK':'SEASON'} · FP/G</small></div>`; }).join('')}</div></div>`;
+    <div class="l5c">${picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)).map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc" style="--tcol:${TIER_C[c]}"><div class="ph cw">${scard(p.n,{noinj:1})}</div><span class="tag">$${c}</span><div class="nm">${p.s}</div><div class="fp">${live?wkFpg(n):p.f}</div><small>${live?'THIS WEEK':'SEASON'} · FP/G</small></div>`; }).join('')}</div></div>`;
 }
 function wlcChart(){
   const E=cEntries(), cols=['#ff5fbf','#ffd93d','#39ff6a','#4adfff','#b36bff'], W=320, H=120, L=24, R=10, T=10, B=18, n=TODAY_I+1;
@@ -629,21 +630,21 @@ function challenge(){
     if(!sel && S.party.length){
       const order=S.party.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a));
       pv = `<div class="wpv sum"><div class="sh"><span>YOUR LINE-UP · ${S.party.length}/5</span><span>$${spent()} OF $${BUDGET}</span></div>
-        <div class="srow5">${order.map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="sp" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1,noTap:1}):face(P(p.n).t,p.n)}</div><span>$${c}</span><i>${p.s}</i></div>`; }).join('')}${'<div class="sp empty"><div class="ph">+</div></div>'.repeat(5-S.party.length)}</div>
+        <div class="srow5">${order.map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="sp" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1})}</div><span>$${c}</span><i>${p.s}</i></div>`; }).join('')}${'<div class="sp empty"><div class="ph">+</div></div>'.repeat(5-S.party.length)}</div>
         <div class="sf"><span>${projFpg(S.party)}<small> PROJ FP/G</small></span><span>${S.party.length===5||left<=0?'SAVE LINE-UP BELOW ▼':'TAP A PORTRAIT TO ADD MORE'}</span></div></div>`;
     } else if(!sel){
       pv = `<div class="wpv empty"><div class="pp"><span>?</span></div><div class="pi"><div class="pn blink">SELECT YOUR PLAYER</div><div class="psub">TAP ANY PORTRAIT BELOW</div></div></div>`;
     } else {
       const p=P(sel), c=WLC_COST(sel), inL=S.party.includes(sel), can=!inL && c<=left && S.party.length<5, st=cStats(sel), gm=cWeekGames(sel), q=sel.replace(/'/g,"\\'");
       const box=(l,v)=>`<div class="pst"><div class="l">${l}</div><div class="v">${v}</div></div>`;
-      pv = `<div class="wpv" style="--tcol:${TIER_C[c]}"><div class="pp cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}<span class="pr">$${c}</span></div>
+      pv = `<div class="wpv" style="--tcol:${TIER_C[c]}"><div class="pp cw">${scard(p.n,{noinj:1})}<span class="pr">$${c}</span></div>
         <div class="pi"><div class="ph2"><div style="min-width:0"><div class="pn">${p.n}${p.inj?` <i class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</i>`:''}</div><div class="psub">${p.p?p.p+' · ':''}${p.t} · 2026-27 SEASON</div></div>
           <div class="pgm"><div class="h">${gm.length} GAME${gm.length===1?'':'S'}</div>${gm.map(x=>`<div>${x}</div>`).join('')||'<div>—</div>'}</div></div>
           <div class="psts">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
           <div class="pbt">${inL?`<button class="b drop" onclick="cToggle()">DROP</button>`:can?`<button class="b sel" onclick="cToggle()">SELECT</button>`:`<button class="b sel" disabled>${S.party.length>=5?'LINE-UP FULL':'OVER BUDGET'}</button>`}<button class="b can" onclick="CZ.sel=null;render()">CANCEL</button></div></div></div>`;
     }
     const grid = WLC_TIERS.map((row,k)=>{ const c=5-k; return `<div class="tg" style="--tcol:${TIER_C[c]}">$${c}</div>` + row.map(n=>{ const p=P(n), inL=S.party.includes(n), cant=!inL&&(c>left||S.party.length>=5);
-      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1}):face(P(p.n).t,p.n)}</div><div class="nm">${p.s}</div><div class="tm">${p.t} · ${p.p}</div></div>`; }).join(''); }).join('');
+      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{noinj:1})}</div><div class="nm">${p.s}</div><div class="tm">${p.t} · ${p.p}</div></div>`; }).join(''); }).join('');
     const ready = S.party.length>0 && (S.party.length===5 || left===0) && left>=0;
     body = `<div class="cstick">${pv}</div><div class="tierg">${grid}</div>
       <div class="cbar c5"><div><div class="l">SALARY LEFT</div><div class="v" style="color:var(--teal)">$${left}</div></div><div><div class="l">PLAYERS</div><div class="v">${S.party.length}/5</div></div>
@@ -664,7 +665,7 @@ function lockedSplash(picks){
   const order=picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)), spentN=picks.reduce((a,n)=>a+WLC_COST(n),0);
   const g=document.createElement('div'); g.className='lis';
   g.innerHTML=`<div class="lbx"><div class="lt0">${WLC.pool}</div><div class="lt">LINEUP<br>LOCKED IN!</div>
-    <div class="lcs">${order.map((n,i)=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc5" style="--tcol:${TIER_C[c]};animation-delay:${.15+i*.12}s"><div class="ph cw">${typeof pcard==='function'?pcard(p.n,{mini:1,noTap:1}):face(P(p.n).t,p.n)}<span>$${c}</span></div><b>${p.s}</b><small>${p.t}</small></div>`; }).join('')}</div>
+    <div class="lcs">${order.map((n,i)=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc5" style="--tcol:${TIER_C[c]};animation-delay:${.15+i*.12}s"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1})}<span>$${c}</span></div><b>${p.s}</b><small>${p.t}</small></div>`; }).join('')}</div>
     <div class="lst"><div><span>SPENT</span><b>$${spentN}</b></div><div><span>PLAYERS</span><b>${picks.length}</b></div><div><span>PROJ FP/G</span><b>${projFpg(picks)}</b></div></div>
     <div class="lgl">GOOD LUCK!</div><button class="lbtn">VIEW ALL LINEUPS ▶</button></div>`;
   g.querySelector('.lbtn').onclick=()=>{ g.remove(); const sc=document.querySelector('#ui .screen'); if(sc) sc.scrollTo({top:0}); };

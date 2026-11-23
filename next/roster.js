@@ -34,17 +34,22 @@ function paintPix(root=document){
 }
 
 /* ── One card ── */
+/* ── SMALL CARD (roster and every list/grid on the site): name on top, portrait, game + FP footer.
+   It carries a simple version of the player's add-ons: silver by default, gold foil, holo, shine, jersey foil, stars. ── */
 function card16(n, pos, o={}){
   if(!n) return `<div class="rc16 empty ${pos&&pos[0]==='i'?'irs':''}" ${pos?`data-pos="${pos}"`:''}><div class="rc-in"><div class="rc-art"><span class="plus">${pos&&pos[0]==='i'?'IR':'+'}</span></div><div class="rc-bot"><b>${pos&&pos[0]==='i'?'EMPTY IR':'OPEN SLOT'}</b></div></div></div>`;
-  const p=P(n), rr=rarity(p.f), di=FZ.day, g = (()=>{ const sv=p.inj; if(sv!=='OUT') return dayGame(n,di); p.inj=null; try{ return dayGame(n,di); } finally{ p.inj=sv; } })(), off = g==='NO GAME';
-  const fm = fpMode(), fr = fpFor(p), fp = (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
-  /* footer: game on the left (start time, LIVE/FINAL, OFF or OUT), FP on the right (orange = FP/G, blue = today) */
+  const p=P(n), di=FZ.day, g = (()=>{ const sv=p.inj; if(sv!=='OUT') return dayGame(n,di); p.inj=null; try{ return dayGame(n,di); } finally{ p.inj=sv; } })(), off = g==='NO GAME';
+  const fm = o.fm || fpMode(), fr = o.fm==='AVG' ? p.f : fpFor(p), fp = (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
+  /* footer: game on the left (start time, LIVE/FINAL, OFF), FP on the right (orange = FP/G, yellow = today) */
   const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
-  const ov=`${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}`;
-  return `<div class="rc16 r-${rr} ${p.inj==='OUT'?'out':''} ${off?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} data-pn="${escA(n)}" style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
-    <div class="rc-in">${typeof pcard==="function"?pcard(n,{noTap:1, ov}):""}</div>
-    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div>`;
+  const ups = typeof addOn==='function' ? VERS.filter(v=>addOn(n,v.k)).map(v=>'u-'+v.k).join(' ') : '';
+  return `<div class="rc16 ${ups} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
+    <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
+    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}<i class="stz"></i></div>
+    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
+/* small card for lists outside the roster (waivers, draft, challenge, home…) */
+const scard = (n, o={}) => card16(n, null, o);
 
 /* ── Line-up helpers (live.js swaps these for the real engine) ── */
 var commitLineup = () => { save(); };            // write S.fl back
@@ -295,4 +300,20 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .rc-art .injb.o{color:#fff;background:repeating-linear-gradient(45deg,#ff3b5c 0 6px,#c4122f 6px 12px);text-shadow:1px 1px 0 #000}
 .rc16.ghost{transition:none}
 .stage .rc-bot{padding:2px 2px;gap:3px}.stage .rc-bot b.gm{overflow:visible;text-overflow:clip}.stage .rc-bot i{flex:none}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* ── small-card add-ons (simple versions of the big card's) ── */
+.rc16:not(.empty){--fr:#8d97ab;--fr2:#e4e9f2}
+.rc16 .rc-in::after{display:none}
+.rc16.u-shine .rc-in::after{display:block}
+.rc16.u-gold .rc-in{background:linear-gradient(125deg,#7a5200,#d9a520 22%,#fff2b0 34%,#c8901a 48%,#f5d061 66%,#fff8d6 76%,#b07a10 90%);background-size:260% 260%;animation:holo 5s linear infinite}
+.rc16.u-holo .rc-top{background:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);background-size:300% 100%;animation:holo 4s linear infinite}
+.rc16.u-holo .rc-top .nm{color:#000;text-shadow:0 0 2px rgba(255,255,255,.7)}
+.rc16.u-jersey .rc-art::before{content:'';position:absolute;left:0;right:0;bottom:0;height:26%;z-index:2;pointer-events:none;mix-blend-mode:color-dodge;opacity:.55;background:linear-gradient(100deg,transparent,color-mix(in srgb,var(--tc) 60%,#fff),#fff,var(--tc),transparent);background-size:300% 100%;animation:holo 3.5s linear infinite}
+.rc16 .rc-art .stz{display:none}
+.rc16.u-stars .rc-art .stz{display:block;position:absolute;inset:0;z-index:3;pointer-events:none;font-style:normal;
+  background:radial-gradient(circle,#fff 0 .8px,transparent 1.3px) 2px 3px/13px 15px,radial-gradient(circle,#ffe9a0 0 1px,transparent 1.5px) 7px 9px/17px 19px;
+  -webkit-mask:radial-gradient(ellipse 36% 42% at 50% 55%,transparent 70%,#000 100%);mask:radial-gradient(ellipse 36% 42% at 50% 55%,transparent 70%,#000 100%);animation:twk 2.4s ease-in-out infinite}
+.cw>.rc16{width:100%;height:100%}
 </style>`);

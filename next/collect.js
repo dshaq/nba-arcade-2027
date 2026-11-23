@@ -100,7 +100,7 @@ function pxDaily(){
   if(!yest.length) return;
   const rows=yest.map(n=>[n, Math.max(4, Math.round((+P(n).f||8)*(.35+hsh(n+TODAY)*.3)))]);
   const o=overlay(`<div class="sheet pxd" style="--c:var(--green)"><h3>YESTERDAY'S STARTERS</h3><p>Every player you start earns EXP. Level them up to unlock add-ons for their cards.</p>
-    <div class="pxrows">${rows.map(([n,x])=>{ const L=pxLv(n); return `<div class="pxr" data-n="${escA(n)}"><div class="cw">${pcard(n,{mini:1,noTap:1})}</div><div class="mid"><b>${P(n).n}</b>
+    <div class="pxrows">${rows.map(([n,x])=>{ const L=pxLv(n); return `<div class="pxr" data-n="${escA(n)}"><div class="cw">${scard(n,{noTap:1,noinj:1})}</div><div class="mid"><b>${P(n).n}</b>
       <div class="xb"><i style="width:${L.pct}%"></i></div><small>LV ${L.lv} · ${L.max?'MAX':`${L.need} TO LV ${L.lv+1}`}</small></div><span class="gx">+${x}</span></div>`; }).join('')}</div>
     <div class="acts"><button class="btn" id="col">COLLECT ${rows.reduce((a,r)=>a+r[1],0)} EXP ▶</button></div></div>`);
   o.querySelector('#col').onclick=()=>{
@@ -136,7 +136,7 @@ claim = function(){
   const o=overlay(`<div class="sheet rwd" style="--c:var(--gold)"><h3>🎁 DAILY REWARD</h3><p>+1 card pack, and <b>${FULL_BONUS} EXP</b>. Who gets the EXP?</p>
     <button class="rbtn" id="rb"><span class="bv" id="rbv"></span><span><b>YOUR BALLER</b><small>${BB.CHARS[S.active].name} · LV ${lvOf(B(S.active).exp).lv}</small></span><i>▶</i></button>
     <div class="sec">OR A PLAYER · ${cand.length}</div>
-    <div class="rlist">${cand.map(n=>{ const l=L(n), up=l.need<=FULL_BONUS; return `<button class="rp ${up?'up':''}" data-n="${escA(n)}"><div class="cw">${pcard(n,{mini:1,noTap:1})}</div>
+    <div class="rlist">${cand.map(n=>{ const l=L(n), up=l.need<=FULL_BONUS; return `<button class="rp ${up?'up':''}" data-n="${escA(n)}"><div class="cw">${scard(n,{noTap:1,noinj:1})}</div>
       <span><b>${P(n).n}</b><div class="xb"><i style="width:${l.pct}%"></i><em style="left:${l.pct}%;width:${Math.min(100-l.pct,Math.round(100*FULL_BONUS/(l.hi-l.lo)))}%"></em></div>
       <small>LV ${l.lv} · ${up?`<u>LEVELS UP → ${l.next.name}</u>`:`${l.need} TO LV ${l.lv+1}`}</small></span></button>`; }).join('')}</div></div>`);
   o.querySelector('#rbv').appendChild(ballerCv(S.active,2));
@@ -319,18 +319,6 @@ document.head.insertAdjacentHTML('beforeend', `<style>
   -webkit-mask:radial-gradient(ellipse 34% 40% at 50% 52%,transparent 72%,#000 100%);mask:radial-gradient(ellipse 34% 40% at 50% 52%,transparent 72%,#000 100%);animation:twk 2.4s ease-in-out infinite}
 @keyframes twk{50%{opacity:.55}}
 
-/* ═══ roster + duel cards are the same card, with the game/FP line underneath ═══ */
-.rc16:not(.empty){aspect-ratio:auto;padding:0;background:none;box-shadow:none!important;border-radius:0}
-.rc16:not(.empty) .rc-in{height:auto;display:block;padding:0;background:none!important;box-shadow:none;border-radius:8px;overflow:visible;animation:none}
-.rc16:not(.empty) .rc-in::after{display:none}
-.rc16:not(.empty) .tcard.pc{box-shadow:0 0 0 1.5px #000,0 4px 8px rgba(0,0,0,.45)}
-.rc16:not(.empty)>.rc-bot{background:none;border:0;padding:4px 1px 0;justify-content:space-between}
-.rc16.dcard>.rc-bot{justify-content:center}
-.rc16.p1 .tcard.pc,.ftr.p1 .rc16 .tcard.pc{box-shadow:0 0 0 3px #e94560,0 0 16px rgba(233,69,96,.7)!important}
-.ftr.p1 .rc16 .tcard.pc{box-shadow:0 0 0 3px #3cf,0 0 24px rgba(51,204,255,.6)!important}
-.dsplash .yf.win .rc16 .tcard.pc{box-shadow:0 0 0 3px var(--gold),0 0 28px rgba(255,217,61,.55)!important}
-.vs .f.dc.pick .rc16 .tcard.pc{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)!important}
-.rc16.idle .tcard .art>img{filter:grayscale(.65) brightness(.75)}.rc16.out .tcard .art>img{filter:grayscale(1) brightness(.5)}
 .tcard .art .p1t{position:absolute;left:3px;top:3px;z-index:6;font-size:6px;color:#fff;background:#e94560;padding:2px 3px;border:1px solid #000;animation:blink .7s steps(2) infinite}
 .tcard .art .injb{position:absolute;left:-12%;right:-12%;top:50%;z-index:5;transform:translateY(-50%) rotate(-14deg);text-align:center;font-size:6px;letter-spacing:.06em;color:#1a1200;background:repeating-linear-gradient(45deg,#ffd93d 0 6px,#f5b400 6px 12px);border-top:1px solid #000;border-bottom:1px solid #000;padding:2px 0;box-shadow:0 2px 0 rgba(0,0,0,.4)}
 .tcard .art .injb.o{color:#fff;background:repeating-linear-gradient(45deg,#ff3b5c 0 6px,#c4122f 6px 12px);text-shadow:1px 1px 0 #000}

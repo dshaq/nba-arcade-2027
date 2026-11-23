@@ -179,7 +179,7 @@ function fzBattle(){
       </div></div>
       <div class="rooms in">${days().map(d=>`<div class="room ${d.r==='W'?'w':d.r==='L'?'l':''} ${d.live?'live':''} ${d.today&&!d.live?'tdy':''}">${d.d}<b>${d.me!=null?d.me+'–'+d.op:'·'}</b></div>`).join('')}</div>${(()=>{ const t=threat(); if(!t) return ''; return `<div class="threat" data-own="1" onclick="event.stopPropagation();openPlayer('${t.p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${scard(t.p.n,{noTap:1,noinj:1})}</div><div><span>TODAY'S BOSS</span><b>“${t.nick}”</b><small>${t.p.n.toUpperCase()} · ${t.p.f} FP/G · ${gameTxt(t.p.n)}</small></div></div>`; })()}</div>
     <div class="dlg" id="dlg" onclick="nextLine()" title="Tap to replay"></div>
-    <div class="zbox"><span class="zl">PLAYING TODAY · ${playing.length}</span><div class="tonight">${playing.map(n=>{ const p=P(n); return `<div><div class="ph cw">${scard(p.n,{noinj:1})}</div>${p.s}<br>${GAMES[p.t].time}</div>`; }).join('')||'<span style="font-size:6px;color:var(--t3)">Nobody plays today</span>'}</div></div>
+    <div class="zbox"><span class="zl">PLAYING TODAY · ${playing.length}</span><div class="tonight">${playing.map(n=>{ const p=P(n); return `<div><div class="ph cw">${scard(p.n,{noinj:1})}</div></div>`; }).join('')||'<span style="font-size:6px;color:var(--t3)">Nobody plays today</span>'}</div></div>
 `;
 }
 
@@ -275,8 +275,7 @@ function wvPage(){
   const L=wvList(), pages=Math.max(1,Math.ceil(L.length/6)), r=rostered();
   FZ.wpg=Math.min(FZ.wpg,pages-1);
   const card=(p,k)=>{ const own=r.has(p.n); return `<div class="tt ${own?'own':''}" data-act="1" onclick="wvOpen('${p.n.replace(/'/g,"\\'")}')">
-      <div class="ph cw">${scard(p.n,{noinj:1})}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
-      <div class="nm">${p.n[0]}. ${p.s}</div><div class="l5"><b>${p.l5}</b> FP/G</div><div class="u">${own?'ROSTERED':gameTxt(p.n)}</div></div>`; };
+      <div class="ph cw">${scard(p.n,{fm:'AVG',fpv:`${Math.ceil(p.l5)} FP`})}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${own?'<span class="owt">ROSTERED</span>':''}</div></div>`; };
   const f=FZ.wf, chips=f?[f.q&&`“${f.q}”`, f.avail?'AVAILABLE':'ALL PLAYERS', f.hide&&'NO OUT/INJ', f.team].filter(Boolean).join(' · '):'';
   return `<div class="wtop">${addBar()}<div class="wbtn2"><button class="srep sm" onclick="scoutReport()">🔭 SCOUTING <b>${S.wv.scouted.length}</b></button><button class="srep sm blu" onclick="wvSearch()">🔍 SEARCH</button></div></div>
     <div class="qcap">${f?`RESULTS · ${L.length} <span class="clr" onclick="FZ.wf=null;FZ.wpg=0;render()">✕ CLEAR</span><br><span class="dim">${chips}</span>`:'TRENDING · BEST FP/G OVER THE LAST 5 GAMES'}</div>
@@ -508,8 +507,7 @@ function draft(){
   }
   const L=drList(), pages=Math.max(1,Math.ceil(L.length/6)); DR.wpg=Math.min(DR.wpg,pages-1);
   const taken=drTaken(), canPick=m&&who===0;
-  const card=(p,k)=>`<div class="tt ${taken.has(p.n)?'own':''}" data-act="1" onclick="drOpen('${p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${scard(p.n,{noinj:1})}<span class="rk">${k+1}</span>${p.inj?`<span class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}</div>
-      <div class="nm">${p.n[0]}. ${p.s}</div><div class="l5"><b>${p.f}</b> FP/G</div><div class="u">${taken.has(p.n)?'DRAFTED':p.t+' · '+p.p}</div></div>`;
+  const card=(p,k)=>`<div class="tt ${taken.has(p.n)?'own':''}" data-act="1" onclick="drOpen('${p.n.replace(/'/g,"\\'")}')"><div class="ph cw">${scard(p.n,{fm:'AVG',gl:p.p})}<span class="rk">${k+1}</span>${taken.has(p.n)?'<span class="owt">DRAFTED</span>':''}</div></div>`;
   const f=DR.wf;
   const mine=(m?.picks||[]).filter(x=>x.team===0);
   return mframe('fz dr','DRAFT', `${banner}
@@ -517,7 +515,7 @@ function draft(){
     ${canPick?'<div class="drhint">TAP A PLAYER, THEN DRAFT HIM</div>':''}
     ${L.length?`<div class="wcar"><button class="warr" ${DR.wpg?'':'disabled'} onclick="wvGo(-1)">◀</button><div class="wtrack" id="wtrack">${Array.from({length:pages},(_,g)=>`<div class="tgrid wpage">${L.slice(g*6,g*6+6).map((p,k)=>card(p,g*6+k)).join('')}</div>`).join('')}</div><button class="warr" ${DR.wpg<pages-1?'':'disabled'} onclick="wvGo(1)">▶</button></div>
       <div class="wdots">${pages>1?Array.from({length:pages},(_,g)=>`<i class="${g===DR.wpg?'on':''}"></i>`).join(''):''}</div>`:'<div class="wnone">No players match.</div>'}
-    ${m?`<div class="zbox"><span class="zl">YOUR PICKS · ${mine.length}/${DRAFT_ROUNDS}</span><div class="drmine">${mine.map(x=>{ const p=P(x.n); return `<div data-pn="${p.n.replace(/"/g,'&quot;')}"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1})}</div><small>R${x.rd}${x.auto?' · AUTO':''}</small><b>${p.s}</b></div>`; }).join('')||'<span class="dim">None yet</span>'}</div></div>
+    ${m?`<div class="zbox"><span class="zl">YOUR PICKS · ${mine.length}/${DRAFT_ROUNDS}</span><div class="drmine">${mine.map(x=>{ const p=P(x.n); return `<div data-pn="${p.n.replace(/"/g,'&quot;')}"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1,fm:'AVG',gl:'R'+x.rd})}</div></div>`; }).join('')||'<span class="dim">None yet</span>'}</div></div>
       <div class="zbox"><span class="zl">DRAFT LOG</span><div class="drlog">${m.picks.slice().reverse().slice(0,12).map((x,k)=>`<div class="${x.team===0?'me':''}"><span>#${m.picks.length-k}</span>${x.team===0?'YOU':tm(x.team).team.toUpperCase()}<b>${x.n}</b>${x.auto?'<i>AUTO</i>':''}</div>`).join('')||'<span class="dim">Waiting on the first pick</span>'}</div></div>`:''}`);
 }
 SCREENS.draft = draft;
@@ -580,4 +578,12 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .shead span:nth-child(3),.shead span:nth-child(4),.srow>span:nth-child(4),.srow>b{text-align:center!important;justify-self:center}
 .srow b.roll{color:var(--gold)}
 .wkn .warr{height:32px!important;width:100%}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* small cards carry their own name/game/FP, so lists show nothing extra underneath */
+.ph.cw>.owt{position:absolute;left:50%;bottom:22%;transform:translateX(-50%) rotate(-8deg);z-index:9;font-size:5px;padding:3px 4px;background:#39ff6a;color:#000;border:1px solid #000;box-shadow:1px 1px 0 #000;white-space:nowrap}
+.tt.own .ph.cw>.owt{background:#9ad8ff}
+.tonight>div{font-size:0}
+.tonight .ph.cw{width:84px!important}
 </style>`);

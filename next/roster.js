@@ -39,14 +39,14 @@ function paintPix(root=document){
 function card16(n, pos, o={}){
   if(!n) return `<div class="rc16 empty ${pos&&pos[0]==='i'?'irs':''}" ${pos?`data-pos="${pos}"`:''}><div class="rc-in"><div class="rc-art"><span class="plus">${pos&&pos[0]==='i'?'IR':'+'}</span></div><div class="rc-bot"><b>${pos&&pos[0]==='i'?'EMPTY IR':'OPEN SLOT'}</b></div></div></div>`;
   const p=P(n), di=FZ.day, g = (()=>{ const sv=p.inj; if(sv!=='OUT') return dayGame(n,di); p.inj=null; try{ return dayGame(n,di); } finally{ p.inj=sv; } })(), off = g==='NO GAME';
-  const fm = o.fm || fpMode(), fr = o.fm==='AVG' ? p.f : fpFor(p), fp = (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
+  const fm = o.fm || fpMode(), fr = o.fm==='AVG' ? p.f : fpFor(p), fp = o.fpv!=null ? o.fpv : (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
   /* footer: game on the left (start time, LIVE/FINAL, OFF), FP on the right (orange = FP/G, yellow = today) */
   const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
   const ups = typeof addOn==='function' ? VERS.filter(v=>addOn(n,v.k)).map(v=>'u-'+v.k).join(' ') : '';
   return `<div class="rc16 ${ups} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
     <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}<i class="stz"></i></div>
-    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
+    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${o.gl??gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
 const scard = (n, o={}) => card16(n, null, o);

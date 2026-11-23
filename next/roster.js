@@ -260,7 +260,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .sg-t b{display:block;font-weight:normal;font-size:10px;color:#fff;margin-top:5px;text-shadow:2px 2px 0 #e94560,-1px -1px 0 #4adfff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stage .dstrip.dmini button{padding:5px 0;font-size:5px}.stage .dstrip.dmini small{font-size:4px}
 .autos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.autos button{font-size:6.5px;padding:10px 4px;border-radius:8px;border:2px solid #000;background:var(--gold);color:#1a1200;cursor:pointer;box-shadow:0 3px 0 #000}
+.autos button{font-size:5.5px;padding:6px 4px;border-radius:8px;border:2px solid #000;background:var(--gold);color:#1a1200;cursor:pointer;box-shadow:0 3px 0 #000}
 .autos button+button{background:var(--teal,#2ae8b8)}
 .issues{display:flex;flex-direction:column;gap:5px}
 .iss{font-size:6px;line-height:1.7;color:#ffd0d8;background:rgba(233,69,96,.14);border:1px solid #e94560;border-radius:6px;padding:6px 8px}

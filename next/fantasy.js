@@ -486,7 +486,10 @@ function drOpen(n){
     <div class="acts3"><button class="btn" id="dd" ${mine?'':'disabled'}>${taken?'DRAFTED':mine?'DRAFT':DR.mock?'NOT YOUR PICK':'DRAFT NOT STARTED'}</button><button class="btn alt" id="dc">CANCEL</button><button class="btn alt" id="ds">STATS</button></div></div>`);
   o.querySelector('#dd').onclick=()=>{ o.remove(); drPick(n); };
   o.querySelector('#dc').onclick=()=>o.remove();
-  o.querySelector('#ds').onclick=()=>{ o.remove(); openPlayer(n); };
+  o.querySelector('#ds').onclick=()=>{ o.remove(); const before=new Set(document.body.children); openPlayer(n);
+    /* closing the player card brings back Draft / Cancel / Stats */
+    const box=[...document.body.children].find(c=>!before.has(c));
+    if(box){ const mo=new MutationObserver(()=>{ if(!box.isConnected){ mo.disconnect(); if(cur==='draft') drOpen(n); } }); mo.observe(document.body,{childList:true}); } };
 }
 document.head.insertAdjacentHTML('beforeend',`<style>.drp{text-align:center}.drpc{width:120px;margin:0 auto 12px}.drp p{font-size:6.5px;color:var(--t2)}
 .acts3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px;margin-top:14px}.acts3 .btn{font-size:7px;padding:12px 4px}.acts3 .btn:disabled{opacity:.4}</style>`);
@@ -586,4 +589,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .tt.own .ph.cw>.owt{background:#9ad8ff}
 .tonight>div{font-size:0}
 .tonight .ph.cw{width:84px!important}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+.drmine{gap:0!important}.drmine>div .ph.cw{width:124%!important;max-width:none}.drmine>div:last-child .ph.cw{width:100%!important}
 </style>`);

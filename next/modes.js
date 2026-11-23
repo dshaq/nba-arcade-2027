@@ -540,7 +540,7 @@ function ydSplash(){
   const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
   const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
   const side=(p,v,win,k)=>`<div class="yf ${win?'win':'lose'} ${k}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
-      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div>${win?'<span class="crown">🏆 WINNER</span>':''}</div>`;
+      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div></div>`;
   const g=document.createElement('div'); g.className='dsplash';
   g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
     <div class="yar arena" style="--ca:${w.c};--cb:${l.c}">${side(w,y.win.v,true,'fa')}<div class="vsbig">VS</div>${side(l,y.lose.v,false,'fb')}</div>
@@ -1039,4 +1039,23 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .dsplash .yf.lose .fname{color:#ff8fa0;-webkit-text-stroke:1px #7a0016}
 .dsplash .crown{top:-8px}
 .dsplash .ywho .av canvas{width:30px;height:30px}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Challenge select grid: the portrait matters most. Footer off, name bar small. */
+.ct{border-width:2px;padding:0;background:none!important}
+.ct .ph.cw{aspect-ratio:auto!important}
+.ct .rc16{aspect-ratio:auto;padding:2px}
+.ct .rc16 .rc-in{padding:2px;gap:1px;grid-template-rows:auto auto}
+.ct .rc16 .rc-art{aspect-ratio:1/1}
+.ct .rc16 .rc-bot{display:none}
+.ct .rc16 .rc-top{padding:1px 2px}
+.ct .rc16 .rc-top .nm{font-size:3.8px!important}
+/* overlapping card rows (like Playing Today): each card runs under the next one */
+.srow5,.l5c,.lcs{gap:0!important}
+.srow5 .sp,.l5c .lc{border:0!important;overflow:visible!important;background:none!important}
+.srow5 .ph.cw,.l5c .ph.cw,.lcs .ph.cw{width:124%!important;max-width:none}
+.srow5 .sp:nth-child(5) .ph.cw,.l5c .lc:last-child .ph.cw,.lcs .lc5:last-child .ph.cw{width:100%!important}
+.srow5 .sp>span,.l5c .lc>.tag{z-index:10}
+.srow5 .sp.empty .ph{border:2px dashed #2a3858;border-radius:5px;margin-right:6px}
 </style>`);

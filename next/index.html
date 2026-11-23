@@ -418,7 +418,7 @@ function home(){
       </div>
       <div class="box chal" onclick="go('wlc')">
         <h2>CHALLENGE</h2>
-        <div class="banner"><div class="allstar ${wkStyle()}" style="${WLC.pool.length>9?'font-size:'+Math.max(7,Math.round(110/WLC.pool.length))+'px':''}">${WLC.pool}<small>${WLC.sub}</small></div></div>
+        <div class="banner"><div class="allstar ${wkStyle()}" style="${(()=>{ const lw=Math.max(...WLC.pool.split(' ').map(w=>w.length)); return WLC.pool.length>9?`white-space:normal;line-height:1.25;font-size:${Math.max(6,Math.min(12,Math.floor(84/lw)))}px`:''; })()}">${WLC.pool}<small>${WLC.sub}</small></div></div>
         ${S.wphase==='live' ? `<div class="todo st">${wlcStatus()}</div>` : S.wsaved ? '<div class="todo ok"><span class="w">✓</span>ENTERED</div>' : '<div class="todo"><span class="w">!</span>MAKE ENTRY</div>'}
       </div>
     </div>
@@ -751,13 +751,13 @@ setTimeout(async()=>{ if(start.done) return;
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=28" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=28" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=28" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=28" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=28" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=28" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=28" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
-<script src="nba.js?v=28" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
+<script src="data.js?v=29" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=29" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=29" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=29" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=29" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=29" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=29" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=29" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
 </body>
 </html>

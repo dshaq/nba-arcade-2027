@@ -54,8 +54,8 @@ function settings(){
       ${f('pfn','DISPLAY NAME',ME.name,'Your name')}${f('pft','FANTASY TEAM NAME',ME.team,'Your team')}
       <button class="go" style="width:100%;margin-top:12px" onclick="saveProfile()">SAVE</button>
       <div class="reward" style="margin:12px 0 0">Preview: saved on this phone only, so the real league isn't touched.</div></div>
-    <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
     <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
+    <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
   </div>`;
 }
 SCREENS.settings = settings;

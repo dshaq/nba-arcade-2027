@@ -39,13 +39,13 @@ function paintPix(root=document){
 function card16(n, pos, o={}){
   if(!n) return `<div class="rc16 empty ${pos&&pos[0]==='i'?'irs':''}" ${pos?`data-pos="${pos}"`:''}><div class="rc-in"><div class="rc-art"><span class="plus">${pos&&pos[0]==='i'?'IR':'+'}</span></div><div class="rc-bot"><b>${pos&&pos[0]==='i'?'EMPTY IR':'OPEN SLOT'}</b></div></div></div>`;
   const p=P(n), di=FZ.day, g = (()=>{ const sv=p.inj; if(sv!=='OUT') return dayGame(n,di); p.inj=null; try{ return dayGame(n,di); } finally{ p.inj=sv; } })(), off = g==='NO GAME';
-  const fm = o.fm || fpMode(), fr = o.fm==='AVG' ? p.f : fpFor(p), fp = o.fpv!=null ? o.fpv : (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`;
+  const fm = o.fm || fpMode(), fr = o.fm==='AVG' ? p.f : fpFor(p), fp = (o.fpv!=null ? String(o.fpv) : (fr==='—'||fr==null||fr==='') ? '—' : `${fm==='DAY'?fr:Math.ceil(parseFloat(fr))} FP`).replace(/ ?FP$/,'<small>FP</small>');
   /* footer: game on the left (start time, LIVE/FINAL, OFF), FP on the right (orange = FP/G, yellow = today) */
   const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
   const ups = typeof addOn==='function' ? VERS.filter(v=>addOn(n,v.k)).map(v=>'u-'+v.k).join(' ') : '';
-  return `<div class="rc16 ${ups} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
+  return `<div class="rc16 ${ups} ${pos==='i0'?'onir':''} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${p.inj&&!o.noinj?`<span class="injb ${p.inj==='OUT'?'o':''}">${p.inj}</span>`:''}<i class="stz"></i></div>
+    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}${pos==='i0'?'<span class="irtag">IR</span>':''}<i class="stz"></i></div>
     <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${o.gl??gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
@@ -61,7 +61,7 @@ const lineupScore = (n, di) => (isOut(n)?-500:0) + (playsOn(n,di)?100:0) + P(n).
 function bestFor(di, pool){
   const locked = pool.filter(n=>lockedN(n)), lockedAct = locked.filter(n=>S.fl.act.includes(n));
   const free = pool.filter(n=>!locked.includes(n)).sort((a,b)=>lineupScore(b,di)-lineupScore(a,di));
-  const act = [...lockedAct, ...free.slice(0, Math.max(0, 8-lockedAct.length))];
+  const act = [...lockedAct, ...free.slice(0, Math.max(0, ACT_N-lockedAct.length))];
   return {act, bench: pool.filter(n=>!act.includes(n)), locked};
 }
 function lineupIssues(di=TODAY_I, pool){
@@ -70,16 +70,16 @@ function lineupIssues(di=TODAY_I, pool){
   if(outs.length && !S.fl.ir[0]) out.push({w:'ir', t:`${nm(outs[0])} is OUT · move him to IR to free a spot`});
   if(outs.length>1 || (outs.length && S.fl.ir[0])) out.push({w:'inj', t:`${outs.filter(n=>n!==outs[0]||S.fl.ir[0]).map(nm).join(', ')} OUT · your IR spot is full`});
   if(S.fl.ir[0] && !isOut(S.fl.ir[0])) out.push({w:'ir2', t:`${nm(S.fl.ir[0])} is healthy but still on IR`});
-  if(playing.length>8) out.push({w:'many', t:`${playing.length} players have games but only 8 slots · ${bestFor(di,pool).bench.filter(n=>playsOn(n,di)).map(nm).join(' & ')} sit`});
-  if(playing.length<8) out.push({w:'few', t:`Only ${playing.length} of your players have a game${di===TODAY_I?' today':''} · ${8-playing.length} slot${8-playing.length>1?'s':''} will score 0`});
+  if(playing.length>ACT_N) out.push({w:'many', t:`${playing.length} players have games but only ${ACT_N} slots · ${bestFor(di,pool).bench.filter(n=>playsOn(n,di)).map(nm).join(' & ')} sit`});
+  if(playing.length<ACT_N) out.push({w:'few', t:`Only ${playing.length} of your players have a game${di===TODAY_I?' today':''} · ${ACT_N-playing.length} slot${ACT_N-playing.length>1?'s':''} will score 0`});
   return out;
 }
 function autoDay(silent){
   const ch=[], before=new Set(S.fl.act.filter(Boolean));
   if(!S.fl.ir[0]){ for(const k of ['act','bench']) S.fl[k].forEach((n,i)=>{ if(n && isOut(n) && !S.fl.ir[0] && !lockedN(n)){ S.fl.ir[0]=n; S.fl[k][i]=null; ch.push(`${nm(n)} → IR`); } }); }
   const pool=[...S.fl.act, ...S.fl.bench].filter(Boolean), b=bestFor(TODAY_I, pool);
-  S.fl.act=[...b.act]; while(S.fl.act.length<8) S.fl.act.push(null);
-  S.fl.bench=[...b.bench]; while(S.fl.bench.length<2) S.fl.bench.push(null);
+  S.fl.act=[...b.act]; while(S.fl.act.length<ACT_N) S.fl.act.push(null);
+  S.fl.bench=[...b.bench]; while(S.fl.bench.length<BENCH_N) S.fl.bench.push(null);
   b.act.filter(n=>!before.has(n)).forEach(n=>ch.push(`${nm(n)} IN`));
   [...before].filter(n=>!b.act.includes(n) && S.fl.ir[0]!==n).forEach(n=>ch.push(`${nm(n)} OUT`));
   commitLineup(); FZ.day=TODAY_I;
@@ -92,7 +92,7 @@ function autoWeek(){
     const pool=[...S.fl.act, ...S.fl.bench].filter(Boolean), b=di===TODAY_I?{act:S.fl.act.filter(Boolean)}:bestFor(di,pool);
     if(di>TODAY_I) commitPlan(di, b.act);
     const n=b.act.filter(x=>playsOn(x,di)).length, games=pool.filter(x=>playsOn(x,di)).length;
-    rows.push(`<div class="wkrow ${n<8?'warn':''}"><b>${DAYN[di]}</b><span>${n} of 8 slots playing${games>8?` · ${games-8} sit`:''}</span><i>${n<8?'!':'✓'}</i></div>`);
+    rows.push(`<div class="wkrow ${n<ACT_N?'warn':''}"><b>${DAYN[di]}</b><span>${n} of ${ACT_N} slots playing${games>ACT_N?` · ${games-ACT_N} sit`:''}</span><i>${n<ACT_N?'!':'✓'}</i></div>`);
   }
   render(); lineupCheck();
   overlay(`<div class="sheet" style="--c:var(--green)"><h3>📅 WEEK SET</h3><p>Every day from today to Sunday now starts your best available players. You can still change any day.</p>
@@ -109,7 +109,7 @@ function lineupSheet(when, ch, issues, locked=[]){
 function rosterStage(){
   const i=FZ.view, mine=i===0, T=TEAMS[i];
   const names = mine ? null : OTHER[i]||[];
-  const act = mine ? S.fl.act : names.slice(0,8), bench = mine ? S.fl.bench : names.slice(8);
+  const act = mine ? S.fl.act : names.slice(0,ACT_N), bench = mine ? S.fl.bench : names.slice(ACT_N);
   const selN = mine && FZ.pick ? getSlot(FZ.pick) : null;
   return `<div class="stage ${mine?'':'ro'}">
     <div class="sg-head"><button class="ar" onclick="FZ.view=(FZ.view+TEAMS.length-1)%TEAMS.length;render()">◀</button>
@@ -117,10 +117,10 @@ function rosterStage(){
       <button class="ar" onclick="FZ.view=(FZ.view+1)%TEAMS.length;render()">▶</button></div>
     <div class="dstrip dmini">${DAYN.map((d,k)=>`<button class="${k===FZ.day?'on':''}" onclick="FZ.day=${k};FZ.fpm=null;FZ.pick=null;render()">${d}${k===TODAY_I?'<small>TODAY</small>':''}</button>`).join('')}</div>
     ${mine?`<div class="autos"><button onclick="autoDay()">⚡ AUTO-SET TODAY</button><button onclick="autoWeek()">📅 AUTO-SET WEEK</button></div>`:''}
-    <div class="sg-lbl"><span>ACTIVE ${act.filter(Boolean).length}/8</span>${fpTog()}</div>
-    <div class="cgrid">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:mine&&FZ.pick==='a'+k&&!!n})).join('')}</div>
+    <div class="sg-lbl"><span>ACTIVE ${act.filter(Boolean).length}/${ACT_N}</span>${fpTog()}</div>
+    <div class="cgrid fan act5">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:mine&&FZ.pick==='a'+k&&!!n})).join('')}</div>
     <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?`<span>HOLD + DRAG TO SWAP · TAP FOR PROFILE</span>`:'<span>TAP A CARD FOR PROFILE</span>'}</div>
-    <div class="cgrid">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]}):''}</div>
+    <div class="cgrid fan bn">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]}):''}</div>
   </div>`;
 }
 
@@ -162,8 +162,9 @@ function rosterActions(pos){
   const n=getSlot(pos); if(!n) return [];
   const a=[];
   if(isOut(n) && pos[0]!=='i' && !S.fl.ir[0]) a.push(['MOVE TO IR', ()=>{ if(swapPos(pos,'i0')){ render(); say(`${nm(n)} moved to IR`); lineupCheck(); } }]);
-  if(pos[0]==='a') a.push(['BENCH HIM', ()=>{ const b=S.fl.bench.findIndex(x=>x==null); if(b>=0){ if(swapPos(pos,'b'+b)){ render(); say('Benched'); } } else say('Bench is full · hold and drag him onto a bench card to swap'); }]);
-  if(pos[0]==='b'){ const open=S.fl.act.findIndex(x=>x==null); a.push(['START HIM', ()=>{ const k=open>=0?open:S.fl.act.map((x,i)=>[x,i]).filter(([x])=>x).sort((p,q)=>lineupScore(p[0],TODAY_I)-lineupScore(q[0],TODAY_I))[0][1]; if(swapPos(pos,'a'+k)){ render(); say(`${nm(n)} is in`); lineupCheck(); } }]); }
+  if(pos[0]==='a') a.push(['MOVE TO BENCH', ()=>{ const b=S.fl.bench.findIndex(x=>x==null); if(b>=0){ if(swapPos(pos,'b'+b)){ render(); say('Benched'); } } else say('Bench is full · hold and drag him onto a bench card to swap'); }]);
+  if(pos[0]==='b'){ const open=S.fl.act.findIndex(x=>x==null); a.push(['MOVE TO ACTIVE', ()=>{ const k=open>=0?open:S.fl.act.map((x,i)=>[x,i]).filter(([x])=>x).sort((p,q)=>lineupScore(p[0],TODAY_I)-lineupScore(q[0],TODAY_I))[0][1]; if(swapPos(pos,'a'+k)){ render(); say(`${nm(n)} is in`); lineupCheck(); } }]); }
+  if(pos==='i0'){ a.push(['REMOVE FROM IR', ()=>{ const b=S.fl.bench.findIndex(x=>x==null); if(b<0){ say('Bench is full · make room first'); return; } if(swapPos('i0','b'+b)){ render(); say(`${nm(n)} is back on the bench`); lineupCheck(); } }]); }
   return a;
 }
 
@@ -178,10 +179,11 @@ function openPlayer(n, actions=[]){
   const o=overlay(`<div class="sheet pbox" style="--c:${({legend:'#ff5fbf',gold:'#ffd93d',silver:'#c8d0e0',bronze:'#d98a4e'})[rarity(p.f)]}">
     <div class="pb-top">${card16(n,null,{noinj:1})}<div class="pb-id"><small>${RARE_LBL[rarity(p.f)]} · ${owner}</small><h3>${p.n.toUpperCase()}</h3><p>${p.t} · ${p.p}${p.inj?` · <b style="color:${p.inj==='OUT'?'#ff3b5c':'var(--gold)'};font-weight:normal">${p.inj}</b>`:''}</p>
       <p class="tdg">${GAMES[p.t]?`TODAY ${GAMES[p.t].time} ${GAMES[p.t].home?'vs':'@'} ${GAMES[p.t].opp}`:'NO GAME TODAY'}</p></div></div>
+    ${actions.length?`<div class="pb-acts">${actions.map((a,k)=>`<button class="${/IR/.test(a[0])?'ir':''}" data-k="${k}">${a[0]}</button>`).join('')}</div>`:''}
     <div class="pstats"><div><b>${p.f}</b>FP/G</div><div><b>${p.l5}</b>LAST 5</div><div><b>${p.wk}</b>THIS WEEK</div><div><b>${p.fall}</b>FALL</div></div>
     <div class="cap">THIS WEEK</div><div class="sched7">${sched}</div>
     ${log?`<div class="cap">LAST GAMES</div><table class="glog"><tr><th></th><th>OPP</th><th>PTS</th><th>REB</th><th>AST</th><th>FP</th></tr>${log}</table>`:''}
-    ${actions.length?`<div class="acts">${actions.map((a,k)=>`<button class="btn ${k?'alt':''}" data-k="${k}">${a[0]}</button>`).join('')}</div>`:''}</div>`);
+</div>`);
   o.querySelector('.pb-top .rc16')?.classList.add('big');
   const x=document.createElement('button'); x.className='pbx'; x.setAttribute('aria-label','Close'); x.textContent='✕'; x.onclick=()=>o.remove(); o.querySelector('.pbox').prepend(x);
   paintPix(o);
@@ -317,3 +319,26 @@ document.head.insertAdjacentHTML('beforeend',`<style>
   -webkit-mask:radial-gradient(ellipse 36% 42% at 50% 55%,transparent 70%,#000 100%);mask:radial-gradient(ellipse 36% 42% at 50% 55%,transparent 70%,#000 100%);animation:twk 2.4s ease-in-out infinite}
 .cw>.rc16{width:100%;height:100%}
 </style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* ── fanned roster rows: 5 per row, each card tucked under the next; FP/time kept clear of the overlap ── */
+.cgrid.fan{display:flex!important;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:12px 0!important;padding:4px 0 2px}
+.cgrid.fan>.rc16{flex:0 0 21%;max-width:21%;margin-right:-2.5%;transform-origin:50% 120%}
+.cgrid.fan.act5>.rc16:nth-child(5n),.cgrid.fan>.rc16:last-child{margin-right:0}
+.cgrid.fan>.rc16:nth-child(5n+1){transform:rotate(-3deg)}.cgrid.fan>.rc16:nth-child(5n+2){transform:rotate(-1.5deg) translateY(-2px)}
+.cgrid.fan>.rc16:nth-child(5n+3){transform:translateY(-3px)}.cgrid.fan>.rc16:nth-child(5n+4){transform:rotate(1.5deg) translateY(-2px)}.cgrid.fan>.rc16:nth-child(5n){transform:rotate(3deg)}
+.cgrid.fan>.rc16:not(:nth-child(5n)):not(:last-child) .rc-bot{padding-right:9%}
+.cgrid.fan>.rc16:not(:nth-child(5n)):not(:last-child) .rc-top{padding-right:12%}
+.cgrid.fan>.rc16.lifted,.cgrid.fan>.rc16.over{z-index:20}
+.cgrid.fan .rc-bot{font-size:3.9px;letter-spacing:-.04em;padding-left:2px;padding-right:2px}
+.cgrid.fan .rc-bot b.gm{overflow:hidden!important}
+/* IR card: violet frame, IR ribbon */
+.rc16.onir .rc-in{background:linear-gradient(160deg,#c9a2ff,#7a3cff)!important}
+.rc16 .rc-art .irtag{display:block!important;position:absolute;right:2px;top:2px;z-index:6;font-size:6px;color:#fff;background:#7a3cff;padding:3px 5px;border:1px solid #000;box-shadow:1px 1px 0 #000}
+/* player pop-up: line-up moves sit at the top */
+.pb-acts{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.pb-acts button{font:inherit;font-size:6px;padding:7px 10px;border-radius:6px;border:2px solid var(--green);background:rgba(57,255,106,.1);color:var(--green);cursor:pointer}
+.pb-acts button.ir{border-color:#a678ff;color:#c9a2ff;background:rgba(122,60,255,.14)}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>.rc-bot i small{font-size:.68em;margin-left:1px;opacity:.9}</style>`);

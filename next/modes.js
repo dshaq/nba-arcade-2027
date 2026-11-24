@@ -32,7 +32,7 @@ const FUT = [ // route map nodes
 document.head.insertAdjacentHTML('beforeend', `<style>
 .mode{display:flex;flex-direction:column;gap:14px}
 .mhead{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
-.mhead h1{margin:0;font-size:16px;font-weight:normal;text-shadow:0 3px 0 #000;color:var(--mc)}
+.mhead h1{margin:0;font-size:12px;font-weight:normal;text-shadow:0 3px 0 #000;color:var(--mc)}
 .lsw{position:relative}
 .lsw>button{display:flex;align-items:center;gap:6px;font-size:7px;padding:8px 10px;border-radius:8px;border:2px solid var(--edge);background:var(--card);cursor:pointer}
 .lsw>button b{font-weight:normal;color:var(--t1)}
@@ -498,9 +498,16 @@ function duelAvg(name, stat){
   const base = {tpm:f/9, pts:f*.55, reb:f*.2, ast:f*.14, fp:f, 'reb+ast':f*.34, 'stl+blk':f*.06, pra:f*.9}[stat] ?? f/14;
   return (base*(.8+hsh(name+stat)*.4)).toFixed(1);
 }
+/* team duels: city names, not abbreviations */
+const CITY={ATL:'ATLANTA',BOS:'BOSTON',BKN:'BROOKLYN',CHA:'CHARLOTTE',CHI:'CHICAGO',CLE:'CLEVELAND',DAL:'DALLAS',DEN:'DENVER',DET:'DETROIT',GSW:'GOLDEN STATE',GS:'GOLDEN STATE',HOU:'HOUSTON',IND:'INDIANA',LAC:'LA',LAL:'LOS ANGELES',MEM:'MEMPHIS',MIA:'MIAMI',MIL:'MILWAUKEE',MIN:'MINNESOTA',NOP:'NEW ORLEANS',NO:'NEW ORLEANS',NYK:'NEW YORK',NY:'NEW YORK',OKC:'OKLAHOMA CITY',ORL:'ORLANDO',PHI:'PHILADELPHIA',PHX:'PHOENIX',POR:'PORTLAND',SAC:'SACRAMENTO',SAS:'SAN ANTONIO',SA:'SAN ANTONIO',TOR:'TORONTO',UTA:'UTAH',UTAH:'UTAH',WAS:'WASHINGTON',WSH:'WASHINGTON'};
+const NICK={ATL:'HAWKS',BOS:'CELTICS',BKN:'NETS',CHA:'HORNETS',CHI:'BULLS',CLE:'CAVALIERS',DAL:'MAVERICKS',DEN:'NUGGETS',DET:'PISTONS',GSW:'WARRIORS',GS:'WARRIORS',HOU:'ROCKETS',IND:'PACERS',LAC:'CLIPPERS',LAL:'LAKERS',MEM:'GRIZZLIES',MIA:'HEAT',MIL:'BUCKS',MIN:'TIMBERWOLVES',NOP:'PELICANS',NO:'PELICANS',NYK:'KNICKS',NY:'KNICKS',OKC:'THUNDER',ORL:'MAGIC',PHI:'76ERS',PHX:'SUNS',POR:'TRAIL BLAZERS',SAC:'KINGS',SAS:'SPURS',SA:'SPURS',TOR:'RAPTORS',UTA:'JAZZ',UTAH:'JAZZ',WAS:'WIZARDS',WSH:'WIZARDS'};
+const cityOf = t => CITY[t] || t;
 function duelCard(side, foot, cls=''){
   const team=!!side.img, p=team?null:P(side.name), rr=team?'gold':rarity(+p.f||0);
-  const nm=team?side.short:(p.s||side.short);
+  const nm=team?cityOf(side.short):(p.s||side.short);
+  if(team) return `<div class="rc16 dcard tcard16 ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm" style="${nm.length>9?`font-size:${Math.max(3.6,46/nm.length).toFixed(1)}px`:''}">${nm}</span></div>
+    <div class="rc-art tlogo"><span class="wm">${side.short}</span>${img(side.img,'logo')}<span class="nick">${NICK[side.short]||''}</span></div>
+    <div class="rc-bot"><b>${foot}</b></div></div></div>`;
   return `<div class="rc16 dcard ${team?'r-gold':(typeof addOn==='function'?VERS.filter(v=>addOn(side.name,v.k)).map(v=>'u-'+v.k).join(' '):'')} ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm">${nm}</span></div>
     <div class="rc-art ${team?'logo':''}">${team?img(side.img,'logo'):face(side.team,side.name)}</div>
     <div class="rc-bot"><b>${foot}</b></div></div></div>`;
@@ -514,7 +521,7 @@ function duelDaily(){
   const sub = p => p.img ? (GAMES[p.team]&&GAMES[p.team].score ? `${GAMES[p.team].final?'FINAL':'LIVE'} · ${GAMES[p.team].score}` : `${GAMES[p.team]?GAMES[p.team].time+' ':''}${GAMES[p.team]?(GAMES[p.team].home?'vs ':'@ ')+GAMES[p.team].opp:''}`)
     : `${duelAvg(p.name)} ${DUEL_STAT.short}/G`;
   const f=(p,v,o,k)=>`<div class="ftr ${pick===p.short?'p1':pick&&!live?'dim':''} ${k}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}
-      ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.short}</div><div class="fsub">${sub(p)}</div></div>`;
+      ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.img?cityOf(p.short):p.short}</div><div class="fsub">${sub(p)}</div></div>`;
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
     : live ? `<div class="livemq"><b class="lvb">LIVE</b><div class="mq"><span>${(()=>{ const t=`${A.short} ${DUEL_STAT.a} · ${B.short} ${DUEL_STAT.b} · ${DUEL_STAT.label} · `; return t.repeat(4); })()}</span></div></div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
   const futs = pick && futuresToday();
@@ -540,11 +547,11 @@ function ydSplash(){
   const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
   const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
   const side=(p,v,win,k)=>`<div class="yf ${win?'win':'lose'} ${k}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
-      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div></div>`;
+      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.img?cityOf(p.s):p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div></div>`;
   const g=document.createElement('div'); g.className='dsplash';
   g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
     <div class="yar arena" style="--ca:${w.c};--cb:${l.c}">${side(w,y.win.v,true,'fa')}<div class="vsbig">VS</div>${side(l,y.lose.v,false,'fb')}</div>
-    <div class="yres ${y.picked===false?'':hit?'ok':'bad'}">${y.picked===false?'YOU DIDN\'T PICK':hit?`✓ YOU CALLED IT · 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
+    <div class="yres ${y.picked===false?'':hit?'ok':'bad'}">${y.picked===false?'YOU DID NOT PARTICIPATE':hit?`✓ YOU CALLED IT · 🔥${STREAK.cur}`:'✗ NOT THIS TIME · STREAK RESET'}</div>
     <div class="ywho"><span>PICKED CORRECTLY</span><div>${right.length?right.map(([n,c])=>`<i title="${n}"><span class="av" data-ch="${c}"></span></i>`).join(''):'<em>Nobody</em>'}</div></div>
     <button class="btn" id="ygo">CONTINUE TO TODAY'S DAILY DUEL ▶</button>`;
   g.querySelectorAll('.av[data-ch]').forEach(el=>{ if(BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); });
@@ -581,7 +588,7 @@ const spent = () => S.party.reduce((a,n)=>a+WLC_COST(n),0);
 function lineupCard(picks, live, mine){
   const tot = live ? picks.reduce((a,n)=>a+wkFpg(n),0).toFixed(1) : '—';
   return `<div class="lcard"><div class="lh"><span>5 PLAYERS · $${picks.reduce((a,n)=>a+WLC_COST(n),0)} SPENT</span><b>${tot}<small>FP/G</small></b></div>
-    <div class="l5c">${picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)).map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc" style="--tcol:${TIER_C[c]}"><div class="ph cw">${scard(p.n,{noinj:1,fm:'AVG',fpv:`${live?wkFpg(n):p.f} FP`})}</div><span class="tag">$${c}</span></div>`; }).join('')}</div></div>`;
+    <div class="l5c">${picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)).map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc" style="--tcol:${TIER_C[c]}"><div class="ph cw">${scard(p.n,{noinj:1,fm:'AVG',fpv:`${live?wkFpg(n):p.f} FP`,gl:`<u class="cost" style="--tcol:${TIER_C[c]}">$${c}</u>`})}</div></div>`; }).join('')}</div></div>`;
 }
 function wlcChart(){
   const E=cEntries(), cols=['#ff5fbf','#ffd93d','#39ff6a','#4adfff','#b36bff'], W=320, H=120, L=24, R=10, T=10, B=18, n=TODAY_I+1;
@@ -630,21 +637,21 @@ function challenge(){
     if(!sel && S.party.length){
       const order=S.party.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a));
       pv = `<div class="wpv sum"><div class="sh"><span>YOUR LINE-UP · ${S.party.length}/5</span><span>$${spent()} OF $${BUDGET}</span></div>
-        <div class="srow5">${order.map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="sp" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1,fm:'AVG'})}</div><span>$${c}</span></div>`; }).join('')}${'<div class="sp empty"><div class="ph">+</div></div>'.repeat(5-S.party.length)}</div>
+        <div class="srow5">${order.map(n=>{ const p=P(n), c=WLC_COST(n); return `<div class="sp" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1,fm:'AVG',gl:`<u class="cost" style="--tcol:${TIER_C[c]}">$${c}</u>`})}</div></div>`; }).join('')}${'<div class="sp empty"><div class="ph">+</div></div>'.repeat(5-S.party.length)}</div>
         <div class="sf"><span>${projFpg(S.party)}<small> PROJ FP/G</small></span><span>${S.party.length===5||left<=0?'SAVE LINE-UP BELOW ▼':'TAP A PORTRAIT TO ADD MORE'}</span></div></div>`;
     } else if(!sel){
       pv = `<div class="wpv empty"><div class="pp"><span>?</span></div><div class="pi"><div class="pn blink">SELECT YOUR PLAYER</div><div class="psub">TAP ANY PORTRAIT BELOW</div></div></div>`;
     } else {
       const p=P(sel), c=WLC_COST(sel), inL=S.party.includes(sel), can=!inL && c<=left && S.party.length<5, st=cStats(sel), gm=cWeekGames(sel), q=sel.replace(/'/g,"\\'");
       const box=(l,v)=>`<div class="pst"><div class="l">${l}</div><div class="v">${v}</div></div>`;
-      pv = `<div class="wpv" style="--tcol:${TIER_C[c]}"><div class="pp cw">${scard(p.n,{fm:'AVG'})}<span class="pr">$${c}</span></div>
+      pv = `<div class="wpv" style="--tcol:${TIER_C[c]}"><div class="pp cw">${scard(p.n,{fm:'AVG',gl:`<u class="cost" style="--tcol:${TIER_C[c]}">$${c}</u>`})}</div>
         <div class="pi"><div class="ph2"><div style="min-width:0"><div class="pn">${p.n}${p.inj?` <i class="inj ${p.inj==='OUT'?'o':''}">${p.inj}</i>`:''}</div><div class="psub">${p.p?p.p+' · ':''}${p.t} · 2026-27 SEASON</div></div>
           <div class="pgm"><div class="h">${gm.length} GAME${gm.length===1?'':'S'}</div>${gm.map(x=>`<div>${x}</div>`).join('')||'<div>—</div>'}</div></div>
           <div class="psts">${box('PTS',st.pts)}${box('REB',st.reb)}${box('AST',st.ast)}${box('FP/G',st.fp)}</div>
           <div class="pbt">${inL?`<button class="b drop" onclick="cToggle()">DROP</button>`:can?`<button class="b sel" onclick="cToggle()">SELECT</button>`:`<button class="b sel" disabled>${S.party.length>=5?'LINE-UP FULL':'OVER BUDGET'}</button>`}<button class="b can" onclick="CZ.sel=null;render()">CANCEL</button></div></div></div>`;
     }
     const grid = WLC_TIERS.map((row,k)=>{ const c=5-k; return `<div class="tg" style="--tcol:${TIER_C[c]}">$${c}</div>` + row.map(n=>{ const p=P(n), inL=S.party.includes(n), cant=!inL&&(c>left||S.party.length>=5);
-      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{fm:'AVG'})}</div></div>`; }).join(''); }).join('');
+      return `<div class="ct ${inL?'in':''} ${sel===n?'cur':''} ${cant?'cant':''}" data-act="1" style="--tcol:${TIER_C[c]}" onclick="CZ.sel='${n.replace(/'/g,"\\'")}';render()"><div class="ph cw">${scard(p.n,{fm:'AVG',gl:`<u class="cost" style="--tcol:${TIER_C[c]}">$${c}</u>`})}</div></div>`; }).join(''); }).join('');
     const ready = S.party.length>0 && (S.party.length===5 || left===0) && left>=0;
     body = `<div class="cstick">${pv}</div><div class="tierg">${grid}</div>
       <div class="cbar c5"><div><div class="l">SALARY LEFT</div><div class="v" style="color:var(--teal)">$${left}</div></div><div><div class="l">PLAYERS</div><div class="v">${S.party.length}/5</div></div>
@@ -665,7 +672,7 @@ function lockedSplash(picks){
   const order=picks.slice().sort((a,b)=>WLC_COST(b)-WLC_COST(a)), spentN=picks.reduce((a,n)=>a+WLC_COST(n),0);
   const g=document.createElement('div'); g.className='lis';
   g.innerHTML=`<div class="lbx"><div class="lt0">${WLC.pool}</div><div class="lt">LINEUP<br>LOCKED IN!</div>
-    <div class="lcs">${order.map((n,i)=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc5" style="--tcol:${TIER_C[c]};animation-delay:${.15+i*.12}s"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1,fm:'AVG'})}<span>$${c}</span></div></div>`; }).join('')}</div>
+    <div class="lcs">${order.map((n,i)=>{ const p=P(n), c=WLC_COST(n); return `<div class="lc5" style="--tcol:${TIER_C[c]};animation-delay:${.15+i*.12}s"><div class="ph cw">${scard(p.n,{noTap:1,noinj:1,fm:'AVG',gl:`<u class="cost" style="--tcol:${TIER_C[c]}">$${c}</u>`})}</div></div>`; }).join('')}</div>
     <div class="lst"><div><span>SPENT</span><b>$${spentN}</b></div><div><span>PLAYERS</span><b>${picks.length}</b></div><div><span>PROJ FP/G</span><b>${projFpg(picks)}</b></div></div>
     <div class="lgl">GOOD LUCK!</div><button class="lbtn">VIEW ALL LINEUPS ▶</button></div>`;
   g.querySelector('.lbtn').onclick=()=>{ g.remove(); const sc=document.querySelector('#ui .screen'); if(sc) sc.scrollTo({top:0}); };
@@ -799,7 +806,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 function wlcStatus(){
   let E=[]; try{ E=cEntries()||[]; }catch(e){}
   const d=daysLeft(), left=d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY';
-  const k=E.findIndex(e=>e.me); if(k<0) return `NO ENTRY THIS WEEK · ${left}`;   // you didn't enter (or the standings haven't loaded yet)
+  const k=E.findIndex(e=>e.me); if(k<0) return `NO ENTRY<br>${left}`;   // you didn't enter (or the standings haven't loaded yet)
   const rank=E[k].rank || ([...E].sort((a,b)=>(b.tot||0)-(a.tot||0)).indexOf(E[k])+1);
   return `${ordinal(rank)} PLACE · ${left}`;
 }
@@ -877,7 +884,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .dsplash .yf .v small{font-size:6px;color:var(--t2);margin-left:3px}
 .dsplash .crown{position:absolute;top:22px;left:50%;transform:translateX(-50%);font-size:6px;background:var(--gold);color:#000;padding:3px 6px;border-radius:3px;white-space:nowrap}
 .dsplash .yf.lose .lbar i{animation:drain 1.3s .9s ease-in forwards}
-.dsplash .yf.lose .ph{animation:shake .12s 1s 8 linear, dull .8s 2s forwards}
+.dsplash .yf.lose .ph{animation:yshk .12s 1s 8 linear, dull .8s 2s forwards}
 .dsplash .yf.lose b,.dsplash .yf.lose .v{animation:dull .8s 2s forwards}
 @keyframes drain{to{width:0}}
 @keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,1px)}50%{transform:translate(3px,-1px)}75%{transform:translate(-2px,0)}}
@@ -1018,7 +1025,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .dsplash .yar{max-width:360px}
 .dsplash .yf .ph{height:auto!important;border:0!important;outline:0!important;background:none!important;overflow:visible!important;width:100%}
 .dsplash .yf.win .ph .rc16{box-shadow:0 0 0 3px var(--gold),0 0 28px rgba(255,217,61,.55)}
-.dsplash .yf.lose .ph{animation:shake .12s 1s 8 linear, dull .8s 2s forwards}
+.dsplash .yf.lose .ph{animation:yshk .12s 1s 8 linear, dull .8s 2s forwards}
 .vs .f.dc{width:clamp(56px,19vw,76px)!important;height:auto!important;border:0!important;background:none!important;overflow:visible!important;aspect-ratio:auto!important}
 .vs .f.dc .rc16 .rc-top .nm{font-size:4.5px}.vs .f.dc .rc16 .rc-bot{display:none}
 .vs .f.dc.pick .rc16{box-shadow:0 0 0 2px #000,0 0 0 4px var(--green),0 0 14px rgba(57,255,106,.5)}
@@ -1058,10 +1065,26 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .ct .rc16 .rc-top{padding:1px 2px}
 .ct .rc16 .rc-top .nm{font-size:3.8px!important}
 /* overlapping card rows (like Playing Today): each card runs under the next one */
-.srow5,.l5c,.lcs{gap:0!important}
-.srow5 .sp,.l5c .lc{border:0!important;overflow:visible!important;background:none!important}
-.srow5 .ph.cw,.l5c .ph.cw,.lcs .ph.cw{width:124%!important;max-width:none}
-.srow5 .sp:nth-child(5) .ph.cw,.l5c .lc:last-child .ph.cw,.lcs .lc5:last-child .ph.cw{width:100%!important}
-.srow5 .sp>span,.l5c .lc>.tag{z-index:10}
-.srow5 .sp.empty .ph{border:2px dashed #2a3858;border-radius:5px;margin-right:6px}
+.srow5,.l5c,.lcs{display:flex!important;justify-content:center;align-items:flex-start;gap:0!important}
+.srow5>.sp,.l5c>.lc,.lcs>.lc5{flex:0 0 21.5%;max-width:21.5%;margin-right:-2%;border:0!important;overflow:visible!important;background:none!important;border-radius:0}
+.srow5>.sp:last-child,.l5c>.lc:last-child,.lcs>.lc5:last-child{margin-right:0}
+.srow5 .ph.cw,.l5c .ph.cw,.lcs .ph.cw{width:100%!important;max-width:none}
+.srow5 .sp.empty .ph{border:2px dashed #2a3858;border-radius:5px}
+/* the card's own footer, same as Roster everywhere (older .fp/.small rules here were for the pre-card tiles) */
+.l5c .rc-bot i.fp,.lcs .rc-bot i.fp,.srow5 .rc-bot i.fp,.ct .rc-bot i.fp,.wpv .rc-bot i.fp{font-size:inherit!important;padding:0!important;color:#ff9a1f}
+.l5c .rc-bot small,.lcs .rc-bot small,.srow5 .rc-bot small,.wpv .rc-bot small{display:inline!important;font-size:.68em!important;padding:0!important;color:inherit!important}
+.rc-bot u.cost{text-decoration:none;color:#000;background:var(--tcol);padding:0 2px;border-radius:2px}
 </style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* ── TEAM CARDS (team duels): the team's colours all the way through, logo as the hero ── */
+.rc16.tcard16 .rc-in{background:linear-gradient(160deg,color-mix(in srgb,var(--tc) 55%,#fff),var(--tc) 40%,color-mix(in srgb,var(--tc) 55%,#000))!important}
+.rc16.tcard16 .rc-top{background:#000}
+.rc16.tcard16 .rc-art.tlogo{position:relative;overflow:hidden;display:grid;place-items:center;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 10%,transparent 10% 20%),radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--tc) 40%,#fff) 0%,var(--tc) 55%,color-mix(in srgb,var(--tc) 50%,#000) 100%)}
+.rc16.tcard16 .rc-art.tlogo::after{content:'';position:absolute;left:-10%;right:-10%;bottom:-38%;height:70%;border-radius:50%;border:2px solid rgba(255,255,255,.28)}
+.rc16.tcard16 .rc-art.tlogo img{position:relative;z-index:2;width:78%;height:78%;object-fit:contain;padding:0;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45)) drop-shadow(0 0 6px rgba(255,255,255,.35))}
+.rc16.tcard16 .wm{position:absolute;inset:0;display:grid;place-items:center;font-size:30px;font-style:italic;color:rgba(255,255,255,.1);letter-spacing:-.06em;z-index:1}
+.rc16.tcard16 .nick{position:absolute;left:0;right:0;bottom:4%;z-index:3;text-align:center;font-size:4.5px;color:#fff;letter-spacing:.12em;text-shadow:1px 1px 0 #000}
+</style>`);
+document.head.insertAdjacentHTML('beforeend',`<style>@keyframes yshk{25%{transform:translateX(-3px) rotate(-1.5deg)}75%{transform:translateX(3px) rotate(1.5deg)}}</style>`);

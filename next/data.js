@@ -39,14 +39,19 @@ const TEAMS = [
   {m:'Taylor', team:'Bench Mob',          ch:'jack'},
 ];
 let chOf = t => t.me ? S.active : t.ch;
-const MY_START = {act:['Shai Gilgeous-Alexander','Nikola Jokic','Cade Cunningham','Jalen Brunson','Anthony Edwards','Victor Wembanyama','Jayson Tatum','Scottie Barnes'],
-                  bench:['Alperen Sengun','Dyson Daniels'], ir:[null]};
+/* NEXT roster: 13 players = 10 Active + 3 Bench, plus 1 IR slot (14 with someone on IR) */
+const ACT_N = 10, BENCH_N = 3;
+const MY_START = {act:['Shai Gilgeous-Alexander','Nikola Jokic','Cade Cunningham','Jalen Brunson','Anthony Edwards','Victor Wembanyama','Jayson Tatum','Scottie Barnes','Tyrese Maxey','Jalen Williams'],
+                  bench:['Alperen Sengun','Dyson Daniels','Amen Thompson'], ir:[null]};
 if(!S.fl || !Array.isArray(S.fl.act)) S.fl = JSON.parse(JSON.stringify(MY_START));
+// older saves had 8 + 2: fill the new slots from the starter roster
+if(S.fl.act.length<ACT_N || S.fl.bench.length<BENCH_N){ const have=new Set([...S.fl.act,...S.fl.bench,...S.fl.ir].filter(Boolean)); const extra=[...MY_START.act,...MY_START.bench].filter(n=>!have.has(n));
+  while(S.fl.act.length<ACT_N) S.fl.act.push(extra.shift()||null); while(S.fl.bench.length<BENCH_N) S.fl.bench.push(extra.shift()||null); }
 const myNames = () => [...S.fl.act, ...S.fl.bench, ...S.fl.ir].filter(Boolean);
 /* Other teams draft by snake order from the best players left */
 const OTHER = {}; (()=>{ const taken=new Set(MY_START.act.concat(MY_START.bench)), seq=[];
-  for(let r=0;r<10;r++){ const o=[1,2,3,4,5]; seq.push(...(r%2?o.reverse():o)); }
-  PL.filter(p=>!taken.has(p.n)).slice(0,50).forEach((p,k)=>(OTHER[seq[k]] ||= []).push(p.n)); })();
+  for(let r=0;r<ACT_N+BENCH_N;r++){ const o=[1,2,3,4,5]; seq.push(...(r%2?o.reverse():o)); }
+  PL.filter(p=>!taken.has(p.n)).slice(0,5*(ACT_N+BENCH_N)).forEach((p,k)=>(OTHER[seq[k]] ||= []).push(p.n)); })();
 const rosterOf = i => i===0 ? myNames() : OTHER[i];
 const rostered = () => new Set([...myNames(), ...Object.values(OTHER).flat()]);
 

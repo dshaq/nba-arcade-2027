@@ -207,8 +207,8 @@ function fzQuick(){
   return `${selPanel(FZ.sel!=null?getSlot(FZ.sel):null, FZ.sel!=null?'<small style="color:var(--gold)">TAP ANOTHER PLAYER TO SWAP</small>':'')}
     <div class="recs">${r.length ? `<div class="cap">SUGGESTED FOR TODAY</div>${r.slice(0,2).map(recRow).join('')}${r.length>2?`<div class="cap" style="text-align:center">+${r.length-2} MORE AFTER THESE</div>`:''}`
       : '<div class="okline">✓ YOUR LINE-UP IS READY FOR TODAY</div>'}
-      ${myNames().length - (S.fl.ir[0]?1:0) < 10 ? `<div class="rec open"><div class="mini irb">+</div><span></span><span></span><div class="why">You have an open roster spot · pick someone up</div><button class="go" onclick="FZ.tab='waivers';S.wq='quick';render()">WAIVERS</button></div>` : ''}</div>
-    <div class="qcap">ACTIVE · ${S.fl.act.filter(Boolean).length}/8</div>
+      ${myNames().length - (S.fl.ir[0]?1:0) < ACT_N+BENCH_N ? `<div class="rec open"><div class="mini irb">+</div><span></span><span></span><div class="why">You have an open roster spot · pick someone up</div><button class="go" onclick="FZ.tab='waivers';S.wq='quick';render()">WAIVERS</button></div>` : ''}</div>
+    <div class="qcap">ACTIVE · ${S.fl.act.filter(Boolean).length}/${ACT_N}</div>
     <div class="qgrid">${S.fl.act.map((n,i)=>qtile(n,'a'+i)).join('')}</div>
     <div class="qcap">BENCH · IR</div>
     <div class="qgrid">${S.fl.bench.map((n,i)=>qtile(n,'b'+i)).join('')}${qtile(S.fl.ir[0],'i0')}</div>`;
@@ -242,14 +242,14 @@ function fzFull(){
       <div class="rsec"><span style="color:var(--red)">BENCH</span></div>${S.fl.bench.map((n,k)=>rrow(n,'b'+k,true)).join('')}
       <div class="rsec"><span style="color:var(--violet)">IR</span></div>${rrow(S.fl.ir[0],'i0',true)}`;
   } else {
-    const r=OTHER[i]; body = `<div class="rsec"><span>ACTIVE 8</span>${fpTog()}</div>${r.slice(0,8).map(n=>rrow(n,'x',false)).join('')}<div class="rsec"><span style="color:var(--red)">BENCH</span></div>${r.slice(8).map(n=>rrow(n,'x',false)).join('')}`;
+    const r=OTHER[i]; body = `<div class="rsec"><span>ACTIVE ${ACT_N}</span>${fpTog()}</div>${r.slice(0,ACT_N).map(n=>rrow(n,'x',false)).join('')}<div class="rsec"><span style="color:var(--red)">BENCH</span></div>${r.slice(ACT_N).map(n=>rrow(n,'x',false)).join('')}`;
   }
   return `<div class="chips"><button class="ar" onclick="FZ.view=(FZ.view+5)%6;FZ.sel=null;render()">‹</button><div class="cs">${chips}</div><button class="ar" onclick="FZ.view=(FZ.view+1)%6;FZ.sel=null;render()">›</button></div>
     <div class="rhead">${T.team.toUpperCase()} · ${rosterOf(i).length}/10 PLAYERS${mine?` · ${S.fl.ir[0]?1:0} ON IR`:` · ${T.m.toUpperCase()}`}</div>
     <div class="dstrip">${DAYN.map((d,k)=>`<button class="${k===FZ.day?'on':''} ${k===TODAY_I?'tdy':''}" onclick="FZ.day=${k};render()">${d}<b>${WEEK_START(MU.week).getDate()+k}</b>${k===TODAY_I?'<small>TODAY</small>':''}</button>`).join('')}</div>
     <div class="rlist">${body}</div>`;
 }
-const fpTog = () => `<div class="fpt"><span class="fpl">FP</span>${[['AVG','FP/G'],['DAY','TODAY']].map(([m,l])=>`<button class="${fpMode()===m?'on '+m.toLowerCase():''}" onclick="FZ.fpm='${m}';render()">${l}</button>`).join('')}</div>`;
+const fpTog = () => `<div class="fpt">${[['AVG','FP/G'],['DAY','FP TODAY']].map(([m,l])=>`<button class="${fpMode()===m?'on '+m.toLowerCase():''}" onclick="FZ.fpm='${m}';render()">${l}</button>`).join('')}</div>`;
 
 /* WAIVERS */
 const pool = () => { const r=rostered(); return PL.filter(p=>!r.has(p.n)); };
@@ -486,10 +486,10 @@ function drOpen(n){
     <div class="acts3"><button class="btn" id="dd" ${mine?'':'disabled'}>${taken?'DRAFTED':mine?'DRAFT':DR.mock?'NOT YOUR PICK':'DRAFT NOT STARTED'}</button><button class="btn alt" id="dc">CANCEL</button><button class="btn alt" id="ds">STATS</button></div></div>`);
   o.querySelector('#dd').onclick=()=>{ o.remove(); drPick(n); };
   o.querySelector('#dc').onclick=()=>o.remove();
-  o.querySelector('#ds').onclick=()=>{ o.remove(); const before=new Set(document.body.children); openPlayer(n);
+  o.querySelector('#ds').onclick=()=>{ o.remove(); const before=new Set(document.querySelectorAll('.ov')); openPlayer(n);
     /* closing the player card brings back Draft / Cancel / Stats */
-    const box=[...document.body.children].find(c=>!before.has(c));
-    if(box){ const mo=new MutationObserver(()=>{ if(!box.isConnected){ mo.disconnect(); if(cur==='draft') drOpen(n); } }); mo.observe(document.body,{childList:true}); } };
+    const box=[...document.querySelectorAll('.ov')].find(c=>!before.has(c));
+    if(box){ const iv=setInterval(()=>{ if(!box.isConnected){ clearInterval(iv); if(cur==='draft' && !document.querySelector('.drp')) drOpen(n); } },120); } };
 }
 document.head.insertAdjacentHTML('beforeend',`<style>.drp{text-align:center}.drpc{width:120px;margin:0 auto 12px}.drp p{font-size:6.5px;color:var(--t2)}
 .acts3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px;margin-top:14px}.acts3 .btn{font-size:7px;padding:12px 4px}.acts3 .btn:disabled{opacity:.4}</style>`);
@@ -593,4 +593,19 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 
 document.head.insertAdjacentHTML('beforeend',`<style>
 .drmine{gap:0!important}.drmine>div .ph.cw{width:124%!important;max-width:none}.drmine>div:last-child .ph.cw{width:100%!important}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+.fpt{display:grid!important;grid-template-columns:1fr 1fr;gap:4px}.fpt button{min-width:0;width:100%;text-align:center;white-space:nowrap}
+/* schedule: long team names stay inside their box */
+.mrow{grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr)!important}.mrow .side{min-width:0}.mrow .side small{display:block;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>`);
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* draft clock: Baller tucked into the top-left corner, text beside it */
+.drb .oc{grid-template-columns:38px minmax(0,1fr) auto!important;align-items:start!important}
+.drb .oc .av{position:static!important;display:block;width:38px;height:38px;transform:none!important}
+.drb .oc .av canvas{width:38px!important;height:38px!important;display:block}
+.drb .oc>div:nth-child(2){min-width:0}
+.drb .oc b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drb .oc small{display:block;line-height:1.6}
 </style>`);

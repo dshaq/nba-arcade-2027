@@ -30,7 +30,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 /* ── top bar ── */
 .top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
   padding:calc(env(safe-area-inset-top,0px) + 14px) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
-.logo{font-size:15px;letter-spacing:.02em;text-shadow:0 3px 0 #000}
+.logo{font-size:12px;letter-spacing:.02em;text-shadow:0 3px 0 #000}
 .logo b,.logo i{font-weight:normal;font-style:normal}
 /* arcade chrome: blue sky → white horizon, hard break → red (stepped like the Press Start logo) */
 .logo{text-shadow:none!important;filter:drop-shadow(0 3px 0 #000) drop-shadow(0 0 1px #000)}
@@ -44,6 +44,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .me .lv{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-size:6px;background:var(--gold);color:#1a1200;padding:2px 4px;border-radius:4px;white-space:nowrap}
 .logo{white-space:nowrap}
 .top.nos{gap:8px;padding-bottom:10px;background:linear-gradient(180deg,#020c18 80%,rgba(2,12,24,0))}.top.nos .logo{font-size:12px}.top.nos .ibtn{width:38px;height:38px}
+.top .ibtn{width:38px;height:38px;flex:none;aspect-ratio:1}
 .top.nos ~ .screen{padding-top:calc(env(safe-area-inset-top,0px) + 74px)}
 .mis-ic{border-color:transparent;background:transparent}
 .dot.rd{min-width:12px;height:12px;padding:0}
@@ -100,6 +101,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .pcard .alt{position:absolute;top:4px;right:4px;font-size:5px;background:rgba(0,0,0,.7);padding:3px 4px;border-radius:3px;color:var(--gold)}
 .plate{margin-top:6px;border:2px solid #000;background:#fff;color:#000;font-size:6.5px;padding:5px 0}
 .mvp small{display:block;font-size:6px;color:var(--t2);margin-top:6px}
+.mvp .plate.one{white-space:nowrap;font-size:4.4px!important;letter-spacing:-.03em;padding:5px 0;margin-left:-8px;margin-right:-8px}
 
 .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
 .allstar{max-width:100%;white-space:normal;text-align:center}
@@ -135,7 +137,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 
 /* ── sub-screens ── */
 .head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.head h1{margin:0;font-size:15px;font-weight:normal;text-shadow:0 3px 0 #000}
+.head h1{margin:0;font-size:12px;font-weight:normal;text-shadow:0 3px 0 #000}
 .back{width:38px;height:38px;border-radius:8px;border:2px solid var(--edge);background:var(--card);cursor:pointer;font-size:12px}
 .panel{background:var(--card);border:2px solid var(--edge);border-radius:12px;padding:14px;margin-bottom:14px}
 .sec{font-size:7px;color:var(--t3);letter-spacing:.1em;margin:0 0 10px}
@@ -410,14 +412,13 @@ function home(){
       </div>
       <div class="mvp">
         <div class="cw mvpc">${typeof pcard==='function'?pcard(MVP.name,{mini:1,noTap:1}):''}</div>
-        <div class="plate">${MVP.label}</div><small>${P(MVP.name).s} · ${MVP.fp}</small>
+        <div class="plate one">${MVP.label} · ${MVP.fp}</div>
       </div>
     </div>
     <div class="row2">
       <div class="box duel" onclick="go('duel')">
         <h2>DUEL</h2>
         <div class="vs"><div class="f dc ${pickA?'pick':''}">${duelCard(DUEL.a,'')}</div><i>VS</i><div class="f dc ${pickB?'pick':''}">${duelCard(DUEL.b,'')}</div></div>
-        <div class="tag">${DUEL.title.toUpperCase()}</div>
         ${picksLeft ? `<div class="todo"><span class="w">!</span>MAKE YOUR PICK${picksLeft>1?' (x2)':''}</div>` : `<div class="todo ok"><span class="w">✓</span>PICKS IN</div>`}
       </div>
       <div class="box chal" onclick="go('wlc')">
@@ -553,8 +554,8 @@ function openMenu(){
     <a data-a="cards"><span>🎴</span>Collection<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
     <a href="cardlab/" style="text-decoration:none"><span>🃏</span>Card Lab<small>FRONTS &amp; BACKS</small></a><a href="toplab/" style="text-decoration:none"><span>🏆</span>Top 3 Lab<small>CHALLENGE LEADERS</small></a><a href="forge/" style="text-decoration:none"><span>🧬</span>Card Forge<small>LEVEL UP &amp; EVOLVE</small></a><a href="shapelab/" style="text-decoration:none"><span>📐</span>Card Shape Lab<small>SQUARE ART, TALL CARD</small></a><a href="pocketlab/" style="text-decoration:none"><span>🟩</span>Pocket Lab<small>FOUR-GREEN HANDHELD</small></a><a href="soundlab/" style="text-decoration:none"><span>🔊</span>Sound Lab<small>AUDITION EVERY SOUND</small></a>
     <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
-    <a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a>
-    <a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="stats"><span>🏆</span>Stats<small>EVERY PLAYER IN THE LEAGUE</small></a><a data-a="nba"><span>🏀</span>NBA Scores<small>SCORES · STANDINGS</small></a><a data-a="tx"><span>📜</span>Transactions</a><a data-a="x"><span>📖</span>Rules</a><a data-a="prof"><span>⚙️</span>Settings<small>PROFILE</small></a>
+    <a data-a="gauntlet"><span>⚔️</span>Weekly Gauntlet<small>TEST · CHALLENGE REVAMP</small></a>
+    <a data-a="nba"><span>🏀</span>NBA Scores<small>SCORES · STANDINGS</small></a><a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a><a data-a="stats"><span>🏆</span>Stats<small>EVERY PLAYER IN THE LEAGUE</small></a><a data-a="x"><span>📖</span>Rules<small>FANTASY · CHALLENGE · DUEL</small></a><a data-a="prof"><span>⚙️</span>Settings<small>PROFILE · SOUND · THEME</small></a>
     <div class="mcap">PREVIEW SWITCHES</div>
     <a data-a="gs"><span>🏀</span>Today's games<small>${gs()==='live'?'LIVE NOW':'BEFORE TIP-OFF'} ⇄</small></a>
     <a data-a="wph"><span>⭐</span>Weekly Challenge<small>${S.wphase==='live'?'IN PROGRESS':'PICKING'} ⇄</small></a>
@@ -574,6 +575,8 @@ function openMenu(){
     else if(v==='draft'){ go('draft'); }
     else if(v==='nba'){ go('nba'); }
     else if(v==='prof'){ go('settings'); }
+    else if(v==='x'){ go('rules'); }
+    else if(v==='gauntlet'){ go('gauntlet'); }
     else if(v==='reset'){ S={active:'nova',ballers:{},portraits:{},unlocked:[],day:TODAY,done:{},fl:JSON.parse(JSON.stringify(MY_START)),party:[]}; save(); location.reload(); } else say('We\'ll design this one later'); });
 }
 
@@ -755,14 +758,15 @@ setTimeout(async()=>{ if(start.done) return;
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=31" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=31" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=31" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=31" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=31" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=31" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=31" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
-<script src="nba.js?v=31" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
-<script src="sfx.js?v=31"></script>
+<script src="data.js?v=33" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=33" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=33" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=33" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=33" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=33" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=33" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=33" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
+<script src="gauntlet.js?v=33"></script>
+<script src="sfx.js?v=33"></script>
 </body>
 </html>

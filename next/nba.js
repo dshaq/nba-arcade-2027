@@ -54,11 +54,11 @@ function settings(){
       ${f('pfn','DISPLAY NAME',ME.name,'Your name')}${f('pft','FANTASY TEAM NAME',ME.team,'Your team')}
       <button class="go" style="width:100%;margin-top:12px" onclick="saveProfile()">SAVE</button>
       <div class="reward" style="margin:12px 0 0">Preview: saved on this phone only, so the real league isn't touched.</div></div>
-    <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
-    <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
-    <div class="panel"><div class="sec">SOUND EFFECTS</div><div class="tsz">${[[true,'ON','🔊'],[false,'OFF','🔇']].map(([k,l,a])=>`<button class="${(S.snd!==false)===k?'on':''}" onclick="S.snd=${k};save();render();${k?"SFX('saved')":''}"><b>${a}</b>${l}</button>`).join('')}</div>
+    <div class="panel"><div class="sec">SOUND</div><div class="tsz">${[[true,'ON','🔊'],[false,'OFF','🔇']].map(([k,l,a])=>`<button class="${(S.snd!==false)===k?'on':''}" onclick="S.snd=${k};save();render();${k?"SFX('saved')":''}"><b>${a}</b>${l}</button>`).join('')}</div>
       <label class="pf" style="margin-top:12px"><span>VOLUME</span><input type="range" min="0" max="100" value="${Math.round((S.sndVol==null?.6:S.sndVol)*100)}" oninput="S.sndVol=this.value/100;save()" onchange="SFX('check')" ${S.snd===false?'disabled':''} style="accent-color:var(--gold)"></label>
       <div class="reward" style="margin:12px 0 0">Retro chip sounds made right in your browser. On iPhone, the silent switch may mute them.</div></div>
+    <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
+    <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
   </div>`;
 }
 SCREENS.settings = settings;
@@ -72,36 +72,47 @@ function statsUsers(){
   const users=TEAMS.map((t,i)=>({i, m:i===0?ME.name:t.m, team:i===0?ME.team:t.team, ch:i===0?S.active:chOf(t), me:i===0}));
   SU.sel=Math.min(SU.sel,users.length-1);
   const u=users[SU.sel], row=st.find(x=>x.i===u.i)||{w:0,l:0,pf:0}, rank=sorted.findIndex(x=>x.i===u.i)+1;
-  const roster=(u.i===0?myNames():(OTHER[u.i]||[])).filter(Boolean), cap=captainOf(u.i, roster), cp=cap?P(cap):null;
+  const roster=(u.i===0?myNames():(OTHER[u.i]||[])).filter(Boolean), fc=featuredOf(u.i, roster);
   const byName=(rows)=>rows.find(r=>u.me?r[1]==null:r[0]===u.m);
   const d=byName(DSTAND), c=byName(CSTAND);
-  const stat=(l,v,sub)=>`<div class="ust"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
-  return `<div class="usel"><div class="ugrid" style="grid-template-columns:repeat(${Math.min(6,users.length)},minmax(0,1fr))">${users.map((x,k)=>`<button class="ut ${k===SU.sel?'on':''} ${x.me?'me':''}" onclick="SU.sel=${k};render()"><span class="av" data-ch="${x.ch}"></span>${k===SU.sel?'<i class="p1">P1</i>':''}<em>${x.m}</em></button>`).join('')}</div>
+  const stat=(l,v,sub,col)=>`<div class="ust" style="--sc:${col}"><span>${l}</span><b>${v}</b><small>${sub}</small></div>`;
+  // character select: balanced rows (10 → 5+5, 6 → 3+3, 7 → 4+3), every other row nudged half a tile
+  const nRows=Math.ceil(users.length/5), per=Math.ceil(users.length/nRows), rows=[]; for(let k=0;k<users.length;k+=per) rows.push(users.slice(k,k+per));
+  const tile=(x,k)=>`<button class="ut ${k===SU.sel?'on':''} ${x.me?'me':''}" onclick="SU.sel=${k};render()"><span class="in"><span class="av" data-ch="${x.ch}"></span></span>${k===SU.sel?'<i class="p1">1P</i>':''}</button>`;
+  const nm=u.m, nsz=Math.max(12,Math.min(26,Math.floor(170/Math.max(4,nm.length))));
+  return `<div class="usel"><div class="ugrid2">${rows.map((r,ri)=>`<div class="urow ${ri%2?'off':''}" style="--per:${per}">${r.map(x=>tile(x,users.indexOf(x))).join('')}</div>`).join('')}</div>
     <div class="ustage" id="ustage"><span class="u1p">${u.me?'1P':'CPU'}</span>
       <div class="uhero"><span class="av" data-ch="${u.ch}"></span></div>
-      <div class="ubio"><div class="uname">${u.m}</div><div class="uteam">${u.team.toUpperCase()}</div><div class="urank">${ordinal(rank).toUpperCase()} OF ${users.length}</div></div></div>
-    <div class="usts">
-      ${stat('FANTASY', `${row.w}-${row.l}`, `${(+row.pf||0).toLocaleString()} FP`)}
-      ${stat('DUEL', d?(d[2]==='—'?'—':d[2]+'%'):'—', d?`🔥 ${d[4]} STREAK`:'')}
-      ${stat('CHALLENGE', c?c[4]:'—', c?`${c[3]} PTS`:'')}
-    </div>
-    <div class="ucap ${u.me?'mine':''}" ${u.me?'onclick="pickCaptain()"':''}>
-      <div class="cc">${cp?pcard(cap,{noTap:1}):'<div class="tcard pc mini"></div>'}</div>
-      <div class="ci"><span>FANTASY CAPTAIN</span>${cp?`${(()=>{ const l=cp.n.split(' ').slice(-1)[0].toUpperCase(); return `<b style="font-size:${Math.min(24,Math.floor(150/l.length))}px">${l}</b>`; })()}<small>${cp.n.toUpperCase()} · ${cp.t}</small>
-        <div class="cst"><i>${(+cp.f||0).toFixed(1)}<em>FP/G</em></i><i>${(+cp.fall||0).toLocaleString()}<em>RUN FP</em></i></div>`:'<b>—</b>'}
-        ${u.me?`<button class="go">${S.captain&&roster.includes(S.captain)?'CHANGE CAPTAIN':'PICK YOUR CAPTAIN'}</button>`:''}</div></div></div>`;
+      <div class="ubio"><div class="uname" style="font-size:${nsz}px">${nm}</div><div class="uteam">${u.team.toUpperCase()}</div><div class="urank">FANTASY: ${ordinal(rank).toUpperCase()} OF ${users.length}</div></div></div>
+    <div class="ufold">
+      <div class="ucol">
+        ${stat('FANTASY', `${row.w}-${row.l}`, 'FALL RUN', 'var(--orange)')}
+        ${stat('DUEL', d?(d[2]==='—'?'—':d[2]+'%'):'—', 'CORRECT', 'var(--pink)')}
+        ${stat('CHALLENGE', c?c[4]:'—', 'WIN %', 'var(--gold)')}
+      </div>
+      <div class="ufeat ${u.me?'mine':''}"><span class="fl">FEATURED CARD</span>
+        <div class="fcard">${fc?pcard(fc,{noTap:1}):'<div class="tcard pc mini"></div>'}</div>
+        ${u.me?`<button class="go sm" onclick="pickFeatured()">PICK CARD</button>`:''}</div>
+    </div></div>`;
 }
-/* Your captain is your pick; everyone else's is their top scorer this run until they choose one */
-function captainOf(i, roster){
-  if(i===0 && S.captain && roster.includes(S.captain)) return S.captain;
+/* Featured card: yours is any player you choose; everyone else shows their top scorer this run until they choose */
+function featuredOf(i, roster){
+  if(i===0 && S.featured && P(S.featured)?.n) return S.featured;
+  if(i===0 && S.captain && P(S.captain)?.n) return S.captain;
   return [...roster].sort((a,b)=>(+P(b).fall||0)-(+P(a).fall||0))[0]||null;
 }
-function pickCaptain(){
-  const ns=myNames().filter(Boolean);
-  const o=overlay(`<div class="sheet capk" style="--c:var(--gold)"><h3>⭐ FANTASY CAPTAIN</h3><p>Pick the player who fronts your profile. Only players on your Fantasy team.</p>
-    <div class="capg">${ns.map(n=>`<button data-n="${escA(n)}" class="${S.captain===n?'on':''}">${pcard(n,{noTap:1})}<em>${P(n).s}</em></button>`).join('')}</div></div>`);
-  (o||document).querySelectorAll('.capg button').forEach(b=>b.onclick=()=>{ S.captain=b.dataset.n; save(); document.querySelector('.ov')?.remove(); document.querySelectorAll('.overlay,.ovl').forEach(x=>x.remove()); render(); say(`${P(b.dataset.n).s} is your captain`); });
+const captainOf = featuredOf;
+function pickFeatured(){
+  const all=PL.filter(p=>p.n).sort((a,b)=>b.f-a.f);
+  const o=overlay(`<div class="sheet capk" style="--c:var(--gold)"><h3>⭐ FEATURED CARD</h3><p>Show off any player's card on your profile. It doesn't have to be someone on your team.</p>
+    <input class="fq" id="fq" placeholder="Search players" autocomplete="off">
+    <div class="capg" id="fg"></div></div>`);
+  const draw=q=>{ const L=all.filter(p=>!q||p.n.toLowerCase().includes(q)).slice(0,40);
+    o.querySelector('#fg').innerHTML=L.map(p=>`<button data-n="${escA(p.n)}" class="${S.featured===p.n?'on':''}">${pcard(p.n,{noTap:1})}<em>${p.s}</em></button>`).join('')||'<p>No players found</p>';
+    o.querySelectorAll('#fg button').forEach(b=>b.onclick=()=>{ S.featured=b.dataset.n; save(); o.remove(); render(); say(`${P(b.dataset.n).s} is your featured card`); }); };
+  draw(''); o.querySelector('#fq').oninput=e=>draw(e.target.value.trim().toLowerCase());
 }
+const pickCaptain = pickFeatured;
 /* stage colour = the baller's own colour */
 AFTER.stats = (prev=>()=>{ prev&&prev(); const st=document.getElementById('ustage'); if(!st) return;
   setTimeout(()=>{ const cv=st.querySelector('.uhero canvas'); if(!cv) return; try{ const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data; const bins={};
@@ -240,4 +251,80 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .capg button{font:inherit;background:none;border:2px solid transparent;border-radius:6px;padding:3px;cursor:pointer;color:var(--t2);display:flex;flex-direction:column;gap:4px;align-items:center}
 .capg button.on{border-color:var(--gold)}
 .capg em{font-style:normal;font-size:5px}
+</style>`);
+
+/* ── RULES (copied from the live site's rule pop-ups; Fantasy roster numbers updated to NEXT's 13 + IR) ── */
+const RZ={tab:'fz'};
+function rulesScreen(){
+  const sec=(t,c,b)=>`<div class="rlsec"><div class="rlh" style="color:${c}">${t}</div>${b}</div>`;
+  const row=(l,v)=>`<div class="rlr"><span>${l}</span><b>${v}</b></div>`;
+  const note=t=>`<p class="rln">${t}</p>`;
+  const FP=[['Points','+ 1.0 FP each'],['Rebounds','+ 1.0 FP each'],['Assists','+ 1.0 FP each'],['Steals','+ 1.0 FP each'],['Blocks','+ 1.0 FP each'],['Missed FG','− 1.0 FP each'],['Missed FT','− 1.0 FP each'],['Turnovers','− 1.0 FP each'],['Flagrant Fouls','− 1.0 FP each'],['Technical Fouls','− 1.0 FP each']].map(([l,v])=>row(l,v)).join('');
+  const RUNS_=[['Fall','2026-10-20','2026-12-27','#ff6600'],['Winter','2026-12-28','2027-02-18','#4a9eff'],['Spring','2027-02-25','2027-04-11','#00d4aa'],['Summer','2027-04-13','2027-06-30','#fec419']];
+  const T={
+   fz:()=>sec('ROSTER','var(--green)',`${row('Total Roster Size','13 players')}${row('Active (scoring)','10 players')}${row('Bench','3 players')}${row('Injured Reserve','+1 (14 with IR)')}${note('Set players Active or Bench each day from the Roster tab. Your top-FP player cannot be dropped.')}`)
+     +sec('SCORING','var(--gold)',`${FP}${note('Only your 10 active players score each week. Stats are updated from live NBA box scores.')}`)
+     +sec('MATCHUPS','var(--orange)',`${row('Schedule','Weekly · Mon – Sun')}${row('Scoring period','Each run has its own standings')}${row('Tiebreaker','Total FP for the run')}${note('Head-to-head matchups reset every Monday. Win your matchup by scoring more FP than your opponent across all active players that week.')}`)
+     +sec('WAIVERS','var(--blue)',`${row('Waiver claims per week','3 max')}${row('Claim window','Mon – Sun · resets Monday')}${row('Free agents','Claim anytime if roster < 13')}${note('Drop a player to make room before claiming off waivers if your roster is full. Claims are first-come, first-served.')}`)
+     +sec('LINEUP CHANGES','var(--orange)',`${row('Setting','Daily')}${row('Locks','Each player locks at his own tip-off')}${row('Unlocks','Next day')}${note("Each player locks when his game tips off. Once locked, he can't be moved between Active and Bench until the next day. Players whose games haven't started stay movable, so you can still adjust for late games.")}${note('Only Active players earn FP. FP a player earns while Active stays with your team for the matchup, even if you bench or drop him later. A player who plays while on your Bench earns nothing.')}`)
+     +sec('INJURY RESERVE (IR)','var(--blue)',`${row('IR slots','1 per team')}${row('Eligible','Players listed OUT only')}${note('Each team may place one injured player on the IR. While a player is on IR, you may carry an extra player beyond the 13-player limit. To remove a player from IR, you must first have no more than 12 other players on your roster.')}
+       ${[['OUT','#e53e3e','Out','Will not play.','YES'],['DOUBT','#dd6b20','Doubtful','Unlikely to play.','NO'],['Q','#d69e2e','Questionable','Uncertain; decided close to tip-off.','NO'],['DTD','#d69e2e','Day-To-Day','Minor injury; may play any given day.','NO'],['PROB','#38a169','Probable','Expected to play.','NO']].map(([l,c,n,d,ok])=>`<div class="rlb"><span style="background:${c}">${l}</span><em>${n.toUpperCase()} — ${d}</em><i class="${ok==='YES'?'y':''}">IR: ${ok}</i></div>`).join('')}
+       ${note("Statuses come from the official injury report and refresh every 15 minutes. Players without a badge are healthy. The same OUT rule applies to the Weekly Line-up Challenge's one injury swap.")}`)
+     +sec('RUNS (SEASONS)','var(--t2)',RUNS_.map(([n,a,b,c])=>`<div class="rlr"><span><i class="dot" style="background:${c}"></i>${n.toUpperCase()}</span><b>${a} → ${b}</b></div>`).join('')+note('Each run has its own snake draft and standings. Your roster carries over but is re-drafted at the start of each run.'))
+     +sec('DRAFT','var(--green)',`${row('Format','Snake draft')}${row('Rounds','13 rounds = 13 players')}${row('Order','Randomized each run')}${note('The snake draft alternates direction each round. Round 1 goes 1→N, Round 2 goes N→1, and so on. Draft order is re-randomized at the start of every run.')}`),
+   wlc:()=>sec('BUILD YOUR LINE-UP','var(--green)',`${row('Players','1 to 5')}${row('Salary cap','$15')}${row('Player pool','25 players · 5 tiers, $1 – $5')}${row('Theme','New pool every week')}${note('Tap a player to preview him, then tap Select. Mix tiers however you like: three $5 stars, five $1 sleepers, anything up to $15.')}`)
+     +sec('LOCK','var(--orange)',`${row('Saving','Final once you confirm')}${row('Picks lock','Monday · 7 AM ET')}${row('Other lineups','Hidden until lock')}`)
+     +sec('WEEKLY SCORING','var(--gold)',`${row('Each player scores','Avg FP per game, Mon–Sun')}${row('Your score',"Sum of your players' averages")}${row("Player doesn't play",'0 FP')}${row('Weekly winner','Highest score')}${note('Averages mean a player with 4 games has no edge over one with 2.')}`)
+     +sec('FANTASY POINTS (PER GAME)','var(--pink)',[['Points, Rebounds, Assists','+ 1 FP each'],['Steals, Blocks','+ 1 FP each'],['Missed FG, Missed FT','− 1 FP each'],['Turnovers','− 1 FP each'],['Flagrant & Technical Fouls','− 1 FP each']].map(([l,v])=>row(l,v)).join(''))
+     +sec('INJURY SWAP','var(--blue)',`${row('Swaps per week','1')}${row('Who can be swapped','A player listed OUT')}${row('Replacement','Same tier, game not started')}${note("That slot then averages both players' games: the original player's before the swap, the replacement's after.")}`)
+     +sec('STANDINGS POINTS','var(--green)',`${row('Each lineup you outscore','+ 1 pt')}${row('Winning the week','+ 3 pts bonus')}${row('Tied for 1st','Everyone tied gets the bonus')}${row('Skipping a week','0 pts')}${note('Example: in a 10-player week, 1st earns 9 + 3 = 12 pts, 5th earns 5 and last earns 0.')}`)
+     +sec('STANDINGS','var(--orange)',`${row('Run Pts','This run only (e.g. Fall)')}${row('Total Pts','All season')}${row('Win %','Weeks won ÷ weeks played')}${row('Order','Run Pts → Total Pts → Win %')}${note('Run Pts start over each run; Total Pts keep counting all season.')}`),
+   duel:()=>sec('HOW IT WORKS','var(--pink)',`<p class="rln big">Every day has its own theme. Pick the side you think wins. Get it right and extend your streak — get it wrong and it resets to zero. Ties are a PUSH: nobody wins or loses and streaks hold, as long as you voted.</p>`)
+     +sec('DAILY THEMES','var(--pink)',[['MONSTER MONDAY','Points + Rebounds + Assists'],['TEAMS TUESDAY','Pick the team that wins'],['WET WEDNESDAY 💦','Most 3-pointers made'],['THOROUGH THURSDAY','Most Fantasy Points'],['FREE THROW FRIDAY','Most free throws made'],['STOCKS SATURDAY 📈','Steals + Blocks'],['SWISH SUNDAY','Most points']].map(([l,v])=>row(l,v)).join(''))
+     +sec('STREAK & SCORING','var(--pink)',`${row('Correct pick','Streak +1 🔥')}${row('Wrong pick','Streak resets to 0')}${row('Push (tie / no hit)','Streak holds')}${row('Player sits out','No contest · streak holds')}${row('No pick','Streak resets')}${row('Picks lock','Once the game tips off')}${note('Streaks and total correct picks are tracked all season. Check the Leaderboard inside the Duel card to see how you stack up.')}`),
+  };
+  const tabs=[['fz','FANTASY'],['wlc','CHALLENGE'],['duel','DUEL']];
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>RULES</h1></div>
+    <div class="mtabs t3 rtabs">${tabs.map(([k,l])=>`<button class="${RZ.tab===k?'on':''}" onclick="RZ.tab='${k}';render()">${l}</button>`).join('')}</div>
+    <div class="panel rules">${T[RZ.tab]()}</div></div>`;
+}
+SCREENS.rules = rulesScreen;
+document.head.insertAdjacentHTML('beforeend',`<style>
+.rtabs{margin-bottom:12px}
+.rules .rlsec{margin-bottom:18px}.rules .rlh{font-size:6.5px;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--edge)}
+.rules .rlr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.rules .rlr span{font-size:5.5px;color:var(--t3);display:flex;align-items:center;gap:6px}.rules .rlr b{font-weight:normal;font-size:6px;color:var(--t1);text-align:right;max-width:58%;line-height:1.6}
+.rules .rlr .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.rules .rln{font-size:5px;color:var(--t3);line-height:1.9;margin:8px 0 0}.rules .rln.big{font-size:5.5px;color:var(--t2);line-height:2.2;margin:0}
+.rules .rlb{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--edge)}
+.rules .rlb span{color:#fff;font-size:4.5px;padding:2px 5px;border-radius:3px;min-width:34px;text-align:center}.rules .rlb em{flex:1;font-style:normal;font-size:5px;color:var(--t2);line-height:1.6}
+.rules .rlb i{font-style:normal;font-size:4.5px;color:var(--t3);white-space:nowrap}.rules .rlb i.y{color:var(--green)}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* Nov 24 · Stats: Baller-select grid, condensed stage, stats stacked left + featured card right */
+.ugrid2{display:flex;flex-direction:column;gap:7px;padding:10px 12px 8px;background:#000;border:3px solid #000;box-shadow:0 0 0 2px var(--blue);border-radius:8px}
+.urow{display:flex;justify-content:center;gap:7px}
+.urow.off{transform:translateX(calc(50% / var(--per)))}
+.ugrid2 .ut{position:relative;width:calc((100% - 7px * 4) / 5);max-width:58px;aspect-ratio:1;border:0;padding:0;background:none;cursor:pointer;transform:skewX(-10deg);overflow:visible;display:block}
+.ugrid2 .ut .in{position:absolute;inset:0;border:2px solid #000;box-shadow:0 0 0 1px #2d2668;overflow:hidden;background:linear-gradient(160deg,#2a2370,#120d3a 70%);display:grid;place-items:center}
+.ugrid2 .ut .av{transform:skewX(10deg)}.ugrid2 .ut .av canvas{width:38px;height:38px;image-rendering:pixelated}
+.ugrid2 .ut.on .in{box-shadow:0 0 0 2px #ffd23d,0 0 12px #ffd23d}
+.ugrid2 .ut .p1{position:absolute;top:-7px;left:-4px;z-index:3;font-style:normal;font-size:5px;color:#000;background:#ff3b5c;padding:2px 3px;transform:skewX(10deg);animation:blink .5s steps(2) infinite}
+.ustage{height:112px!important}
+.uhero .av canvas{width:74px!important;height:74px!important}
+.ubio{top:22px!important;left:36%!important}
+.uname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.05!important}
+.uteam{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ufold{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:10px;align-items:stretch}
+.ucol{display:flex;flex-direction:column;gap:7px}
+.ucol .ust{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;padding:9px 11px;border:2px solid var(--edge);border-left:4px solid var(--sc);border-radius:8px;background:var(--card)}
+.ucol .ust span{grid-column:1/3;font-size:5.5px;color:var(--sc);letter-spacing:.08em;margin-bottom:6px}
+.ucol .ust b{font-weight:normal;font-size:15px;color:#fff}
+.ucol .ust small{font-size:5px;color:#fff;opacity:.85}
+.ufeat{display:flex;flex-direction:column;align-items:center;gap:7px;padding:9px 8px;border:2px solid #000;box-shadow:0 0 0 2px var(--gold);border-radius:10px;background:radial-gradient(circle at 30% 20%,#3a2a10,#0a0818 75%)}
+.ufeat .fl{font-size:5px;color:var(--gold);letter-spacing:.08em}
+.ufeat .fcard{width:100%}.ufeat .fcard .tcard{width:100%}
+.ufeat .go.sm{font-size:5.5px;padding:6px 8px;width:100%}
+.capk .fq{width:100%;font:inherit;font-size:7px;padding:10px;border-radius:8px;border:2px solid var(--edge);background:#060b18;color:var(--t1);margin:4px 0 10px}
 </style>`);

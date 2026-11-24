@@ -123,7 +123,7 @@ function sync(){
   const roster=(ls.rosters?.[mid]||[]), ir=W.getIrSlot(mid), act=(ls.active?.[mid]||W.autoActiveFor(mid)).filter(id=>id!==ir);
   const bench=roster.filter(id=>id!==ir && !act.includes(id));
   const pad=(a,n)=>{ const x=a.map(nameOf); while(x.length<n) x.push(null); return x; };
-  S.fl={act:pad(act,8), bench:pad(bench,2), ir:[ir!=null?nameOf(ir):null]};
+  S.fl={act:pad(act,ACT_N), bench:pad(bench,BENCH_N), ir:[ir!=null?nameOf(ir):null]};
   // Score this week
   MU.week=widx+1; LIVE.mu={me:Math.round(W.managerFP(mid)), opp:oppId?Math.round(W.managerFP(oppId)):0}; LIVE.oppId=oppId;
   TODAY_I = Math.floor((W.etWallNow()-new Date(wr.mon.getFullYear(),wr.mon.getMonth(),wr.mon.getDate()))/864e5);

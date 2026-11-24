@@ -136,11 +136,11 @@ function leagueSwitcher(){
 }
 const qfToggle = key => `<div class="qf">${['quick','full'].map(v=>`<button class="${S[key]===v?'on':''}" onclick="S.${key}='${v}';FZ.sel=null;FZ.wsel=null;save();render()">${v.toUpperCase()}</button>`).join('')}</div>`;
 function fantasy(){
-  const tabs = [['battle','MATCH-UP'],['roster','ROSTER'],['waivers','WAIVERS'],['sched','SCHEDULE'],['stand','STANDINGS']];
-  const body = {battle:fzBattle, roster:rosterStage, waivers:wvPage, sched:fzSched, stand:fzStand}[FZ.tab]();
+  const tabs = [['battle','MATCH-UP'],['roster','ROSTER'],['waivers','WAIVERS'],['trades','TRADES'],['sched','SCHEDULE'],['stand','STANDINGS']];
+  const body = {battle:fzBattle, roster:rosterStage, waivers:wvPage, trades:()=>typeof tradesPage==='function'?tradesPage():'', sched:fzSched, stand:fzStand}[FZ.tab]();
   const head = runHead();
   if(S.run==='winter') return mframe('fz run-winter','FANTASY', winterBody(), head);
-  return mframe('fz run-'+S.run+(FZ.tab==='roster'&&S.rq==='quick'||FZ.tab==='waivers'?' quick':''),'FANTASY', `<div class="mtabs t5">${tabs.map(([k,l])=>`<button class="${FZ.tab===k?'on':''}" onclick="FZ.tab='${k}';FZ.sel=null;FZ.wsel=null;FZ.drop=false;render()">${l}</button>`).join('')}</div>${body}`, head);
+  return mframe('fz run-'+S.run+(FZ.tab==='roster'&&S.rq==='quick'||FZ.tab==='waivers'?' quick':''),'FANTASY', `<div class="mtabs t5 t6">${tabs.map(([k,l])=>`<button class="${FZ.tab===k?'on':''}" onclick="FZ.tab='${k}';FZ.sel=null;FZ.wsel=null;FZ.drop=false;render()">${l}</button>`).join('')}</div>${body}`, head);
 }
 
 /* Run picker beside the title: Fall Run now, Winter Run after the December draft.
@@ -254,8 +254,10 @@ const fpTog = () => `<div class="fpt">${[['AVG','FP/G'],['DAY','FP TODAY']].map(
 /* WAIVERS */
 const pool = () => { const r=rostered(); return PL.filter(p=>!r.has(p.n)); };
 const trending = () => pool().filter(p=>!isOut(p.n)).sort((a,b)=>b.l5-a.l5).slice(0,6);
-let addsLeft = () => 3 - S.wv.used;
-const addBar = () => `<div class="adds">ADD/DROPS LEFT <span>${[0,1,2].map(k=>`<i class="${k<addsLeft()?'on':''}"></i>`).join('')}</span> ${addsLeft()}/3</div>`;
+/* NEXT rule: 7 acquisitions per matchup (7-day week); resets each matchup week */
+if(S.wv.wk!==weekKey()){ S.wv.wk=weekKey(); S.wv.used=0; }
+let addsLeft = () => Math.max(0, 7 - S.wv.used);
+const addBar = () => `<div class="adds">ACQUISITIONS <span>${[0,1,2,3,4,5,6].map(k=>`<i class="${k<addsLeft()?'on':''}"></i>`).join('')}</span> ${addsLeft()}/7</div>`;
 function wvQuick(){
   const t=trending(), sel=FZ.wsel;
   const btns = sel ? `<div class="wbtns"><button class="wb add" onclick="wvAdd('${sel.replace(/'/g,"\\'")}')">+ ADD</button><button class="wb sc ${S.wv.scouted.includes(sel)?'on':''}" onclick="wvScout('${sel.replace(/'/g,"\\'")}')">${S.wv.scouted.includes(sel)?'✓ SCOUTED':'🔭 SCOUT'}</button></div>` : '';
@@ -275,7 +277,7 @@ function wvPage(){
   const L=wvList(), pages=Math.max(1,Math.ceil(L.length/6)), r=rostered();
   FZ.wpg=Math.min(FZ.wpg,pages-1);
   const card=(p,k)=>{ const own=r.has(p.n); return `<div class="tt ${own?'own':''}" data-act="1" onclick="wvOpen('${p.n.replace(/'/g,"\\'")}')">
-      <div class="ph cw">${scard(p.n,{fm:'AVG',fpv:`${Math.ceil(p.l5)} FP`})}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${own?'<span class="owt">ROSTERED</span>':''}</div></div>`; };
+      <div class="ph cw">${scard(p.n,{fm:'AVG',fpv:`${Math.ceil(p.l5)} FP`})}<span class="rk">${k+1}</span>${S.wv.scouted.includes(p.n)?'<span class="scd">🔭</span>':''}${own?'<span class="owt">ROSTERED</span>':(typeof onWaivers==='function'&&onWaivers(p.n))?'<span class="owt wvt">WAIVERS</span>':''}</div></div>`; };
   const f=FZ.wf, chips=f?[f.q&&`“${f.q}”`, f.avail?'AVAILABLE':'ALL PLAYERS', f.hide&&'NO OUT/INJ', f.team].filter(Boolean).join(' · '):'';
   return `<div class="wtop">${addBar()}<div class="wbtn2"><button class="srep sm" onclick="scoutReport()">🔭 SCOUTING <b>${S.wv.scouted.length}</b></button><button class="srep sm blu" onclick="wvSearch()">🔍 SEARCH</button></div></div>
     <div class="qcap">${f?`RESULTS · ${L.length} <span class="clr" onclick="FZ.wf=null;FZ.wpg=0;render()">✕ CLEAR</span><br><span class="dim">${chips}</span>`:'TRENDING · BEST FP/G OVER THE LAST 5 GAMES'}</div>
@@ -328,7 +330,9 @@ function wvFull(){
 }
 function wvScout(n){ const s=S.wv.scouted, i=s.indexOf(n); if(i>=0) s.splice(i,1); else s.push(n); save(); render(); say(i>=0?'Removed from your Scouting Report':'Added to your Scouting Report'); }
 function wvAdd(n){
-  if(addsLeft()<=0){ say('No add/drops left this week'); return; }
+  if(typeof rosterLocked==='function' && rosterLocked()){ lockSay(); return; }
+  if(addsLeft()<=0){ say('No acquisitions left this matchup'); return; }
+  if(typeof onWaivers==='function' && onWaivers(n)){ placeClaim(n); return; }
   const open = S.fl.act.indexOf(null)>=0 ? 'a'+S.fl.act.indexOf(null) : S.fl.bench.indexOf(null)>=0 ? 'b'+S.fl.bench.indexOf(null) : null;
   const doAdd = (dropPos) => { const dropped = dropPos ? getSlot(dropPos) : null;
     setSlot(dropPos||open, n);

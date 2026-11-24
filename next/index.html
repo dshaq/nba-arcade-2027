@@ -31,7 +31,11 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
   padding:calc(env(safe-area-inset-top,0px) + 14px) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
 .logo{font-size:15px;letter-spacing:.02em;text-shadow:0 3px 0 #000}
-.logo b{color:var(--red);font-weight:normal}.logo i{color:var(--gold);font-style:normal}
+.logo b,.logo i{font-weight:normal;font-style:normal}
+/* arcade chrome: blue sky → white horizon, hard break → red (stepped like the Press Start logo) */
+.logo{text-shadow:none!important;filter:drop-shadow(0 3px 0 #000) drop-shadow(0 0 1px #000)}
+.logo b,.logo i{background:linear-gradient(180deg,#1d4fd8 0%,#2f7bff 14%,#6fb4ff 30%,#cfe6ff 44%,#ffffff 52%,#ffffff 56%,#ff9aa5 56%,#ff4a5a 66%,#e01a2e 80%,#8e0a1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .sp{flex:1}
 .ibtn{position:relative;width:42px;height:42px;border-radius:50%;border:2px solid var(--edge);background:var(--card);display:grid;place-items:center;cursor:pointer;padding:0}
 .ibtn svg{width:20px;height:20px}

@@ -796,7 +796,13 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 </style>`);
 
 /* Home-page line for the Challenge box once the week is under way */
-function wlcStatus(){ const me=cEntries().find(e=>e.me); const d=daysLeft(); return `${ordinal(me.rank)} PLACE · ${d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY'}`; }
+function wlcStatus(){
+  let E=[]; try{ E=cEntries()||[]; }catch(e){}
+  const d=daysLeft(), left=d>1?d+' DAYS REMAIN':d===1?'1 DAY LEFT':'LAST DAY';
+  const k=E.findIndex(e=>e.me); if(k<0) return `NO ENTRY THIS WEEK · ${left}`;   // you didn't enter (or the standings haven't loaded yet)
+  const rank=E[k].rank || ([...E].sort((a,b)=>(b.tot||0)-(a.tot||0)).indexOf(E[k])+1);
+  return `${ordinal(rank)} PLACE · ${left}`;
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    FUTURES · route map

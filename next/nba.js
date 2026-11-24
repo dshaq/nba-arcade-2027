@@ -9,7 +9,7 @@ S.profile ||= {};
 const THEMES = {
   arcade:  {name:'ARCADE',   v:{}},
   midnight:{name:'MIDNIGHT', v:{'--bg':'#05030f','--bg2':'#0d0820','--card':'#140c2e','--edge':'#2e2058','--t2':'#c0b0f0','--t3':'#6a5a9a'}},
-  gameboy: {name:'GAME BOY', v:{'--bg':'#0f1f0f','--bg2':'#163016','--card':'#1b3a1b','--edge':'#2f5a2f','--t1':'#e0f8d0','--t2':'#a8d890','--t3':'#5a8a4a'}},
+  gameboy: {name:'POCKET', v:{'--bg':'#0f1f0f','--bg2':'#163016','--card':'#1b3a1b','--edge':'#2f5a2f','--t1':'#e0f8d0','--t2':'#a8d890','--t3':'#5a8a4a'}},
   sunset:  {name:'SUNSET',   v:{'--bg':'#1a0610','--bg2':'#2a0a1a','--card':'#3a1022','--edge':'#6a2440','--t2':'#ffc0a0','--t3':'#a06070'}},
 };
 function applyTheme(){ const t=THEMES[S.theme]||THEMES.arcade, r=document.documentElement;
@@ -56,6 +56,9 @@ function settings(){
       <div class="reward" style="margin:12px 0 0">Preview: saved on this phone only, so the real league isn't touched.</div></div>
     <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
     <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
+    <div class="panel"><div class="sec">SOUND EFFECTS</div><div class="tsz">${[[true,'ON','🔊'],[false,'OFF','🔇']].map(([k,l,a])=>`<button class="${(S.snd!==false)===k?'on':''}" onclick="S.snd=${k};save();render();${k?"SFX('saved')":''}"><b>${a}</b>${l}</button>`).join('')}</div>
+      <label class="pf" style="margin-top:12px"><span>VOLUME</span><input type="range" min="0" max="100" value="${Math.round((S.sndVol==null?.6:S.sndVol)*100)}" oninput="S.sndVol=this.value/100;save()" onchange="SFX('check')" ${S.snd===false?'disabled':''} style="accent-color:var(--gold)"></label>
+      <div class="reward" style="margin:12px 0 0">Retro chip sounds made right in your browser. On iPhone, the silent switch may mute them.</div></div>
   </div>`;
 }
 SCREENS.settings = settings;

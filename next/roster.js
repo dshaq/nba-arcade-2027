@@ -131,7 +131,7 @@ function stageDrag(){
   stage.querySelectorAll('.rc16[data-pn],.rc16[data-pos]').forEach(card=>{
     let t=null, held=false, sx=0, sy=0, moved=false, ghost=null, over=null, dx=0, dy=0;
     const canDrag = ()=> FZ.view===0 && !!card.dataset.pos && !!card.dataset.pn;
-    const lift=()=>{ held=true; navigator.vibrate?.(12); const r=card.getBoundingClientRect(); dx=sx-r.left; dy=sy-r.top;
+    const lift=()=>{ held=true; navigator.vibrate?.(12); window.SFX?.('lift'); const r=card.getBoundingClientRect(); dx=sx-r.left; dy=sy-r.top;
       ghost=card.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=r.width+'px'; ghost.style.height=r.height+'px'; ghost.style.left=r.left+'px'; ghost.style.top=r.top+'px';
       document.body.appendChild(ghost); card.classList.add('lifted'); };
     const start=(x,y)=>{ held=false; moved=false; sx=x; sy=y; clearTimeout(t); if(canDrag()) t=setTimeout(lift, 280); };
@@ -143,7 +143,7 @@ function stageDrag(){
       if(tgt!==over){ over?.classList.remove('over'); over=tgt; over?.classList.add('over'); }
     };
     const drop=()=>{ const a=card.dataset.pos, b=over?.dataset.pos; ghost?.remove(); ghost=null; card.classList.remove('lifted'); over?.classList.remove('over'); over=null; held=false;
-      if(a&&b){ FZ.pick=null; if(swapPos(a,b)){ render(); say('Swapped'); lineupCheck(); } else render(); } };
+      if(a&&b){ FZ.pick=null; if(swapPos(a,b)){ window.SFX?.('swap'); render(); say('Swapped'); lineupCheck(); } else render(); } };
     const end=()=>{ clearTimeout(t); if(held){ drop(); return; } if(moved) return;
       if(card.dataset.pn) openPlayer(card.dataset.pn, FZ.view===0&&card.dataset.pos?rosterActions(card.dataset.pos):[]); };
     card.addEventListener('touchstart', e=>{ const p=e.touches[0]; start(p.clientX,p.clientY); }, {passive:true});

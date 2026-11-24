@@ -397,7 +397,7 @@ function standUp(){
   const els=[...document.querySelectorAll('.srow b[data-v]')]; if(!els.length || S.stUp===TODAY) return;
   S.stUp=TODAY; save();
   els.forEach((el,i)=>{ const tgt=+el.dataset.v; let v=0, t0=null; el.classList.add('roll');
-    const step=ts=>{ if(t0==null) t0=ts; const k=Math.min(1,(ts-t0)/(1100+i*120)); v=tgt*(1-Math.pow(1-k,3)); el.textContent=kFmt(v); if(k<1) requestAnimationFrame(step); else { el.textContent=kFmt(tgt); el.classList.remove('roll'); } };
+    let lt=0; const step=ts=>{ if(t0==null) t0=ts; const k=Math.min(1,(ts-t0)/(1100+i*120)); v=tgt*(1-Math.pow(1-k,3)); el.textContent=kFmt(v); if(i===0&&ts-lt>70+300*k*k){ lt=ts; window.SFX?.('tick'); } if(k<1) requestAnimationFrame(step); else { el.textContent=kFmt(tgt); el.classList.remove('roll'); if(i===0) window.SFX?.('land'); } };
     el.textContent='0'; setTimeout(()=>requestAnimationFrame(step), 150+i*90); });
 }
 SCREENS.fantasy = fantasy;

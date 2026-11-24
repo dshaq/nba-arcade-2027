@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Pocket Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=block" rel="stylesheet"/>
+<style>
+/* POCKET LAB · a playground for the four-green handheld LCD look. Nothing here touches the NEXT build.
+   The screen is a real 160x144 framebuffer in exactly four shades, shown through an LCD pass:
+   pixel grid, each pixel's faint shadow on the backing, and ghosting between frames. */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--bg:#0b0d16;--t1:#e9ecf7;--t2:#9aa3c2;--t3:#5b6488;--gold:#ffd93d;--edge:#232a44;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(90% 60% at 50% 0%,#1a1f36,#07080f 70%) fixed;color:var(--t1);font-family:var(--px);min-height:100vh}
+main{max-width:980px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(14px,env(safe-area-inset-right,0px)) 50px max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:12px;font-weight:normal;color:#b9d35a;letter-spacing:.06em}
+header p{margin:8px 0 0;font-size:6.5px;line-height:2;color:var(--t2);max-width:560px}
+header a{font-size:6px;color:var(--t3);text-decoration:none;border:2px solid var(--edge);padding:7px 9px;border-radius:6px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:6.5px;padding:9px 10px;border-radius:7px;border:2px solid var(--edge);background:#12162a;color:var(--t2);cursor:pointer}
+.tabs button.on{background:#8bac0f;border-color:#8bac0f;color:#0f380f}
+.stage{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:760px){.stage{grid-template-columns:1fr}}
+.notes{font-size:6.5px;line-height:2.1;color:var(--t2);display:flex;flex-direction:column;gap:12px}
+.notes h2{margin:0;font-size:9px;font-weight:normal;color:#fff;line-height:1.6}
+.notes b{font-weight:normal;color:#b9d35a}.notes u{text-decoration:none;color:#ff8fa0}
+.notes .keys{color:var(--t3)}
+.notes kbd{font-family:inherit;color:var(--t1);border:1px solid var(--t3);border-radius:3px;padding:1px 3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row label{font-size:6px;color:var(--t3);display:flex;gap:6px;align-items:center;cursor:pointer}
+
+/* ── the handheld (original design; no real-console branding) ── */
+.dev{position:relative;width:100%;max-width:400px;margin:0 auto;aspect-ratio:9/15;border-radius:14px 14px 70px 14px;padding:6% 6.5% 0;
+  background:linear-gradient(160deg,#e9e6dc,#d6d2c6 55%,#c6c1b3);box-shadow:inset -6px -8px 0 rgba(0,0,0,.08),inset 4px 4px 0 rgba(255,255,255,.6),0 18px 40px rgba(0,0,0,.6);
+  user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.dev::before{content:'';position:absolute;left:0;right:0;top:3.2%;height:1px;background:rgba(0,0,0,.12)}
+.bez{position:relative;background:#6e6b82;border-radius:10px 10px 46px 10px;padding:9% 11% 9%;box-shadow:inset 0 2px 0 rgba(255,255,255,.12),inset 0 -2px 0 rgba(0,0,0,.25)}
+.bez .lbl{position:absolute;left:11%;right:11%;top:3.2%;display:flex;align-items:center;gap:6px;font-size:5px;color:#c8c6d8;letter-spacing:.08em;white-space:nowrap}
+.bez .lbl i{flex:1;height:5px;background:linear-gradient(#8a2a5a 0 1.5px,transparent 1.5px 3.5px,#2c3a8a 3.5px)}
+.bez .led{position:absolute;left:3.6%;top:40%;width:6px;height:6px;border-radius:50%;background:#4a1010;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.bez .led.on{background:#ff2b2b;box-shadow:0 0 6px #ff2b2b}
+.bez .bat{position:absolute;left:1.4%;top:47%;font-size:3.6px;color:#c8c6d8}
+canvas#lcd{display:block;width:100%;aspect-ratio:10/9;image-rendering:pixelated;background:#a4ba30;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.brand{margin:4.5% 0 0 2%;font-size:9px;font-style:italic;color:#2b2f7a;letter-spacing:.02em}
+.brand small{font-size:6px;font-style:normal;color:#2b2f7a;margin-left:6px}
+.ctl{position:relative;height:40%}
+.dpad{position:absolute;left:4%;top:16%;width:30%;aspect-ratio:1}
+.dpad button{position:absolute;width:34%;height:34%;background:#26262c;border:0;padding:0;cursor:pointer;box-shadow:0 3px 0 #0d0d10}
+.dpad button:active,.dpad button.dn{transform:translateY(2px);box-shadow:0 1px 0 #0d0d10}
+.dpad .u{left:33%;top:0;border-radius:3px 3px 0 0}.dpad .d{left:33%;bottom:0;border-radius:0 0 3px 3px}
+.dpad .l{left:0;top:33%;border-radius:3px 0 0 3px}.dpad .r{right:0;top:33%;border-radius:0 3px 3px 0}
+.dpad::after{content:'';position:absolute;left:33%;top:33%;width:34%;height:34%;background:#26262c;pointer-events:none}
+.ab{position:absolute;right:4%;top:14%;width:44%;height:40%;transform:rotate(-25deg)}
+.ab button{position:absolute;width:40%;aspect-ratio:1;border-radius:50%;border:0;background:#9a2257;box-shadow:0 4px 0 #4f0d2b,inset 0 2px 0 rgba(255,255,255,.18);cursor:pointer}
+.ab button:active,.ab button.dn{transform:translateY(3px);box-shadow:0 1px 0 #4f0d2b}
+.ab .b{left:0;top:30%}.ab .a{right:0;top:0}
+.ab span{position:absolute;font-size:6px;color:#2b2f7a;transform:rotate(25deg)}
+.ab .sb{left:12%;top:96%}.ab .sa{right:12%;top:66%}
+.ss{position:absolute;left:30%;right:30%;bottom:22%;display:flex;justify-content:center;gap:16%;transform:rotate(-25deg)}
+.ss div{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ss button{width:44px;height:11px;border-radius:6px;border:0;background:#8c8a96;box-shadow:0 2px 0 #5a5866;cursor:pointer}
+.ss span{font-size:4.5px;color:#2b2f7a;letter-spacing:.06em}
+.grill{position:absolute;right:7%;bottom:8%;display:flex;gap:6px;transform:rotate(-25deg)}
+.grill i{width:4px;height:42px;border-radius:3px;background:rgba(0,0,0,.18);box-shadow:inset 1px 1px 0 rgba(0,0,0,.2)}
+
+/* theme preview */
+.themebox{display:none;flex-direction:column;gap:10px}
+.themebox .frames{display:flex;gap:16px;flex-wrap:wrap}
+.themebox figure{margin:0;display:flex;flex-direction:column;gap:8px;align-items:center}
+.themebox figcaption{font-size:6px;color:var(--t3)}
+.themebox iframe{width:340px;height:640px;max-width:100%;border:3px solid #000;border-radius:16px;background:#000}
+.pk .stage{display:none}.pk .themebox{display:flex}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>POCKET LAB</h1><p>The four-green handheld look, tried in five places on the site. The screen is a real 160×144 display in exactly four shades, with an LCD pixel grid, pixel shadows and ghosting. Use the buttons on the handheld, tap the screen, or the keyboard. This lab is separate from the NEXT build, so nothing here changes it.</p></div>
+    <a href="../">← BACK TO NEXT</a>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="stage">
+    <div class="dev" id="dev">
+      <div class="bez"><div class="lbl"><i></i>DOT·LCD &nbsp;FOUR SHADES<i></i></div><span class="led on" id="led"></span><span class="bat">POWER</span>
+        <canvas id="lcd" width="640" height="576"></canvas></div>
+      <div class="brand">NBA ARCADE<small>POCKET</small></div>
+      <div class="ctl">
+        <div class="dpad"><button class="u" data-k="up" aria-label="Up"></button><button class="d" data-k="down" aria-label="Down"></button><button class="l" data-k="left" aria-label="Left"></button><button class="r" data-k="right" aria-label="Right"></button></div>
+        <div class="ab"><button class="b" data-k="b" aria-label="B"></button><button class="a" data-k="a" aria-label="A"></button><span class="sb">B</span><span class="sa">A</span></div>
+        <div class="ss"><div><button data-k="select" aria-label="Select"></button><span>SELECT</span></div><div><button data-k="start" aria-label="Start"></button><span>START</span></div></div>
+        <div class="grill"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div class="notes" id="notes"></div>
+  </div>
+  <div class="themebox" id="themebox">
+    <div class="notes"><h2>3 · POCKET APP THEME</h2>
+      <p>The whole NEXT site run through the same four greens and LCD grid. This would be one more choice under Settings → App Theme. It could also be a hidden unlock, like tapping the logo seven times. <b>The frame on the right is the real NEXT site</b> with the filter on; the left one is untouched for comparison. You can tap around in both.</p>
+      <div class="row"><label><input type="checkbox" id="grid" checked> LCD GRID</label><label><input type="checkbox" id="ghost" checked> GHOSTING ON SCROLL</label></div></div>
+    <div class="frames"><figure><iframe id="fA" src="../" title="NEXT site, normal"></iframe><figcaption>NORMAL</figcaption></figure>
+      <figure><iframe id="fB" src="../" title="NEXT site, Pocket theme"></iframe><figcaption>POCKET THEME</figcaption></figure></div>
+  </div>
+</main>
+<script>
+(async()=>{
+/* ═══════════ data: real names / teams / FP/G from the NEXT sample list ═══════════ */
+let RAW=[];
+try{ const t=await fetch('../data.js').then(r=>r.text()); RAW=JSON.parse(t.match(/const RAW = (\[[\s\S]*?\]);/)[1]); }catch(e){}
+if(!RAW.length) RAW=[["Nikola Jokic","DEN","C",33.9],["Victor Wembanyama","SAS","F",36.2],["Jayson Tatum","BOS","F",26.1],["Stephen Curry","GSW","G",26.6]];
+const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
+const pimg=(t,n)=>`${PORTRAITS}/${t}/${encodeURIComponent(n)}.jpeg`;
+const hsh=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);h^=h>>>16;h=Math.imul(h,0x85ebca6b);h^=h>>>13;return (h>>>0)/4294967296;};
+/* LAB SAMPLE stat lines: split each player's FP/G by position so the bars have something to show. Not real box scores. */
+const W8={G:[.56,.12,.22,.05,.02],F:[.5,.24,.13,.05,.05],C:[.44,.33,.11,.04,.08]};
+const DEX=RAW.filter(r=>r[0]).sort((a,b)=>b[3]-a[3]).slice(0,60).map(([n,t,p,f],i)=>{ const w=W8[p]||W8.F, v=k=>w[k]*(0.85+hsh(n+k)*.3);
+  const pts=+(f*v(0)*1.55).toFixed(1), reb=+(f*v(1)*1.05).toFixed(1), ast=+(f*v(2)*1.1).toFixed(1), stl=+(f*v(3)*.45+.3).toFixed(1), blk=+(f*v(4)*.45+.2).toFixed(1);
+  const sp=n.split(' '); return {no:i+1,n,first:sp[0],last:sp.slice(1).join(' ').toUpperCase().replace(/ (JR\.|III|II)$/,''),t,p,f,st:{PTS:pts,REB:reb,AST:ast,STL:stl,BLK:blk}}; });
+const MAX={PTS:34,REB:14,AST:11,STL:2.2,BLK:3.6};
+
+/* ═══════════ the LCD ═══════════ */
+const LW=160,LH=144,SC=4;
+const SH=['#a4ba30','#7f9c22','#3e6a2c','#14381a'], SHR=SH.map(h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));
+const LUM=SHR.map(([r,g,b])=>.3*r+.59*g+.11*b);
+const fb=document.createElement('canvas'); fb.width=LW; fb.height=LH; const g=fb.getContext('2d',{willReadFrequently:true}); g.imageSmoothingEnabled=false;
+const out=document.getElementById('lcd'), oc=out.getContext('2d'), oimg=oc.createImageData(LW*SC,LH*SC), o32=new Uint32Array(oimg.data.buffer);
+const ghost=new Float32Array(LW*LH).fill(0); let GHOST=.42;
+const pack=(r,gg,b)=>(255<<24)|(b<<16)|(gg<<8)|r;
+const BACK=[172,192,58], GAP=[160,180,52];
+function present(){
+  const d=g.getImageData(0,0,LW,LH).data;
+  for(let i=0,p=0;i<LW*LH;i++,p+=4){ const l=.3*d[p]+.59*d[p+1]+.11*d[p+2]; let k=0,best=1e9; for(let s=0;s<4;s++){ const e=Math.abs(l-LUM[s]); if(e<best){best=e;k=s;} } ghost[i]=ghost[i]*GHOST+k*(1-GHOST); }
+  // backing + grid
+  const OW=LW*SC;
+  for(let y=0;y<LH*SC;y++) for(let x=0;x<OW;x++){ const gl=(x%SC===SC-1)||(y%SC===SC-1); const c=gl?GAP:BACK; o32[y*OW+x]=pack(c[0],c[1],c[2]); }
+  // pixel shadows on the backing (offset down-right)
+  for(let y=0;y<LH;y++) for(let x=0;x<LW;x++){ const v=ghost[y*LW+x]; if(v<.25) continue; const dk=1-v*.07;
+    for(let yy=1;yy<SC;yy++) for(let xx=1;xx<SC;xx++){ const X=x*SC+xx+1, Y=y*SC+yy+1; if(X>=OW||Y>=LH*SC) continue; const j=Y*OW+X, c=o32[j]; o32[j]=pack((c&255)*dk|0,((c>>8)&255)*dk|0,((c>>16)&255)*dk|0); } }
+  // pixels
+  for(let y=0;y<LH;y++) for(let x=0;x<LW;x++){ const v=ghost[y*LW+x], a=Math.floor(v), t=v-a, c0=SHR[a], c1=SHR[Math.min(3,a+1)];
+    const r=c0[0]+(c1[0]-c0[0])*t|0, gg=c0[1]+(c1[1]-c0[1])*t|0, b=c0[2]+(c1[2]-c0[2])*t|0, col=pack(r,gg,b);
+    for(let yy=0;yy<SC-1;yy++){ const row=(y*SC+yy)*OW+x*SC; for(let xx=0;xx<SC-1;xx++) o32[row+xx]=col; } }
+  oc.putImageData(oimg,0,0);
+}
+
+/* ═══════════ drawing helpers (on the 160×144 framebuffer, 4 shades only) ═══════════ */
+await document.fonts.load('8px "Press Start 2P"','AZaz09'); await document.fonts.ready;
+const C=SH; // C[0] lightest … C[3] darkest
+const rect=(x,y,w,h,s)=>{ g.fillStyle=C[s]; g.fillRect(x|0,y|0,w|0,h|0); };
+const box=(x,y,w,h)=>{ rect(x,y,w,h,0); rect(x,y,w,1,3); rect(x,y+h-1,w,1,3); rect(x,y,1,h,3); rect(x+w-1,y,1,h,3); rect(x+2,y+2,w-4,1,2); rect(x+2,y+h-3,w-4,1,2); rect(x+2,y+2,1,h-4,2); rect(x+w-3,y+2,1,h-4,2); };
+function txt(s,x,y,sh=3,size=8){ g.font=`${size}px "Press Start 2P"`; g.textBaseline='top'; g.fillStyle=C[sh]; g.fillText(String(s).toUpperCase(),x|0,y|0); }
+const tw=(s,size=8)=>String(s).length*size;
+const tri=(x,y,dir,sh=3)=>{ for(let i=0;i<4;i++){ if(dir==='r') rect(x+i,y+i,1,7-2*i,sh); else rect(x+3-i,y+i,1,7-2*i,sh); } };
+function bar(x,y,w,h,v){ rect(x,y,w,h,3); rect(x+1,y+1,w-2,h-2,0); rect(x+1,y+1,Math.max(0,Math.round((w-2)*Math.min(1,v))),h-2,v>.5?2:v>.2?1:2); }
+// portraits → 4-shade dithered sprites
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const SPR={};
+function sprite(pl,size){ const key=pl.n+size; if(SPR[key]) return SPR[key].ok?SPR[key].c:null;
+  const c=document.createElement('canvas'); c.width=c.height=size; SPR[key]={c,ok:false};
+  const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>{ const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(im,0,0,size,size);
+    try{ const d=x.getImageData(0,0,size,size), a=d.data; let lo=255,hi=0; for(let i=0;i<a.length;i+=4){ const l=.3*a[i]+.59*a[i+1]+.11*a[i+2]; lo=Math.min(lo,l); hi=Math.max(hi,l); }
+      for(let i=0,p=0;i<a.length;i+=4,p++){ const l=(.3*a[i]+.59*a[i+1]+.11*a[i+2]-lo)/Math.max(1,hi-lo), th=(BAYER[(p%size%4)+4*((p/size|0)%4)]+.5)/16-.5;
+        const k=Math.max(0,Math.min(3,Math.round((1-l)*3+th*.9))); const s=SHR[k]; a[i]=s[0]; a[i+1]=s[1]; a[i+2]=s[2]; a[i+3]=255; }
+      x.putImageData(d,0,0); SPR[key].ok=true; }catch(e){ SPR[key].ok=false; } };
+  im.src=pimg(pl.t,pl.n); return null; }
+function drawSprite(pl,x,y,size){ const s=sprite(pl,size); if(s){ g.drawImage(s,x,y); return; }
+  // silhouette while loading / if blocked
+  rect(x,y,size,size,1); g.fillStyle=C[3]; g.beginPath(); g.arc(x+size/2,y+size*.38,size*.18,0,7); g.fill(); g.fillRect(x+size*.22,y+size*.62,size*.56,size*.38); }
+
+/* ═══════════ sound: tiny chip kit ═══════════ */
+let AC=null, SND=true;
+function tone(f,d=.06,type='square',v=.05,t0=0){ if(!SND) return; AC ||= new (window.AudioContext||window.webkitAudioContext)(); const t=AC.currentTime+t0, o=AC.createOscillator(), G=AC.createGain(); o.type=type;
+  if(Array.isArray(f)){ o.frequency.setValueAtTime(f[0],t); o.frequency.exponentialRampToValueAtTime(f[1],t+d); } else o.frequency.value=f;
+  G.gain.setValueAtTime(v,t); G.gain.setValueAtTime(v,t+d*.7); G.gain.exponentialRampToValueAtTime(.0001,t+d); o.connect(G); G.connect(AC.destination); o.start(t); o.stop(t+d+.02); }
+const sfx={ move:()=>tone(1320,.03,'square',.035), sel:()=>{tone(880,.04);tone(1320,.05,'square',.05,.05);}, back:()=>tone([660,330],.08), blip:()=>tone(1046,.018,'square',.025),
+  hit:()=>{tone([600,90],.25,'square',.06);}, win:()=>['C5','E5','G5','C6'].forEach((n,i)=>tone({C5:523,E5:659,G5:784,C6:1047}[n],.12,'square',.05,i*.1)),
+  boot:()=>{tone(1047,.08,'square',.05);tone(2093,.5,'square',.05,.09);}, cry:p=>{ const b=180+hsh(p.n)*300; tone([b,b*2.2],.12,'square',.05); tone([b*2,b*.8],.18,'square',.05,.12);} };
+
+/* ═══════════ typewriter text box ═══════════ */
+const TB={full:'',shown:0,cb:null};
+function say(s,cb){ TB.full=s; TB.shown=0; TB.cb=cb||null; }
+function wrap(s,n=18){ const out=[]; for(const para of String(s).split('\n')){ let line=''; for(const w of para.split(' ')){ if((line+' '+w).trim().length>n){ out.push(line); line=w; } else line=(line+' '+w).trim(); } out.push(line); } return out; }
+function textbox(y=100){ box(0,y,160,144-y); const t=TB.full.slice(0,Math.floor(TB.shown)), lines=wrap(t,18); lines.slice(-3).forEach((l,i)=>txt(l,8,y+8+i*12)); if(TB.shown>=TB.full.length && (F>>4)%2) { rect(146,138,6,1,3); rect(147,139,4,1,3); rect(148,140,2,1,3); } }
+function tickText(){ if(TB.shown<TB.full.length){ const before=Math.floor(TB.shown); TB.shown+=.75; if(Math.floor(TB.shown)>before && TB.full[before]!==' ' && before%2===0) sfx.blip(); } }
+const textDone=()=>TB.shown>=TB.full.length;
+function advance(){ if(!textDone()){ TB.shown=TB.full.length; return true; } if(TB.cb){ const c=TB.cb; TB.cb=null; c(); return true; } return false; }
+
+/* ═══════════ modes ═══════════ */
+let F=0, MODE='dex', boot=0;
+const S={ dex:{view:'list',cur:0,top:0}, bat:{st:'pick',a:0,b:3,who:0,hpA:1,hpB:1,showA:1,showB:1,flash:0,intro:0,score:[0,0],round:0,shake:0}, rules:{page:0}, trade:{i:0,pk:-1} };
+const NOTES={
+ dex:`<h2>1 · PLAYER DEX (STATS)</h2><p>Stats becomes a handheld index of every player. The list is sorted by FP/G, and each entry shows his portrait <b>reduced to four greens</b>, plus FP/G and a bar for each stat. <b>A</b> plays his "cry", <b>◀ ▶</b> flips to the next player, <b>B</b> goes back to the list.</p><p><u>The stat splits here are lab sample numbers</u> worked out from each player's real FP/G. The real version would use season averages.</p><p class="keys">KEYS: <kbd>↑↓←→</kbd> D-pad · <kbd>Z</kbd>/<kbd>Enter</kbd> A · <kbd>X</kbd>/<kbd>Esc</kbd> B · <kbd>Space</kbd> START</p>`,
+ bat:`<h2>2 · HEAD-TO-HEAD BATTLE</h2><p>Compare two players as a handheld battle. Pick your player with <b>◀ ▶</b> and press <b>A</b>, then pick an opponent. After a flash-and-stripes intro, they trade blows <b>stat by stat</b> (PTS, REB, AST, STL, BLK). Whoever wins a stat knocks HP off the other, and a bigger margin hits harder.</p><p>It's a fun way to settle "who do I pick in the Duel?", and it could sit on Stats or on the Duel pick screen.</p>`,
+ rules:`<h2>4 · RULES AS AN RPG DIALOG</h2><p>A coach walks you through each game mode in text boxes instead of a wall of rules. <b>A</b> goes to the next page, and <b>◀ ▶</b> jumps between modes. This would be good for new players, and it could double as the first-visit tutorial.</p>`,
+ trade:`<h2>5 · TRANSACTIONS AS A TRADE LOG</h2><p>Two handhelds linked by a cable. Each add, drop or trade travels down the cable as a packet and prints in the text box. <b>A</b> sends the next one. <u>These transactions are made up for the lab.</u></p>`,
+};
+const TABS=[['dex','1 · PLAYER DEX'],['bat','2 · BATTLE'],['theme','3 · POCKET THEME'],['rules','4 · RULES'],['trade','5 · TRADE LOG']];
+const tabsEl=document.getElementById('tabs');
+function setMode(m){ MODE=m; document.body.classList.toggle('pk',m==='theme'); tabsEl.innerHTML=TABS.map(([k,l])=>`<button class="${k===m?'on':''}" data-m="${k}">${l}</button>`).join('')+`<button id="snd">${SND?'🔊 SOUND ON':'🔇 SOUND OFF'}</button>`;
+  tabsEl.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>setMode(b.dataset.m)); document.getElementById('snd').onclick=()=>{ SND=!SND; setMode(MODE); };
+  if(m!=='theme') document.getElementById('notes').innerHTML=NOTES[m];
+  TB.full=''; TB.shown=0; TB.cb=null;
+  if(m==='rules'){ S.rules.page=0; rulesSay(); }
+  if(m==='trade'){ S.trade.i=0; S.trade.pk=-1; say('LINK CABLE READY. PRESS A TO SEND THE NEXT TRANSACTION.'); }
+  if(m==='bat'){ Object.assign(S.bat,{st:'pick',who:0}); }
+  if(m==='theme') themeInit(); }
+
+/* ── 1 · DEX ── */
+function dexDraw(){ const D=S.dex;
+  if(D.view==='list'){ rect(0,0,160,144,0); rect(0,0,160,12,3); txt('PLAYER DEX',4,2,0); txt(String(DEX.length).padStart(3,'0'),134,2,0);
+    for(let i=0;i<11;i++){ const k=D.top+i; if(k>=DEX.length) break; const p=DEX[k], y=16+i*11; if(k===D.cur){ rect(2,y-2,156,11,1); tri(5,y,'r',3); }
+      txt(String(p.no).padStart(3,'0'),14,y,k===D.cur?3:2); txt(p.last.slice(0,9),42,y,3); txt(p.f.toFixed(0),140,y,2); }
+    const sb=Math.max(8,Math.round(120*11/DEX.length)), sy=14+Math.round((120-sb)*D.top/Math.max(1,DEX.length-11)); rect(157,14,2,124,1); rect(157,sy,2,sb,3); return; }
+  const p=DEX[D.cur]; rect(0,0,160,144,0);
+  rect(0,0,160,12,3); txt('NO.'+String(p.no).padStart(3,'0'),4,2,0); txt(p.t,136,2,0);
+  box(2,14,68,68); drawSprite(p,4,16,64);
+  if(D.cry>0){ D.cry--; if(D.cry%6<3) rect(4,16,64,64,0); }
+  txt(p.last.length>10?p.last.slice(0,10):p.last,74,16,3); txt(p.first,74,27,2);
+  txt(p.p==='G'?'GUARD':p.p==='C'?'CENTER':'FORWARD',74,40,2);
+  txt('FP/G',74,56,2); txt(p.f.toFixed(1),74,66,3,16);
+  box(0,84,160,60);
+  Object.entries(p.st).forEach(([k,v],i)=>{ const y=90+i*10; txt(k,8,y,3); bar(42,y,74,7,v/MAX[k]); txt(v.toFixed(1),120,y,3); });
+  if(F%60<30){ tri(150,40,'r',2); }
+}
+function dexKey(k){ const D=S.dex;
+  if(D.view==='list'){ if(k==='up'||k==='down'){ D.cur=Math.max(0,Math.min(DEX.length-1,D.cur+(k==='up'?-1:1))); if(D.cur<D.top) D.top=D.cur; if(D.cur>D.top+10) D.top=D.cur-10; sfx.move(); }
+    if(k==='left'||k==='right'){ D.cur=Math.max(0,Math.min(DEX.length-1,D.cur+(k==='left'?-11:11))); D.top=Math.max(0,Math.min(DEX.length-11,D.cur-5)); sfx.move(); }
+    if(k==='a'||k==='start'){ D.view='entry'; D.cry=0; sfx.sel(); } return; }
+  if(k==='b'){ D.view='list'; sfx.back(); }
+  if(k==='left'||k==='right'){ D.cur=(D.cur+(k==='left'?-1:1)+DEX.length)%DEX.length; D.top=Math.max(0,Math.min(DEX.length-11,D.cur-5)); sfx.move(); }
+  if(k==='a'){ D.cry=24; sfx.cry(DEX[D.cur]); } }
+
+/* ── 2 · BATTLE ── */
+const STATS=['PTS','REB','AST','STL','BLK'];
+function batDraw(){ const B=S.bat, A=DEX[B.a], O=DEX[B.b];
+  if(B.st==='pick'){ rect(0,0,160,144,0); rect(0,0,160,12,3); txt(B.who===0?'CHOOSE YOUR PLAYER':'CHOOSE OPPONENT',4,2,0);
+    const p=B.who===0?A:O; box(46,18,68,68); drawSprite(p,48,20,64); tri(34,48,'l',F%40<20?3:2); tri(122,48,'r',F%40<20?3:2);
+    const nm=p.last.slice(0,18); txt(nm,80-tw(nm)/2,92,3); txt(`FP/G ${p.f.toFixed(1)}`,40,104,2);
+    if(B.who===1){ txt('VS',8,124,2); txt(A.last.slice(0,14),32,124,3); } else txt('PRESS A',52,126,F%50<25?3:1); return; }
+  if(B.st==='intro'){ B.intro++; const t=B.intro;
+    if(t<18){ rect(0,0,160,144,(t>>1)%2?3:0); }
+    else if(t<54){ rect(0,0,160,144,0); const k=Math.min(1,(t-18)/30); for(let i=0;i<18;i++){ const w=Math.round(160*k); if(i%2) rect(160-w,i*8,w,8,3); else rect(0,i*8,w,8,3); } }
+    else { B.st='fight'; say(`A WILD ${O.last} APPEARED!`,()=>say(`GO! ${A.last}!`,nextRound)); } return; }
+  // fight scene
+  rect(0,0,160,144,0);
+  const sh=B.shake>0?((B.shake--)%4<2?2:-2):0;
+  // opponent: top
+  box(2,4,92,30); txt(O.last.slice(0,10),8,9,3); txt('HP',8,22,3); bar(26,22,62,6,B.showB);
+  drawSprite(O,104+(B.hitW==='B'?sh:0),2,48);
+  // you: bottom
+  drawSprite(A,10+(B.hitW==='A'?sh:0),48,48);
+  box(66,58,92,36); txt(A.last.slice(0,10),72,63,3); txt('HP',72,76,3); bar(90,76,62,6,B.showA); txt(`${B.score[0]}-${B.score[1]}`,120,86,2,8);
+  // platforms
+  rect(98,48,58,2,1); rect(4,96,58,2,1);
+  B.showA+=(B.hpA-B.showA)*.12; B.showB+=(B.hpB-B.showB)*.12;
+  if(B.flash>0){ B.flash--; if(B.flash%4<2) rect(0,0,160,98,3); }
+  textbox(100);
+}
+function nextRound(){ const B=S.bat, A=DEX[B.a], O=DEX[B.b];
+  if(B.round>=STATS.length || B.hpA<=0.01 || B.hpB<=0.01){ const aw=B.hpA>B.hpB||(B.hpA===B.hpB&&B.score[0]>=B.score[1]); const L=aw?O:A, W=aw?A:O;
+    say(`${L.last} FAINTED!`,()=>{ sfx.win(); say(`${W.last} WINS ${Math.max(...B.score)}-${Math.min(...B.score)}! PRESS A TO GO AGAIN.`,()=>{ Object.assign(B,{st:'pick',who:0}); sfx.back(); }); }); return; }
+  const k=STATS[B.round++], a=A.st[k], o=O.st[k];
+  if(Math.abs(a-o)<.05){ say(`BOTH USED ${k}! ${a.toFixed(1)} EACH. IT'S A DRAW.`,nextRound); return; }
+  const aw=a>o, W=aw?A:O, diff=Math.abs(a-o)/Math.max(a,o), dmg=Math.min(.55,.14+diff*.7);
+  say(`${W.last} USED ${k}! ${Math.max(a,o).toFixed(1)} VS ${Math.min(a,o).toFixed(1)}`,()=>{ sfx.hit(); B.flash=8; B.shake=16; B.hitW=aw?'B':'A';
+    if(aw){ B.hpB=Math.max(0,B.hpB-dmg); B.score[0]++; } else { B.hpA=Math.max(0,B.hpA-dmg); B.score[1]++; }
+    say(diff>.35?"IT'S SUPER EFFECTIVE!":diff<.1?"IT'S NOT VERY EFFECTIVE...":'A SOLID HIT!',nextRound); }); }
+function batKey(k){ const B=S.bat;
+  if(B.st==='pick'){ if(k==='left'||k==='right'){ const d=k==='left'?-1:1; if(B.who===0) B.a=(B.a+d+DEX.length)%DEX.length; else { do{ B.b=(B.b+d+DEX.length)%DEX.length; }while(B.b===B.a); } sfx.move(); }
+    if(k==='a'||k==='start'){ sfx.sel(); if(B.who===0){ B.who=1; if(B.b===B.a) B.b=(B.a+1)%DEX.length; } else Object.assign(B,{st:'intro',intro:0,hpA:1,hpB:1,showA:1,showB:1,score:[0,0],round:0,hitW:null}); }
+    if(k==='b'&&B.who===1){ B.who=0; sfx.back(); } return; }
+  if(B.st==='fight'&&(k==='a'||k==='b')) advance(); }
+
+/* ── 4 · RULES ── */
+const COACH=['.....3333......','....322223.....','...32222223....','..3333333333...','...31100013....','...31030313....','...31000013....','....300003.....','....3333333....','..32222222223..','.3222322232223.','.3222233322223.','.3222223222223.','..33333333333..','...3223.3223...','..33333.33333..'];
+const RULES=[
+ ['THE BASICS',["WELCOME TO NBA ARCADE! I'M COACH. EVERY GAME HERE RUNS ON REAL NBA NIGHTS.","YOU SCORE FANTASY POINTS (FP) FROM WHAT YOUR PLAYERS DO IN REAL GAMES."]],
+ ['DAILY DUEL',["EVERY DAY, TWO PLAYERS (OR TWO TEAMS) GO HEAD TO HEAD IN ONE STAT.","PICK WHO WINS BEFORE TIP-OFF. RIGHT PICKS BUILD YOUR STREAK!"]],
+ ['CHALLENGE',["EACH WEEK HAS A THEME AND A POOL OF 25 PLAYERS IN 5 PRICE TIERS.","PICK 5 PLAYERS FOR $15. PICKS LOCK AT MONDAY'S FIRST TIP-OFF.","THE BEST AVERAGE FP PER GAME FOR THE WEEK WINS."]],
+ ['FANTASY',["DRAFT A ROSTER AND START YOUR BEST PLAYERS EACH DAY.","EACH WEEK YOU FACE ONE LEAGUE MATE. MOST TOTAL FP WINS THE MATCH-UP."]],
+];
+function rulesSay(){ const R=S.rules, [ttl,pages]=RULES[R.page]; let i=0; const nx=()=>{ i++; if(i<pages.length) say(pages[i],nx); else say(`THAT'S ${ttl}! PRESS RIGHT FOR THE NEXT TOPIC.`); }; say(pages[0],nx); }
+function rulesDraw(){ const R=S.rules; rect(0,0,160,144,0);
+  // gym floor
+  for(let y=56;y<100;y+=6) rect(0,y,160,1,1); rect(0,54,160,2,2); rect(78,56,2,44,2);
+  g.strokeStyle=C[2]; g.lineWidth=1; g.beginPath(); g.arc(80,78,14,0,7); g.stroke();
+  rect(0,0,160,12,3); txt(RULES[R.page][0],80-tw(RULES[R.page][0])/2,2,0);
+  tri(3,2,'l',F%40<20?0:1); tri(153,2,'r',F%40<20?0:1);
+  const bob=(F>>4)%2, sc=3, ox=56, oy=28+bob;
+  COACH.forEach((row,y)=>[...row].forEach((c,x)=>{ if(c!=='.') rect(ox+x*sc,oy+y*sc,sc,sc,+c); }));
+  rect(ox+33,oy+31,4,3,3); // whistle
+  textbox(100); }
+function rulesKey(k){ const R=S.rules; if(k==='left'||k==='right'){ R.page=(R.page+(k==='left'?-1:1)+RULES.length)%RULES.length; sfx.move(); rulesSay(); } if(k==='a'||k==='b') advance(); }
+
+/* ── 5 · TRADE LOG ── */
+const TX=[['PIXEL PUSHERS','ADDED','CAM SPENCER'],['FAST BREAK BANDITS','DROPPED','JALEN SMITH'],['HOOP DREAMERS','TRADED','2 FOR 1 WITH DAN'],['PIXEL PUSHERS','MOVED','TATUM TO IR'],['BUZZER BEATERS','ADDED','DERIK QUEEN'],['DAN','CLAIMED','JAVON SMALL']];
+function tradeDraw(){ const T=S.trade; rect(0,0,160,144,0); rect(0,0,160,12,3); txt('TRADE LOG',4,2,0); txt(`${Math.min(T.i,TX.length)}/${TX.length}`,124,2,0);
+  const hh=(x)=>{ rect(x,22,36,54,1); rect(x,22,36,1,3); rect(x,75,36,1,3); rect(x,22,1,54,3); rect(x+35,22,1,54,3); rect(x+5,27,26,20,3); rect(x+7,29,22,16,0);
+    rect(x+6,56,9,3,3); rect(x+9,53,3,9,3); rect(x+24,56,4,4,2); rect(x+29,53,4,4,2); };
+  hh(10); hh(114);
+  // cable
+  for(let x=46;x<114;x++){ const y=46+Math.round(Math.sin((x-46)/68*Math.PI)*16); rect(x,y,1,2,3); }
+  rect(44,44,3,6,3); rect(113,44,3,6,3);
+  if(T.pk>=0){ T.pk+=1.6; const x=46+T.pk, y=46+Math.round(Math.sin(T.pk/68*Math.PI)*16); if(T.pk<68){ rect(x-3,y-3,7,7,3); rect(x-1,y-1,3,3,0); } else T.pk=-1; }
+  // screens
+  txt('ME',16,36,3); txt('LG',120,36,3);
+  textbox(88); }
+function tradeKey(k){ const T=S.trade; if(k!=='a') return; if(!textDone()){ advance(); return; }
+  if(T.i>=TX.length){ T.i=0; say('LOG CLEARED. PRESS A TO REPLAY.'); sfx.back(); return; }
+  const [who,what,x]=TX[T.i++]; T.pk=0; sfx.sel(); setTimeout(()=>say(`${who} ${what} ${x}.`),700); }
+
+/* ── boot ── */
+function bootDraw(){ rect(0,0,160,144,0); const y=Math.min(60,-14+boot); txt('NBA ARCADE',80-tw('NBA ARCADE')/2,y,3); if(boot>74){ txt('POCKET',80-tw('POCKET')/2,y+14,2); } if(boot===75) sfx.boot(); boot++; }
+
+/* ── loop ── */
+function frame(){ F++;
+  if(MODE!=='theme'){ if(boot<120){ bootDraw(); } else { tickText(); ({dex:dexDraw,bat:batDraw,rules:rulesDraw,trade:tradeDraw})[MODE](); } present(); }
+  requestAnimationFrame(frame); }
+function key(k){ if(boot<120){ boot=120; return; } const kb=document.querySelector(`[data-k="${k}"]`); kb?.classList.add('dn'); setTimeout(()=>kb?.classList.remove('dn'),110);
+  ({dex:dexKey,bat:batKey,rules:rulesKey,trade:tradeKey})[MODE]?.(k); }
+document.querySelectorAll('[data-k]').forEach(b=>b.addEventListener('pointerdown',e=>{ e.preventDefault(); key(b.dataset.k); }));
+document.getElementById('lcd').addEventListener('pointerdown',()=>key('a'));
+addEventListener('keydown',e=>{ const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',z:'a',Z:'a',Enter:'a',x:'b',X:'b',Escape:'b',' ':'start',Shift:'select'}[e.key]; if(m&&MODE!=='theme'){ e.preventDefault(); key(m); } });
+
+/* ── 3 · THEME preview: SVG filter maps every colour to the four greens ── */
+function themeInit(){ const f=document.getElementById('fB'); const apply=()=>{ try{ const d=f.contentDocument; if(!d||!d.body) return; d.getElementById('pocketfx')?.remove();
+  const lv=(i)=>SHR.map(s=>(s[i]/255).toFixed(3)).join(' ');   // the site is dark, so it's flipped: dark backgrounds → pale LCD green, light text → darkest green
+  d.body.insertAdjacentHTML('beforeend',`<div id="pocketfx"><svg width="0" height="0" style="position:absolute"><filter id="pocket" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" values="0.3 0.59 0.11 0 0  0.3 0.59 0.11 0 0  0.3 0.59 0.11 0 0  0 0 0 1 0"/>
+    <feComponentTransfer><feFuncR type="discrete" tableValues="${lv(0)}"/><feFuncG type="discrete" tableValues="${lv(1)}"/><feFuncB type="discrete" tableValues="${lv(2)}"/></feComponentTransfer></filter></svg>
+    <style>html{filter:url(#pocket)}img,canvas{filter:invert(1)}${document.getElementById('grid').checked?`body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:2147483647;background:linear-gradient(90deg,rgba(20,56,26,.14) 1px,transparent 1px) 0 0/3px 3px,linear-gradient(rgba(20,56,26,.14) 1px,transparent 1px) 0 0/3px 3px}`:''}
+    ${document.getElementById('ghost').checked?'*{transition:background-color .12s,color .12s,opacity .12s}':''}</style></div>`); }catch(e){} };
+  f.onload=apply; apply(); document.getElementById('grid').onchange=apply; document.getElementById('ghost').onchange=apply; }
+
+setMode('dex'); frame();
+})();
+</script>
+</body>
+</html>

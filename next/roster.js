@@ -45,7 +45,7 @@ function card16(n, pos, o={}){
   const ups = typeof addOn==='function' ? VERS.filter(v=>addOn(n,v.k)).map(v=>'u-'+v.k).join(' ') : '';
   return `<div class="rc16 ${ups} ${pos==='i0'?'onir':''} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}${pos==='i0'?'<span class="irtag">IR</span>':''}<i class="stz"></i></div>
+    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}<i class="stz"></i></div>
     <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${o.gl??gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
 }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
@@ -120,7 +120,7 @@ function rosterStage(){
     <div class="sg-lbl"><span>ACTIVE ${act.filter(Boolean).length}/${ACT_N}</span>${fpTog()}</div>
     <div class="cgrid fan act5">${act.map((n,k)=>card16(n, mine?'a'+k:null, {p1:mine&&FZ.pick==='a'+k&&!!n})).join('')}</div>
     <div class="sg-lbl"><span style="color:var(--red)">BENCH</span>${mine?`<span>HOLD + DRAG TO SWAP · TAP FOR PROFILE</span>`:'<span>TAP A CARD FOR PROFILE</span>'}</div>
-    <div class="cgrid fan bn">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]}):''}</div>
+    <div class="cgrid fan bn">${bench.map((n,k)=>card16(n, mine?'b'+k:null, {p1:mine&&FZ.pick==='b'+k&&!!n})).join('')}${mine?`<div class="irtray"><span>IR</span>${card16(S.fl.ir[0],'i0',{p1:FZ.pick==='i0'&&!!S.fl.ir[0]})}</div>`:''}</div>
   </div>`;
 }
 
@@ -342,3 +342,11 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 </style>`);
 
 document.head.insertAdjacentHTML('beforeend',`<style>.rc-bot i small{font-size:.68em;margin-left:1px;opacity:.9}</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* IR: its own dashed tray at the end of the bench row, card laid in at an angle (Dan's pick, option 4) */
+.cgrid.fan>.irtray{flex:0 0 24%;max-width:24%;margin-left:5%;position:relative;padding:8px 5px 6px;border:2px dashed #7a3cff;border-radius:8px;background:rgba(122,60,255,.1);align-self:center}
+.cgrid.fan>.irtray>span{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:3;font-size:6px;color:#fff;background:#7a3cff;padding:2px 6px;border:1px solid #000}
+.cgrid.fan>.irtray>.rc16{width:100%;max-width:none;margin:0;transform:rotate(-8deg)}
+.cgrid.fan>.rc16:nth-last-child(2){margin-right:0}
+</style>`);

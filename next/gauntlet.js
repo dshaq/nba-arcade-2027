@@ -13,13 +13,14 @@ function gBoard(){
   const wk = (typeof weekKey==='function') ? weekKey() : 'wk';
   if(gBoard.c && gBoard.k===wk) return gBoard.c;
   const used=new Set(), out=[];
-  const pool=PL.filter(p=>p.n && !(/OUT/.test(p.inj||'')));
+  const pool=PL.filter(p=>p.n && isFinite(+p.f) && +p.f>0 && !(/OUT/.test(p.inj||''))).sort((a,b)=>b.f-a.f).slice(0,160);
   for(let di=0; di<7; di++){
-    const plays = pool.filter(p=>dayGame(p.n,di)!=='NO GAME' && !used.has(p.n));
+    const plays = pool.filter(p=>{ if(used.has(p.n)) return false; let g=''; try{ g=dayGame(p.n,di); }catch(e){} return g && g!=='NO GAME' && g!=='—'; });
+    const src = plays.length>=5 ? plays : pool.filter(p=>!used.has(p.n));   // no schedule for that day yet? use anyone
     const starts=[...Array(24)].map((_,k)=>14+k).sort((a,b)=>hsh(wk+di+a)-hsh(wk+di+b));   // a different band each day
     let row=null;
-    for(const lo of starts){ const band=plays.filter(p=>p.f>=lo && p.f<=lo+5); if(band.length>=5){ const pick=band.sort((a,b)=>hsh(wk+di+a.n)-hsh(wk+di+b.n)).slice(0,5); row={lo, boss:pick[0].n, fighters:pick.slice(1).map(p=>p.n)}; break; } }
-    if(!row){ const pick=plays.sort((a,b)=>b.f-a.f).slice(0,5); row={lo:null, boss:pick[0]?.n, fighters:pick.slice(1).map(p=>p.n)}; }
+    for(const lo of starts){ const band=src.filter(p=>p.f>=lo && p.f<=lo+5); if(band.length>=5){ const pick=band.sort((a,b)=>hsh(wk+di+a.n)-hsh(wk+di+b.n)).slice(0,5); row={lo, boss:pick[0].n, fighters:pick.slice(1).map(p=>p.n)}; break; } }
+    if(!row){ const pick=src.slice().sort((a,b)=>b.f-a.f).slice(0,5); row={lo:null, boss:pick[0]?.n, fighters:pick.slice(1).map(p=>p.n)}; }
     [row.boss,...row.fighters].forEach(n=>used.add(n)); out.push(row);
   }
   gBoard.k=wk; gBoard.c=out; return out;
@@ -41,6 +42,9 @@ function gEntries(){
 
 /* ── SCREEN ── */
 function gauntlet(){
+  try{ return gauntletInner(); }catch(e){ return mframe('cz gt','GAUNTLET', `<div class="gpv empty"><p>The Gauntlet hit a snag loading this week.<br><small style="color:var(--t3)">${String(e.message||e).replace(/</g,'&lt;')}</small></p></div>`); }
+}
+function gauntletInner(){
   const me=gMy(), B=gBoard(), live=gPhase()==='live';
   const head=`<button class="rules" onclick="gSplash(true)">ⓘ RULES</button>`;
   const sw=`<div class="gsw"><span>PREVIEW</span><button class="${!live?'on':''}" onclick="S.gtPhase='pick';save();render()">PICKING</button><button class="${live?'on':''}" onclick="S.gtPhase='live';save();render()">IN PROGRESS</button></div>`;
@@ -117,7 +121,7 @@ function gSplash(force){
   document.getElementById('app').appendChild(g);
 }
 SCREENS.gauntlet = gauntlet;
-AFTER.gauntlet = ()=>{ document.querySelectorAll('.gt .av[data-ch], .gt .sp[data-ch]').forEach(el=>{ if(!el.firstChild && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); }); gSplash(); };
+AFTER.gauntlet = ()=>{ try{ document.querySelectorAll('.gt .av[data-ch], .gt .sp[data-ch]').forEach(el=>{ if(!el.firstChild && BB.CHARS[el.dataset.ch]) el.appendChild(ballerCv(el.dataset.ch,1)); }); gSplash(); }catch(e){} };
 
 document.head.insertAdjacentHTML('beforeend',`<style>
 .gt{--mc:#ff3b5c}

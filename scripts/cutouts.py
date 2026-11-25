@@ -90,10 +90,13 @@ def main(args):
     except Exception:
         OVR = {}
     sessions = {}
-    def session_for(tp):
+    def session_for(tp):                        # one model in memory at a time: two of these models don't fit on a runner
         m = OVR.get(tp, MODEL)
-        if m not in sessions: sessions[m] = new_session(m)
+        if m not in sessions:
+            sessions.clear(); import gc; gc.collect()
+            sessions[m] = new_session(m)
         return sessions[m]
+    players = sorted(players, key=lambda tp: OVR.get(tp.strip(), "") != "")   # override players last, so the model switches once
     made = 0
     for tp in players:
         team, name = tp.strip().split("/", 1)

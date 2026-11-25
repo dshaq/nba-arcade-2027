@@ -71,12 +71,13 @@ section .why u{text-decoration:none;color:#ff8fa0}
 .D.fr-silver .stamp small{color:rgba(20,26,40,.7)}
 .D .leaf{right:5.5%;bottom:3.5%;width:8cqw;height:8cqw}
 </style>
+<link rel="stylesheet" href="fx.css?v=1"/>
 </head>
 <body>
 <main>
   <header>
     <h1>CARD SHAPE LAB</h1>
-    <p>Four ways to put a square portrait on a tall card. Each is shown at the three sizes the site actually uses: roster (72px), waivers and collection (104px), and pack or pop-up (230px). The second row is the hard case: long names, small cards. Every name uses Teko, the condensed font from Holo Lab, which fits about twice the letters of the pixel font in the same width.</p>
+    <p><b style="font-weight:normal;color:#7dffa0">New: FINISHES, BORDERS and MIX &amp; MATCH tabs below.</b> SHAPES: four ways to put a square portrait on a tall card. Each is shown at the three sizes the site actually uses: roster (72px), waivers and collection (104px), and pack or pop-up (230px). The second row is the hard case: long names, small cards. Every name uses Teko, the condensed font from Holo Lab, which fits about twice the letters of the pixel font in the same width.</p>
   </header>
   <div id="opts"></div>
 </main>
@@ -108,5 +109,6 @@ document.getElementById('opts').innerHTML=OPTS.map(o=>`<section><h2><i>${o.k}</i
   <div class="row">${CAST.map(p=>card(o,p,104)).join('')}</div>
   <div class="row">${CAST.map(p=>card(o,p,72,'fr-silver')).join('')}</div></section>`).join('');
 </script>
+<script src="fx.js?v=1"></script>
 </body>
 </html>

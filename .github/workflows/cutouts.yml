@@ -44,11 +44,13 @@ jobs:
           export SUPABASE_ANON="$(grep -o "SUPABASE_ANON = '[^']*'" app.js | cut -d"'" -f2)"
           mapfile -t LIST <<< "$PLAYERS"
           python scripts/cutouts.py "${LIST[@]}"
+      - name: Update the list of cutouts
+        run: python scripts/cutouts_index.py
       - name: Save to the repo
         run: |
           git config user.name "portrait-cutouts"
           git config user.email "actions@users.noreply.github.com"
-          git add "${{ inputs.out }}"
+          git add "${{ inputs.out }}" cutouts/index.json
           git diff --cached --quiet && echo "nothing new" && exit 0
           git commit -m "Portrait cutouts (${{ inputs.model }} → ${{ inputs.out }}): $(git diff --cached --name-only | wc -l) files"
-          for i in $(seq 1 12); do git pull --rebase -q && git push && break; sleep $((RANDOM % 20 + 5)); done
+          for i in $(seq 1 12); do (git pull --rebase -q || { python scripts/cutouts_index.py; git add cutouts/index.json; GIT_EDITOR=true git rebase --continue; }) && git push && break; sleep $((RANDOM % 20 + 5)); done

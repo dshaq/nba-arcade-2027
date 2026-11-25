@@ -1,0 +1,150 @@
+{
+ "note": "Portraits Dave is re-making (or adding). Re-run the cutout job for each with force once the new portrait is in the bucket.",
+ "players": [
+  {
+   "team": "ATL",
+   "name": "Rafael Castro",
+   "has": false
+  },
+  {
+   "team": "BKN",
+   "name": "Moritz Wagner",
+   "has": true
+  },
+  {
+   "team": "CHI",
+   "name": "Orlando Robinson",
+   "has": false
+  },
+  {
+   "team": "CLE",
+   "name": "Norchad Omier",
+   "has": false
+  },
+  {
+   "team": "CLE",
+   "name": "Zack Austin",
+   "has": false
+  },
+  {
+   "team": "LAL",
+   "name": "Carson Cooper",
+   "has": false
+  },
+  {
+   "team": "MEM",
+   "name": "Richie Saunders",
+   "has": false
+  },
+  {
+   "team": "MIA",
+   "name": "Giannis Antetokounmpo",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Klay Thompson",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Bobby Portis",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Ryan Conwell",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Nikola Jovic",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Tim Hardaway Jr.",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Nick Richards",
+   "has": true
+  },
+  {
+   "team": "MIA",
+   "name": "Vladislav Goldin",
+   "has": true
+  },
+  {
+   "team": "MIN",
+   "name": "Johni Broome",
+   "has": false
+  },
+  {
+   "team": "NOP",
+   "name": "Jeremiah Fears",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "Herb Jones",
+   "has": false
+  },
+  {
+   "team": "NOP",
+   "name": "Trendon Watford",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "DeAndre Jordan",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "Bennedict Mathurin",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "Trey Murphy III",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "Julian Reese",
+   "has": true
+  },
+  {
+   "team": "NOP",
+   "name": "Malik Dia",
+   "has": true
+  },
+  {
+   "team": "OKC",
+   "name": "Aday Mara",
+   "has": true
+  },
+  {
+   "team": "OKC",
+   "name": "Bennett Stirtz",
+   "has": true
+  },
+  {
+   "team": "SAC",
+   "name": "Mason Plumlee",
+   "has": false
+  },
+  {
+   "team": "TOR",
+   "name": "Kevin McCullar Jr.",
+   "has": false
+  },
+  {
+   "team": "UTA",
+   "name": "Jonas Aidoo",
+   "has": false
+  }
+ ]
+}

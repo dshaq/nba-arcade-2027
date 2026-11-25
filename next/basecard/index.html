@@ -23,7 +23,12 @@ h2 small{font-size:5.5px;color:var(--t3)}
 .bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .bar button,.bar select{font:inherit;font-size:6.5px;padding:9px 10px;border-radius:7px;border:2px solid var(--edge);background:#0b1a33;color:var(--t3);cursor:pointer}
 .bar button.on{border-color:var(--gold);color:var(--gold)}
-.bar select{color:#fff;max-width:200px}
+.picker{border:2px solid var(--edge);border-radius:10px;background:#081226;padding:10px;display:flex;flex-direction:column;gap:10px}
+.picker input{font:inherit;font-size:8px;padding:11px;border-radius:8px;border:2px solid var(--edge);background:#020c18;color:#fff;width:100%}
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;max-height:300px;overflow:auto}
+.plist button{font:inherit;font-size:5px;line-height:1.6;color:#fff;background:#0d1530;border:2px solid var(--edge);border-radius:8px;padding:5px 3px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.plist button.on{border-color:var(--gold)}.plist img{width:52px;height:52px;object-fit:cover;object-position:50% 10%;border-radius:6px;background:var(--tc)}
+.row5 .sm{cursor:pointer}
 .bar .lab{font-size:5.5px;color:var(--t3);margin-right:2px}
 .duo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
 @media (max-width:720px){.duo{grid-template-columns:1fr}}
@@ -143,7 +148,8 @@ h2 small{font-size:5.5px;color:var(--t3)}
     <a href="../">← BACK TO NEXT</a>
   </header>
 
-  <div class="bar"><span class="lab">PLAYER</span><select id="who"></select><button id="rnd">🎲 RANDOM</button></div>
+  <div class="bar"><span class="lab">PLAYER</span><button id="pick" class="on">TATUM ▾</button><button id="rnd">🎲 RANDOM</button></div>
+  <div class="picker" id="pkr" hidden><input id="q" type="search" placeholder="Search a player or team (e.g. BOS)" autocomplete="off"><div class="plist" id="plist"></div></div>
 
   <div class="duo">
     <section>
@@ -159,7 +165,7 @@ h2 small{font-size:5.5px;color:var(--t3)}
       <h2 style="margin-top:4px">IN A ROSTER ROW</h2>
       <div class="table" style="margin-top:10px"><div class="row5" id="row"></div></div>
       <div class="table dark" style="margin-top:10px"><div class="row5" id="row2"></div></div>
-      <p class="note" style="margin-top:10px">Cream table and the app's dark background, so you can judge both. The red tag shows OUT. FP is today's when he's played, otherwise his FP/G.</p>
+      <p class="note" style="margin-top:10px">Tap any card in a row to see him big. Cream table and the app's dark background, so you can judge both. The red tag shows OUT. FP is today's when he's played, otherwise his FP/G.</p>
     </section>
   </div>
 </main>
@@ -176,11 +182,14 @@ const POS={G:'GUARD',F:'FORWARD',C:'CENTER'};
 let cur=RAW.findIndex(r=>r[0]==='Jayson Tatum'); if(cur<0) cur=0;
 let PLATE='', OFF=new Set();
 
-const sel=document.getElementById('who');
-sel.innerHTML=RAW.map((r,i)=>`<option value="${i}">${r[0]} · ${r[1]}</option>`).join('');
-sel.value=cur;
-sel.onchange=()=>{ cur=+sel.value; draw(); };
-document.getElementById('rnd').onclick=()=>{ cur=Math.floor(Math.random()*RAW.length); sel.value=cur; draw(); };
+const pk=document.getElementById('pick'), pkr=document.getElementById('pkr'), q=document.getElementById('q'), pl=document.getElementById('plist');
+function list(){ const f=q.value.trim().toLowerCase();
+  pl.innerHTML=RAW.map((r,i)=>[r,i]).filter(([r])=>!f||r[0].toLowerCase().includes(f)||r[1].toLowerCase()===f).slice(0,80).map(([r,i])=>`<button data-i="${i}" class="${i===cur?'on':''}" style="--tc:${(TEAM[r[1]]||[0,0,'#1d428a'])[2]}"><img loading="lazy" src="${cut(r[1],r[0])}" alt="">${r[0].split(' ').slice(1).join(' ').toUpperCase()}<span style="color:var(--t3)">${r[1]}</span></button>`).join('')||'<span style="font-size:6px;color:var(--t3)">NO MATCH</span>'; }
+pl.addEventListener('click',e=>{ const b=e.target.closest('[data-i]'); if(!b) return; cur=+b.dataset.i; pkr.hidden=true; draw(); window.scrollTo({top:pk.getBoundingClientRect().top+scrollY-12,behavior:'smooth'}); });
+pk.onclick=()=>{ pkr.hidden=!pkr.hidden; if(!pkr.hidden){ q.value=''; list(); q.focus({preventScroll:true}); } };
+q.oninput=list;
+document.addEventListener('click',e=>{ const c=e.target.closest('.row5 .sm[data-i]'); if(c){ cur=+c.dataset.i; draw(); window.scrollTo({top:0,behavior:'smooth'}); } });
+document.getElementById('rnd').onclick=()=>{ cur=Math.floor(Math.random()*RAW.length); pkr.hidden=true; draw(); };
 
 function big(r){ const [n,t,p]=r, T=TEAM[t]||['','', '#1d428a'], sp=n.indexOf(' '), f=n.slice(0,sp), l=n.slice(sp+1).toUpperCase();
   const lsz=Math.min(16,108/Math.max(4,l.length)).toFixed(2);
@@ -199,7 +208,7 @@ function big(r){ const [n,t,p]=r, T=TEAM[t]||['','', '#1d428a'], sp=n.indexOf(' 
 
 function small(r,o={}){ const [n,t,p,f]=r, T=TEAM[t]||['','','#1d428a'], l=n.slice(n.indexOf(' ')+1).toUpperCase(), out=o.out;
   const time=['7:00P','7:30P','8:00P','10:00P'][Math.floor(hsh(n+'t')*4)], played=hsh(n+'p')<.4, fp=played?Math.max(2,Math.round(f*(.6+hsh(n+'f')*.8))):Math.round(f);
-  return `<div class="sm ${out?'out':''}" style="--tc:${T[2]};--cut:url('${cut(t,n)}')"><div class="sk"></div>
+  return `<div class="sm ${out?'out':''}" data-i="${RAW.indexOf(r)}" style="--tc:${T[2]};--cut:url('${cut(t,n)}')"><div class="sk"></div>
     <div class="who"><img src="${cut(t,n)}" alt=""><div class="crt"></div></div>
     <div class="nb"><b style="font-size:${Math.min(10,76/l.length).toFixed(2)}cqw">${l}</b></div>
     <div class="ib"><div><span class="r">${out?'OUT':played?'FINAL':'TIP'}</span>${out?'—':played?`<span style="font-size:6.5cqw">vs ${Object.keys(TEAM)[Math.floor(hsh(n+'o')*30)]}</span>`:time}</div><div><span class="b">FP</span>${out?'—':fp}<small>${played?'TODAY':'/G'}</small></div></div>
@@ -208,7 +217,7 @@ function small(r,o={}){ const [n,t,p,f]=r, T=TEAM[t]||['','','#1d428a'], l=n.sli
 const NOTES={'':'<b>A · CHROME.</b> His last name, big, in chrome that shifts as you tilt. The team code slides behind it in the team colour.',
   lent:'<b>B · LENTICULAR.</b> Like an old flicker card: tilt left for his name, tilt right for his team.',
   led:'<b>C · SCOREBOARD.</b> His name in amber arena-scoreboard lights, with a glow that follows the light.'};
-function draw(){ const r=RAW[cur];
+function draw(){ const r=RAW[cur]; pk.textContent=r[0].toUpperCase()+' ▾';
   document.getElementById('bigst').innerHTML=big(r); document.getElementById('pnote').innerHTML=NOTES[PLATE]+' Glints flash off the edge of the card wherever the light catches it, and sparkles drift over the backdrop, never over his face.';
   document.getElementById('smst').innerHTML=`<div style="width:min(190px,48vw)">${small(r)}</div>`;
   const five=[r, ...RAW.filter((_,i)=>i!==cur).slice(0,40).filter((_,i)=>i%7===0).slice(0,4)];

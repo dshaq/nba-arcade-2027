@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Base Card Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:wght@500;700&display=swap" rel="stylesheet"/>
+<style>
+/* BASE CARD LAB: the two base-tier templates.
+   BIG: the Holo Lab Tatum format. Cut-out player bursting out of the top of the art window, name plate below.
+   SMALL: SNK vs. Capcom style. White sticker card, player popping out of the top, name bar under him, info box at the bottom.
+   Every card tilts; the light, foil and glints move with it. */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--tk:'Teko','Arial Narrow',sans-serif;--t2:#a8c0e8;--t3:#5d6c95;--gold:#ffd93d;--edge:#1e3258;--card:#0d1530;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(90% 50% at 50% 0%,#14284e,#020c18 70%) fixed;color:#fff;font-family:var(--px)}
+main{max-width:980px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) 50px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+h1{margin:0;font-size:12px;font-weight:normal;color:var(--gold)}
+header p{margin:8px 0 0;font-size:6.5px;line-height:2.1;color:var(--t2);max-width:640px}
+header a{font-size:6px;color:var(--t3);text-decoration:none;border:2px solid var(--edge);padding:7px 9px;border-radius:6px}
+h2{margin:6px 0 0;font-size:8px;font-weight:normal;color:#fff;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h2 small{font-size:5.5px;color:var(--t3)}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.bar button,.bar select{font:inherit;font-size:6.5px;padding:9px 10px;border-radius:7px;border:2px solid var(--edge);background:#0b1a33;color:var(--t3);cursor:pointer}
+.bar button.on{border-color:var(--gold);color:var(--gold)}
+.bar select{color:#fff;max-width:200px}
+.bar .lab{font-size:5.5px;color:var(--t3);margin-right:2px}
+.duo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:720px){.duo{grid-template-columns:1fr}}
+.stage{perspective:1100px;touch-action:none;display:grid;place-items:center;padding:34px 0 18px}
+
+/* ═══════════ BIG CARD ═══════════ */
+.big{--rx:0;--ry:0;--mx:.5;--my:.35;--hyp:0;--tc:#007a33;
+  position:relative;width:min(330px,82vw);aspect-ratio:5/7;container-type:inline-size;border-radius:4.5cqw;
+  transform:rotateX(calc(var(--rx)*1deg)) rotateY(calc(var(--ry)*1deg));transform-style:preserve-3d}
+.big .body{position:absolute;inset:0;border-radius:inherit;overflow:hidden;isolation:isolate;
+  box-shadow:calc(var(--ry)*-.9px) calc(var(--rx)*.9px + 18px) 40px rgba(0,0,0,.6),0 0 0 2px #000}
+.L{position:absolute;inset:0;pointer-events:none}
+/* silver base frame: brushed, with an etched band that slides with the light */
+.big .frame{background:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px),
+   linear-gradient(125deg,#7f899c,#e9edf4 22%,#aab3c4 38%,#f7f9fc 52%,#8e98ab 66%,#dfe4ec 80%,#7f899c);
+  background-size:100% 100%,300% 300%;background-position:0 0,calc(var(--mx)*100%) calc(var(--my)*100%)}
+.big .frame::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.7),transparent 45%);mix-blend-mode:overlay}
+/* art window: team-colour backdrop with halftone + rays, deeper than the player so it slides less */
+.big .win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:27%;border-radius:2.6cqw;overflow:hidden;background:#000;box-shadow:inset 0 0 0 .6cqw rgba(0,0,0,.8)}
+.big .bk{position:absolute;inset:-8%;transform:translate(calc(var(--ry)*-.5px),calc(var(--rx)*.5px));
+  background:radial-gradient(circle,rgba(255,255,255,.14) 0 .55cqw,transparent .65cqw) 0 0/3.2cqw 3.2cqw,
+    repeating-conic-gradient(from calc(var(--ry)*1deg) at 50% 70%,rgba(255,255,255,.07) 0 6deg,transparent 6deg 14deg),
+    radial-gradient(85% 70% at 50% 62%,color-mix(in srgb,var(--tc) 85%,#fff 15%),var(--tc) 45%,color-mix(in srgb,var(--tc) 45%,#000) 100%)}
+.big .wm{position:absolute;left:50%;top:6%;transform:translate(calc(-50% + var(--ry)*-.9px),calc(var(--rx)*.6px));font-family:var(--tk);font-weight:700;font-size:58cqw;line-height:.8;color:rgba(255,255,255,.08);letter-spacing:-.02em;white-space:nowrap}
+/* the player: nearest layer, head bursts out over the frame */
+.big .pl{clip-path:inset(0 5.5% 27% 5.5% round 0 0 2.6cqw 2.6cqw);z-index:3}
+.big .pl img{position:absolute;left:-4%;width:108%;bottom:26.5%;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));image-rendering:auto;
+  filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.6)) drop-shadow(0 2cqw 2.5cqw rgba(0,0,0,.55))}
+.big .crt{position:absolute;left:-4%;width:108%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+  -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px)}
+.big .gloss{position:absolute;left:-4%;width:108%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+  -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;mix-blend-mode:soft-light;
+  background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.6) 48%,transparent 62%) calc(var(--mx)*100%) 50%/220% 220%}
+.big.nopop .pl{clip-path:inset(5.5% 5.5% 27% 5.5% round 2.6cqw)}
+.big .num{position:absolute;z-index:6;top:2.4%;left:7%;font-size:2.3cqw;padding:1.2cqw 1.8cqw;border-radius:1.2cqw;background:#000;box-shadow:0 0 0 .3cqw rgba(255,255,255,.3)}
+
+/* ── name plate: bigger name, and it reacts to the tilt ── */
+.big .plate{position:absolute;left:5.5%;right:5.5%;bottom:5%;height:20%;z-index:5;border-radius:2.6cqw;overflow:hidden;
+  background:linear-gradient(180deg,#0c1426,#03060c);box-shadow:inset 0 0 0 .6cqw rgba(255,255,255,.22),inset 0 .8cqw 0 rgba(255,255,255,.06)}
+.big .plate .tw{position:absolute;right:-4%;top:50%;transform:translate(calc(var(--ry)*-1.4px),-50%);font-family:var(--tk);font-weight:700;font-size:30cqw;line-height:.8;color:var(--tc);opacity:.2;white-space:nowrap;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 40%);mask:linear-gradient(90deg,transparent,#000 40%)}
+.big .plate .in{position:absolute;inset:0;padding:0 6%;display:flex;flex-direction:column;justify-content:center}
+.big .plate .fn{font-size:2.6cqw;color:var(--t2);letter-spacing:.12em}
+.big .plate .ln{font-family:var(--tk);font-weight:700;line-height:.82;letter-spacing:.01em;white-space:nowrap;margin:1.2cqw 0 .6cqw;
+  background:linear-gradient(calc(100deg + var(--ry)*3deg),#cfd6e4 0%,#fff 30%,#9aa5bb 42%,#fff 55%,#e8ecf3 70%,#8e98ab 100%) calc(var(--mx)*100%) 0/260% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .5cqw 0 #000)}
+.big .plate .tm{font-size:2.2cqw;color:color-mix(in srgb,var(--tc) 35%,#fff);letter-spacing:.14em;white-space:nowrap}
+/* B · lenticular: tilt one way for his name, the other way for his team */
+.big .plate .lent{display:none}
+.big.pl-lent .plate .in.a{opacity:clamp(0,calc(.5 - var(--ry)/8),1)}
+.big.pl-lent .plate .in.b{display:flex;opacity:clamp(0,calc(.5 + var(--ry)/8),1)}
+/* C · scoreboard: amber LED dots with a glow sweep */
+.big.pl-led .plate{background:#050302}
+.big.pl-led .plate .ln{background:none;color:#ffb627;-webkit-background-clip:border-box;background-clip:border-box;font-family:var(--px);font-weight:normal;letter-spacing:.02em;line-height:1;
+  text-shadow:0 0 1cqw #ff8a00,0 0 3cqw rgba(255,138,0,.6);filter:none;-webkit-mask:radial-gradient(circle,#000 58%,rgba(0,0,0,.55) 62%) 0 0/.9cqw .9cqw;mask:radial-gradient(circle,#000 58%,rgba(0,0,0,.55) 62%) 0 0/.9cqw .9cqw}
+.big.pl-led .plate .tw{color:#ff8a00;opacity:.12}
+.big.pl-led .plate::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent calc(var(--mx)*100% - 18%),rgba(255,200,120,.16) calc(var(--mx)*100%),transparent calc(var(--mx)*100% + 18%))}
+
+/* ── Pokémon-style extras that move with the card ── */
+/* rainbow sheen over the frame + backdrop (not the player) */
+.big .sheen{z-index:2;mix-blend-mode:color-dodge;opacity:calc(.1 + var(--hyp)*.35);
+  background:linear-gradient(calc(115deg + var(--ry)*2deg),transparent 20%,#ff5fbf 32%,#ffd93d 40%,#5cff8a 48%,#4adfff 56%,#b36bff 64%,transparent 76%) calc(var(--mx)*100%) calc(var(--my)*100%)/260% 260%}
+/* floating sparkles over the art, near ones slide further than far ones */
+.big .spk{z-index:4;clip-path:inset(5.5% 5.5% 27% 5.5% round 2.6cqw)}
+.big .spk i{position:absolute;width:var(--s);aspect-ratio:1;transform:translate(calc(var(--ry)*var(--d)*1px),calc(var(--rx)*var(--d)*-.6px));opacity:var(--o)}
+.big .spk i::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,#fff 0 12%,transparent 30%),conic-gradient(from 45deg,transparent 0 40deg,#fff 44deg,transparent 48deg 130deg,#fff 134deg,transparent 138deg 220deg,#fff 224deg,transparent 228deg 310deg,#fff 314deg,transparent 318deg);
+  clip-path:polygon(50% 0,56% 44%,100% 50%,56% 56%,50% 100%,44% 56%,0 50%,44% 44%);filter:drop-shadow(0 0 .8cqw #fff);animation:tw 2.6s ease-in-out infinite;animation-delay:var(--dl)}
+@keyframes tw{0%,100%{transform:scale(.25) rotate(0)}50%{transform:scale(1) rotate(45deg)}}
+.big .glare{z-index:7;border-radius:inherit;mix-blend-mode:overlay;background:radial-gradient(farthest-corner circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.85) 0,rgba(255,255,255,.25) 22%,rgba(0,0,0,.3) 90%);opacity:calc(.2 + var(--hyp)*.6)}
+/* glints that burst OUTSIDE the card edge where the light hits, like the video */
+.big .gl{position:absolute;z-index:9;width:16cqw;aspect-ratio:1;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.3);transition:opacity .25s,transform .35s cubic-bezier(.3,1.8,.5,1)}
+.big .gl.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.big .gl::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,#fff 0 7%,rgba(255,255,255,.6) 12%,transparent 30%),
+  linear-gradient(0deg,transparent 47%,#fff 49% 51%,transparent 53%),linear-gradient(90deg,transparent 47%,#fff 49% 51%,transparent 53%);
+  -webkit-mask:radial-gradient(circle,#000 20%,transparent 70%);mask:radial-gradient(circle,#000 20%,transparent 70%);filter:drop-shadow(0 0 1.5cqw #fff) drop-shadow(0 0 3cqw #9ad8ff);animation:glr 1.2s linear infinite}
+@keyframes glr{to{transform:rotate(90deg)}}
+.big.off-crt .crt,.big.off-sheen .sheen,.big.off-spk .spk,.big.off-glint .gl{display:none}
+
+/* ═══════════ SMALL CARD (SNK vs. Capcom) ═══════════ */
+.sm{--rx:0;--ry:0;--mx:.5;--tc:#007a33;position:relative;width:100%;aspect-ratio:5/7;container-type:inline-size;margin-top:24%;
+  transform:rotateX(calc(var(--rx)*1deg)) rotateY(calc(var(--ry)*1deg)) rotate(var(--tilt,0deg));transform-style:preserve-3d}
+.sm .sk{position:absolute;inset:0;background:#f6f3ea;border-radius:2.5cqw;box-shadow:0 0 0 .7cqw #1a1a1a,.8cqw 1.4cqw 0 rgba(0,0,0,.35),0 3cqw 5cqw rgba(0,0,0,.45)}
+.sm .sk::before{content:'';position:absolute;inset:4.5%;bottom:auto;height:62%;border:1.4cqw solid #111;border-bottom:0;background:var(--tc);
+  background-image:radial-gradient(circle,rgba(255,255,255,.18) 0 .9cqw,transparent 1cqw),linear-gradient(170deg,color-mix(in srgb,var(--tc) 60%,#fff),var(--tc) 55%,color-mix(in srgb,var(--tc) 40%,#000));
+  background-size:4.5cqw 4.5cqw,100% 100%}
+.sm .sk::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;mix-blend-mode:soft-light;background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 35%,rgba(255,255,255,.8) 50%,transparent 62%) calc(var(--mx)*100%) 0/260% 100%}
+/* the player: bigger than his box, head and shoulders out over the top */
+.sm .who{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;clip-path:inset(-40% -8% 0 -8%);z-index:2}
+.sm .who img{position:absolute;left:-6%;width:112%;bottom:0;image-rendering:pixelated;transform:translate(calc(var(--ry)*.25px),0);
+  filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
+.sm .who .crt{position:absolute;left:-6%;width:112%;bottom:0;aspect-ratio:1;-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;transform:translate(calc(var(--ry)*.25px),0);
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
+/* name bar under him, in the black band */
+.sm .nb{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;display:flex;align-items:center;padding:0 5%;overflow:hidden}
+.sm .nb b{font-weight:normal;color:#fff;white-space:nowrap;line-height:1;letter-spacing:-.02em}
+/* info box: like the BP / SP rows */
+.sm .ib{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;background:#fff;border:1.4cqw solid #111;border-top:0;display:grid;grid-template-rows:1fr 1fr;padding:0 5%}
+.sm .ib div{display:flex;align-items:center;justify-content:space-between;font-size:8.5cqw;line-height:1;color:#111}
+.sm .ib div+div{border-top:.6cqw solid #ddd}
+.sm .ib span{font-size:7cqw}.sm .ib .r{color:#e1121b}.sm .ib .b{color:#1aa7e0}
+.sm .ib small{font-size:5cqw;color:#666;margin-left:1cqw}
+.sm .tag{position:absolute;z-index:4;top:-2%;right:-4%;font-size:4.8cqw;padding:1.6cqw 2.2cqw;background:#e1121b;color:#fff;border:.8cqw solid #111;transform:rotate(8deg)}
+.sm.out .who img{filter:grayscale(1) brightness(.75) drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111)}
+/* where they live: a roster row on a cream table, like the reference */
+.table{background:#efe9d6;background-image:radial-gradient(rgba(0,0,0,.05) 1px,transparent 1px);background-size:5px 5px;border-radius:14px;padding:16px 14px 22px;box-shadow:inset 0 0 0 3px #d8cfb2}
+.row5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px 8px}
+.row5 .sm:nth-child(odd){--tilt:-2deg}.row5 .sm:nth-child(even){--tilt:2deg}
+.dark{background:#0a1430;box-shadow:inset 0 0 0 3px var(--edge)}
+.note{font-size:6px;line-height:2.1;color:var(--t2);margin:0}.note b{font-weight:normal;color:var(--gold)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>🎴 BASE CARD LAB</h1><p>The two base-tier card templates. <b style="font-weight:normal;color:#7dffa0">BIG</b> is the Holo Lab Tatum format, rebuilt for every player with the new cut-outs: he bursts out of the top, and the name plate is bigger and reacts as you tilt. No FP/G on the card. <b style="font-weight:normal;color:#7dffa0">SMALL</b> follows SNK vs. Capcom: a white sticker card, the player popping out of the top, his name in a black bar underneath, and the game time and FP in a box below. Drag or tilt any card.</p></div>
+    <a href="../">← BACK TO NEXT</a>
+  </header>
+
+  <div class="bar"><span class="lab">PLAYER</span><select id="who"></select><button id="rnd">🎲 RANDOM</button></div>
+
+  <div class="duo">
+    <section>
+      <h2>BIG CARD <small>PACKS · CARDS PAGE · POP-UPS</small></h2>
+      <div class="bar" style="margin-top:10px"><span class="lab">NAME PLATE</span><button data-pl="" class="on">A · CHROME</button><button data-pl="lent">B · LENTICULAR</button><button data-pl="led">C · SCOREBOARD</button></div>
+      <div class="bar" style="margin-top:6px"><span class="lab">LAYERS</span><button data-k="pop" class="on">POP-OUT</button><button data-k="crt" class="on">CRT</button><button data-k="sheen" class="on">RAINBOW SHEEN</button><button data-k="spk" class="on">SPARKLES</button><button data-k="glint" class="on">EDGE GLINTS</button></div>
+      <div class="stage" id="bigst"></div>
+      <p class="note" id="pnote"></p>
+    </section>
+    <section>
+      <h2>SMALL CARD <small>ROSTER · WAIVERS · LISTS</small></h2>
+      <div class="stage" id="smst" style="padding-top:20px"></div>
+      <h2 style="margin-top:4px">IN A ROSTER ROW</h2>
+      <div class="table" style="margin-top:10px"><div class="row5" id="row"></div></div>
+      <div class="table dark" style="margin-top:10px"><div class="row5" id="row2"></div></div>
+      <p class="note" style="margin-top:10px">Cream table and the app's dark background, so you can judge both. The red tag shows OUT. FP is today's when he's played, otherwise his FP/G.</p>
+    </section>
+  </div>
+</main>
+<script>
+(async()=>{
+const TEAM={ATL:['Atlanta','Hawks','#C8102E'],BOS:['Boston','Celtics','#007A33'],BKN:['Brooklyn','Nets','#2a2a2a'],CHA:['Charlotte','Hornets','#1D1160'],CHI:['Chicago','Bulls','#CE1141'],CLE:['Cleveland','Cavaliers','#860038'],DAL:['Dallas','Mavericks','#00538C'],DEN:['Denver','Nuggets','#0E2240'],DET:['Detroit','Pistons','#C8102E'],GSW:['Golden State','Warriors','#1D428A'],HOU:['Houston','Rockets','#CE1141'],IND:['Indiana','Pacers','#002D62'],LAC:['LA','Clippers','#1D428A'],LAL:['Los Angeles','Lakers','#552583'],MEM:['Memphis','Grizzlies','#5D76A9'],MIA:['Miami','Heat','#98002E'],MIL:['Milwaukee','Bucks','#00471B'],MIN:['Minnesota','Timberwolves','#0C2340'],NOP:['New Orleans','Pelicans','#0C2340'],NYK:['New York','Knicks','#006BB6'],OKC:['Oklahoma City','Thunder','#007AC1'],ORL:['Orlando','Magic','#0077C0'],PHI:['Philadelphia','76ers','#006BB6'],PHX:['Phoenix','Suns','#1D1160'],POR:['Portland','Trail Blazers','#E03A3E'],SAC:['Sacramento','Kings','#5A2D81'],SAS:['San Antonio','Spurs','#6b7680'],TOR:['Toronto','Raptors','#CE1141'],UTA:['Utah','Jazz','#002B5C'],WAS:['Washington','Wizards','#002B5C']};
+let RAW=[]; try{ const t=await fetch('../data.js').then(r=>r.text()); RAW=JSON.parse(t.match(/const RAW = (\[[\s\S]*?\]);/)[1]).filter(r=>r[0]); }catch(e){}
+let CUTS=new Set(); try{ CUTS=new Set(await fetch('/cutouts/index.json').then(r=>r.json())); }catch(e){}
+if(CUTS.size) RAW=RAW.filter(r=>CUTS.has(r[1]+'/'+r[0]));
+RAW.sort((a,b)=>b[3]-a[3]);
+const cut=(t,n)=>`/cutouts/${t}/${encodeURIComponent(n).replace(/'/g,'%27')}.webp?v=2`;
+const hsh=s=>{ let h=2166136261; for(const c of s){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return (h>>>0)/4294967296; };
+const POS={G:'GUARD',F:'FORWARD',C:'CENTER'};
+let cur=RAW.findIndex(r=>r[0]==='Jayson Tatum'); if(cur<0) cur=0;
+let PLATE='', OFF=new Set();
+
+const sel=document.getElementById('who');
+sel.innerHTML=RAW.map((r,i)=>`<option value="${i}">${r[0]} · ${r[1]}</option>`).join('');
+sel.value=cur;
+sel.onchange=()=>{ cur=+sel.value; draw(); };
+document.getElementById('rnd').onclick=()=>{ cur=Math.floor(Math.random()*RAW.length); sel.value=cur; draw(); };
+
+function big(r){ const [n,t,p]=r, T=TEAM[t]||['','', '#1d428a'], sp=n.indexOf(' '), f=n.slice(0,sp), l=n.slice(sp+1).toUpperCase();
+  const lsz=Math.min(16,108/Math.max(4,l.length)).toFixed(2);
+  const sparks=[...Array(9)].map((_,i)=>{ const a=hsh(n+i),b=hsh(n+'y'+i); const side=i%2?a*.24:.76+a*.24; return `<i style="left:${(side*100).toFixed(1)}%;top:${(8+b*58).toFixed(1)}%;--s:${(4+hsh(n+'s'+i)*7).toFixed(1)}cqw;--d:${(.8+hsh(n+'d'+i)*1.8).toFixed(2)};--o:${(.5+hsh(n+'o'+i)*.5).toFixed(2)};--dl:${(-hsh(n+'l'+i)*2.6).toFixed(2)}s"></i>`; }).join('');
+  const plate=(cls,top,main,sub)=>`<div class="in ${cls}"><span class="fn">${top}</span><span class="ln" style="font-size:${main.length>9?Math.min(16,108/main.length).toFixed(2):lsz}cqw">${main}</span><span class="tm">${sub}</span></div>`;
+  return `<div class="big ${PLATE?'pl-'+PLATE:''} ${[...OFF].map(k=>k==='pop'?'nopop':'off-'+k).join(' ')}" id="bc" style="--tc:${T[2]};--cut:url('${cut(t,n)}')">
+    <div class="body"><div class="L frame"></div>
+      <div class="win"><div class="bk"></div><div class="wm">${t}</div></div>
+      <div class="L sheen"></div>
+      <div class="L pl"><img src="${cut(t,n)}" alt="${n}"><div class="crt"></div><div class="gloss"></div></div>
+      <div class="L spk">${sparks}</div>
+      <span class="num">#${String(Math.floor(hsh(n)*300)+1).padStart(3,'0')}</span>
+      <div class="plate"><div class="tw">${t}</div>${plate('a',f.toUpperCase(),l,`${(T[0]+' '+T[1]).toUpperCase()} · ${POS[p]||p}`)}${plate('b lent',T[0].toUpperCase(),T[1].toUpperCase(),`${n.toUpperCase()} · ${POS[p]||p}`)}</div>
+      <div class="L glare"></div></div>
+    ${[0,1,2,3].map(k=>`<i class="gl" data-g="${k}"></i>`).join('')}</div>`; }
+
+function small(r,o={}){ const [n,t,p,f]=r, T=TEAM[t]||['','','#1d428a'], l=n.slice(n.indexOf(' ')+1).toUpperCase(), out=o.out;
+  const time=['7:00P','7:30P','8:00P','10:00P'][Math.floor(hsh(n+'t')*4)], played=hsh(n+'p')<.4, fp=played?Math.max(2,Math.round(f*(.6+hsh(n+'f')*.8))):Math.round(f);
+  return `<div class="sm ${out?'out':''}" style="--tc:${T[2]};--cut:url('${cut(t,n)}')"><div class="sk"></div>
+    <div class="who"><img src="${cut(t,n)}" alt=""><div class="crt"></div></div>
+    <div class="nb"><b style="font-size:${Math.min(10,76/l.length).toFixed(2)}cqw">${l}</b></div>
+    <div class="ib"><div><span class="r">${out?'OUT':played?'FINAL':'TIP'}</span>${out?'—':played?`<span style="font-size:6.5cqw">vs ${Object.keys(TEAM)[Math.floor(hsh(n+'o')*30)]}</span>`:time}</div><div><span class="b">FP</span>${out?'—':fp}<small>${played?'TODAY':'/G'}</small></div></div>
+    ${out?'<span class="tag">OUT</span>':''}</div>`; }
+
+const NOTES={'':'<b>A · CHROME.</b> His last name, big, in chrome that shifts as you tilt. The team code slides behind it in the team colour.',
+  lent:'<b>B · LENTICULAR.</b> Like an old flicker card: tilt left for his name, tilt right for his team.',
+  led:'<b>C · SCOREBOARD.</b> His name in amber arena-scoreboard lights, with a glow that follows the light.'};
+function draw(){ const r=RAW[cur];
+  document.getElementById('bigst').innerHTML=big(r); document.getElementById('pnote').innerHTML=NOTES[PLATE]+' Glints flash off the edge of the card wherever the light catches it, and sparkles drift over the backdrop, never over his face.';
+  document.getElementById('smst').innerHTML=`<div style="width:min(190px,48vw)">${small(r)}</div>`;
+  const five=[r, ...RAW.filter((_,i)=>i!==cur).slice(0,40).filter((_,i)=>i%7===0).slice(0,4)];
+  document.getElementById('row').innerHTML=five.map((x,i)=>small(x,{out:i===3})).join('');
+  document.getElementById('row2').innerHTML=RAW.slice(40,45).map(x=>small(x)).join('');
+  bind(); }
+document.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{ PLATE=b.dataset.pl; document.querySelectorAll('[data-pl]').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OFF.has(k)?OFF.delete(k):OFF.add(k); b.classList.toggle('on',!OFF.has(k)); draw(); });
+
+/* tilt: every card follows the pointer when it's over it, otherwise drifts */
+const cards=()=>[...document.querySelectorAll('.big,.sm')];
+const st=new WeakMap(); let hov=null;
+document.addEventListener('pointermove',e=>{ const c=e.target.closest&&e.target.closest('.big,.sm'); hov=c; if(!c) return; const r=c.getBoundingClientRect(), s=st.get(c)||{}; s.tx=(e.clientX-r.left)/r.width; s.ty=(e.clientY-r.top)/r.height; s.t=performance.now(); st.set(c,s); });
+function bind(){}
+(function tick(t){ cards().forEach((c,i)=>{ const s=st.get(c)||{x:.5,y:.4}; const live=s.t&&performance.now()-s.t<900;
+    const gx=live?s.tx:.5+Math.sin(t/1700+i*.9)*.3, gy=live?s.ty:.4+Math.cos(t/2100+i*.7)*.2; s.x=(s.x??.5)+(gx-s.x)*.12; s.y=(s.y??.4)+(gy-s.y)*.12; st.set(c,s);
+    const big=c.classList.contains('big'), k=big?1:.55;
+    c.style.setProperty('--ry',((s.x-.5)*32*k).toFixed(2)); c.style.setProperty('--rx',((.5-s.y)*26*k).toFixed(2)); c.style.setProperty('--mx',s.x.toFixed(3)); c.style.setProperty('--my',s.y.toFixed(3)); c.style.setProperty('--hyp',Math.min(1,Math.hypot(s.x-.5,s.y-.5)*2.4).toFixed(3));
+    if(big){ // glints: pop on the edge nearest the light when it's tilted far enough
+      const h=Math.hypot(s.x-.5,s.y-.5); c.querySelectorAll('.gl').forEach((g,j)=>{ const ang=Math.atan2(s.y-.5,s.x-.5)+(j-1.5)*.55, ex=50+Math.cos(ang)*54, ey=50+Math.sin(ang)*54;
+        const px=Math.max(-2,Math.min(102,ex)), py=Math.max(-2,Math.min(102,ey)); g.style.left=px+'%'; g.style.top=py+'%'; g.classList.toggle('on', h>.16 && ((t/260+j*1.7)%4)<1.6); }); }
+  }); requestAnimationFrame(tick); })(0);
+draw();
+})();
+</script>
+</body>
+</html>

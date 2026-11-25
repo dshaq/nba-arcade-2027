@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       players:
-        description: 'ALL, or TEAM/Name lines (e.g. "OKC/Shai Gilgeous-Alexander")'
+        description: 'ALL, team codes (BOS), or TEAM/Name lines (e.g. "OKC/Shai Gilgeous-Alexander")'
         required: true
         default: ALL
       model:
@@ -51,4 +51,4 @@ jobs:
           git add "${{ inputs.out }}"
           git diff --cached --quiet && echo "nothing new" && exit 0
           git commit -m "Portrait cutouts (${{ inputs.model }} → ${{ inputs.out }}): $(git diff --cached --name-only | wc -l) files"
-          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
+          for i in $(seq 1 12); do git pull --rebase -q && git push && break; sleep $((RANDOM % 20 + 5)); done

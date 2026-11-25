@@ -12,6 +12,7 @@ Clean-up after the model (the portraits are pixel art, so edges should be crisp)
 
 Env: MODEL (default birefnet-portrait), OUT (default cutouts), FORCE (1 = remake existing).
 Usage:  python scripts/cutouts.py "OKC/Shai Gilgeous-Alexander" "DEN/Nikola Jokic" ...
+        python scripts/cutouts.py BOS NYK          (whole teams)
         python scripts/cutouts.py ALL          (every portrait in the bucket)
 """
 import io, json, os, sys, urllib.parse, urllib.request
@@ -58,7 +59,12 @@ def clean(mask):
 
 
 def main(args):
-    players = list_all() if args == ["ALL"] else [a for a in args if a.strip()]
+    args = [a.strip() for a in args if a.strip()]
+    if args == ["ALL"]:
+        players = list_all()
+    else:                                         # "BOS" = every BOS portrait; "BOS/Name" = one player
+        everyone = list_all() if any("/" not in a for a in args) else []
+        players = [p for a in args for p in ([a] if "/" in a else [x for x in everyone if x.split("/")[0] == a])]
     session = new_session(MODEL)
     made = 0
     for tp in players:

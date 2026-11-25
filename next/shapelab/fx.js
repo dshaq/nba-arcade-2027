@@ -2,7 +2,7 @@
 (function(){
 const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
 const pimg=(t,n)=>`${PORTRAITS}/${t}/${encodeURIComponent(n)}.jpeg`;
-const pcut=(t,n)=>`/cutouts/${t}/${encodeURIComponent(n)}.webp?v=2`;
+const pcut=(t,n)=>`/cutouts/${t}/${encodeURIComponent(n).replace(/'/g,'%27')}.webp?v=2`;
 const PLAYERS=[['Jayson','Tatum','BOS','Boston Celtics','#007a33','7:30 PM','41'],['Shai','Gilgeous-Alexander','OKC','Oklahoma City Thunder','#007ac1','8:00 PM','52'],['Victor','Wembanyama','SAS','San Antonio Spurs','#8a96a0','8:30 PM','58']];
 
 /* ── generated textures ── */
@@ -133,13 +133,13 @@ const vis=new Set(); const io=new IntersectionObserver(es=>es.forEach(e=>e.isInt
 function watch(){ vis.clear(); io.disconnect(); document.querySelectorAll('#pane .k').forEach(k=>io.observe(k)); }
 let hov=null; document.addEventListener('pointermove',e=>{ const k=e.target.closest&&e.target.closest('#pane .k'); hov=k; if(!k) return; const r=k.getBoundingClientRect(); k.style.setProperty('--mx',((e.clientX-r.left)/r.width).toFixed(3)); k.style.setProperty('--my',((e.clientY-r.top)/r.height).toFixed(3)); });
 (function loop(){ const t=performance.now()/1000; let i=0; vis.forEach(k=>{ i++; if(k===hov) return; k.style.setProperty('--mx',(.5+.33*Math.sin(t*.7+i*1.3)).toFixed(3)); k.style.setProperty('--my',(.45+.22*Math.sin(t*.9+i*.7)).toFixed(3)); }); requestAnimationFrame(loop); })();
-if(location.hash==='#check') check(); else draw();
+if(location.hash.startsWith('#check')) check(); else draw();
 /* ── #check: every cut-out against its original. Pink = what the cut-out removed. Pink on the player = cut off; no pink on background = left behind. ── */
-async function check(){ const L=await fetch('/cutouts/index.json?'+Date.now()).then(r=>r.json()).catch(()=>[]); const NP=await needs();
-  document.body.innerHTML=`<style>body{margin:0;background:#111;font-family:var(--px)}#ck{display:grid;grid-template-columns:repeat(auto-fill,150px);gap:6px;padding:6px}
-   .ck{position:relative;width:150px;height:150px;background:#333;overflow:hidden}.ck img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+async function check(){ const L=await fetch('/cutouts/index.json?'+Date.now()).then(r=>r.json()).catch(()=>[]); const NP=await needs(); const only=(location.hash.split('=')[1]||'').split(',').filter(Boolean).map(Number), SZ=only.length?300:150;
+  document.body.innerHTML=`<style>body{margin:0;background:#111;font-family:var(--px)}#ck{display:grid;grid-template-columns:repeat(auto-fill,${SZ}px);gap:6px;padding:6px}
+   .ck{position:relative;width:${SZ}px;height:${SZ}px;background:#333;overflow:hidden}.ck img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
    .ck i{position:absolute;inset:0;background:rgba(255,0,200,.62);-webkit-mask:var(--c) center/cover no-repeat,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:var(--c) center/cover no-repeat exclude,linear-gradient(#000 0 0)}
    .ck.np{outline:3px solid #ff3b5c}.ck.np::after{content:'NEW PORTRAIT COMING';position:absolute;top:0;left:0;right:0;background:#ff3b5c;color:#fff;font-size:6px;padding:3px;z-index:2}
    .ck b{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);color:#fff;font-weight:normal;font-size:6px;padding:3px;white-space:nowrap;overflow:hidden}</style>
-   <div id="ck">${L.map((p,i)=>{ const [t,n]=[p.split('/')[0],p.slice(p.indexOf('/')+1)]; return `<div class="ck ${NP.has(p)?'np':''}" id="c${i}"><img src="${pimg(t,n)}" alt=""><i style="--c:url('${pcut(t,n)}')"></i><b>${i} ${t} ${n}</b></div>`; }).join('')}</div>`; }
+   <div id="ck">${L.map((p,i)=>{ if(only.length&&!only.includes(i)) return ''; const [t,n]=[p.split('/')[0],p.slice(p.indexOf('/')+1)]; return `<div class="ck ${NP.has(p)?'np':''}" id="c${i}"><img src="${pimg(t,n)}" alt=""><i style="--c:url('${pcut(t,n)}')"></i><b>${i} ${t} ${n}</b></div>`; }).join('')}</div>`; }
 })();

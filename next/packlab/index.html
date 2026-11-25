@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>NBA Arcade · Pack Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:ital,wght@1,700&display=swap" rel="stylesheet"/>
+<style>
+/* PACK LAB · three pack designs, each with its own way of opening, and one shared card reveal.
+   Separate from the NEXT build. Real portraits; the pulls are random each time. */
+:root{--px:'Press Start 2P',ui-monospace,monospace;--tk:'Teko','Arial Narrow',sans-serif;--bg:#060a16;--card:#0f1528;--edge:#1f2a4a;--t1:#eef1fb;--t2:#9fb0d6;--t3:#5d6c95;--gold:#ffd93d;--green:#39ff6a;--pink:#ff5fbf;--blue:#4adfff;--red:#ff3b5c;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(90% 50% at 50% 0%,#18224e,#060a16 70%) fixed;color:var(--t1);font-family:var(--px);overflow-x:hidden}
+main{max-width:980px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(14px,env(safe-area-inset-right,0px)) 40px max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+h1{margin:0;font-size:12px;font-weight:normal;color:var(--gold)}
+header p{margin:8px 0 0;font-size:6.5px;line-height:2;color:var(--t2);max-width:620px}
+header a,.snd{font:inherit;font-size:6px;color:var(--t3);text-decoration:none;border:2px solid var(--edge);padding:7px 9px;border-radius:6px;background:none;cursor:pointer}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:6.5px;padding:9px 10px;border-radius:7px;border:2px solid var(--edge);background:#12182e;color:var(--t2);cursor:pointer}
+.tabs button.on{background:var(--gold);border-color:var(--gold);color:#1a1200}
+.why{font-size:6px;line-height:2.1;color:var(--t2);max-width:720px}.why b{font-weight:normal;color:var(--gold)}
+.stage{position:relative;height:min(560px,72vh);border:2px solid var(--edge);border-radius:14px;overflow:hidden;background:radial-gradient(60% 50% at 50% 55%,#1b2a5c,#070b18 75%);touch-action:none;user-select:none;-webkit-user-select:none}
+.stage::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px)}
+.hint{position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:7px;color:#fff;text-shadow:0 2px 0 #000;z-index:30;animation:blink 1.2s steps(2) infinite;pointer-events:none}
+@keyframes blink{50%{opacity:.35}}
+.again{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:40;font:inherit;font-size:7px;padding:11px 16px;border-radius:9px;border:3px solid #000;background:var(--gold);color:#1a1200;box-shadow:0 4px 0 #8a5a00;cursor:pointer}
+.flash{position:absolute;inset:0;z-index:25;pointer-events:none;background:#fff;opacity:0}
+.flash.go{animation:fl .5s ease-out}@keyframes fl{0%{opacity:.95}100%{opacity:0}}
+
+/* ── CARD (lab version of the small card) ── */
+.cd{position:absolute;width:150px;aspect-ratio:5/7;perspective:900px;z-index:10;transition:transform .55s cubic-bezier(.2,.9,.3,1.2),left .55s,top .55s}
+.cd .in{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.3,1.4,.5,1)}
+.cd.up .in{transform:rotateY(180deg)}
+.cd .bk,.cd .fc{position:absolute;inset:0;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:3px solid #000;overflow:hidden}
+.cd .bk{background:radial-gradient(circle at 50% 45%,#1d3a7a,#060c22 75%);box-shadow:inset 0 0 0 4px #e8ecf5,inset 0 0 0 7px #000}
+.cd .bk::before{content:'';position:absolute;inset:14%;border:2px solid rgba(255,255,255,.25);border-radius:50%}
+.cd .bk::after{content:'NBA\AARCADE';white-space:pre;position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:12px;line-height:1.6;background:linear-gradient(180deg,#6fb4ff,#fff 52%,#ff4a5a 56%,#8e0a1a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 #000)}
+.cd .fc{transform:rotateY(180deg);display:flex;flex-direction:column;padding:6px;background:var(--fr)}
+.cd .fc .nm{background:#000;color:#fff;font-size:7px;text-align:center;padding:5px 2px;border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd .fc .ph{position:relative;flex:1;overflow:hidden;background:var(--tc)}
+.cd .fc .ph img{width:100%;height:100%;object-fit:cover;object-position:50% 15%;display:block}
+.cd .fc .ft{background:#000;color:var(--rc);font-size:5.5px;padding:5px 4px;display:flex;justify-content:space-between;border-radius:0 0 4px 4px}
+.cd.r-base{--fr:linear-gradient(160deg,#eef1f6,#9aa4b8);--rc:#c9d0de}
+.cd.r-gold{--fr:linear-gradient(125deg,#7a5200,#d9a520 22%,#fff2b0 34%,#c8901a 48%,#f5d061 66%,#b07a10 90%);--rc:#ffd93d}
+.cd.r-holo{--fr:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);--rc:#b9f}
+.cd.r-star{--fr:conic-gradient(from 0deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);--rc:#fff}
+.cd.r-holo .fc,.cd.r-star .fc{background-size:300% 100%;animation:sheen 3s linear infinite}@keyframes sheen{to{background-position:300% 0}}
+.cd.r-star .fc .ph::after{content:'★';position:absolute;right:5px;top:3px;font-size:16px;color:#ffd93d;text-shadow:0 0 6px #000}
+.cd .glare{position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 62%);background-size:250% 250%;animation:gl 2.6s ease-in-out infinite;transform:rotateY(180deg);backface-visibility:hidden}
+@keyframes gl{0%{background-position:150% 0}100%{background-position:-60% 0}}
+/* rare tease: before the flip, the back glows the rarity colour and shakes */
+.cd.tease .bk{box-shadow:inset 0 0 0 4px var(--tz),inset 0 0 0 7px #000,0 0 26px var(--tz),0 0 60px var(--tz)}
+.cd.tease.shake .in{animation:tz .12s linear infinite}@keyframes tz{25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
+.cd.r-gold{--tz:#ffd93d}.cd.r-holo{--tz:#b36bff}.cd.r-star{--tz:#ff5fbf}
+.rname{position:absolute;left:0;right:0;top:18px;text-align:center;z-index:30;font-size:9px;color:#fff;text-shadow:0 2px 0 #000;pointer-events:none}
+.rname small{display:block;margin-top:7px;font-size:6px;color:var(--rc,#c9d0de)}
+.burst{position:absolute;left:50%;top:50%;width:10px;height:10px;z-index:9;pointer-events:none}
+.burst i{position:absolute;width:6px;height:6px;background:var(--c,#ffd93d);box-shadow:0 0 8px var(--c,#ffd93d);animation:bp .9s ease-out forwards}
+@keyframes bp{to{transform:translate(var(--x),var(--y)) scale(.2);opacity:0}}
+
+/* ── A · FOIL PACK ── */
+.foil{position:absolute;left:50%;top:50%;width:190px;height:290px;transform:translate(-50%,-50%) rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg));transform-style:preserve-3d;z-index:12;filter:drop-shadow(0 18px 20px rgba(0,0,0,.6))}
+.foil .body,.foil .top{position:absolute;left:0;right:0;background:conic-gradient(from calc(var(--a,0)*1deg) at 50% 60%,#1d4fd8,#6fb4ff,#fff,#ff4a5a,#8e0a1a,#1d4fd8);overflow:hidden}
+.foil .top{top:0;height:34px;clip-path:polygon(0 18%,5% 0,10% 18%,15% 0,20% 18%,25% 0,30% 18%,35% 0,40% 18%,45% 0,50% 18%,55% 0,60% 18%,65% 0,70% 18%,75% 0,80% 18%,85% 0,90% 18%,95% 0,100% 18%,100% 100%,0 100%);transition:transform .7s cubic-bezier(.4,1.6,.5,1),opacity .7s}
+.foil .body{top:34px;bottom:0;clip-path:polygon(0 0,100% 0,100% 94%,95% 100%,90% 94%,85% 100%,80% 94%,75% 100%,70% 94%,65% 100%,60% 94%,55% 100%,50% 94%,45% 100%,40% 94%,35% 100%,30% 94%,25% 100%,20% 94%,15% 100%,10% 94%,5% 100%,0 94%)}
+.foil .body::before,.foil .top::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,0) 0 6px,rgba(255,255,255,.14) 6px 7px),linear-gradient(115deg,transparent 30%,rgba(255,255,255,.55) calc(var(--g,50)*1%),transparent calc(var(--g,50)*1% + 18%));mix-blend-mode:overlay}
+.foil .lbl{position:absolute;inset:14px 14px 22px;border:3px solid #000;border-radius:8px;background:radial-gradient(circle at 50% 30%,#1a2f6e,#060c22 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.foil .lbl .lg{font-size:15px;line-height:1.5;background:linear-gradient(180deg,#1d4fd8,#6fb4ff 30%,#fff 52%,#ff9aa5 56%,#e01a2e 80%,#8e0a1a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #000)}
+.foil .lbl small{font-size:5.5px;color:#c9d0de;line-height:1.9}
+.foil .lbl .five{font-family:var(--tk);font-style:italic;font-size:30px;color:#ffd93d;text-shadow:0 3px 0 #7a4b00;line-height:.8}
+.foil .tearline{position:absolute;left:0;top:34px;height:3px;width:calc(var(--t,0)*100%);background:#fff;box-shadow:0 0 8px #fff,0 0 16px var(--gold);z-index:3}
+.foil .notch{position:absolute;left:-4px;top:28px;width:16px;height:14px;z-index:4;border-left:3px dashed #fff;animation:blink 1s steps(2) infinite}
+.foil.torn .top{transform:translate(60px,-160px) rotate(28deg);opacity:0}
+.foil.open{transition:transform .6s,opacity .6s;transform:translate(-50%,40%) scale(.9);opacity:0}
+
+/* ── B · GACHA CAPSULE ── */
+.gacha{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:200px;height:330px;z-index:12}
+.gacha .dome{position:absolute;left:10px;right:10px;top:0;height:170px;border-radius:90px 90px 14px 14px;border:4px solid #000;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.55),rgba(255,255,255,.06) 40%),rgba(120,170,255,.12);overflow:hidden}
+.gacha .dome i{position:absolute;width:40px;height:40px;border-radius:50%;border:3px solid #000;background:linear-gradient(180deg,var(--c) 50%,#f2f2f2 50%)}
+.gacha .base{position:absolute;left:0;right:0;top:162px;bottom:0;border:4px solid #000;border-radius:16px;background:linear-gradient(180deg,#e01a2e,#8e0a1a);box-shadow:inset 0 4px 0 rgba(255,255,255,.25)}
+.gacha .plate{position:absolute;left:18px;right:18px;top:14px;text-align:center;font-size:6px;color:#fff;padding:6px;border:2px solid #000;background:#000;border-radius:5px}
+.gacha .plate b{display:block;font-weight:normal;color:var(--gold);margin-top:4px}
+.gacha .knob{position:absolute;left:50%;top:58px;width:64px;height:64px;margin-left:-32px;border-radius:50%;border:4px solid #000;background:radial-gradient(circle at 35% 30%,#fff,#c9d0de 60%,#8e98ab);cursor:pointer;transition:transform .45s cubic-bezier(.4,1.6,.5,1)}
+.gacha .knob::after{content:'';position:absolute;left:50%;top:6px;bottom:6px;width:12px;margin-left:-6px;border-radius:6px;background:#3a4258;border:2px solid #000}
+.gacha .chute{position:absolute;left:50%;bottom:14px;width:70px;height:44px;margin-left:-35px;border:4px solid #000;border-radius:8px;background:#1a0004}
+.gacha .turns{position:absolute;right:12px;top:72px;display:flex;flex-direction:column;gap:5px}.gacha .turns i{width:10px;height:10px;border:2px solid #000;border-radius:50%;background:#3a0010}.gacha .turns i.on{background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.cap{position:absolute;left:50%;top:76%;width:84px;height:84px;margin-left:-42px;z-index:14;cursor:pointer;transition:top .7s cubic-bezier(.3,1.5,.5,1),transform .3s}
+.cap .h1,.cap .h2{position:absolute;left:0;right:0;height:50%;border:4px solid #000;transition:transform .6s cubic-bezier(.3,1.2,.4,1),opacity .6s}
+.cap .h1{top:0;border-radius:42px 42px 0 0;border-bottom-width:2px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.7),transparent 40%),var(--cc)}
+.cap .h2{bottom:0;border-radius:0 0 42px 42px;border-top-width:2px;background:#f2f2f2}
+.cap .ck{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(60deg,transparent 48%,#000 48% 51%,transparent 51%) 0 0/100% 100%;opacity:0}
+.cap.k1 .ck{opacity:.7}.cap.k2 .ck{opacity:1;background:linear-gradient(60deg,transparent 48%,#000 48% 51%,transparent 51%),linear-gradient(-50deg,transparent 47%,#000 47% 50%,transparent 50%)}
+.cap.k1,.cap.k2{animation:tz .12s linear 4}
+.cap.pop .h1{transform:translate(-40px,-120px) rotate(-50deg);opacity:0}.cap.pop .h2{transform:translate(40px,110px) rotate(40deg);opacity:0}
+
+/* ── C · CARTRIDGE ── */
+.cons{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);width:230px;height:250px;z-index:12}
+.cons .bd{position:absolute;inset:40px 0 0;border:4px solid #000;border-radius:14px 14px 40px 14px;background:linear-gradient(160deg,#e9e6dc,#c6c1b3)}
+.cons .slot{position:absolute;left:30px;right:30px;top:40px;height:16px;background:#26262c;border:3px solid #000;border-top:0;border-radius:0 0 6px 6px}
+.cons .scr{position:absolute;left:28px;right:28px;top:76px;height:110px;border:6px solid #6e6b82;border-radius:6px;background:#a4ba30;overflow:hidden;color:#14381a;font-size:6px;line-height:1.9;padding:8px}
+.cons .scr::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,56,26,.12) 1px,transparent 1px) 0 0/3px 3px,linear-gradient(rgba(20,56,26,.12) 1px,transparent 1px) 0 0/3px 3px}
+.cons .scr.off{background:#5a6620}.cons .scr .bar{height:8px;border:2px solid #14381a;margin-top:6px}.cons .scr .bar i{display:block;height:100%;width:0;background:#14381a;transition:width 1.6s steps(12)}
+.cons .led{position:absolute;left:12px;top:120px;width:7px;height:7px;border-radius:50%;background:#4a1010}.cons .led.on{background:#ff2b2b;box-shadow:0 0 6px #ff2b2b}
+.cons .pad{position:absolute;left:24px;bottom:18px;width:42px;height:42px;background:linear-gradient(#26262c,#26262c) center/14px 100% no-repeat,linear-gradient(#26262c,#26262c) center/100% 14px no-repeat}
+.cons .ab{position:absolute;right:26px;bottom:24px;display:flex;gap:10px;transform:rotate(-25deg)}.cons .ab i{width:20px;height:20px;border-radius:50%;background:#9a2257;border:2px solid #000}
+.cart{position:absolute;left:50%;top:6%;width:150px;height:120px;margin-left:-75px;z-index:13;cursor:pointer;transition:top .6s cubic-bezier(.4,1.3,.5,1)}
+.cart .sh{position:absolute;inset:0;border:4px solid #000;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,#3a3d4a,#24262f)}
+.cart .sh::before{content:'';position:absolute;left:10px;right:10px;top:6px;height:8px;background:repeating-linear-gradient(90deg,#4a4d5a 0 6px,#24262f 6px 10px)}
+.cart .lb{position:absolute;left:14px;right:14px;top:22px;bottom:16px;border:3px solid #000;border-radius:4px;background:linear-gradient(135deg,#1d4fd8,#e01a2e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center}
+.cart .lb b{font-weight:normal;font-size:8px;color:#fff;text-shadow:2px 2px 0 #000}.cart .lb small{font-size:5px;color:#ffd93d}
+.cart.in{top:-2%}
+.cart.in.seat{top:-4%}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>📦 PACK LAB</h1><p>Three ways to open a pack. Each has its own pack design and opening move, and they share one card reveal. Five real players per pack, at least one a hit (Gold, Holo or All-Star). Hits glow and shake before you flip them. This lab is separate from the NEXT build.</p></div>
+    <div style="display:flex;gap:6px"><button class="snd" id="snd">🔊 SOUND ON</button><a href="../">← BACK TO NEXT</a></div>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="why" id="why"></div>
+  <div class="stage" id="st"></div>
+</main>
+<script>
+(async()=>{
+/* ── data: real players from the NEXT sample list ── */
+let RAW=[]; try{ const t=await fetch('../data.js').then(r=>r.text()); RAW=JSON.parse(t.match(/const RAW = (\[[\s\S]*?\]);/)[1]); }catch(e){}
+if(!RAW.length) RAW=[["Nikola Jokic","DEN","C",33.9],["Victor Wembanyama","SAS","F",36.2],["Jayson Tatum","BOS","F",26.1],["Stephen Curry","GSW","G",26.6],["Luka Doncic","LAL","G",37.6]];
+const TC={ATL:'#C8102E',BOS:'#007A33',BKN:'#222',CHA:'#1D1160',CHI:'#CE1141',CLE:'#860038',DAL:'#00538C',DEN:'#0E2240',DET:'#C8102E',GSW:'#1D428A',HOU:'#CE1141',IND:'#002D62',LAC:'#1D428A',LAL:'#552583',MEM:'#5D76A9',MIA:'#98002E',MIL:'#00471B',MIN:'#0C2340',NOP:'#0C2340',NYK:'#006BB6',OKC:'#007AC1',ORL:'#0077C0',PHI:'#006BB6',PHX:'#1D1160',POR:'#E03A3E',SAC:'#5A2D81',SAS:'#8A96A0',TOR:'#CE1141',UTA:'#002B5C',WAS:'#002B5C'};
+const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
+const pimg=(t,n)=>`${PORTRAITS}/${t}/${encodeURIComponent(n)}.jpeg`;
+const POOL=RAW.filter(r=>r[0]).sort((a,b)=>b[3]-a[3]).slice(0,160);
+const RAR={base:'BASE',gold:'GOLD',holo:'HOLO',star:'ALL-STAR'};
+function pull(){ const pick=new Set(); while(pick.size<5) pick.add(POOL[Math.floor(Math.random()*POOL.length)]);
+  const L=[...pick].map(r=>({n:r[0],t:r[1],r:'base'}));
+  const x=Math.random(), hit=x<.08?'star':x<.33?'holo':'gold'; L[4].r=hit; if(Math.random()<.25) L[1+Math.floor(Math.random()*3)].r='gold';
+  return L; }
+
+/* ── sound (same chip kit as the Sound Lab picks) ── */
+let AC=null, SND=true;
+function tone(f,{t=0,d=.08,type='square',v=.05,f2=null}={}){ if(!SND) return; try{ AC ||= new (window.AudioContext||window.webkitAudioContext)(); const T=AC.currentTime+t, o=AC.createOscillator(), g=AC.createGain(); o.type=type; o.frequency.setValueAtTime(f,T); if(f2) o.frequency.exponentialRampToValueAtTime(f2,T+d); g.gain.setValueAtTime(v,T); g.gain.exponentialRampToValueAtTime(.0001,T+d); o.connect(g); g.connect(AC.destination); o.start(T); o.stop(T+d+.02); }catch(e){} }
+function noise(d=.3,f=800,f2=5000,v=.2){ if(!SND) return; try{ AC ||= new (window.AudioContext||window.webkitAudioContext)(); const T=AC.currentTime, b=AC.createBuffer(1,AC.sampleRate*d,AC.sampleRate), x=b.getChannelData(0); for(let i=0;i<x.length;i++) x[i]=Math.random()*2-1;
+  const s=AC.createBufferSource(); s.buffer=b; const fl=AC.createBiquadFilter(); fl.type='bandpass'; fl.frequency.setValueAtTime(f,T); fl.frequency.exponentialRampToValueAtTime(f2,T+d); const g=AC.createGain(); g.gain.setValueAtTime(v,T); g.gain.exponentialRampToValueAtTime(.0001,T+d); s.connect(fl); fl.connect(g); g.connect(AC.destination); s.start(T); }catch(e){} }
+const S_={ tick:()=>tone(1760,{d:.012,v:.03}), rip:()=>noise(.35), click:()=>{ tone(300,{d:.04,v:.08,type:'triangle'}); tone(180,{t:.05,d:.05,v:.08,type:'triangle'}); },
+  drop:()=>{ tone(500,{f2:120,d:.35,type:'triangle',v:.12}); }, crack:()=>noise(.08,1500,3000,.3), pop:()=>{ noise(.3,500,4000,.15); [1047,1319,1568,2093].forEach((f,i)=>tone(f,{t:.15+i*.04,d:.4,type:'sine',v:.05})); },
+  flip:()=>tone(500,{f2:1000,d:.06,type:'triangle',v:.1}), base:()=>tone(880,{d:.06,v:.04}), hit:()=>{ [784,1047,1319].forEach((f,i)=>tone(f,{t:i*.07,d:.2,v:.05})); tone(1568,{t:.22,d:.5,type:'triangle',v:.08}); },
+  star:()=>{ [523,659,784,1047,1319,1568,2093].forEach((f,i)=>tone(f,{t:i*.045,d:.3,v:.05})); }, boot:()=>{ tone(1047,{d:.08}); tone(2093,{t:.09,d:.5}); }, insert:()=>{ tone(200,{f2:90,d:.15,type:'triangle',v:.12}); tone(1200,{t:.18,d:.04,v:.04}); } };
+document.getElementById('snd').onclick=e=>{ SND=!SND; e.target.textContent=SND?'🔊 SOUND ON':'🔇 SOUND OFF'; };
+
+const st=document.getElementById('st');
+const el=(h)=>{ const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; };
+const hint=t=>{ st.querySelector('.hint')?.remove(); if(t) st.appendChild(el(`<div class="hint">${t}</div>`)); };
+const flash=()=>{ const f=st.querySelector('.flash')||st.appendChild(el('<div class="flash"></div>')); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); };
+function burst(c,n=24){ const b=el('<div class="burst"></div>'); for(let i=0;i<n;i++){ const a=Math.random()*6.28, r=80+Math.random()*140; b.appendChild(el(`<i style="--c:${c};--x:${Math.cos(a)*r}px;--y:${Math.sin(a)*r}px"></i>`)); } st.appendChild(b); setTimeout(()=>b.remove(),1000); }
+
+/* ── shared reveal: a stack in the middle; tap the top card to flip it, it moves to the fan ── */
+function cardEl(c){ const last=c.n.split(' ').slice(1).join(' ').toUpperCase()||c.n.toUpperCase();
+  return el(`<div class="cd r-${c.r}"><div class="in"><div class="bk"></div><div class="fc" style="--tc:${TC[c.t]||'#1d428a'}"><div class="nm">${last}</div><div class="ph"><img src="${pimg(c.t,c.n)}" alt="" onerror="this.style.display='none'"></div><div class="ft"><span>${c.t}</span><span>${RAR[c.r]}</span></div></div><div class="glare"></div></div></div>`); }
+function reveal(cards, from={x:.5,y:.5}){
+  const W=st.clientWidth, H=st.clientHeight, cw=Math.min(150, W*.36), ch=cw*1.4;
+  const els=cards.map((c,i)=>{ const e=cardEl(c); e.style.width=cw+'px'; e.style.left=(W*from.x-cw/2)+'px'; e.style.top=(H*from.y-ch/2)+'px'; e.style.zIndex=20-i; e.style.transform='scale(.6)'; st.appendChild(e); return e; });
+  requestAnimationFrame(()=>els.forEach((e,i)=>{ e.style.left=(W/2-cw/2)+'px'; e.style.top=(H*.46-ch/2-i*3)+'px'; e.style.transform=`scale(1) rotate(${(i-2)*1.5}deg)`; }));
+  let k=0; const name=el('<div class="rname"></div>'); st.appendChild(name);
+  const ready=()=>{ const e=els[k], c=cards[k]; if(!e) return; if(c.r!=='base'){ e.style.setProperty('--tz',getComputedStyle(e).getPropertyValue('--tz')); e.classList.add('tease'); if(c.r!=='gold') e.classList.add('shake'); } hint(`TAP TO FLIP · ${k+1}/${cards.length}`); };
+  setTimeout(ready,600);
+  let busy=true; setTimeout(()=>busy=false,600);
+  st.onclick=ev=>{ const e=els[k], c=cards[k]; if(busy || !e || !e.contains(ev.target)) return; busy=true;
+    e.classList.remove('shake'); e.classList.add('up'); S_.flip();
+    setTimeout(()=>{ e.classList.remove('tease'); name.innerHTML=`${c.n.toUpperCase()}<small style="--rc:${{base:'#c9d0de',gold:'#ffd93d',holo:'#c9a2ff',star:'#ff8fd0'}[c.r]}">${c.r==='base'?'NEW CARD':RAR[c.r]+' · HIT!'}</small>`;
+      if(c.r==='base') S_.base(); else { flash(); burst({gold:'#ffd93d',holo:'#b36bff',star:'#ff5fbf'}[c.r], c.r==='star'?40:24); c.r==='star'?S_.star():S_.hit(); } },260);
+    setTimeout(()=>{ // move to the fan along the bottom
+      const n=cards.length, fw=Math.min(W*.92, cw*.62*n+cw*.4), x0=W/2-fw/2, sc=.62;
+      e.style.transform=`scale(${sc}) rotate(${(k-(n-1)/2)*5}deg)`; e.style.left=(x0+k*(fw-cw*sc)/(n-1) - cw*(1-sc)/2)+'px'; e.style.top=(H-ch*sc-62 - cw*(1-sc)*.7)+'px'; e.style.zIndex=30+k;
+      k++; if(k<cards.length){ ready(); busy=false; } else { st.onclick=null; hint(''); name.innerHTML='PACK COMPLETE<small>'+cards.filter(c=>c.r!=='base').length+' HIT'+(cards.filter(c=>c.r!=='base').length>1?'S':'')+'</small>'; const b=el('<button class="again">OPEN ANOTHER ▶</button>'); b.onclick=e2=>{ e2.stopPropagation(); start(); }; setTimeout(()=>st.appendChild(b),400); } }, c.r==='base'?900:1500);
+  };
+}
+
+/* ── A · FOIL PACK: tilt to catch the light, drag across the top to tear ── */
+function foilPack(){
+  const p=el(`<div class="foil"><div class="top"></div><div class="body"><div class="lbl"><span class="lg">NBA<br>ARCADE</span><span class="five">5 CARDS</span><small>SERIES 1 · FALL RUN<br>26 / 27</small></div></div><div class="tearline"></div><div class="notch"></div></div>`);
+  st.appendChild(p); hint('DRAG ACROSS THE TOP TO TEAR ▶');
+  let a=0; const spin=setInterval(()=>{ a=(a+1)%360; p.style.setProperty('--a',a); },40);
+  const tilt=e=>{ const r=st.getBoundingClientRect(), x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; p.style.setProperty('--rx',(x*24)+'deg'); p.style.setProperty('--ry',(-y*18)+'deg'); p.style.setProperty('--g',50+x*80); };
+  let drag=false, t=0, lastTick=0;
+  st.onpointermove=e=>{ tilt(e); if(!drag) return; const r=p.getBoundingClientRect(); t=Math.max(t,Math.min(1,(e.clientX-r.left)/r.width)); p.style.setProperty('--t',t); if(t-lastTick>.07){ lastTick=t; S_.tick(); }
+    if(t>.9){ drag=false; st.onpointermove=tilt; clearInterval(spin); p.querySelector('.notch').remove(); p.classList.add('torn'); S_.rip(); hint('');
+      setTimeout(()=>{ p.classList.add('open'); reveal(pull(),{x:.5,y:.45}); setTimeout(()=>p.remove(),700); },650); } };
+  st.onpointerdown=e=>{ const r=p.getBoundingClientRect(); if(e.clientY<r.top+70 && e.clientY>r.top-20){ drag=true; st.setPointerCapture?.(e.pointerId); } };
+  st.onpointerup=()=>{ drag=false; };
+}
+
+/* ── B · GACHA CAPSULE: turn the knob three times, then crack the capsule ── */
+function gacha(){
+  const cols=['#ff3b5c','#ffd93d','#4adfff','#39ff6a','#b36bff','#ff9a1f'];
+  const m=el(`<div class="gacha"><div class="dome">${[...Array(14)].map((_,i)=>`<i style="--c:${cols[i%6]};left:${8+(i*37)%140}px;top:${40+Math.floor(i/4)*30+(i%2)*8}px;transform:rotate(${i*47}deg)"></i>`).join('')}</div>
+    <div class="base"><div class="plate">NBA ARCADE CAPSULES<b>1 TURN = 5 CARDS</b></div><div class="knob"></div><div class="turns"><i></i><i></i><i></i></div><div class="chute"></div></div></div>`);
+  st.appendChild(m); hint('TAP THE KNOB TO TURN IT · 3 TURNS');
+  let turns=0; const knob=m.querySelector('.knob');
+  knob.onclick=e=>{ e.stopPropagation(); if(turns>=3) return; turns++; knob.style.transform=`rotate(${turns*120}deg)`; m.querySelectorAll('.turns i')[turns-1].classList.add('on'); S_.click();
+    m.querySelectorAll('.dome i').forEach(c=>c.style.transform=`translate(${Math.random()*8-4}px,${Math.random()*8-4}px) rotate(${Math.random()*360}deg)`);
+    if(turns===3){ hint(''); setTimeout(dropCap,500); } };
+  function dropCap(){ const cc=cols[Math.floor(Math.random()*6)], cards=pull(), hit=cards.some(c=>c.r==='star')?'#ff5fbf':cards.some(c=>c.r==='holo')?'#b36bff':'#ffd93d';
+    const c=el(`<div class="cap" style="--cc:${cc}"><div class="h1"></div><div class="h2"></div><div class="ck"></div></div>`); c.style.top='66%'; st.appendChild(c); S_.drop();
+    setTimeout(()=>{ c.style.top='70%'; m.style.transition='opacity .5s'; m.style.opacity='.25'; hint('TAP THE CAPSULE TO CRACK IT'); },400);
+    let k=0; c.onclick=e=>{ e.stopPropagation(); k++; S_.crack(); if(k===1) c.classList.add('k1'); if(k===2){ c.classList.remove('k1'); c.classList.add('k2'); c.style.filter=`drop-shadow(0 0 14px ${hit})`; }
+      if(k===3){ c.classList.add('pop'); S_.pop(); flash(); burst(hit,30); hint(''); setTimeout(()=>{ c.remove(); m.remove(); reveal(cards,{x:.5,y:.72}); },500); } }; }
+}
+
+/* ── C · CARTRIDGE: slide it into the console, it boots, cards eject from the slot ── */
+function cartridge(){
+  const c=el(`<div class="cons"><div class="bd"></div><div class="slot"></div><div class="scr off" id="scr"></div><span class="led"></span><div class="pad"></div><div class="ab"><i></i><i></i></div></div>`);
+  const k=el(`<div class="cart"><div class="sh"></div><div class="lb"><b>NBA ARCADE</b><small>PACK · SERIES 1</small><small style="color:#fff">5 CARDS</small></div></div>`);
+  st.appendChild(c); st.appendChild(k); hint('TAP THE CARTRIDGE TO PLUG IT IN');
+  k.onclick=e=>{ e.stopPropagation(); k.onclick=null; k.classList.add('in'); S_.insert(); hint('');
+    setTimeout(()=>{ k.classList.add('seat'); c.querySelector('.led').classList.add('on'); const s=c.querySelector('#scr'); s.classList.remove('off'); S_.boot();
+      s.innerHTML='NBA ARCADE<br>LOADING PACK...<div class="bar"><i></i></div>'; setTimeout(()=>s.querySelector('.bar i').style.width='100%',50);
+      const cards=pull(); const hits=cards.filter(x=>x.r!=='base').length;
+      setTimeout(()=>{ s.innerHTML=`5 CARDS FOUND<br>${hits} HIT${hits>1?'S':''} DETECTED<br>${cards.some(x=>x.r==='star')?'!! ALL-STAR !!':'PRESS ▶'}`; [0,1,2].forEach(i=>tone(1046,{t:i*.1,d:.03,v:.03})); },1900);
+      setTimeout(()=>{ k.style.transition='opacity .4s'; k.style.opacity='0'; c.style.transition='transform .6s,opacity .6s'; c.style.transform='translate(-50%,-30%) scale(.8)'; c.style.opacity='.3'; reveal(cards,{x:.5,y:.12}); setTimeout(()=>{ c.remove(); k.remove(); },700); },3300);
+    },650); };
+}
+
+const MODES={foil:['A · FOIL PACK',foilPack,'A classic crimped <b>foil wrapper</b> in the logo\'s blue-white-red chrome. Move your finger or mouse over it and the foil catches the light. <b>Drag across the top edge to tear it open</b>; the strip flies off and the cards slide up out of the wrapper.'],
+  gacha:['B · CAPSULE MACHINE',gacha,'An arcade <b>capsule machine</b>. Tap the knob three times; each turn clicks and jostles the capsules. A capsule rolls into the chute. <b>Tap it three times to crack it</b>; on the last crack it glows the colour of your best card, then pops.'],
+  cart:['C · CARTRIDGE',cartridge,'The pack is a <b>game cartridge</b>. Plug it into the handheld; it boots on the four-green screen, scans the pack (it tells you how many hits are inside), then the <b>cards shoot out of the slot</b> for the reveal.']};
+let MODE='foil';
+function start(){ st.innerHTML=''; st.onclick=null; st.onpointermove=null; st.onpointerdown=null; st.onpointerup=null; MODES[MODE][1](); }
+function tabs(){ document.getElementById('tabs').innerHTML=Object.entries(MODES).map(([k,[l]])=>`<button class="${k===MODE?'on':''}" data-m="${k}">${l}</button>`).join('');
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ MODE=b.dataset.m; tabs(); start(); }); document.getElementById('why').innerHTML=MODES[MODE][2]+' The reveal is the same in all three: <b>tap to flip</b> each card. Hits glow and shake first, then flash and burst; base cards just flip. Then all five fan out.'; }
+tabs(); start();
+})();
+</script>
+</body>
+</html>

@@ -37,11 +37,24 @@ def list_all():
             headers={"apikey": ANON, "Authorization": f"Bearer {ANON}", "Content-Type": "application/json"})
         return json.load(urllib.request.urlopen(req, timeout=30))
     out = []
-    for team in ls(""):
+    try:
+        top = ls("")
+    except Exception as e:
+        print("bucket listing failed:", e); top = []
+    for team in top:
         if team.get("id") is None and len(team["name"]) <= 4:          # folder
             for f in ls(team["name"] + "/"):
                 if f["name"].lower().endswith((".jpeg", ".jpg", ".png")):
                     out.append(f"{team['name']}/{f['name'].rsplit('.', 1)[0]}")
+    if not out:                                   # the bucket can't be listed with the public key: use the site's own player lists
+        import re
+        here = os.path.dirname(os.path.abspath(__file__)) + "/.."
+        app = open(os.path.join(here, "app.js"), encoding="utf-8").read()
+        out += [f"{t}/{n}" for n, t in re.findall(r'name:"([^"]+)",pos:"[^"]*",team:"([A-Z]{2,4})"', app)]
+        raw = open(os.path.join(here, "next/data.js"), encoding="utf-8").read()
+        out += [f"{r[1]}/{r[0]}" for r in json.loads(re.search(r"const RAW = (\[[\s\S]*?\]);", raw).group(1)) if r and r[0]]
+        out = list(dict.fromkeys(out))
+    print(f"{len(out)} portraits to check")
     return out
 
 
@@ -76,7 +89,7 @@ def main(args):
         try:
             src = Image.open(io.BytesIO(urllib.request.urlopen(url, timeout=30).read())).convert("RGB")
         except Exception as e:
-            print("skip", tp, e); continue
+            print("skip", tp, str(e)[:60]); continue
         mask = np.array(remove(src, session=session, only_mask=True).convert("L"))
         cut = src.convert("RGBA"); cut.putalpha(Image.fromarray(clean(mask)))
         w = 600; h = round(cut.height * w / cut.width)

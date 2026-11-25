@@ -506,7 +506,7 @@ function duelCard(side, foot, cls=''){
   const team=!!side.img, p=team?null:P(side.name), rr=team?'gold':rarity(+p.f||0);
   const nm=team?cityOf(side.short):(p.s||side.short);
   if(team) return `<div class="rc16 dcard tcard16 ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm" style="${nm.length>9?`font-size:${Math.max(3.6,46/nm.length).toFixed(1)}px`:''}">${nm}</span></div>
-    <div class="rc-art tlogo"><span class="wm">${side.short}</span>${img(side.img,'logo')}<span class="nick">${NICK[side.short]||''}</span></div>
+    <div class="rc-art tlogo"><span class="wm">${side.short}</span>${img(side.img,'logo')}</div>
     <div class="rc-bot"><b>${foot}</b></div></div></div>`;
   return `<div class="rc16 dcard ${team?'r-gold':(typeof addOn==='function'?VERS.filter(v=>addOn(side.name,v.k)).map(v=>'u-'+v.k).join(' '):'')} ${cls}" style="--tc:${side.tc}"><div class="rc-in"><div class="rc-top"><span class="nm">${nm}</span></div>
     <div class="rc-art ${team?'logo':''}">${team?img(side.img,'logo'):face(side.team,side.name)}</div>
@@ -514,16 +514,16 @@ function duelCard(side, foot, cls=''){
 }
 function lifebar(v, other){
   const mx=Math.max(v,other), lead=v>=other, pct=mx>0?Math.round(100*v/mx):100;
-  return `<div class="lbar ${lead?'lead':''}"><i style="width:${pct}%"></i><b>${v} ${DUEL_STAT.short}</b></div>`;
+  return `<div class="lbar ${lead?'lead':''}"><i style="width:${pct}%"></i></div>`;
 }
 function duelDaily(){
   const pick=S.done.duel, A=DUEL.a, B=DUEL.b, live=gs()==='live' && !!pick;
   const sub = p => p.img ? (GAMES[p.team]&&GAMES[p.team].score ? `${GAMES[p.team].final?'FINAL':'LIVE'} · ${GAMES[p.team].score}` : `${GAMES[p.team]?GAMES[p.team].time+' ':''}${GAMES[p.team]?(GAMES[p.team].home?'vs ':'@ ')+GAMES[p.team].opp:''}`)
     : `${duelAvg(p.name)} ${DUEL_STAT.short}/G`;
   const f=(p,v,o,k)=>`<div class="ftr ${pick===p.short?'p1':pick&&!live?'dim':''} ${k}" data-act="1" onclick="duelPick('${p.short}',this)">${live?lifebar(v,o):''}
-      ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.img?cityOf(p.short):p.short}</div><div class="fsub">${sub(p)}</div></div>`;
+      ${duelCard(p, live&&p.img?`${v} PTS`:sub(p))}<span class="p1tag">YOUR PICK</span><div class="fname">${p.img?cityOf(p.short):p.short}</div>${live?'':`<div class="fsub">${sub(p)}</div>`}</div>`;
   const alert = !pick ? `<div class="alert"><span class="w">!</span>PICK BY ${DUEL.lock} ET</div>`
-    : live ? `<div class="livemq"><b class="lvb">LIVE</b><div class="mq"><span>${(()=>{ const t=`${A.short} ${DUEL_STAT.a} · ${B.short} ${DUEL_STAT.b} · ${DUEL_STAT.label} · `; return t.repeat(4); })()}</span></div></div>` : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
+    : live ? '' : `<div class="alert ok">✓ DUEL BEGINS AT ${DUEL.lock} ET</div>`;
   const futs = pick && futuresToday();
   return `<div class="arena" id="arena" style="--ca:${A.tc};--cb:${B.tc}">
       <div class="stk" title="Current streak · best ${STREAK.best}">🔥<b>${STREAK.cur}</b></div>
@@ -547,7 +547,7 @@ function ydSplash(){
   const wv=+y.win.v||0, lv=+y.lose.v||0, lpct=wv>0?Math.round(100*lv/wv):50;
   const right=(hit?[[ME.name,S.active]]:[]).concat(y.right||[]);
   const side=(p,v,win,k)=>`<div class="yf ${win?'win':'lose'} ${k}" data-team="${p.img?p.t:''}"><div class="lbar ${win?'lead':''}"><i style="width:${win?100:lpct}%"></i></div>
-      <div class="ph">${duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`)}</div><b class="fname">${p.img?cityOf(p.s):p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div></div>`;
+      <div class="ph">${(c=>win?c:`<div class="h1">${c}</div><div class="h2">${c}</div><i class="slash"></i>`)(duelCard({name:p.n, short:p.s, team:p.t, tc:p.c, img:p.img}, v===''?(p.img?'FINAL':''):`${v} ${y.stat}`))}</div><b class="fname">${p.img?cityOf(p.s):p.s}</b><div class="v">${v===''?'':v}<small>${v===''?'':p.img?'PTS':y.stat}</small></div></div>`;
   const g=document.createElement('div'); g.className='dsplash';
   g.innerHTML=`<div class="yh">YESTERDAY'S DUEL</div><div class="yt">${y.title}</div>
     <div class="yar arena" style="--ca:${w.c};--cb:${l.c}">${side(w,y.win.v,true,'fa')}<div class="vsbig">VS</div>${side(l,y.lose.v,false,'fb')}</div>
@@ -1087,4 +1087,14 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .rc16.tcard16 .wm{position:absolute;inset:0;display:grid;place-items:center;font-size:30px;font-style:italic;color:rgba(255,255,255,.1);letter-spacing:-.06em;z-index:1}
 .rc16.tcard16 .nick{position:absolute;left:0;right:0;bottom:4%;z-index:3;text-align:center;font-size:4.5px;color:#fff;letter-spacing:.12em;text-shadow:1px 1px 0 #000}
 </style>`);
-document.head.insertAdjacentHTML('beforeend',`<style>@keyframes yshk{25%{transform:translateX(-3px) rotate(-1.5deg)}75%{transform:translateX(3px) rotate(1.5deg)}}</style>`);
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* loser: shakes, a blade slashes across, and the card tears along the cut (same tear as the Weekly Gauntlet) */
+.dsplash .yf.lose .ph{position:relative}
+.dsplash .yf.lose .ph .h2{position:absolute;inset:0}
+.dsplash .yf.lose .ph .h1{clip-path:polygon(0 0,100% 0,100% 40%,0 62%);animation:rp1 .45s 2.15s cubic-bezier(.2,.8,.3,1) forwards}
+.dsplash .yf.lose .ph .h2{clip-path:polygon(0 62%,100% 40%,100% 100%,0 100%);animation:rp2 .45s 2.15s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes rp1{to{transform:translate(-4px,-7px) rotate(-6deg)}}@keyframes rp2{to{transform:translate(4px,6px) rotate(5deg)}}
+.dsplash .yf.lose .ph .slash{position:absolute;left:-12%;width:124%;top:calc(51% - 2px);height:4px;z-index:9;pointer-events:none;transform-origin:0 50%;transform:rotate(-15deg) scaleX(0);
+  background:linear-gradient(90deg,transparent,#fff 18%,#fff 82%,transparent);box-shadow:0 0 8px #fff,0 0 18px #ff3b5c,0 0 30px #ff3b5c;opacity:0;animation:slsh .5s 1.95s ease-out forwards}
+@keyframes slsh{0%{opacity:1;transform:rotate(-15deg) scaleX(0)}35%{opacity:1;transform:rotate(-15deg) scaleX(1)}100%{opacity:0;transform:rotate(-15deg) scaleX(1)}}
+@keyframes yshk{25%{transform:translateX(-3px) rotate(-1.5deg)}75%{transform:translateX(3px) rotate(1.5deg)}}</style>`);

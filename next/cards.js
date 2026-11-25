@@ -79,7 +79,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .pack .crimp{position:absolute;left:0;right:0;height:8px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.25) 0 4px,rgba(255,255,255,.2) 4px 8px)}
 .pack .logo{font-size:18px;text-align:center;line-height:1.4;text-shadow:0 3px 0 #000}
 .pack .logo b{color:#fff;font-weight:normal}.pack .logo i{color:#fff;font-style:normal}
-.pack .ser{font-size:7px;background:#000;padding:6px 9px;border-radius:4px;color:var(--gold)}
+.pack .ser{font-size:9px;background:#000;padding:7px 10px;border-radius:4px;color:var(--gold);letter-spacing:.04em}
+.pcnt{margin-top:18px;font-size:8px;color:#fff;text-align:center;text-shadow:0 2px 0 #000}
 .pack .mascot canvas{width:96px;height:96px;filter:drop-shadow(0 6px 0 rgba(0,0,0,.4))}
 .pack .cut{position:absolute;top:13%;left:0;height:3px;width:0;background:#fff;box-shadow:0 0 10px #fff,0 0 20px var(--gold);z-index:5}
 .pack .sheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;background:radial-gradient(circle at calc(var(--px,.5)*100%) calc(var(--py,.3)*100%),rgba(255,255,255,.7),transparent 50%)}
@@ -92,7 +93,10 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .flip .front{position:absolute;inset:0;backface-visibility:hidden}
 .flip.down{transform:rotateY(180deg)}
 .flip.away{transition:transform .45s ease-in,opacity .45s;transform:translate(-140%,-30px) rotate(-18deg);opacity:0}
-.flip.special.down.top .tback{animation:shake .4s infinite;box-shadow:inset 0 0 0 4px var(--gold),inset 0 0 0 7px #000,0 0 30px var(--gold),0 0 60px var(--glow,var(--gold))}
+/* only one side ever shows: the face hides while the card is down, the back hides once it's up */
+.flip .front,.flip .tback{transition:visibility 0s .25s}.flip.down .front{visibility:hidden}.flip:not(.down) .tback{visibility:hidden}
+@keyframes tshk{0%,100%{transform:rotateY(180deg)}25%{transform:rotateY(180deg) translate(-4px,1px)}50%{transform:rotateY(180deg) translate(3px,-1px)}75%{transform:rotateY(180deg) translate(-2px,0)}}
+.flip.special.down.top .tback{animation:tshk .4s infinite;box-shadow:inset 0 0 0 4px var(--gold),inset 0 0 0 7px #000,0 0 30px var(--gold),0 0 60px var(--glow,var(--gold))}
 @keyframes shake{25%{transform:rotateY(180deg) rotate(-1.5deg)}75%{transform:rotateY(180deg) rotate(1.5deg)}}
 .stack .ct{position:absolute;bottom:-26px;left:0;right:0;text-align:center;font-size:7px;color:var(--t2)}
 .revname{font-size:9px;text-align:center;line-height:1.8;min-height:34px}
@@ -192,6 +196,8 @@ const CARD_BACK = `<svg viewBox="0 0 250 350"><defs>
   <path d="M140.12 160.51C130.25 168.7 130.25 181.3 140.12 189.49"/></g></g>
     <path d="M90 23H160V25H162V27H164V30H162V32H160V34H90V32H88V30H86V27H88V25H90Z" fill="#ba9653"/><text x="125.45" y="31.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="5.4" letter-spacing="0.9" fill="#003d1a" transform="rotate(180 125 28.5)">NBA ARCADE</text><path d="M90 316H160V318H162V320H164V323H162V325H160V327H90V325H88V323H86V320H88V318H90Z" fill="#ba9653"/><text x="125.45" y="324.2" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="5.4" letter-spacing="0.9" fill="#003d1a" >NBA ARCADE</text>
     <rect x="9" y="9" width="232" height="332" rx="8" fill="url(#sc-cbk)"/></svg>`;
+/* the run and season printed on every pack, e.g. FALL RUN '27 (older runs become retro packs) */
+const RUN_TAG = () => `${(typeof S!=='undefined'&&S.run==='winter')?'WINTER':'FALL'} RUN '27`;
 function openPack(){
   if(S.packs<=0){ say('No packs yet · fill your Missions bar to earn one'); return; }
   const app=document.getElementById('app');
@@ -199,8 +205,8 @@ function openPack(){
   po.innerHTML=`<button class="x" aria-label="Close">✕</button>
     <div class="hint" id="ph">${S.welcome?'WELCOME PACK!<br>':''}SWIPE ACROSS THE TOP TO OPEN</div>
     <div class="pack" id="pk"><div class="flap"><div class="crimp" style="top:0"></div></div><div class="cut" id="cut"></div>
-      <div class="body"><div class="logo"><b>NBA</b><br><i>ARCADE</i></div><span class="mascot" id="pm"></span><span class="ser">SERIES 1 · 5 CARDS</span><div class="crimp" style="bottom:0"></div></div>
-      <div class="sheen"></div></div>`;
+      <div class="body"><div class="logo"><b>NBA</b><br><i>ARCADE</i></div><span class="mascot" id="pm"></span><span class="ser">${RUN_TAG()}</span><div class="crimp" style="bottom:0"></div></div>
+      <div class="sheen"></div></div><div class="pcnt" id="pcnt">5 CARDS INSIDE</div>`;
   app.appendChild(po);
   po.querySelector('.x').onclick=()=>{ po.remove(); render(); };
   po.querySelector('#pm').appendChild(ballerCv(S.active,3));
@@ -215,7 +221,7 @@ function openPack(){
   pk.addEventListener('dblclick',tear); // desktop shortcut
   function tear(){ if(done) return; done=true; cut.style.width='100%';
     S.packs--; S.welcome=false; const pull=keep(pullPack()); save();
-    pk.classList.add('torn'); po.querySelector('#ph').textContent='';
+    pk.classList.add('torn'); po.querySelector('#ph').textContent=''; po.querySelector('#pcnt')?.remove();
     setTimeout(()=>{ const b=document.createElement('div'); b.className='burst'; po.appendChild(b); setTimeout(()=>b.remove(),700); pk.classList.add('gone'); }, 350);
     setTimeout(()=>{ pk.remove(); reveal(po, pull); }, 850);
   }

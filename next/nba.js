@@ -54,9 +54,8 @@ function settings(){
       ${f('pfn','DISPLAY NAME',ME.name,'Your name')}${f('pft','FANTASY TEAM NAME',ME.team,'Your team')}
       <button class="go" style="width:100%;margin-top:12px" onclick="saveProfile()">SAVE</button>
       <div class="reward" style="margin:12px 0 0">Preview: saved on this phone only, so the real league isn't touched.</div></div>
-    <div class="panel"><div class="sec">SOUND</div><div class="tsz">${[[true,'ON','🔊'],[false,'OFF','🔇']].map(([k,l,a])=>`<button class="${(S.snd!==false)===k?'on':''}" onclick="S.snd=${k};save();render();${k?"SFX('saved')":''}"><b>${a}</b>${l}</button>`).join('')}</div>
-      <label class="pf" style="margin-top:12px"><span>VOLUME</span><input type="range" min="0" max="100" value="${Math.round((S.sndVol==null?.6:S.sndVol)*100)}" oninput="S.sndVol=this.value/100;save()" onchange="SFX('check')" ${S.snd===false?'disabled':''} style="accent-color:var(--gold)"></label>
-      <div class="reward" style="margin:12px 0 0">Retro chip sounds made right in your browser. On iPhone, the silent switch may mute them.</div></div>
+    <div class="panel"><div class="sec">SOUND</div><div class="sndrow"><button class="sndt ${S.snd!==false?'on':''}" onclick="S.snd=${S.snd===false};save();render();${S.snd===false?"SFX('saved')":''}">${S.snd!==false?'🔊 ON':'🔇 OFF'}</button>
+      <input type="range" min="0" max="100" value="${Math.round((S.sndVol==null?.6:S.sndVol)*100)}" oninput="S.sndVol=this.value/100;save()" onchange="SFX('check')" ${S.snd===false?'disabled':''} aria-label="Volume" style="accent-color:var(--gold)"></div></div>
     <div class="panel"><div class="sec">APP THEME</div><div class="thm">${Object.entries(THEMES).map(([k,t])=>`<button class="${(S.theme||'arcade')===k?'on':''}" onclick="S.theme='${k}';save();applyTheme();render()"><i style="background:${t.v['--bg']||'#020c18'};border-color:${t.v['--edge']||'#1e3258'}"><b style="background:${t.v['--card']||'#0d1530'}"></b></i>${t.name}</button>`).join('')}</div></div>
     <div class="panel"><div class="sec">TEXT SIZE</div><div class="tsz">${[['large','LARGE','Aa'],['small','SMALL','Aa']].map(([k,l,a])=>`<button class="${S.text===k?'on':''}" onclick="S.text='${k}';save();scaleFonts();render()"><b style="font-size:${k==='large'?18:13}px">${a}</b>${l}${k==='large'?'<small>DEFAULT</small>':''}</button>`).join('')}</div></div>
   </div>`;
@@ -90,9 +89,8 @@ function statsUsers(){
         ${stat('DUEL', d?(d[2]==='—'?'—':d[2]+'%'):'—', 'CORRECT', 'var(--pink)')}
         ${stat('CHALLENGE', c?c[4]:'—', 'WIN %', 'var(--gold)')}
       </div>
-      <div class="ufeat ${u.me?'mine':''}"><span class="fl">FEATURED CARD</span>
-        <div class="fcard">${fc?pcard(fc,{noTap:1}):'<div class="tcard pc mini"></div>'}</div>
-        ${u.me?`<button class="go sm" onclick="pickFeatured()">PICK CARD</button>`:''}</div>
+      <div class="ufeat ${u.me?'mine':''}"><span class="fl">FEATURED CARD${u.me?'<button class="fpk" onclick="pickFeatured()" aria-label="Pick your featured card">✎ PICK</button>':''}</span>
+        <div class="fcard">${fc?pcard(fc,{noTap:1}):'<div class="tcard pc mini"></div>'}</div></div>
     </div></div>`;
 }
 /* Featured card: yours is any player you choose; everyone else shows their top scorer this run until they choose */
@@ -284,14 +282,16 @@ function rulesScreen(){
      +sec('DAILY THEMES','var(--pink)',[['MONSTER MONDAY','Points + Rebounds + Assists'],['TEAMS TUESDAY','Pick the team that wins'],['WET WEDNESDAY 💦','Most 3-pointers made'],['THOROUGH THURSDAY','Most Fantasy Points'],['FREE THROW FRIDAY','Most free throws made'],['STOCKS SATURDAY 📈','Steals + Blocks'],['SWISH SUNDAY','Most points']].map(([l,v])=>row(l,v)).join(''))
      +sec('STREAK & SCORING','var(--pink)',`${row('Correct pick','Streak +1 🔥')}${row('Wrong pick','Streak resets to 0')}${row('Push (tie / no hit)','Streak holds')}${row('Player sits out','No contest · streak holds')}${row('No pick','Streak resets')}${row('Picks lock','Once the game tips off')}${note('Streaks and total correct picks are tracked all season. Check the Leaderboard inside the Duel card to see how you stack up.')}`),
   };
-  const tabs=[['fz','FANTASY'],['wlc','CHALLENGE'],['duel','DUEL']];
-  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>RULES</h1></div>
-    <div class="mtabs t3 rtabs">${tabs.map(([k,l])=>`<button class="${RZ.tab===k?'on':''}" onclick="RZ.tab='${k}';render()">${l}</button>`).join('')}</div>
+  T.cards=()=>typeof cardHelpHtml==='function'?cardHelpHtml():'';
+  const tabs=[['fz','FANTASY'],['wlc','CHALLENGE'],['duel','DUEL'],['cards','CARDS']];
+  return topBar()+`<div class="screen"><div class="head"><button class="back" onclick="go('home')">◀</button><h1>RULES/HELP</h1></div>
+    <div class="mtabs t4 rtabs">${tabs.map(([k,l])=>`<button class="${RZ.tab===k?'on':''}" onclick="RZ.tab='${k}';render()">${l}</button>`).join('')}</div>
     <div class="panel rules">${T[RZ.tab]()}</div></div>`;
 }
 SCREENS.rules = rulesScreen;
 document.head.insertAdjacentHTML('beforeend',`<style>
 .rtabs{margin-bottom:12px}
+.rtabs.t4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .rules .rlsec{margin-bottom:18px}.rules .rlh{font-size:6.5px;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--edge)}
 .rules .rlr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .rules .rlr span{font-size:5.5px;color:var(--t3);display:flex;align-items:center;gap:6px}.rules .rlr b{font-weight:normal;font-size:6px;color:var(--t1);text-align:right;max-width:58%;line-height:1.6}
@@ -306,8 +306,9 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 /* Nov 24 · Stats: Baller-select grid, condensed stage, stats stacked left + featured card right */
 .ugrid2{display:flex;flex-direction:column;gap:7px;padding:10px 12px 8px;background:#000;border:3px solid #000;box-shadow:0 0 0 2px var(--blue);border-radius:8px}
 .urow{display:flex;justify-content:center;gap:7px}
-.urow.off{transform:translateX(calc(50% / var(--per)))}
-.ugrid2 .ut{position:relative;width:calc((100% - 7px * 4) / 5);max-width:58px;aspect-ratio:1;border:0;padding:0;background:none;cursor:pointer;transform:skewX(-10deg);overflow:visible;display:block}
+/* staggered rows that stay inside the box: each row gives up half a tile on one side */
+.urow{--tw:min(58px,calc((100% - 7px * (var(--per) - 1)) / (var(--per) + .5)));justify-content:center}.urow:not(.off){padding-right:calc(var(--tw) / 2)}.urow.off{padding-left:calc(var(--tw) / 2)}
+.ugrid2 .ut{position:relative;width:var(--tw);flex:none;aspect-ratio:1;border:0;padding:0;background:none;cursor:pointer;transform:skewX(-10deg);overflow:visible;display:block}
 .ugrid2 .ut .in{position:absolute;inset:0;border:2px solid #000;box-shadow:0 0 0 1px #2d2668;overflow:hidden;background:linear-gradient(160deg,#2a2370,#120d3a 70%);display:grid;place-items:center}
 .ugrid2 .ut .av{transform:skewX(10deg)}.ugrid2 .ut .av canvas{width:38px;height:38px;image-rendering:pixelated}
 .ugrid2 .ut.on .in{box-shadow:0 0 0 2px #ffd23d,0 0 12px #ffd23d}
@@ -326,6 +327,9 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .ufeat{display:flex;flex-direction:column;align-items:center;gap:7px;padding:9px 8px;border:2px solid #000;box-shadow:0 0 0 2px var(--gold);border-radius:10px;background:radial-gradient(circle at 30% 20%,#3a2a10,#0a0818 75%)}
 .ufeat .fl{font-size:5px;color:var(--gold);letter-spacing:.08em}
 .ufeat .fcard{width:100%}.ufeat .fcard .tcard{width:100%}
-.ufeat .go.sm{font-size:5.5px;padding:6px 8px;width:100%}
+.ufeat .fl{display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
+.ufeat{position:relative}.ufeat .fpk{position:absolute;top:-9px;right:8px;z-index:2;font:inherit;font-size:4.5px;padding:3px 5px;border-radius:8px;border:1px solid var(--gold);background:#000;color:var(--gold);cursor:pointer;white-space:nowrap}
+.sndrow{display:flex;align-items:center;gap:12px}.sndrow input{flex:1;min-width:0}
+.sndt{flex:none;font:inherit;font-size:7px;padding:9px 12px;border-radius:8px;border:2px solid var(--edge);background:var(--card);color:var(--t2);cursor:pointer;min-width:88px}.sndt.on{border-color:var(--gold);color:var(--gold)}
 .capk .fq{width:100%;font:inherit;font-size:7px;padding:10px;border-radius:8px;border:2px solid var(--edge);background:#060b18;color:var(--t1);margin:4px 0 10px}
 </style>`);

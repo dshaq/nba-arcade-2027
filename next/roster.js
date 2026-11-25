@@ -175,26 +175,54 @@ function openPlayer(n, actions=[]){
   const sched = DAYN.map((d,di)=>{ const g = di===TODAY_I ? (GAMES[p.t] ? `${GAMES[p.t].home?'vs':'@'} ${GAMES[p.t].opp}` : '') : (()=>{ const s=dayGame(n,di); return s==='NO GAME'?'':s.replace(/^\S+ /,''); })();
     const fp = di<TODAY_I ? (()=>{ const v=(typeof LIVE!=='undefined'&&LIVE.on) ? (()=>{ const ymd=LIVE.W.ymd(new Date(+WEEK_START(MU.week)+di*864e5+432e5)); const e=(LIVE.byPid.get(String(p.id))||[]).find(x=>String(x.date)===ymd); return e?Math.round(e.fp||0):null; })() : (g?Math.round(p.f*(.6+hsh(n+'x'+di)*.9)):null); return v; })() : di===TODAY_I && gs()==='live' && g ? p.td : null;
     return `<div class="sd ${di===TODAY_I?'tdy':''} ${g?'':'off'}"><b>${d}</b><span>${g||'—'}</span><i>${fp!=null?fp:''}</i></div>`; }).join('');
-  const log = gameLog(p).map(r=>`<tr><td>${r.d}</td><td>${r.o}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td><b>${r.fp}</b></td></tr>`).join('');
+  const log = gameLog(p).length;
   const o=overlay(`<div class="sheet pbox" style="--c:${({legend:'#ff5fbf',gold:'#ffd93d',silver:'#c8d0e0',bronze:'#d98a4e'})[rarity(p.f)]}">
     <div class="pb-top">${card16(n,null,{noinj:1})}<div class="pb-id"><small>${RARE_LBL[rarity(p.f)]} · ${owner}</small><h3>${p.n.toUpperCase()}</h3><p>${p.t} · ${p.p}${p.inj?` · <b style="color:${p.inj==='OUT'?'#ff3b5c':'var(--gold)'};font-weight:normal">${p.inj}</b>`:''}</p>
       <p class="tdg">${GAMES[p.t]?`TODAY ${GAMES[p.t].time} ${GAMES[p.t].home?'vs':'@'} ${GAMES[p.t].opp}`:'NO GAME TODAY'}</p></div></div>
     ${actions.length?`<div class="pb-acts">${actions.map((a,k)=>`<button class="${/IR/.test(a[0])?'ir':''}" data-k="${k}">${a[0]}</button>`).join('')}</div>`:''}
     <div class="pstats"><div><b>${p.f}</b>FP/G</div><div><b>${p.l5}</b>LAST 5</div><div><b>${p.wk}</b>THIS WEEK</div><div><b>${p.fall}</b>FALL</div></div>
-    <div class="cap">THIS WEEK</div><div class="sched7">${sched}</div>
-    ${log?`<div class="cap">LAST GAMES</div><table class="glog"><tr><th></th><th>OPP</th><th>PTS</th><th>REB</th><th>AST</th><th>FP</th></tr>${log}</table>`:''}
+    <div class="cap">BOX SCORES · WEEK ${MU.week}</div>${boxTable(weekBox(p))}
+    ${log?`<div class="cap">LAST 5 GAMES</div>${boxTable(gameLog(p))}`:''}
 </div>`);
   o.querySelector('.pb-top .rc16')?.classList.add('big');
   const x=document.createElement('button'); x.className='pbx'; x.setAttribute('aria-label','Close'); x.textContent='✕'; x.onclick=()=>o.remove(); o.querySelector('.pbox').prepend(x);
   paintPix(o);
   o.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ o.remove(); actions[+b.dataset.k][1](); });
 }
+/* A stat line with every number that moves Fantasy Points (same columns as the live NBA Arcade). */
+const BOX_COLS=[['pts','PTS'],['reb','REB'],['ast','AST'],['stl','STL'],['blk','BLK'],['mfg','MFG',1],['mft','MFT',1],['to','TO',1],['flg','FLG',1],['tech','TECH',1]];
+const oppAbbr = o => String(o||'').replace(/^(vs|@)\s*/,'').trim().slice(0,3).toUpperCase();
+function liveLine(e){ const n=v=>v==null?0:+v||0; return {pts:n(e.pts),reb:n(e.reb),ast:n(e.ast),stl:n(e.stl),blk:n(e.blk),mfg:Math.max(0,n(e.fga)-n(e.fgm)),mft:Math.max(0,n(e.fta)-n(e.ftm)),to:n(e.to??e.turnover),flg:n(e.flagrant),tech:n(e.technical),fp:Math.round(e.fp||0)}; }
+function fakeLine(p,key){ const f=Math.max(4,Math.round(p.f*(.55+hsh(p.n+key)*.95))), r=k=>hsh(p.n+key+k);
+  const L={stl:Math.round(r('s')*2.4),blk:Math.round(r('b')*1.8),mfg:Math.round(2+r('m')*7),mft:Math.round(r('t')*3),to:Math.round(r('o')*4),flg:0,tech:r('x')<.08?1:0};
+  const plus=f+L.mfg+L.mft+L.to+L.tech-L.stl-L.blk; L.pts=Math.max(0,Math.round(plus*.6)); L.reb=Math.max(0,Math.round(plus*.24)); L.ast=Math.max(0,plus-L.pts-L.reb);
+  L.fp=L.pts+L.reb+L.ast+L.stl+L.blk-L.mfg-L.mft-L.to-L.flg-L.tech; return L; }
 function gameLog(p){
   if(typeof LIVE!=='undefined' && LIVE.on){
-    const W=LIVE.W, lines=(LIVE.byPid.get(String(p.id))||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);
-    return lines.map(e=>{ const d=String(e.date); return {d:`${+d.slice(4,6)}/${+d.slice(6)}`, o:e.opp||'', pts:e.pts??'', reb:e.reb??'', ast:e.ast??'', fp:Math.round(e.fp||0)}; });
+    const lines=(LIVE.byPid.get(String(p.id))||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);
+    return lines.map(e=>{ const d=String(e.date).replace(/-/g,''); return {d:`${+d.slice(4,6)}/${+d.slice(6,8)}`, o:oppAbbr(e.opp), ...liveLine(e)}; });
   }
-  return [...Array(5)].map((_,k)=>{ const f=Math.round(p.f*(.55+hsh(p.n+'g'+k)*.95)); return {d:`11/${12-k}`, o:Object.keys(TC)[Math.floor(hsh(p.n+'o'+k)*30)], pts:Math.round(f*.55), reb:Math.round(f*.2), ast:Math.round(f*.14), fp:f}; });
+  return [...Array(5)].map((_,k)=>({d:`11/${12-k}`, o:Object.keys(TC)[Math.floor(hsh(p.n+'o'+k)*30)], ...fakeLine(p,'g'+k)}));
+}
+/* This week, Mon–Sun: every game, played or not. Unplayed games keep their stat columns blank. */
+function weekBox(p){
+  const out=[];
+  for(let di=0;di<7;di++){ const g=di===TODAY_I?(GAMES[p.t]?'x':''):dayGame(p.n,di); if(!g||g==='NO GAME') continue;
+    const day=new Date(+WEEK_START(MU.week)+di*864e5+432e5), d=`${day.getMonth()+1}/${day.getDate()}`;
+    const o=di===TODAY_I&&GAMES[p.t]?GAMES[p.t].opp:oppAbbr(String(g).replace(/^\S+\s+/,''));
+    let line=null;
+    if(di<TODAY_I || (di===TODAY_I && gs()==='live')){
+      if(typeof LIVE!=='undefined' && LIVE.on){ const ymd=LIVE.W.ymd(day), e=(LIVE.byPid.get(String(p.id))||[]).find(x=>String(x.date).replace(/-/g,'')===ymd); if(e) line=liveLine(e); }
+      else line=fakeLine(p,'w'+MU.week+'d'+di);
+    }
+    out.push({d:DAYN[di]+' '+d, o, ...(line||{}), up:!line, live:di===TODAY_I&&gs()==='live'});
+  }
+  return out;
+}
+function boxTable(rows){
+  if(!rows.length) return '<div class="bxnone">NO GAMES THIS WEEK</div>';
+  return `<div class="bxw"><table class="glog bx"><tr><th>DATE</th><th>OPP</th>${BOX_COLS.map(([k,l,neg])=>`<th class="${neg?'ng':''}">${l}</th>`).join('')}<th class="fp">FP</th></tr>
+    ${rows.map(r=>`<tr class="${r.up?'up':''} ${r.live?'lv':''}"><td>${r.d}</td><td>${r.o||''}</td>${BOX_COLS.map(([k,l,neg])=>`<td class="${neg?'ng':''}">${r.up?'':(r[k]??'')}</td>`).join('')}<td class="fp"><b>${r.up?'':(r.fp??'')}</b></td></tr>`).join('')}</table></div>`;
 }
 // Any portrait (img or card with data-pn) opens the lightbox, unless the tap is the game action there
 document.addEventListener('click', e=>{
@@ -283,6 +311,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .sd b{display:block;font-weight:normal;font-size:5px;color:var(--t3);margin-bottom:3px}.sd span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sd i{display:block;font-style:normal;color:var(--gold);font-size:6px;margin-top:3px;min-height:6px}
 .sd.tdy{border-color:var(--gold)}.sd.off{opacity:.45}
+.bxw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}.bxnone{font-size:5.5px;color:var(--t3);padding:6px 0}
+.glog.bx{font-size:5px;min-width:300px}.glog.bx th,.glog.bx td{padding:5px 2px;white-space:nowrap}.glog.bx .ng{color:#ff8fa0}.glog.bx th.ng{color:#c06070}.glog.bx tr.up td{color:var(--t3)}.glog.bx tr.lv td:first-child{color:var(--gold)}.glog.bx td:nth-child(2){text-align:left}.glog.bx th:nth-child(2){text-align:left}
 .glog{width:100%;border-collapse:collapse;font-size:6px}.glog th{font-weight:normal;color:var(--t3);font-size:5px;text-align:right;padding:3px}
 .glog td{text-align:right;padding:5px 3px;border-top:1px solid var(--edge)}.glog td:first-child,.glog th:first-child{text-align:left;color:var(--t3)}.glog b{font-weight:normal;color:var(--gold)}
 .chg{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.chg span{font-size:6px;padding:5px 7px;border-radius:5px;background:rgba(57,255,106,.1);border:1px solid var(--green);color:var(--green)}
@@ -345,7 +375,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>.rc-bot i small{font-size:.
 
 document.head.insertAdjacentHTML('beforeend',`<style>
 /* IR: its own dashed tray at the end of the bench row, card laid in at an angle (Dan's pick, option 4) */
-.cgrid.fan>.irtray{flex:0 0 24%;max-width:24%;margin-left:5%;position:relative;padding:8px 5px 6px;border:2px dashed #7a3cff;border-radius:8px;background:rgba(122,60,255,.1);align-self:center}
+.cgrid.fan.bn{justify-content:flex-start}
+.cgrid.fan>.irtray{flex:0 0 24%;max-width:24%;margin-left:auto;position:relative;padding:8px 5px 6px;border:2px dashed #7a3cff;border-radius:8px;background:rgba(122,60,255,.1);align-self:center}
 .cgrid.fan>.irtray>span{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:3;font-size:6px;color:#fff;background:#7a3cff;padding:2px 6px;border:1px solid #000}
 .cgrid.fan>.irtray>.rc16{width:100%;max-width:none;margin:0;transform:rotate(-8deg)}
 .cgrid.fan>.rc16:nth-last-child(2){margin-right:0}

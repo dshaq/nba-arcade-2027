@@ -557,7 +557,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .boss{gap:10px}.boss .sp canvas{width:62px!important;height:62px!important}
 .boss .bn{font-size:5.5px;line-height:1.6}.boss .bn b{font-size:7px}
 .bhp{height:8px;margin:5px 0 3px}.bsc{font-size:14px!important;margin-top:4px}.bsc i{font-size:6px}
-.rooms.in{margin-top:10px;gap:4px}.rooms.in .room{padding:4px 0;font-size:5px}.rooms.in .room b{font-size:5.5px}
+.rooms.in{margin-top:10px;gap:4px;align-items:stretch}.rooms.in .room{padding:4px 0;font-size:5px;display:flex;flex-direction:column;justify-content:center;min-height:42px}.rooms.in .room b{font-size:5.5px}
 .threat{margin-top:10px}
 .dlg{height:calc(3 * 2em + 24px);min-height:0!important;overflow-y:auto;scrollbar-width:none}.dlg::-webkit-scrollbar{display:none}
 .tonight>div{flex:none;width:64px;text-align:center;font-size:5.5px;color:var(--t2);line-height:1.7}

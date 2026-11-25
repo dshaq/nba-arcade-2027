@@ -80,7 +80,13 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .todo.ok{color:var(--green)}.todo.ok .w{background:var(--green);color:#022;clip-path:none;border-radius:50%;padding:0;animation:none}
 @keyframes blink{50%{opacity:.35}}
 
-.fan{--c:var(--green);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;min-height:200px}
+.box.fan{--c:var(--green);display:flex;flex-direction:column}
+.box.fan .fsc{display:flex;align-items:center;gap:8px;margin:16px 0 4px}.box.fan .fsc b{font-weight:normal;font-size:clamp(17px,5.2vw,22px);text-shadow:0 3px 0 #000}.box.fan .fsc b.lead{color:var(--green)}.box.fan .fsc .dash{flex:0 0 12px;height:3px;background:var(--t3)}
+.box.fan .wl{font-size:7px;letter-spacing:.06em;margin-bottom:2px}.box.fan .wl.win{color:var(--green)}.box.fan .wl.lose{color:var(--red)}.box.fan .wl.tie{color:var(--t2)}
+.box.fan .todo{margin-top:auto;padding-top:8px}
+.drft{--c:var(--blue,#4a9eff);display:flex;flex-direction:column}
+.allstar.dr{font-size:11px;line-height:1.5;color:#fff;background:linear-gradient(180deg,#1d4fd8,#0b2a7a);transform:rotate(-4deg);text-shadow:2px 2px 0 #071a4d;border-color:#9fd2ff;white-space:normal}
+.allstar.dr small{color:#cfe6ff}
 .fan .eyebrow{font-size:6px;color:var(--t3);margin-top:6px}
 .mu{display:grid;grid-template-columns:auto minmax(14px,46px) auto;align-items:center;justify-content:start;column-gap:10px;row-gap:7px;margin:18px 0 6px}
 .mu b{font-weight:normal;font-size:clamp(18px,6vw,26px);text-shadow:0 3px 0 #000;text-align:center}
@@ -262,7 +268,7 @@ canvas.dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none
 .toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);transform:translateX(-50%);z-index:80;font-size:7px;padding:9px 14px;border-radius:8px;background:var(--green);color:#022;border:2px solid #000;box-shadow:0 3px 0 #000;white-space:nowrap}
 .proto{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 76px);z-index:4;font-size:5px;color:var(--t3);letter-spacing:.1em;white-space:nowrap}
 #dissolve{position:absolute;inset:0;width:100%;height:100%;z-index:85;image-rendering:pixelated;pointer-events:none}
-@media (max-width:370px){.fan{grid-template-columns:1fr}.mvp{justify-self:center}.mu b{font-size:22px}}
+
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -384,7 +390,7 @@ function topBar(){
   return `<div class="top ${cur==='home'?'':'nos'}"><div class="logo"><b>NBA</b> <i>ARCADE</i></div><div class="sp"></div>
     ${`<button class="ibtn mis-ic" onclick="go('missions')" aria-label="Daily Checklist">${misRing()}${I.target}${reward?'<span class="dot rd"></span>':''}</button>`}
     <button class="ibtn" onclick="say('Chat · 2 new')" aria-label="Chat">${I.chat}<span class="dot">2</span></button>
-    <button class="ibtn" onclick="go('cards')" aria-label="Collection">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
+    <button class="ibtn" onclick="go('cards')" aria-label="Cards">${I.cards}${S.packs?`<span class="dot">${S.packs}</span>`:''}</button>
     <button class="ibtn me" onclick="go('baller')" aria-label="Your Baller"><span id="mebtn"></span><span class="lv">LV ${L.lv}</span></button></div>`
   + (cur!=='home' ? '' : `
   <div class="mstrip" onclick="go('missions')" role="button" aria-label="Daily Checklist">
@@ -403,16 +409,16 @@ function home(){
   const picksLeft = ['duel','futures'].filter(k=>!S.done[k] && (k==='duel' || futuresToday())).length;
   const pickA = S.done.duel===DUEL.a.short, pickB = S.done.duel===DUEL.b.short;
   return topBar()+`<div class="screen"><div class="home">
-    <div class="box fan" onclick="openFantasy()">
-      <div>
-        <h2>FANTASY</h2><div class="eyebrow">WEEK ${MU.week} · VS ${OPP.name.toUpperCase()}</div>
-        <div class="mu"><b class="${lead?'lead':''}">${MU.me}</b><span class="dash"></span><b class="${lead?'':'lead'}">${MU.opp}</b>
-          <span class="tn">${ME.team.toUpperCase()}</span><span></span><span class="tn">${OPP.team.split(' ').pop().toUpperCase()}</span></div>
+    <div class="row2">
+      <div class="box fan" onclick="openFantasy()">
+        <h2>FANTASY</h2><div class="eyebrow">FALL RUN · WEEK ${MU.week}</div>
+        <div class="fsc"><b class="${lead?'lead':''}">${MU.me}</b><span class="dash"></span><b class="${lead?'':'lead'}">${MU.opp}</b></div>
+        <div class="wl ${MU.me===MU.opp?'tie':lead?'win':'lose'}">${MU.me===MU.opp?'TIED':lead?'WINNING':'LOSING'}</div>
         ${todoLine('lineup',{need:'SET LINE-UP!',done:'LINE-UP SET'})}
       </div>
-      <div class="mvp">
-        <div class="cw mvpc">${typeof pcard==='function'?pcard(MVP.name,{mini:1,noTap:1}):''}</div>
-        <div class="plate one">${MVP.label} · ${MVP.fp}</div>
+      <div class="box drft" onclick="go('draft')">
+        <h2>DRAFT</h2>
+        <div class="banner"><div class="allstar dr">WINTER RUN<br>DRAFT<small>DECEMBER 20 · 8:00 ET</small></div></div>
       </div>
     </div>
     <div class="row2">
@@ -551,11 +557,11 @@ function openSheet(k){
 function openMenu(){
   const o=overlay(`<div class="sheet"><h3>MORE</h3><div class="menu">
     <a data-a="missions"><span>🎯</span>Daily Checklist<small>${doneCount()}/${MIS().length} TODAY</small></a>
-    <a data-a="cards"><span>🎴</span>Collection<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
+    <a data-a="cards"><span>🎴</span>Cards<small>${S.packs||0} PACK${S.packs===1?'':'S'}</small></a>
     <a href="cardlab/" style="text-decoration:none"><span>🃏</span>Card Lab<small>FRONTS &amp; BACKS</small></a><a href="toplab/" style="text-decoration:none"><span>🏆</span>Top 3 Lab<small>CHALLENGE LEADERS</small></a><a href="forge/" style="text-decoration:none"><span>🧬</span>Card Forge<small>LEVEL UP &amp; EVOLVE</small></a><a href="shapelab/" style="text-decoration:none"><span>📐</span>Card Shape Lab<small>SQUARE ART, TALL CARD</small></a><a href="pocketlab/" style="text-decoration:none"><span>🟩</span>Pocket Lab<small>FOUR-GREEN HANDHELD</small></a><a href="soundlab/" style="text-decoration:none"><span>🔊</span>Sound Lab<small>AUDITION EVERY SOUND</small></a><a href="packlab/" style="text-decoration:none"><span>📦</span>Pack Lab<small>DESIGN &amp; OPENING</small></a>
     <a href="holo/" style="text-decoration:none"><span>✨</span>Holo Lab<small>PREVIEW</small></a>
     <a data-a="gauntlet"><span>⚔️</span>Weekly Gauntlet<small>TEST · CHALLENGE REVAMP</small></a>
-    <a data-a="nba"><span>🏀</span>NBA Scores<small>SCORES · STANDINGS</small></a><a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a><a data-a="stats"><span>🏆</span>Stats<small>EVERY PLAYER IN THE LEAGUE</small></a><a data-a="x"><span>📖</span>Rules<small>FANTASY · CHALLENGE · DUEL</small></a><a data-a="prof"><span>⚙️</span>Settings<small>PROFILE · SOUND · THEME</small></a>
+    <a data-a="nba"><span>🏀</span>NBA Scores<small>SCORES · STANDINGS</small></a><a data-a="draft"><span>📋</span>Draft<small>WINTER RUN · DEC 20</small></a><a data-a="baller"><span>🎨</span>Ballers<small>LV ${lvOf(B(S.active).exp).lv}</small></a><a data-a="stats"><span>🏆</span>Stats<small>EVERY PLAYER IN THE LEAGUE</small></a><a data-a="tx"><span>📜</span>Transactions<small>ADDS · DROPS · TRADES</small></a><a data-a="x"><span>📖</span>Rules/Help<small>FANTASY · CHALLENGE · DUEL · CARDS</small></a><a data-a="prof"><span>⚙️</span>Settings<small>PROFILE · SOUND · THEME</small></a>
     <div class="mcap">PREVIEW SWITCHES</div>
     <a data-a="gs"><span>🏀</span>Today's games<small>${gs()==='live'?'LIVE NOW':'BEFORE TIP-OFF'} ⇄</small></a>
     <a data-a="wph"><span>⭐</span>Weekly Challenge<small>${S.wphase==='live'?'IN PROGRESS':'PICKING'} ⇄</small></a>
@@ -758,16 +764,16 @@ setTimeout(async()=>{ if(start.done) return;
   if(!start.done){ if(miss.length && PARTS.some(p=>!LOADED.has(p))) showErr('still missing: '+PARTS.filter(p=>!LOADED.has(p)).join(', ')); start(); }
 }, 5000);
 </script>
-<script src="data.js?v=35" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
-<script src="modes.js?v=35" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
-<script src="fantasy.js?v=35" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
-<script src="roster.js?v=35" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
-<script src="live.js?v=35" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
-<script src="cards.js?v=35" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
-<script src="collect.js?v=35" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
-<script src="nba.js?v=35" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
-<script src="trades.js?v=35"></script>
-<script src="gauntlet.js?v=35"></script>
-<script src="sfx.js?v=35"></script>
+<script src="data.js?v=36" onload="LOADED.add('data')" onerror="whyFail('data')"></script>
+<script src="modes.js?v=36" onload="LOADED.add('modes')" onerror="whyFail('modes')"></script>
+<script src="fantasy.js?v=36" onload="LOADED.add('fantasy')" onerror="whyFail('fantasy')"></script>
+<script src="roster.js?v=36" onload="LOADED.add('roster')" onerror="whyFail('roster')"></script>
+<script src="live.js?v=36" onload="LOADED.add('live')" onerror="whyFail('live')"></script>
+<script src="cards.js?v=36" onload="LOADED.add('cards')" onerror="whyFail('cards')"></script>
+<script src="collect.js?v=36" onload="LOADED.add('collect')" onerror="whyFail('collect')"></script>
+<script src="nba.js?v=36" onload="LOADED.add('nba')" onerror="whyFail('nba')"></script>
+<script src="trades.js?v=36"></script>
+<script src="gauntlet.js?v=36"></script>
+<script src="sfx.js?v=36"></script>
 </body>
 </html>

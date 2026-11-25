@@ -140,7 +140,7 @@ claim = function(){
       <span><b>${P(n).n}</b><div class="xb"><i style="width:${l.pct}%"></i><em style="left:${l.pct}%;width:${Math.min(100-l.pct,Math.round(100*FULL_BONUS/(l.hi-l.lo)))}%"></em></div>
       <small>LV ${l.lv} · ${up?`<u>LEVELS UP → ${l.next.name}</u>`:`${l.need} TO LV ${l.lv+1}`}</small></span></button>`; }).join('')}</div></div>`);
   o.querySelector('#rbv').appendChild(ballerCv(S.active,2));
-  const fin=(msgEl)=>{ S.bonus=true; S.packs=(S.packs||0)+1; save(); o.remove(); render(); setTimeout(()=>say('+1 card pack · open it in Collection'), 2400); };
+  const fin=(msgEl)=>{ S.bonus=true; S.packs=(S.packs||0)+1; save(); o.remove(); render(); setTimeout(()=>say('+1 card pack · open it in Cards'), 2400); };
   o.querySelector('#rb').onclick=()=>{ S.bonusTo='baller'; fin(); gain(FULL_BONUS, document.querySelector('.chest')); };
   o.querySelectorAll('.rp').forEach(b=>b.onclick=()=>{ const n=b.dataset.n; S.bonusTo=n; fin(); pxGain(n, FULL_BONUS, 'Daily reward'); });
 };
@@ -162,7 +162,24 @@ keep = function(pull){
 };
 cardHtml = (orig => function(c, v, extra={}){ if(v==='moment') return orig(c,v,extra); return pcard(c.n,{v,noTap:1}).replace(/<\/div>$/, (extra.isNew?'<span class="newb">NEW</span>':'')+'</div>'); })(cardHtml);
 
-/* ── COLLECTION (replaces the old binder) ── */
+
+/* ── CARDS help: the whole card system in one place (Cards page HELP button + Rules/Help CARDS tab) ── */
+function cardHelpHtml(){
+  const sec=(t,c,b)=>`<div class="rlsec"><div class="rlh" style="color:${c}">${t}</div>${b}</div>`;
+  const row=(l,v)=>`<div class="rlr"><span>${l}</span><b>${v}</b></div>`;
+  const note=t=>`<p class="rln">${t}</p>`;
+  const who=myNames()[0]||PL.find(p=>p.n).n;
+  return sec('HOW CARDS WORK','var(--gold)',`<p class="rln big">Every NBA player has a card. Open packs to collect them. Each card levels up as the player earns EXP, and every level unlocks a new add-on for his card.</p>`)
+   +sec('CARD LEVELS','var(--gold)',`<div class="ladder">${VERS.map(v=>`<div><div class="cw">${pcard(who,{upTo:v.lv,noTap:1})}</div><b>LV ${v.lv}</b><small>${v.name}</small></div>`).join('')}</div>`
+      +VERS.map((v,i)=>row(`LV ${v.lv} · ${v.name}`, i?`${PX_LV[i]} EXP`:'Collect the card')).join('')
+      +note('Tap a card to open it, then switch any unlocked add-on on or off.'))
+   +sec('EARNING EXP','var(--green)',`${row('Start him in Fantasy','EXP every day he plays')}${row('Pick him in a Duel','+15 EXP')}${row('Call the Duel right','+25 EXP')}${row('Put him in your Challenge line-up','+20 EXP')}${row('Pull a duplicate from a pack',`+${DUPE_XP} EXP`)}${row('Give him your Daily Reward',`+${FULL_BONUS} EXP`)}`)
+   +sec('PACKS','var(--orange)',`${row('Cards per pack','5')}${row('Earn a pack','Finish your Daily Checklist or other Missions')}${row('New player','His card joins your collection')}${row('Duplicate',`+${DUPE_XP} EXP to his card`)}${note('Every pack is printed with the run it came from, e.g. FALL RUN ’27.')}`)
+   +sec('EVOLVE','var(--pink)',`${row('Copies needed',`${EVO_N} of the same player`)}${note('Ten copies of a player evolve his card into a brand-new design. Duplicates come from packs.')}`);
+}
+function cardHelp(){ const o=overlay(`<div class="sheet chelp" style="--c:var(--gold)"><h3>ⓘ CARDS · HELP</h3><div class="rules">${cardHelpHtml()}</div><div class="acts"><button class="btn" id="hx">GOT IT</button></div></div>`); o.querySelector('#hx').onclick=()=>o.remove(); }
+
+/* ── CARDS (the collection page) ── */
 const CL = {f:'mine', q:''};
 function collection(){
   const all=PL.filter(p=>p.n), tot=all.length*(VERS.length-1);
@@ -171,14 +188,12 @@ function collection(){
   if(CL.f!=='close') list=list.slice().sort((a,b)=>pxXp(b.n)-pxXp(a.n) || b.f-a.f);
   list=list.slice(0, 90);
   const tab=(k,l)=>`<button class="${CL.f===k?'on':''}" onclick="CL.f='${k}';render()">${l}</button>`;
-  return topBar()+`<div class="screen"><div class="mode cl" style="--mc:var(--gold)"><div class="mhead"><h1>COLLECTION</h1><span class="clp">${(100*(metN+have)/(all.length+tot)).toFixed(1)}%</span></div>
+  return topBar()+`<div class="screen"><div class="mode cl" style="--mc:var(--gold)"><div class="mhead"><h1>CARDS</h1><span class="clp">${(100*(metN+have)/(all.length+tot)).toFixed(1)}%</span><button class="chbtn" onclick="cardHelp()">ⓘ HELP</button></div>
     <div class="panel"><div class="clst"><div><b>${metN}</b><span>PLAYERS</span><small>OF ${all.length}</small></div><div><b>${have}</b><span>ADD-ONS</span><small>OF ${tot.toLocaleString()}</small></div><div><b>${maxN}</b><span>MAXED</span><small>LV 6</small></div><div><b>${S.moments.length}</b><span>MOMENTS</span><small>OF ${MOMENTS.length}</small></div></div>
       <div class="xb big"><i style="width:${100*(metN+have)/(all.length+tot)}%"></i></div></div>
-    <div class="panel"><div class="packrow"><div class="minipack">${S.packs||0}</div><div style="flex:1"><div style="font-size:8px;margin-bottom:8px">${S.packs?`${S.packs} PACK${S.packs>1?'S':''} TO OPEN`:'NO PACKS RIGHT NOW'}</div>
-      <div class="reward" style="margin:0 0 10px;text-align:left">Finish your Daily Checklist for a pack. A new player adds his card to your collection; a duplicate feeds his card +40 EXP and counts toward EVOLVE (10 copies).</div>
-      ${S.packs?'<button class="btn" onclick="openPack()">OPEN PACK ▶</button>':`<button class="go" style="background:var(--card);color:var(--t2);border-color:var(--edge)" onclick="S.packs=(S.packs||0)+1;save();render()">+1 PACK (PREVIEW ONLY)</button>`}</div></div></div>
-    <div class="ladder">${VERS.map(v=>`<div><div class="cw">${pcard(myNames()[0]||all[0].n,{upTo:v.lv,noTap:1})}</div><b>LV ${v.lv}</b><small>${v.name}</small></div>`).join('')}</div>
-    <div class="ctabs">${tab('mine','MY TEAM')}${tab('close','NEXT UP')}${tab('met','COLLECTED')}${tab('all','ALL')}</div>
+    <div class="panel packs2"><div class="minipack">${S.packs||0}</div><div class="pk2t"><b>${S.packs?`${S.packs} PACK${S.packs>1?'S':''} TO OPEN`:'NO PACKS RIGHT NOW'}</b><small>Finish your Daily Checklist or other Missions to earn new packs.</small></div>
+      ${S.packs?'<button class="btn" onclick="openPack()">OPEN ▶</button>':`<button class="go pv" onclick="S.packs=(S.packs||0)+1;save();render()">+1 (PREVIEW)</button>`}</div>
+    <div class="ctabs">${tab('mine','MY TEAM')}${tab('met','COLLECTED')}${tab('all','ALL')}</div>
     <div class="clg">${list.map(p=>{ const L=pxLv(p.n), m=met(p.n); return `<div class="cli ${m?'':'unmet'}"><div class="cw">${m?pcard(p.n,{mini:1}):`<div class="cbk" data-pn="${escA(p.n)}">${CARD_BACK}</div>`}</div><b>${p.s}</b>
       <div class="xb"><i style="width:${L.pct}%"></i></div><small>${m?`LV ${L.lv}${L.max?' · MAX':''} · ×${copies(p.n)}`:'NOT YET'}</small></div>`; }).join('')}</div>
   </div></div>`;
@@ -194,7 +209,7 @@ openPlayer = function(n, actions=[]){
   const L=pxLv(n), log=(S.px[n]||{}).log||[];
   const sec=document.createElement('div'); sec.className='pxs';
   const draw=()=>{ const c=copies(n), evo=EVO_READY[n];
-    sec.innerHTML=`<div class="cap">PLAYER LEVEL</div><div class="pxlvrow"><span class="lvg big ${L.max?'max':''}">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
+    sec.innerHTML=`<div class="cap">CARD LEVEL</div><div class="pxlvrow"><span class="lvg big ${L.max?'max':''}">${L.lv}</span><div style="flex:1"><div class="xb"><i style="width:${L.pct}%"></i></div>
       <small>${L.max?'MAX LEVEL · EVERY ADD-ON UNLOCKED':`${L.xp} / ${L.hi} EXP · ${L.need} MORE UNLOCKS ${L.next.name}`}</small></div></div>
       <div class="cap">CARD ADD-ONS · TAP TO SWITCH ON OR OFF</div>
       <div class="aons">${VERS.slice(1).map(v=>{ const ok=owns(n,v.k), isOn=addOn(n,v.k); return `<button class="${isOn?'on':''}" ${ok?'':'disabled'} data-k="${v.k}"><b>${v.name}</b><small>${ok?(isOn?'ON':'OFF'):'🔒 LV '+v.lv}</small></button>`; }).join('')}</div>
@@ -205,13 +220,20 @@ openPlayer = function(n, actions=[]){
       ${log.length?`<div class="xlog">${log.slice(0,4).map(([d,w,x])=>`<div><span>${w}</span><b>+${x}</b></div>`).join('')}</div>`:''}`;
     sec.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const off=((S.px[n] ||= {}).off ||= {}); off[b.dataset.k]=off[b.dataset.k]?0:1; save(); draw(); const pc=box.querySelector('.pbc'); if(pc) pc.innerHTML=pcard(n,{noTap:1}); render(); });
   };
-  draw(); box.querySelector('.pstats')?.after(sec);
+  draw(); box.appendChild(sec);   // card level sits below the box scores
 };
 
 /* hooks */
 AFTER.home = (prev => () => { prev && prev(); setTimeout(pxDaily, 400); })(AFTER.home);
 
 document.head.insertAdjacentHTML('beforeend', `<style>
+.cl .mhead{align-items:center}.cl .mhead .clp{margin-left:auto}
+.chbtn{font:inherit;font-size:5.5px;padding:6px 8px;border-radius:12px;border:2px solid var(--gold);background:var(--card);color:var(--t1);cursor:pointer;white-space:nowrap}
+.packs2{display:flex;align-items:center;gap:12px;padding:10px 12px!important}
+.packs2 .minipack{flex:none;transform:scale(.8)}
+.packs2 .pk2t{flex:1;min-width:0}.packs2 .pk2t b{display:block;font-weight:normal;font-size:7px;margin-bottom:6px}.packs2 .pk2t small{display:block;font-size:5px;line-height:1.8;color:var(--t2)}
+.packs2 .btn{flex:none;font-size:7px;padding:9px 10px}.packs2 .go.pv{flex:none;font-size:5px;padding:7px 8px;background:var(--card);color:var(--t2);border-color:var(--edge)}
+.chelp{max-height:84vh;overflow:auto}.chelp .rules{text-align:left;margin-top:6px}.chelp .ladder{margin:4px 0 10px}
 /* the card at small sizes */
 .tcard.pc{box-shadow:0 0 0 2px #000,0 4px 10px rgba(0,0,0,.45)}
 .tcard.mini{padding:6%;border-radius:7%/5%}

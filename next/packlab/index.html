@@ -111,12 +111,74 @@ header a,.snd{font:inherit;font-size:6px;color:var(--t3);text-decoration:none;bo
 .cart .lb b{font-weight:normal;font-size:8px;color:#fff;text-shadow:2px 2px 0 #000}.cart .lb small{font-size:5px;color:#ffd93d}
 .cart.in{top:-2%}
 .cart.in.seat{top:-4%}
+img{-webkit-user-drag:none;user-select:none;pointer-events:none}
+/* ── ★ SIGNATURE: the full flow (shop → pick from the ring → swipe to cut → swipe through → results → into the binder) ── */
+.stage.pro{height:min(680px,80vh);background:radial-gradient(80% 50% at 50% 38%,#2c4596,#0b1236 62%,#050816)}
+.stage.pro::before{content:'';position:absolute;left:-20%;right:-20%;bottom:-8%;height:34%;background:radial-gradient(50% 60% at 50% 30%,rgba(140,180,255,.25),transparent 70%);pointer-events:none}
+.pk{position:absolute;aspect-ratio:2/3;container-type:inline-size;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55))}
+.pk .pt,.pk .pb{position:absolute;left:0;right:0;overflow:hidden;background:conic-gradient(from 200deg at 50% 55%,#1d4fd8,#6fb4ff,#fff,#ff4a5a,#8e0a1a,#1d4fd8)}
+.pk .pt{top:0;height:13%;transition:transform .75s cubic-bezier(.3,.7,.4,1),opacity .75s}
+.pk .pb{top:13%;bottom:0}
+.pk .pt::after,.pk .pb::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.6) 47%,transparent 58%);background-size:320% 100%;animation:pksh 3.4s ease-in-out infinite;mix-blend-mode:overlay;pointer-events:none}
+@keyframes pksh{0%{background-position:130% 0}100%{background-position:-130% 0}}
+.pk .pt b{position:absolute;inset:30% 0 0;display:grid;place-items:center;font-weight:normal;font-size:4.2cqw;color:#000;letter-spacing:.06em}
+.pk .art{position:absolute;left:7%;right:7%;top:3%;bottom:8%;border:1cqw solid #000;border-radius:3cqw;overflow:hidden;background:radial-gradient(circle at 50% 38%,#2d52b8,#060c22 72%)}
+.pk .art img{position:absolute;left:-6%;width:112%;top:16%;height:66%;object-fit:cover;object-position:50% 12%;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
+.pk .lg{position:absolute;left:0;right:0;top:4%;text-align:center;font-size:8.5cqw;line-height:1.3;background:linear-gradient(180deg,#6fb4ff,#fff 50%,#ff4a5a 54%,#b0102a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .7cqw 0 #000)}
+.pk .ser{position:absolute;left:0;right:0;bottom:5%;text-align:center;font-family:var(--tk);font-style:italic;font-size:17cqw;color:#ffd93d;text-shadow:0 1cqw 0 #7a4b00,0 0 4cqw #000;line-height:.85}
+.pk .ser small{display:block;font-family:var(--px);font-style:normal;font-size:3.6cqw;color:#fff;text-shadow:0 .5cqw 0 #000;margin-top:2cqw}
+.shopk{animation:bob 3s ease-in-out infinite;transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg))}@keyframes bob{50%{translate:0 -6px}}
+.prow{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:6px;padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);z-index:5}
+.prow .mi{width:38px;aspect-ratio:5/7;border-radius:4px;border:2px solid #000;padding:2px;background:var(--fr);overflow:hidden}
+.prow .mi img{width:100%;height:100%;object-fit:cover;object-position:50% 15%;background:var(--tc);display:block;border-radius:2px}
+.prow small{align-self:center;font-size:5px;line-height:1.8;color:var(--t2);margin-left:4px}
+.btnp{position:absolute;left:50%;transform:translateX(-50%);z-index:20;font:inherit;font-size:9px;padding:13px 34px;border-radius:30px;border:3px solid #000;background:linear-gradient(180deg,#7ee7ff,#22b4e6);color:#04202c;box-shadow:0 5px 0 #0b5f80,0 0 24px rgba(74,223,255,.45);cursor:pointer;white-space:nowrap}
+.btnp:active{transform:translateX(-50%) translateY(3px);box-shadow:0 2px 0 #0b5f80}
+.pcount{position:absolute;left:0;right:0;text-align:center;font-size:6px;color:var(--t2);z-index:5}
+.wo{position:absolute;inset:0;z-index:60;background:#fff;opacity:0;pointer-events:none;transition:opacity .35s}
+.ringw{position:absolute;inset:0;perspective:1000px;perspective-origin:50% 38%;transition:opacity .4s,transform .5s}
+.ringw .rot{position:absolute;left:50%;top:44%;width:0;height:0;transform-style:preserve-3d}
+.ringw .pk{-webkit-box-reflect:below 6px linear-gradient(transparent 62%,rgba(255,255,255,.28))}
+.ringw .floor{position:absolute;left:-10%;right:-10%;top:62%;bottom:0;background:linear-gradient(180deg,rgba(160,200,255,.18),transparent 60%);transform:perspective(400px) rotateX(55deg);transform-origin:top}
+.big{transition:left .55s cubic-bezier(.3,1.2,.4,1),top .55s cubic-bezier(.3,1.2,.4,1),width .55s cubic-bezier(.3,1.2,.4,1),transform .8s cubic-bezier(.5,0,.7,.4);z-index:20}
+.big.drop{transform:translateY(120%)}
+.big.torn .pt{transform:translate(-45%,-260%) rotate(-24deg);opacity:0}
+.cutl{position:absolute;height:0;border-top:3px dashed #ffd93d;z-index:22;pointer-events:none;filter:drop-shadow(0 0 2px #000) drop-shadow(0 0 6px #ffb800);animation:blink 1s steps(2) infinite}
+.trail{position:absolute;height:6px;margin-top:-3px;outline:1px solid rgba(0,0,0,.35);z-index:23;pointer-events:none;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff 70%,#fff);box-shadow:0 0 10px #fff,0 0 20px #4adfff,0 0 40px #4adfff}
+.trail::after{content:'';position:absolute;right:-10px;top:-8px;width:20px;height:20px;border-radius:50%;background:radial-gradient(#fff,rgba(154,216,255,.7) 40%,transparent 70%)}
+.finger{position:absolute;z-index:24;font-size:22px;pointer-events:none;animation:fing 1.6s ease-in-out infinite}
+@keyframes fing{0%{transform:translateX(0);opacity:0}15%{opacity:1}80%{transform:translateX(var(--fx));opacity:1}100%{transform:translateX(var(--fx));opacity:0}}
+.sk{z-index:15;transition:transform .45s cubic-bezier(.3,.8,.4,1),left .6s cubic-bezier(.3,1.2,.4,1),top .6s cubic-bezier(.3,1.2,.4,1),opacity .45s}
+.sk .fc .nm{font-size:9px;padding:7px 2px}.sk .fc .ft{font-size:6.5px;padding:7px 6px}
+.sk.gone{opacity:0}
+.pips{position:absolute;left:0;right:0;z-index:30;display:flex;justify-content:center;gap:6px;pointer-events:none;height:22px}
+.pips i{font-style:normal;font-size:16px;color:#fff;text-shadow:0 0 8px var(--pc,#9ad8ff),0 2px 0 #000;animation:pip .45s cubic-bezier(.3,1.8,.5,1) backwards}
+@keyframes pip{0%{transform:translateY(-26px) scale(.3);opacity:0}100%{transform:none;opacity:1}}
+.spk{position:absolute;inset:-26px;pointer-events:none;z-index:3}
+.spk i{position:absolute;font-style:normal;color:#fff;text-shadow:0 0 6px var(--sc),0 0 14px var(--sc);animation:tw 1.4s ease-in-out infinite}
+@keyframes tw{0%,100%{transform:scale(.2);opacity:0}50%{transform:scale(1) rotate(45deg);opacity:1}}
+.sk.hitglow{filter:drop-shadow(0 0 14px var(--tz)) drop-shadow(0 0 30px var(--tz))}
+.ffb{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;z-index:40;font:inherit;font-size:6px;padding:8px 10px;border-radius:20px;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff;cursor:pointer}
+.res-t{position:absolute;left:0;right:0;top:16px;text-align:center;font-size:10px;color:#fff;text-shadow:0 2px 0 #000;z-index:30}
+.lvl{position:absolute;left:50%;top:44px;transform:translateX(-50%);width:min(300px,86%);z-index:30;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:6px;color:var(--t2)}
+.lvl .bar{height:10px;border-radius:6px;border:2px solid #000;background:#1a2244;overflow:hidden}.lvl .bar i{display:block;height:100%;width:var(--w0);background:linear-gradient(90deg,#39ff6a,#7ee7ff);transition:width 1.2s cubic-bezier(.3,.8,.4,1) .4s}
+.lvl b{font-weight:normal;color:var(--green)}
+.ppt{position:absolute;left:50%;top:66px;transform:translateX(-50%);z-index:30;font-size:6px;color:#fff;padding:6px 10px;border-radius:14px;background:rgba(179,107,255,.3);border:1px solid rgba(179,107,255,.6);white-space:nowrap}.ppt b{font-weight:normal;color:var(--gold)}
+.rc{z-index:20;transition:left .55s cubic-bezier(.5,0,.6,1),top .55s cubic-bezier(.5,0,.6,1),transform .55s cubic-bezier(.5,0,.6,1),opacity .55s}
+.rc .fc .nm{font-size:5.5px;padding:3px 1px}.rc .fc .ft{font-size:4px;padding:3px 2px}.rc .fc{padding:3px}.rc .bk,.rc .fc{border-width:2px;border-radius:6px}
+.rc.pop{animation:rpop .4s cubic-bezier(.3,1.8,.5,1) backwards}@keyframes rpop{0%{transform:scale(.4);opacity:0}}
+.rtag{position:absolute;left:0;right:0;text-align:center;font-size:5px;z-index:21;transition:opacity .3s}
+.rtag.n{color:var(--green)}.rtag.d{color:var(--gold)}
+.binder{position:absolute;left:50%;bottom:16px;width:58px;height:44px;margin-left:-29px;z-index:25;border:3px solid #000;border-radius:6px 10px 10px 6px;background:linear-gradient(90deg,#8e0a1a 0 18%,#e01a2e 18%);box-shadow:inset -4px 0 0 rgba(0,0,0,.25),0 4px 0 #000;display:grid;place-items:center;font-size:5px;color:#fff;transition:transform .15s}
+.binder.bump{transform:scale(1.18)}
+.tot{position:absolute;left:50%;bottom:72px;transform:translateX(-50%);z-index:30;font-size:6px;color:var(--t2);padding:7px 12px;border-radius:16px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.2);white-space:nowrap;opacity:0;transition:opacity .3s}
+.tot b{font-weight:normal;font-size:11px;color:#fff;margin-left:6px}
 </style>
 </head>
 <body>
 <main>
   <header>
-    <div><h1>📦 PACK LAB</h1><p>Three ways to open a pack. Each has its own pack design and opening move, and they share one card reveal. Five real players per pack, at least one a hit (Gold, Holo or All-Star). Hits glow and shake before you flip them. This lab is separate from the NEXT build.</p></div>
+    <div><h1>📦 PACK LAB</h1><p>★ SIGNATURE is the full opening flow, from shop to binder. A, B and C are pack looks with their own opening moves. Five real players per pack, at least one a hit (Gold, Holo or All-Star). Hits glow and shake before you flip them. This lab is separate from the NEXT build.</p></div>
     <div style="display:flex;gap:6px"><button class="snd" id="snd">🔊 SOUND ON</button><a href="../">← BACK TO NEXT</a></div>
   </header>
   <div class="tabs" id="tabs"></div>
@@ -222,13 +284,118 @@ function cartridge(){
     },650); };
 }
 
-const MODES={foil:['A · FOIL PACK',foilPack,'A classic crimped <b>foil wrapper</b> in the logo\'s blue-white-red chrome. Move your finger or mouse over it and the foil catches the light. <b>Drag across the top edge to tear it open</b>; the strip flies off and the cards slide up out of the wrapper.'],
+/* ── ★ SIGNATURE FLOW ── */
+const HERO=['Victor Wembanyama','SAS'];
+let PACKS=12, COLL=1247, XP=42, RUN=0;
+const crimp=(top)=>{ const p=[]; for(let i=0;i<=20;i++) p.push(`${i*5}% ${top?(i%2?0:28):(i%2?100:88)}%`); return top?`polygon(${p.join(',')},100% 100%,0 100%)`:`polygon(0 0,100% 0,${p.reverse().join(',')})`; };
+function packEl(w){ const p=el(`<div class="pk" style="width:${w}px"><div class="pt" style="clip-path:${crimp(1)}"><b>NBA ARCADE · SERIES 1</b></div><div class="pb" style="clip-path:${crimp(0)}"><div class="art"><img src="${pimg(HERO[1],HERO[0])}" alt="" onerror="this.remove()"><span class="lg">NBA<br>ARCADE</span><span class="ser">FALL RUN<small>5 CARDS · SERIES 1</small></span></div></div></div>`); return p; }
+const S2={ whoosh:()=>noise(.35,250,1400,.12), swish:()=>noise(.14,1800,6000,.08), pip:(i=0)=>tone(1320+i*220,{t:i*.07,d:.05,v:.04}), thunk:()=>tone(160,{f2:80,d:.12,type:'triangle',v:.14}), cut:()=>tone(2400,{d:.01,v:.02}) };
+const RANK={base:0,gold:1,holo:2,star:3}, PIPS={base:'◆',gold:'◆◆',holo:'◆◆◆',star:'★'}, PC={base:'#9ad8ff',gold:'#ffd93d',holo:'#b36bff',star:'#ff5fbf'};
+function wo(then){ const w=st.appendChild(el('<div class="wo"></div>')); requestAnimationFrame(()=>w.style.opacity=1); S2.whoosh(); setTimeout(()=>{ then(); st.appendChild(w); requestAnimationFrame(()=>w.style.opacity=0); setTimeout(()=>w.remove(),400); },380); }
+function clr(){ st.innerHTML=''; st.onclick=st.onpointermove=st.onpointerdown=st.onpointerup=null; RUN++; }
+
+function pro(){ st.classList.add('pro'); shop(); }
+function shop(){
+  clr(); const W=st.clientWidth, H=st.clientHeight, pw=Math.min(210,W*.52,H*.5/1.5), ph=pw*1.5;
+  const chase=POOL.slice(0,4).map((r,i)=>({n:r[0],t:r[1],r:['star','holo','holo','gold'][i]}));
+  st.appendChild(el(`<div class="prow">${chase.map(c=>`<div class="mi cd r-${c.r}" style="position:relative;width:38px;--tc:${TC[c.t]}"><img src="${pimg(c.t,c.n)}" alt="" onerror="this.style.opacity=0"></div>`).join('')}<small>CHASE<br>CARDS</small></div>`));
+  const p=packEl(pw); p.classList.add('shopk'); p.style.left=(W/2-pw/2)+'px'; p.style.top=Math.max(80,(H-ph)/2-30)+'px'; st.appendChild(p);
+  const by=Math.max(80,(H-ph)/2-30)+ph+26; const b=el(`<button class="btnp" style="top:${by}px">${PACKS>0?'OPEN':'NO PACKS LEFT'}</button>`); st.appendChild(b);
+  st.appendChild(el(`<div class="pcount" style="top:${by+56}px">PACKS · ${PACKS} &nbsp;·&nbsp; COLLECTION · ${COLL.toLocaleString()}</div>`));
+  st.onpointermove=e=>{ const r=st.getBoundingClientRect(), x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; p.style.setProperty('--rx',(x*22)+'deg'); p.style.setProperty('--ry',(-y*16)+'deg'); };
+  b.onclick=e=>{ e.stopPropagation(); if(PACKS<=0){ PACKS=12; shop(); return; } wo(ring); };
+}
+function ring(){
+  clr(); const my=RUN, W=st.clientWidth, H=st.clientHeight, N=8, pw=Math.min(170,W*.42), ph=pw*1.5, R=pw*1.65;
+  const w=el(`<div class="ringw"><div class="floor"></div><div class="rot"></div></div>`), rot=w.querySelector('.rot'); st.appendChild(w);
+  const ps=[...Array(N)].map((_,i)=>{ const p=packEl(pw); p.style.left=(-pw/2)+'px'; p.style.top=(-ph/2)+'px'; p.style.transform=`rotateY(${i*360/N}deg) translateZ(${R}px)`; rot.appendChild(p); return p; });
+  hint('SWIPE TO SPIN · TAP TO PICK A PACK');
+  let a=-360/N*3, v=-.25, drag=null, target=null, moved=0;
+  const draw=()=>{ rot.style.transform=`translateZ(${-R}px) rotateY(${a}deg)`; ps.forEach((p,i)=>{ const ang=((i*360/N+a)%360+540)%360-180, c=Math.cos(ang*Math.PI/180); p.style.filter=`brightness(${.45+.55*Math.max(0,c)}) drop-shadow(0 14px 18px rgba(0,0,0,.5))`; }); };
+  (function loop(){ if(RUN!==my) return; if(!drag){ if(target!==null){ a+=(target-a)*.16; if(Math.abs(target-a)<.3){ a=target; } } else a+=v; } draw(); requestAnimationFrame(loop); })();
+  st.onpointerdown=e=>{ drag={x:e.clientX,a}; moved=0; target=null; };
+  st.onpointermove=e=>{ if(!drag) return; const dx=e.clientX-drag.x; moved=Math.max(moved,Math.abs(dx)); a=drag.a+dx*.45; };
+  st.onpointerup=e=>{ if(!drag) return; const was=drag; drag=null; const step=360/N; target=Math.round(a/step)*step;
+    if(moved<8){ const fi=((Math.round(-target/step)%N)+N)%N; S_.click(); setTimeout(()=>{ if(RUN===my) choose(ps[fi]); },260); } else S2.whoosh(); };
+  function choose(src){ const r=src.getBoundingClientRect(), sr=st.getBoundingClientRect(); hint('');
+    const bw=Math.min(W*.68,H*.62/1.5), big=packEl(r.width); big.classList.add('big'); big.style.left=(r.left-sr.left)+'px'; big.style.top=(r.top-sr.top)+'px'; st.appendChild(big);
+    w.style.opacity=0; w.style.transform='scale(1.4)';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ big.style.width=bw+'px'; big.style.left=(W/2-bw/2)+'px'; big.style.top=(H*.16)+'px'; }));
+    setTimeout(()=>{ w.remove(); cut(big,bw); },650); }
+}
+function cut(big,bw){
+  const my=RUN, W=st.clientWidth, H=st.clientHeight, bh=bw*1.5, x0=W/2-bw/2, y0=H*.16, ly=y0+bh*.13;
+  st.appendChild(el(`<div class="cutl" style="left:${x0}px;width:${bw}px;top:${ly}px"></div>`));
+  const tr=el(`<div class="trail" style="left:${x0}px;top:${ly}px;width:0"></div>`); st.appendChild(tr);
+  const fg=el(`<div class="finger" style="left:${x0}px;top:${ly+6}px;--fx:${bw}px">👆</div>`); st.appendChild(fg);
+  hint('SWIPE ACROSS THE TOP TO OPEN ▶');
+  let on=false, t=0, lt=0; const sr=()=>st.getBoundingClientRect();
+  st.onpointerdown=e=>{ const x=e.clientX-sr().left; if(x<x0+bw*.4){ on=true; fg.remove(); } };
+  st.onpointermove=e=>{ if(!on) return; const x=e.clientX-sr().left; t=Math.max(t,Math.min(1,(x-x0)/bw)); tr.style.width=(t*bw)+'px'; if(t-lt>.05){ lt=t; S2.cut(); }
+    if(t>=.92){ on=false; st.onpointermove=st.onpointerdown=st.onpointerup=null; open(); } };
+  st.onpointerup=()=>{ on=false; if(t<.92){ t=0; lt=0; tr.style.width='0'; } };
+  function open(){ tr.style.width=bw+'px'; S_.rip(); hint(''); st.querySelector('.cutl')?.remove(); setTimeout(()=>tr.remove(),250);
+    big.classList.add('torn'); flash();
+    const cards=pull().sort((a,b)=>RANK[a.r]-RANK[b.r]);
+    setTimeout(()=>{ if(RUN===my) stack(cards,big,bw); },450); }
+}
+function stack(cards,big,bw){
+  const my=RUN, W=st.clientWidth, H=st.clientHeight, cw=Math.min(250,W*.64,H*.6/1.4), ch=cw*1.4, cx=W/2-cw/2, cy=H*.07;
+  const bx=parseFloat(big.style.left), byy=parseFloat(big.style.top), bh=bw*1.5;
+  const els=cards.map((c,i)=>{ const e=cardEl(c); e.classList.add('sk'); if(RANK[c.r]<2) e.classList.add('up'); e.style.width=bw*.86+'px'; e.style.left=(bx+bw*.07)+'px'; e.style.top=(byy+bh*.14)+'px'; e.style.zIndex=15-i; st.insertBefore(e,big); return e; });
+  big.style.zIndex=20;
+  // cards peek out of the open top, then the wrapper drops away and the stack settles in the middle
+  requestAnimationFrame(()=>requestAnimationFrame(()=>els.forEach(e=>e.style.top=(byy-bh*.18)+'px')));
+  setTimeout(()=>{ big.classList.add('drop'); S2.whoosh(); els.forEach((e,i)=>{ e.style.width=cw+'px'; e.style.left=(cx+i*1.5)+'px'; e.style.top=(cy+i*1.5)+'px'; e.style.zIndex=30-i; }); },500);
+  setTimeout(()=>big.remove(),1400);
+  const pips=el(`<div class="pips" style="top:${cy+ch+16}px"></div>`); st.appendChild(pips);
+  const ff=el('<button class="ffb">SKIP ⏩</button>'); ff.onclick=e=>{ e.stopPropagation(); done(); }; st.appendChild(ff);
+  let k=0, down=null, busy=true, over=false;
+  const show=()=>{ const c=cards[k], e=els[k]; if(!e) return; const n=PIPS[c.r];
+    pips.innerHTML=[...n].map((s,i)=>`<i style="--pc:${PC[c.r]};animation-delay:${i*.08}s">${s}</i>`).join(''); [...n].forEach((_,i)=>S2.pip(i));
+    if(c.r!=='base'){ e.style.setProperty('--tz',PC[c.r]); e.classList.add('hitglow'); }
+    if(RANK[c.r]>=2 && !e.classList.contains('up')){ e.classList.add('tease','shake'); hint('A HIT! TAP TO FLIP'); }
+    else { sparkle(e,c); hint(k===0?'TAP OR SWIPE FOR THE NEXT CARD':''); }
+    busy=false; };
+  function sparkle(e,c){ if(c.r==='base') return; const s=el(`<div class="spk" style="--sc:${PC[c.r]}">${[...Array(c.r==='star'?12:7)].map((_,i)=>`<i style="left:${Math.random()*100}%;top:${Math.random()*100}%;font-size:${10+Math.random()*12}px;animation-delay:${Math.random()*1.4}s">✦</i>`).join('')}</div>`); e.appendChild(s); }
+  setTimeout(()=>{ if(RUN===my) show(); },1150);
+  st.onpointerdown=e=>{ if(busy||over) return; down={x:e.clientX}; const t=els[k]; if(t){ t.style.transition='none'; } };
+  st.onpointermove=e=>{ if(!down||busy) return; const dx=e.clientX-down.x, t=els[k]; if(t && t.classList.contains('up')) t.style.transform=`translateX(${dx}px) rotate(${dx*.06}deg)`; };
+  st.onpointerup=e=>{ if(!down||busy) return; const dx=e.clientX-down.x; down=null; const t=els[k], c=cards[k]; if(!t) return; t.style.transition='';
+    if(!t.classList.contains('up')){ busy=true; t.classList.remove('shake'); t.classList.add('up'); S_.flip(); setTimeout(()=>{ t.classList.remove('tease'); flash(); burst(PC[c.r],c.r==='star'?44:28); c.r==='star'?S_.star():S_.hit(); sparkle(t,c); hint('SWIPE FOR THE NEXT CARD'); busy=false; },300); return; }
+    busy=true; const dir=dx>25?1:-1; t.style.transform=`translate(${dir*W*1.1}px,-30px) rotate(${dir*22}deg)`; t.classList.add('gone'); S2.swish(); pips.innerHTML='';
+    setTimeout(()=>t.style.display='none',450); k++; if(k>=cards.length){ over=true; setTimeout(done,350); } else setTimeout(show,260); };
+  function done(){ if(RUN!==my || done.d) return; done.d=1; wo(()=>results(cards)); }
+}
+function results(cards){
+  clr(); const my=RUN, W=st.clientWidth, H=st.clientHeight, rw=Math.min(104,W*.27), rh=rw*1.4, g=12, y1=H*.2, y2=y1+rh+30;
+  const gain=cards.reduce((s,c)=>s+[10,25,50,100][RANK[c.r]],0), x0=XP, x1=Math.min(100,XP+gain/4);
+  st.appendChild(el(`<div class="res-t">PACK RESULTS</div>`));
+  st.appendChild(el(`<div class="lvl"><span>COLLECTOR LV 12</span><div class="bar"><i style="--w0:${x0}%"></i></div><b>+${gain} EXP</b></div>`));
+  st.appendChild(el(`<div class="ppt">PACK POINTS <b>+5</b> · ${(145).toLocaleString()}</div>`));
+  setTimeout(()=>{ const b=st.querySelector('.lvl .bar i'); if(b) b.style.width=x1+'%'; },60); XP=x1>=100?8:x1;
+  const pos=cards.map((c,i)=>i<3?[W/2-(rw*1.5+g)+i*(rw+g),y1]:[W/2-(rw+g/2)+(i-3)*(rw+g),y2]);
+  const els=cards.map((c,i)=>{ const e=cardEl(c); e.classList.add('rc','up','pop'); e.style.width=rw+'px'; e.style.left=pos[i][0]+'px'; e.style.top=pos[i][1]+'px'; e.style.animationDelay=(.25+i*.09)+'s'; st.appendChild(e);
+    const dupe=Math.random()<.4; const t=el(`<div class="rtag ${dupe?'d':'n'}" style="left:${pos[i][0]}px;width:${rw}px;right:auto;top:${pos[i][1]+rh+7}px">${dupe?'DUPE · +40 EXP':'★ NEW'}</div>`); st.appendChild(t);
+    setTimeout(()=>{ if(RUN===my) S2.pip(0); },250+i*90); return e; });
+  const by=y2+rh+34; const b=el(`<button class="btnp" style="top:${Math.min(by,H-150)}px">NEXT ▶</button>`); st.appendChild(b);
+  const bd=el('<div class="binder">CARDS</div>'), tot=el(`<div class="tot">COLLECTION<b>${COLL.toLocaleString()}</b></div>`); st.appendChild(bd); st.appendChild(tot);
+  b.onclick=e=>{ e.stopPropagation(); b.remove(); st.querySelectorAll('.rtag,.lvl,.ppt,.res-t').forEach(x=>x.style.opacity=0); tot.style.opacity=1;
+    const tx=W/2-rw/2, ty=H-16-44/2-rh/2;
+    els.forEach((c,i)=>setTimeout(()=>{ if(RUN!==my) return; c.classList.remove('pop'); c.style.left=tx+'px'; c.style.top=ty+'px'; c.style.transform='scale(.18) rotate(-8deg)'; c.style.opacity='.0';
+      setTimeout(()=>{ bd.classList.add('bump'); S2.thunk(); COLL++; tot.querySelector('b').textContent=COLL.toLocaleString(); setTimeout(()=>bd.classList.remove('bump'),140); },520); },i*130));
+    PACKS--; setTimeout(()=>{ if(RUN===my) wo(shop); },cards.length*130+1500); };
+}
+
+const MODES={pro:['★ SIGNATURE',pro,'The <b>full flow</b>, built on the pacing of the best pack openers. Tap <b>OPEN</b>, then pick a pack from the spinning ring. <b>Swipe across the top</b> to cut it; the strip flies off, the cards rise out and the wrapper drops away. <b>Tap or swipe</b> through the cards one at a time, commons first and hits last. Rarity pips drop in under each card. A Holo or All-Star waits face-down until you flip it. Then come Pack Results with EXP and NEW/DUPE tags, and the cards fly into your binder.'],
+  foil:['A · FOIL PACK',foilPack,'A classic crimped <b>foil wrapper</b> in the logo\'s blue-white-red chrome. Move your finger or mouse over it and the foil catches the light. <b>Drag across the top edge to tear it open</b>; the strip flies off and the cards slide up out of the wrapper.'],
   gacha:['B · CAPSULE MACHINE',gacha,'An arcade <b>capsule machine</b>. Tap the knob three times; each turn clicks and jostles the capsules. A capsule rolls into the chute. <b>Tap it three times to crack it</b>; on the last crack it glows the colour of your best card, then pops.'],
   cart:['C · CARTRIDGE',cartridge,'The pack is a <b>game cartridge</b>. Plug it into the handheld; it boots on the four-green screen, scans the pack (it tells you how many hits are inside), then the <b>cards shoot out of the slot</b> for the reveal.']};
-let MODE='foil';
-function start(){ st.innerHTML=''; st.onclick=null; st.onpointermove=null; st.onpointerdown=null; st.onpointerup=null; MODES[MODE][1](); }
+let MODE='pro';
+st.onpointercancel=e=>st.onpointerup&&st.onpointerup(e);
+function start(){ RUN++; st.className='stage'; st.innerHTML=''; st.onclick=null; st.onpointermove=null; st.onpointerdown=null; st.onpointerup=null; MODES[MODE][1](); }
 function tabs(){ document.getElementById('tabs').innerHTML=Object.entries(MODES).map(([k,[l]])=>`<button class="${k===MODE?'on':''}" data-m="${k}">${l}</button>`).join('');
-  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ MODE=b.dataset.m; tabs(); start(); }); document.getElementById('why').innerHTML=MODES[MODE][2]+' The reveal is the same in all three: <b>tap to flip</b> each card. Hits glow and shake first, then flash and burst; base cards just flip. Then all five fan out.'; }
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ MODE=b.dataset.m; tabs(); start(); }); document.getElementById('why').innerHTML=MODES[MODE][2]+(MODE==='pro'?'':' The reveal is the same in A, B and C: <b>tap to flip</b> each card. Hits glow and shake first, then flash and burst; base cards just flip. Then all five fan out.'); }
 tabs(); start();
 })();
 </script>

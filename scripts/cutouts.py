@@ -7,7 +7,8 @@ Reads portraits from the public Supabase bucket `player-portraits/{TEAM}/{Name}.
 Clean-up after the model (the portraits are pixel art, so edges should be crisp):
   · the model's mask is cut at 50% (no half-see-through hair or jersey)
   · only the main figure is kept (stray specks of background are dropped)
-  · holes inside the figure are filled (no see-through teeth, eyes or jersey numbers)
+  · small holes inside the figure are filled (no see-through teeth, eyes or jersey numbers);
+    big ones stay open, because that's real background showing between raised arms
   · the figure is grown by 1px so the dark outline of the art stays on the player
 
 Env: MODEL (default birefnet-portrait), OUT (default cutouts), FORCE (1 = remake existing).
@@ -66,7 +67,12 @@ def clean(mask):
         sizes = ndimage.sum(m, lab, range(1, n + 1))
         keep = [i + 1 for i, s in enumerate(sizes) if s >= max(sizes) * 0.03]
         m = np.isin(lab, keep)
-    m = ndimage.binary_fill_holes(m)
+    filled = ndimage.binary_fill_holes(m)
+    holes, k = ndimage.label(filled & ~m)
+    if k:                                       # only plug holes smaller than 0.4% of the picture
+        sizes = ndimage.sum(np.ones_like(m), holes, range(1, k + 1))
+        small = [i + 1 for i, s in enumerate(sizes) if s < m.size * 0.004]
+        m = m | np.isin(holes, small)
     m = ndimage.binary_dilation(m, iterations=1)
     return (m * 255).astype(np.uint8)
 
@@ -78,7 +84,16 @@ def main(args):
     else:                                         # "BOS" = every BOS portrait; "BOS/Name" = one player
         everyone = list_all() if any("/" not in a for a in args) else []
         players = [p for a in args for p in ([a] if "/" in a else [x for x in everyone if x.split("/")[0] == a])]
-    session = new_session(MODEL)
+    # some portraits come out better with another model (cutouts/model-overrides.json: {"TEAM/Name": "model"})
+    try:
+        OVR = json.load(open(os.path.join(OUT, "model-overrides.json")))
+    except Exception:
+        OVR = {}
+    sessions = {}
+    def session_for(tp):
+        m = OVR.get(tp, MODEL)
+        if m not in sessions: sessions[m] = new_session(m)
+        return sessions[m]
     made = 0
     for tp in players:
         team, name = tp.strip().split("/", 1)
@@ -90,7 +105,7 @@ def main(args):
             src = Image.open(io.BytesIO(urllib.request.urlopen(url, timeout=30).read())).convert("RGB")
         except Exception as e:
             print("skip", tp, str(e)[:60]); continue
-        mask = np.array(remove(src, session=session, only_mask=True).convert("L"))
+        mask = np.array(remove(src, session=session_for(tp.strip()), only_mask=True).convert("L"))
         cut = src.convert("RGBA"); cut.putalpha(Image.fromarray(clean(mask)))
         w = 600; h = round(cut.height * w / cut.width)
         cut = cut.resize((w, h), Image.NEAREST if src.width == w else Image.LANCZOS)

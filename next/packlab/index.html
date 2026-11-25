@@ -116,35 +116,36 @@ img{-webkit-user-drag:none;user-select:none;pointer-events:none}
 .stage.pro{height:min(680px,80vh);background:radial-gradient(80% 50% at 50% 38%,#2c4596,#0b1236 62%,#050816)}
 .stage.pro::after{display:none}
 .stage.pro::before{content:'';position:absolute;left:-20%;right:-20%;bottom:-8%;height:34%;background:radial-gradient(50% 60% at 50% 30%,rgba(140,180,255,.25),transparent 70%);pointer-events:none}
-.pk{position:absolute;aspect-ratio:2/3;container-type:inline-size;--lx:32;--ly:28;filter:drop-shadow(0 18px 20px rgba(0,0,0,.65)) drop-shadow(0 4px 4px rgba(0,0,0,.4))}
-.pk .pt,.pk .pb{position:absolute;left:0;right:0;overflow:hidden;background:var(--tex,#11151f) 0 0/100cqw 150cqw no-repeat}
-.pk .pt{top:0;height:9%;transition:transform .75s cubic-bezier(.3,.7,.4,1),opacity .75s}
-.pk .pb{top:9%;bottom:0;background-position:0 -13.5cqw}
-/* specular: a light that follows the tilt and only catches on the wrinkles and seal ridges */
-.pk .pt::after,.pk .pb::after{content:'';position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(34cqw 46cqw at calc(var(--lx)*1cqw) calc(var(--ly)*1.5cqw),rgba(255,248,230,.95),rgba(255,248,230,.25) 45%,transparent 72%) 0 0/100cqw 150cqw no-repeat;
-  -webkit-mask:var(--spec) 0 0/100cqw 150cqw no-repeat;mask:var(--spec) 0 0/100cqw 150cqw no-repeat}
-.pk .pb::after{background-position:0 -13.5cqw;-webkit-mask-position:0 -13.5cqw;mask-position:0 -13.5cqw}
-/* broad plastic gloss over the whole wrapper */
-.pk .gl{position:absolute;inset:1.5% 0;pointer-events:none;z-index:2;mix-blend-mode:screen;transition:opacity .4s;
-  background:radial-gradient(60cqw 70cqw at calc(var(--lx)*1cqw) calc(var(--ly)*1.5cqw),rgba(190,205,255,.16),transparent 70%),linear-gradient(calc(100deg + var(--lx)*.4deg),transparent 30%,rgba(255,255,255,.07) 46%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.05) 54%,transparent 68%)}
+.pk{position:absolute;aspect-ratio:640/1057;container-type:inline-size;--lx:32;--ly:28;filter:drop-shadow(0 20px 22px rgba(0,0,0,.6)) drop-shadow(0 4px 5px rgba(0,0,0,.35))}
+.pk .pt,.pk .pb{position:absolute;left:0;right:0;overflow:hidden;background:url(pack.webp) 0 0/100cqw 165.16cqw no-repeat}
+.pk .pt{top:0;height:6.5%;z-index:3;transition:transform .75s cubic-bezier(.3,.7,.4,1),opacity .75s}
+.pk .pb{top:6.5%;bottom:0;background-position:0 -10.74cqw;-webkit-mask:url(pack.webp) 0 -10.74cqw/100cqw 165.16cqw no-repeat;mask:url(pack.webp) 0 -10.74cqw/100cqw 165.16cqw no-repeat}
+/* specular: a warm light that follows the tilt and only lands on the foil's real wrinkles and seal ridges */
+.pk .pt::after,.pk .pb::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:4;
+  background:radial-gradient(40cqw 55cqw at calc(var(--lx)*1cqw) calc(var(--ly)*1.6516cqw),rgba(255,255,255,.95),rgba(255,255,255,.3) 45%,transparent 75%) 0 0/100cqw 165.16cqw no-repeat;
+  -webkit-mask:url(spec.webp) 0 0/100cqw 165.16cqw no-repeat;mask:url(spec.webp) 0 0/100cqw 165.16cqw no-repeat}
+.pk .pb::after{background-position:0 -10.74cqw;-webkit-mask-position:0 -10.74cqw;mask-position:0 -10.74cqw}
+.pk .gl{position:absolute;inset:0;pointer-events:none;z-index:5;mix-blend-mode:screen;transition:opacity .4s;
+  background:linear-gradient(calc(105deg + var(--lx)*.3deg),transparent 30%,rgba(255,255,255,.05) 44%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.04) 56%,transparent 70%);
+  -webkit-mask:url(pack.webp) 0 0/100% 100%;mask:url(pack.webp) 0 0/100% 100%}
 .pk.torn .gl,.big.torn .gl{opacity:0}
-.pk .pt::before{content:'';position:absolute;left:0;right:0;bottom:0;height:.5cqw;z-index:1;background:linear-gradient(90deg,transparent 4%,rgba(232,200,120,.7) 30%,rgba(255,240,200,.9) calc(var(--lx)*1%),rgba(232,200,120,.7) 70%,transparent 96%)}
-/* foil-stamped artwork: pressed into the wrapper, catches the same light */
-.pk .face{position:absolute;inset:4.5% 8% 8%;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.pk .fr{position:absolute;inset:0;border-radius:2cqw;padding:.5cqw;background:linear-gradient(calc(140deg + var(--lx)*1deg),#6e5420,#f6e2a4 35%,#a07a2c 55%,#e9cd84 75%,#6e5420);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);filter:drop-shadow(0 .4cqw .3cqw rgba(0,0,0,.7))}
-.pk .face::before,.pk .face::after{content:'';position:absolute;left:50%;width:.4cqw;margin-left:-.2cqw;height:15%;background:linear-gradient(transparent,#d9b96a,transparent)}
-.pk .face::before{top:7%}.pk .face::after{bottom:7%}
-.pk .ring{width:56cqw;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;position:relative;
-  background:radial-gradient(circle,rgba(0,0,0,.25) 60%,transparent 61%),conic-gradient(from calc(var(--lx)*3.6deg),#7a5c22,#fff0bf,#b18834,#f3d98f,#7a5c22,#e9cd84,#7a5c22);
-  -webkit-mask:radial-gradient(circle,transparent calc(50% - 1.1cqw),#000 calc(50% - 1cqw),#000 calc(50% - .2cqw),transparent 50%);mask:radial-gradient(circle,transparent calc(50% - 1.1cqw),#000 calc(50% - 1cqw),#000 calc(50% - .2cqw),transparent 50%);position:absolute;inset:0;width:auto}
-.pk .mark{position:relative;width:56cqw;aspect-ratio:1;display:grid;place-items:center;filter:drop-shadow(0 .5cqw .4cqw rgba(0,0,0,.8))}
-.pk .lg{font-size:5.8cqw;line-height:1.55;text-align:center;letter-spacing:.04em;
-  background:linear-gradient(180deg,#7a5c22,#fff3cc 22%,#e2c071 40%,#8f6a22 52%,#f4dc95 66%,#b28a35 82%,#fff0c2) 0 calc(var(--ly)*1%)/100% 260%;-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 -.25cqw 0 rgba(255,255,255,.22)) drop-shadow(0 .45cqw .25cqw rgba(0,0,0,.85))}
-.pk .tri{display:flex;gap:1.2cqw;margin:5cqw 0 4cqw;filter:drop-shadow(0 .3cqw .2cqw rgba(0,0,0,.8))}.pk .tri i{width:7cqw;height:.8cqw;background:linear-gradient(#6c9bff,#2c5fe0)}.pk .tri i:nth-child(2){background:linear-gradient(#fff,#c9ced8)}.pk .tri i:nth-child(3){background:linear-gradient(#ff7584,#d61c34)}
-.pk .ser{font-size:3.3cqw;letter-spacing:.42em;margin-right:-.42em;background:linear-gradient(90deg,#9c7a34,#f6e2a4 calc(var(--lx)*1%),#9c7a34) ;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .3cqw .2cqw rgba(0,0,0,.9))}
-.pk .cnt{position:absolute;bottom:9%;font-size:2.7cqw;letter-spacing:.35em;color:rgba(255,255,255,.38);margin-right:-.35em;text-shadow:0 .3cqw .2cqw #000}
+/* artwork printed on the foil */
+.pk .wm{position:absolute;left:7%;top:12.2%;font-size:5cqw;white-space:nowrap;letter-spacing:.02em;z-index:2;
+  background:linear-gradient(100deg,#fff 0 34%,#bdf3ff 40%,#ffc9f1 45%,#fff3b0 50%,#fff 56% 100%) calc(var(--lx)*-2.2%) 0/320% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 .35cqw 0 rgba(0,25,110,.55))}
+.pk .sub{position:absolute;left:7.2%;top:16.7%;font-size:2.1cqw;letter-spacing:.32em;color:rgba(255,255,255,.72);z-index:2;white-space:nowrap}
+.pk .sub b{font-weight:normal;color:#ffd0d6}
+.pk .rule{position:absolute;left:7.2%;top:19%;width:47%;height:.5cqw;z-index:2;background:linear-gradient(90deg,#fff 0 33%,#ff4458 33% 66%,transparent 66%);opacity:.85}
+/* a basketball embossed big into the foil, running off the corner */
+.pk .ball{position:absolute;right:-30cqw;bottom:-16cqw;width:104cqw;aspect-ratio:1;z-index:1;opacity:.5;mix-blend-mode:soft-light}
+.pk .ball svg{width:100%;height:100%;display:block}
+/* holo sticker */
+.pk .stk{position:absolute;right:8%;bottom:9%;width:25cqw;aspect-ratio:1;border-radius:50%;z-index:3;transform:rotate(-14deg);display:grid;place-items:center;text-align:center;
+  background:conic-gradient(from calc(var(--lx)*4deg),#ffd1f4,#bdf3ff,#d4ffc9,#fff3b0,#ffc9e0,#c9d4ff,#ffd1f4);box-shadow:0 .8cqw 1.2cqw rgba(0,10,60,.45),inset 0 0 0 .7cqw rgba(255,255,255,.75),inset 0 0 0 1.1cqw rgba(0,40,140,.18)}
+.pk .stk::after{content:'';position:absolute;inset:0;border-radius:50%;background:linear-gradient(calc(120deg + var(--lx)*1deg),transparent 35%,rgba(255,255,255,.8) 50%,transparent 62%)}
+.pk .stk b{font-weight:normal;font-size:7.4cqw;line-height:1;color:#0b2f8f;text-shadow:0 .3cqw 0 rgba(255,255,255,.7)}
+.pk .stk small{display:block;font-size:1.9cqw;letter-spacing:.15em;color:#0b2f8f;margin-top:1.2cqw}
+.pk .stk span{position:relative;z-index:1}
 .shopk{transform:perspective(900px) rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg))}
 .shd{position:absolute;height:22px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),transparent);filter:blur(4px);pointer-events:none}
 .prow{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:6px;padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);z-index:5}
@@ -303,44 +304,10 @@ function cartridge(){
     },650); };
 }
 
-/* ── wrapper texture, drawn once: satin plastic with puff shading, folded sides, ridged heat seals and wrinkles.
-      A second map holds only the ridges and wrinkle edges; the moving light is masked through it. ── */
-(function packTex(){
-  const W=600,H=900, c=document.createElement('canvas'), s=document.createElement('canvas'); c.width=s.width=W; c.height=s.height=H;
-  const g=c.getContext('2d'), m=s.getContext('2d'); let seed=7; const R=()=>(seed=(seed*16807)%2147483647)/2147483647;
-  g.fillStyle='#0f131d'; g.fillRect(0,0,W,H);
-  // puff: the middle bulges toward you, edges and seals fall away
-  let gr=g.createRadialGradient(W*.48,H*.46,20,W*.5,H*.5,W*.85); gr.addColorStop(0,'rgba(120,135,175,.22)'); gr.addColorStop(.55,'rgba(40,50,75,.08)'); gr.addColorStop(1,'rgba(0,0,0,.55)'); g.fillStyle=gr; g.fillRect(0,0,W,H);
-  [[0,H*.15,'rgba(0,0,0,.45)'],[H,H*.86,'rgba(0,0,0,.5)']].forEach(([y0,y1,col])=>{ const l=g.createLinearGradient(0,y0,0,y1); l.addColorStop(0,col); l.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=l; g.fillRect(0,0,W,H); });
-  // folded sides
-  [[0,1],[W,-1]].forEach(([x,d])=>{ const l=g.createLinearGradient(x,0,x+d*W*.09,0); l.addColorStop(0,'rgba(0,0,0,.6)'); l.addColorStop(.55,'rgba(0,0,0,.1)'); l.addColorStop(.62,'rgba(255,255,255,.10)'); l.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=l; g.fillRect(0,0,W,H);
-    m.strokeStyle='rgba(255,255,255,.55)'; m.lineWidth=2; m.beginPath(); m.moveTo(x+d*W*.055,H*.08); m.lineTo(x+d*W*.055,H*.94); m.stroke(); });
-  // heat seals: flat bands with fine vertical ridges
-  [[0,H*.075],[H*.945,H]].forEach(([a,b])=>{ g.fillStyle='rgba(255,255,255,.035)'; g.fillRect(0,a,W,b-a);
-    for(let x=0;x<W;x+=5){ g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(x,a,2,b-a); m.fillStyle='rgba(255,255,255,.7)'; m.fillRect(x+2,a,1.5,b-a); }
-    const e=a===0?b:a; g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(0,e-2,W,4); m.fillStyle='rgba(255,255,255,.8)'; m.fillRect(0,e+(a===0?2:-4),W,2); });
-  // wrinkles: one dark and one light edge per crease, more of them near the seals
-  const crease=(x,y,ang,len,str)=>{ const pts=[[x,y]]; let a=ang; for(let i=0;i<4;i++){ a+=(R()-.5)*.5; x+=Math.cos(a)*len/4; y+=Math.sin(a)*len/4; pts.push([x,y]); }
-    const path=(ctx,dx,dy)=>{ ctx.beginPath(); pts.forEach(([px,py],i)=>i?ctx.lineTo(px+dx,py+dy):ctx.moveTo(px+dx,py+dy)); ctx.stroke(); };
-    g.lineCap=m.lineCap='round'; g.filter='blur(1.4px)'; g.strokeStyle=`rgba(0,0,0,${.32*str})`; g.lineWidth=5; path(g,2,2); g.strokeStyle=`rgba(255,255,255,${.06*str})`; g.lineWidth=3; path(g,-1,-1); g.filter='none';
-    m.strokeStyle=`rgba(255,255,255,${.85*str})`; m.lineWidth=1.6; path(m,-.5,-.5); };
-  for(let i=0;i<70;i++){ const top=R()<.5; crease(W*.06+R()*W*.88, top?H*.075:H*.945, (top?1:-1)*(Math.PI/2+(R()-.5)*.9), 30+R()*110, .5+R()*.5); }
-  for(let i=0;i<18;i++) crease(R()*W, H*.12+R()*H*.76, R()*Math.PI*2, 60+R()*160, .2+R()*.35);
-  // a few broad soft folds across the body
-  for(let i=0;i<4;i++){ const y=H*(.2+R()*.6), a=(R()-.5)*.7; g.save(); g.translate(W/2,y); g.rotate(a); g.filter='blur(14px)';
-    g.fillStyle='rgba(0,0,0,.22)'; g.fillRect(-W,4,W*2,22); g.fillStyle='rgba(170,185,225,.07)'; g.fillRect(-W,-18,W*2,20); g.restore();
-    m.save(); m.translate(W/2,y); m.rotate(a); m.filter='blur(10px)'; m.fillStyle='rgba(255,255,255,.35)'; m.fillRect(-W,-14,W*2,12); m.restore(); }
-  for(let i=0;i<16;i++){ const left=R()<.5; crease(left?W*.04:W*.96, H*.1+R()*H*.8, (left?0:Math.PI)+(R()-.5)*.8, 20+R()*60, .6); }
-  // grain
-  const d=g.getImageData(0,0,W,H), p=d.data; for(let i=0;i<p.length;i+=4){ const n=(R()-.5)*10; p[i]+=n; p[i+1]+=n; p[i+2]+=n; } g.putImageData(d,0,0);
-  m.globalCompositeOperation='source-over'; const bl=document.createElement('canvas'); bl.width=W; bl.height=H; const b2=bl.getContext('2d'); b2.filter='blur(1px)'; b2.drawImage(s,0,0);
-  document.documentElement.style.setProperty('--tex',`url(${c.toDataURL('image/jpeg',.9)})`);
-  document.documentElement.style.setProperty('--spec',`url(${bl.toDataURL()})`);
-})();
 /* ── ★ SIGNATURE FLOW ── */
 let PACKS=12, COLL=1247, XP=42, RUN=0;
 const crimp=(top)=>{ const p=[]; for(let i=0;i<=40;i++) p.push(`${i*2.5}% ${top?(i%2?0:22):(i%2?100:98.2)}%`); return top?`polygon(${p.join(',')},100% 100%,0 100%)`:`polygon(0 0,100% 0,${p.reverse().join(',')})`; };
-function packEl(w){ return el(`<div class="pk" style="width:${w}px"><div class="pt" style="clip-path:${crimp(1)}"></div><div class="pb" style="clip-path:${crimp(0)}"><div class="face"><i class="fr"></i><div class="mark"><div class="ring"></div><span class="lg">NBA<br>ARCADE</span></div><div class="tri"><i></i><i></i><i></i></div><span class="ser">SERIES ONE</span><span class="cnt">5 CARDS</span></div></div><div class="gl"></div></div>`); }
+function packEl(w){ return el(`<div class="pk" style="width:${w}px"><div class="pt"></div><div class="pb"><div class="ball"><svg viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="1.1"><circle cx="50" cy="50" r="48"/><path d="M2 50h96M50 2v96M16 16c18 16 18 52 0 68M84 16c-18 16-18 52 0 68"/></svg></div></div><div class="wm">NBA ARCADE</div><i class="rule"></i><div class="sub">SERIES ONE · <b>5 CARDS</b></div><div class="stk"><span><b>S1</b><small>FALL RUN</small></span></div><div class="gl"></div></div>`); }
 const S2={ whoosh:()=>noise(.35,250,1400,.12), swish:()=>noise(.14,1800,6000,.08), pip:(i=0)=>tone(1320+i*220,{t:i*.07,d:.05,v:.04}), thunk:()=>tone(160,{f2:80,d:.12,type:'triangle',v:.14}), cut:()=>tone(2400,{d:.01,v:.02}) };
 const RANK={base:0,gold:1,holo:2,star:3}, PIPS={base:'◆',gold:'◆◆',holo:'◆◆◆',star:'★'}, PC={base:'#9ad8ff',gold:'#ffd93d',holo:'#b36bff',star:'#ff5fbf'};
 function wo(then){ const w=st.appendChild(el('<div class="wo"></div>')); requestAnimationFrame(()=>w.style.opacity=1); S2.whoosh(); setTimeout(()=>{ then(); st.appendChild(w); requestAnimationFrame(()=>w.style.opacity=0); setTimeout(()=>w.remove(),400); },380); }
@@ -349,7 +316,7 @@ function clr(){ st.innerHTML=''; st.onclick=st.onpointermove=st.onpointerdown=st
 function light(p,x,y){ p.style.setProperty('--lx',(50+x*120).toFixed(1)); p.style.setProperty('--ly',(40+y*110).toFixed(1)); }
 function pro(){ st.classList.add('pro'); shop(); }
 function shop(){
-  clr(); const W=st.clientWidth, H=st.clientHeight, pw=Math.min(210,W*.52,H*.5/1.5), ph=pw*1.5;
+  clr(); const W=st.clientWidth, H=st.clientHeight, pw=Math.min(210,W*.52,H*.5/1.6516), ph=pw*1.6516;
   const chase=POOL.slice(0,4).map((r,i)=>({n:r[0],t:r[1],r:['star','holo','holo','gold'][i]}));
   st.appendChild(el(`<div class="prow">${chase.map(c=>`<div class="mi cd r-${c.r}" style="position:relative;width:38px;--tc:${TC[c.t]}"><img src="${pimg(c.t,c.n)}" alt="" onerror="this.style.opacity=0"></div>`).join('')}<small>CHASE<br>CARDS</small></div>`));
   const p=packEl(pw); p.classList.add('shopk'); p.style.left=(W/2-pw/2)+'px'; p.style.top=Math.max(80,(H-ph)/2-30)+'px'; st.appendChild(p);
@@ -364,7 +331,7 @@ function shop(){
   b.onclick=e=>{ e.stopPropagation(); if(PACKS<=0){ PACKS=12; shop(); return; } wo(ring); };
 }
 function ring(){
-  clr(); const my=RUN, W=st.clientWidth, H=st.clientHeight, N=8, pw=Math.min(170,W*.42), ph=pw*1.5, R=pw*1.65;
+  clr(); const my=RUN, W=st.clientWidth, H=st.clientHeight, N=8, pw=Math.min(160,W*.4), ph=pw*1.6516, R=pw*1.7;
   const w=el(`<div class="ringw"><div class="floor"></div><div class="rot"></div></div>`), rot=w.querySelector('.rot'); st.appendChild(w);
   const ps=[...Array(N)].map((_,i)=>{ const p=packEl(pw); p.style.left=(-pw/2)+'px'; p.style.top=(-ph/2)+'px'; p.style.transform=`rotateY(${i*360/N}deg) translateZ(${R}px)`; rot.appendChild(p); return p; });
   hint('SWIPE TO SPIN · TAP TO PICK A PACK');
@@ -376,13 +343,13 @@ function ring(){
   st.onpointerup=e=>{ if(!drag) return; const was=drag; drag=null; const step=360/N; target=Math.round(a/step)*step;
     if(moved<8){ const fi=((Math.round(-target/step)%N)+N)%N; S_.click(); setTimeout(()=>{ if(RUN===my) choose(ps[fi]); },260); } else S2.whoosh(); };
   function choose(src){ const r=src.getBoundingClientRect(), sr=st.getBoundingClientRect(); hint('');
-    const bw=Math.min(W*.68,H*.62/1.5), big=packEl(r.width); big.classList.add('big'); big.style.left=(r.left-sr.left)+'px'; big.style.top=(r.top-sr.top)+'px'; st.appendChild(big);
+    const bw=Math.min(W*.66,H*.64/1.6516), big=packEl(r.width); big.classList.add('big'); big.style.left=(r.left-sr.left)+'px'; big.style.top=(r.top-sr.top)+'px'; st.appendChild(big);
     w.style.opacity=0; w.style.transform='scale(1.4)';
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ big.style.width=bw+'px'; big.style.left=(W/2-bw/2)+'px'; big.style.top=(H*.16)+'px'; }));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ big.style.width=bw+'px'; big.style.left=(W/2-bw/2)+'px'; big.style.top=(H*.14)+'px'; }));
     setTimeout(()=>{ w.remove(); cut(big,bw); },650); }
 }
 function cut(big,bw){
-  const my=RUN, W=st.clientWidth, H=st.clientHeight, bh=bw*1.5, x0=W/2-bw/2, y0=H*.16, ly=y0+bh*.09;
+  const my=RUN, W=st.clientWidth, H=st.clientHeight, bh=bw*1.6516, x0=W/2-bw/2, y0=H*.14, ly=y0+bh*.066;
   st.appendChild(el(`<div class="cutl" style="left:${x0}px;width:${bw}px;top:${ly}px"></div>`));
   const tr=el(`<div class="trail" style="left:${x0}px;top:${ly}px;width:0"></div>`); st.appendChild(tr);
   const fg=el(`<div class="finger" style="left:${x0}px;top:${ly+6}px;--fx:${bw}px">👆</div>`); st.appendChild(fg);
@@ -400,8 +367,8 @@ function cut(big,bw){
 }
 function stack(cards,big,bw){
   const my=RUN, W=st.clientWidth, H=st.clientHeight, cw=Math.min(250,W*.64,H*.6/1.4), ch=cw*1.4, cx=W/2-cw/2, cy=H*.07;
-  const bx=parseFloat(big.style.left), byy=parseFloat(big.style.top), bh=bw*1.5;
-  const els=cards.map((c,i)=>{ const e=cardEl(c); e.classList.add('sk'); if(RANK[c.r]<2) e.classList.add('up'); e.style.width=bw*.86+'px'; e.style.left=(bx+bw*.07)+'px'; e.style.top=(byy+bh*.1)+'px'; e.style.zIndex=15-i; st.insertBefore(e,big); return e; });
+  const bx=parseFloat(big.style.left), byy=parseFloat(big.style.top), bh=bw*1.6516;
+  const els=cards.map((c,i)=>{ const e=cardEl(c); e.classList.add('sk'); if(RANK[c.r]<2) e.classList.add('up'); e.style.width=bw*.86+'px'; e.style.left=(bx+bw*.07)+'px'; e.style.top=(byy+bh*.08)+'px'; e.style.zIndex=15-i; st.insertBefore(e,big); return e; });
   big.style.zIndex=20;
   // cards peek out of the open top, then the wrapper drops away and the stack settles in the middle
   requestAnimationFrame(()=>requestAnimationFrame(()=>els.forEach(e=>e.style.top=(byy-bh*.18)+'px')));

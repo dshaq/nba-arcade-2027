@@ -142,9 +142,9 @@
 @keyframes zap{0%{opacity:1}10%{opacity:.4}16%{opacity:1}30%{opacity:.7}36%,100%{opacity:0}}
 .e-electric .fx1{display:block;mix-blend-mode:color;opacity:.55;background:linear-gradient(#0b1a5c,#1e60ff)}
 /* 14 arcade sunset, behind */
-.e-sunset .fx1{display:block;mix-blend-mode:color;background:linear-gradient(180deg,#2b0a5c,#ff2fb0 55%,#ff9a3d)}
+.e-sunset .fx1{display:block;mix-blend-mode:hard-light;background:radial-gradient(22% 16% at 50% 66%,#ffe27a,#ff9a3d 60%,transparent 72%),linear-gradient(180deg,#2b0a5c,#ff2fb0 55%,#ff9a3d)}
 .e-sunset .fx2{display:block;mix-blend-mode:screen;background:linear-gradient(transparent 62%,rgba(0,0,0,0) 62%),repeating-linear-gradient(90deg,rgba(255,80,200,.9) 0 .4cqw,transparent .4cqw 9cqw),repeating-linear-gradient(0deg,rgba(255,80,200,.9) 0 .4cqw,transparent .4cqw 5cqw);-webkit-mask:linear-gradient(transparent 68%,#000 100%);mask:linear-gradient(transparent 68%,#000 100%)}
-.e-sunset .ov{display:block;mix-blend-mode:screen;background:radial-gradient(18% 13% at 50% 64%,rgba(255,220,90,.55),transparent 70%)}
+
 /* 15 disco mosaic */
 .e-disco .fx1{display:block;mix-blend-mode:overlay;background:var(--mosaic) 0 0/100% 100%}
 .e-disco .fx2{display:block;mix-blend-mode:color-dodge;opacity:.5;background:linear-gradient(calc(var(--mx)*180deg),#ff4f8b,#ffe35c,#5cff8a,#4adfff,#c56bff) calc(var(--mx)*100%) 0/300% 100%;-webkit-mask:var(--mosaic) 0 0/100% 100%;mask:var(--mosaic) 0 0/100% 100%}

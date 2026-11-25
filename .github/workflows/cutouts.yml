@@ -8,6 +8,18 @@ on:
         description: 'ALL, or TEAM/Name lines (e.g. "OKC/Shai Gilgeous-Alexander")'
         required: true
         default: ALL
+      model:
+        description: 'Background-removal model'
+        required: true
+        default: birefnet-portrait
+      out:
+        description: 'Folder to write into (cutouts = the live ones)'
+        required: true
+        default: cutouts
+      force:
+        description: 'Remake cutouts that already exist'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,10 +33,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install "rembg[cpu]==2.0.59" pillow==10.4.0
+      - run: pip install "rembg[cpu]==2.0.66" pillow==10.4.0 scipy numpy
       - name: Make cutouts
         env:
           PLAYERS: ${{ inputs.players }}
+          MODEL: ${{ inputs.model }}
+          OUT: ${{ inputs.out }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
         run: |
           export SUPABASE_ANON="$(grep -o "SUPABASE_ANON = '[^']*'" app.js | cut -d"'" -f2)"
           mapfile -t LIST <<< "$PLAYERS"
@@ -33,7 +48,7 @@ jobs:
         run: |
           git config user.name "portrait-cutouts"
           git config user.email "actions@users.noreply.github.com"
-          git add cutouts
+          git add "${{ inputs.out }}"
           git diff --cached --quiet && echo "nothing new" && exit 0
-          git commit -m "Portrait cutouts: $(git diff --cached --name-only | wc -l) files"
+          git commit -m "Portrait cutouts (${{ inputs.model }} → ${{ inputs.out }}): $(git diff --cached --name-only | wc -l) files"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

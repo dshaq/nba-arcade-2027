@@ -27,9 +27,16 @@
 .k .nmp .f1{font-size:4.6cqw;color:#dfe6f5}.k .nmp .f2{font-size:9.5cqw}
 .k .nmp small{position:relative;z-index:2;font-size:3.6cqw;color:color-mix(in srgb,var(--tc) 40%,#fff);white-space:nowrap}
 .k .fx1,.k .fx2,.k .ov{position:absolute;inset:0;pointer-events:none;display:none}
+.k .art>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .k .fx1{z-index:2}.k .fx2{z-index:3}.k .ov{z-index:6;border-radius:inherit}
 .k .glare{position:absolute;inset:0;z-index:7;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.55),transparent 45%)}
-.bg{-webkit-mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%);mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%)}
+.k .art img.pl{z-index:4}
+/* until a cut-out exists for this player, background effects fade out over the face */
+.k .art:not(.cut) .fx1,.k .art:not(.cut) .fx2{-webkit-mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%);mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%)}
+/* the portrait always gets the CRT treatment: scanlines, a soft phosphor glow, a little vignette, on the player only */
+.k .art .crt{position:absolute;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),radial-gradient(120% 90% at 50% 40%,transparent 60%,rgba(0,0,0,.35));}
+.k .art.cut .crt{-webkit-mask:var(--cut) center/cover no-repeat;mask:var(--cut) center/cover no-repeat}
+.k .art.cut .pl{filter:drop-shadow(0 0 1.2cqw rgba(0,0,0,.45))}
 
 /* small card: name bar on top, portrait, footer with game time + FP */
 .k.sm{border-radius:8%/6%}

@@ -416,8 +416,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .rc16.sk .pop .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:0;aspect-ratio:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px);-webkit-mask:var(--cutm) 0 0/100% 100%;mask:var(--cutm) 0 0/100% 100%}
 .rc16.sk:not(.cut) .pop{display:none}
 /* name bar */
-.rc16.sk .rc-top{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;border:0;padding:0 5%;justify-content:flex-start}
-.rc16.sk .rc-top .nm{color:#fff;letter-spacing:-.02em;overflow:visible;text-overflow:clip}
+.rc16.sk .rc-top{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;border-left:1.4cqw solid #111!important;border-right:1.4cqw solid #111!important;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 80%,#fff) 0%,var(--tc) 45%,color-mix(in srgb,var(--tc) 70%,#000) 100%);border:0;padding:0 5%;justify-content:flex-start}
+.rc16.sk .rc-top .nm{color:#fff;text-shadow:.5cqw .5cqw 0 #000;letter-spacing:-.02em;overflow:visible;text-overflow:clip}
 /* info box: TIP / FP rows */
 .rc16.sk .rc-bot{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;display:grid;grid-template-rows:1fr 1fr;gap:0;padding:0 6%!important;background:#111;border:1.4cqw solid #111;border-top:.5cqw solid #333;font-size:7.5cqw;letter-spacing:0}
 .rc16.sk .rc-bot>div{display:flex;align-items:center;gap:3%;min-width:0;color:#fff;white-space:nowrap}

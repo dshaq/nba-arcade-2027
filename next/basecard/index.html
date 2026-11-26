@@ -127,8 +127,8 @@ h2 small{font-size:5.5px;color:var(--t3)}
 .sm .who .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:0;aspect-ratio:1;-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;transform:translate(calc(var(--ry)*.25px),0);
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
 /* name bar under him, in the black band */
-.sm .nb{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;display:flex;align-items:center;padding:0 5%;overflow:hidden}
-.sm .nb b{font-weight:normal;color:#fff;white-space:nowrap;line-height:1;letter-spacing:-.02em}
+.sm .nb{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 80%,#fff) 0%,var(--tc) 45%,color-mix(in srgb,var(--tc) 70%,#000) 100%);border-left:1.4cqw solid #111;border-right:1.4cqw solid #111;display:flex;align-items:center;padding:0 5%;overflow:hidden}
+.sm .nb b{font-weight:normal;color:#fff;text-shadow:.5cqw .5cqw 0 #000;white-space:nowrap;line-height:1;letter-spacing:-.02em}
 /* info box: like the BP / SP rows */
 .sm .ib{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;background:#111;border:1.4cqw solid #111;border-top:.5cqw solid #333;display:grid;grid-template-rows:1fr 1fr;padding:0 5%}
 .sm .ib div{display:flex;align-items:center;justify-content:space-between;font-size:8.5cqw;line-height:1;color:#fff}

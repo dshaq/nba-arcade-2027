@@ -1,5 +1,5 @@
 /* ── FINISHES & BORDERS ──
-   One card skeleton (big: square portrait + name panel; small: name bar, portrait, time/FP footer).
+   The new base template (from the Base Card Lab): big = cut-out bursting out of the top, chrome name plate; small = SNK vs. Capcom sticker.
    A border is a class b-* that styles .fr (the frame). A finish is a class e-* that turns on layers:
    .fx1/.fx2 sit on the portrait, .ov sits over the whole card. --mx/--my (0..1) follow the tilt.
    Finishes marked "behind" use the .bg mask, which keeps them off the face until we have cut-out portraits. */
@@ -7,6 +7,7 @@
 .tabs button{font:inherit;font-size:7px;padding:10px 12px;border-radius:8px;border:2px solid var(--edge);background:#0b1a33;color:var(--t2);cursor:pointer}
 .tabs button.on{background:var(--gold);border-color:var(--gold);color:#1a1200}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px 16px}
+.tile .k:not(.sm){margin-top:12%}
 .tile{display:flex;flex-direction:column;gap:9px;cursor:pointer;min-width:0}
 .tile h3{margin:0;font-size:7px;font-weight:normal;color:#fff;line-height:1.6}
 .tile h3 i{font-style:normal;color:var(--gold);margin-right:5px}
@@ -15,37 +16,53 @@
 .intro{font-size:6.5px;line-height:2.1;color:var(--t2);margin:0}
 .intro b{font-weight:normal;color:#7dffa0}
 
-.k{position:relative;width:100%;aspect-ratio:5/7;border-radius:7%/5%;container-type:inline-size;--mx:.5;--my:.4;--tc:#007a33;
-  transform:perspective(800px) rotateX(calc((var(--my) - .5)*-12deg)) rotateY(calc((var(--mx) - .5)*16deg));
-  box-shadow:0 0 0 1.5px #000,0 12px 22px rgba(0,0,0,.5);overflow:hidden;isolation:isolate;flex:none}
+.k{position:relative;width:100%;aspect-ratio:5/7;border-radius:4.5%/3.2%;container-type:inline-size;--mx:.5;--my:.4;--tc:#007a33;
+  transform:perspective(800px) rotateX(calc((var(--my) - .5)*-12deg)) rotateY(calc((var(--mx) - .5)*16deg));flex:none}
+/* body: everything that stays inside the card's outline (frame, art window, plate). The player and the overlay sit outside it. */
+.k .body{position:absolute;inset:0;border-radius:inherit;overflow:hidden;isolation:isolate;box-shadow:0 0 0 1.5px #000,0 12px 22px rgba(0,0,0,.5)}
 .k .fr{position:absolute;inset:0;background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
-.k .in{position:absolute;left:4.5%;right:4.5%;top:3.2%;bottom:3.2%;display:flex;flex-direction:column;background:#05070d;border-radius:3.5cqw;overflow:hidden;box-shadow:0 0 0 .4cqw rgba(0,0,0,.6)}
-.k .art{position:relative;width:100%;aspect-ratio:1;flex:none;overflow:hidden;background:var(--tc)}
-.k .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.k .nmp{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2cqw;overflow:hidden;border-top:.8cqw solid color-mix(in srgb,var(--tc) 70%,#fff)}
-.k .nmp b{position:relative;z-index:2;font-weight:normal;color:#fff;line-height:1;white-space:nowrap;text-shadow:0 .6cqw 0 #000}
-.k .nmp .f1{font-size:4.6cqw;color:#dfe6f5}.k .nmp .f2{font-size:9.5cqw}
-.k .nmp small{position:relative;z-index:2;font-size:3.6cqw;color:color-mix(in srgb,var(--tc) 40%,#fff);white-space:nowrap}
+/* art window: team-colour backdrop; finishes (.fx1/.fx2) paint here, behind the player */
+.k .in{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:27%;border-radius:2.6cqw;overflow:hidden;background:#000;box-shadow:inset 0 0 0 .6cqw rgba(0,0,0,.8)}
+.k .art{position:absolute;inset:0;overflow:hidden;
+  background:radial-gradient(circle,rgba(255,255,255,.14) 0 .55cqw,transparent .65cqw) 0 0/3.2cqw 3.2cqw,repeating-conic-gradient(from calc(var(--mx)*30deg) at 50% 70%,rgba(255,255,255,.07) 0 6deg,transparent 6deg 14deg),
+    radial-gradient(85% 70% at 50% 62%,color-mix(in srgb,var(--tc) 85%,#fff 15%),var(--tc) 45%,color-mix(in srgb,var(--tc) 45%,#000) 100%)}
+.k .art .bgi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}
+.k.nocut .art .bgi{opacity:1}
+.k .art .wm{position:absolute;left:50%;top:6%;transform:translateX(-50%);font-family:var(--tk,'Teko'),sans-serif;font-weight:700;font-size:58cqw;line-height:.8;color:rgba(255,255,255,.08);white-space:nowrap}
 .k .fx1,.k .fx2,.k .ov{position:absolute;inset:0;pointer-events:none;display:none}
-.k .art>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.k .fx1{z-index:2}.k .fx2{z-index:3}.k .ov{z-index:6;border-radius:inherit}
-.k .glare{position:absolute;inset:0;z-index:7;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.55),transparent 45%)}
-.k .art img.pl{z-index:4}
-/* until a cut-out exists for this player, background effects fade out over the face */
-.k .art:not(.cut) .fx1,.k .art:not(.cut) .fx2{-webkit-mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%);mask:radial-gradient(ellipse 33% 42% at 50% 44%,transparent 55%,#000 88%)}
-/* the portrait always gets the CRT treatment: scanlines, a soft phosphor glow, a little vignette, on the player only */
-.k .art .crt{position:absolute;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),radial-gradient(120% 90% at 50% 40%,transparent 60%,rgba(0,0,0,.35));}
-.k .art.cut .crt{-webkit-mask:var(--cut) center/cover no-repeat;mask:var(--cut) center/cover no-repeat}
-.k .art.cut .pl{filter:drop-shadow(0 0 1.2cqw rgba(0,0,0,.45))}
+.k .fx1{z-index:2}.k .fx2{z-index:3}
+/* the player: head rises past the top of the card, shoulders cut at the window sides */
+.k .pl{position:absolute;inset:0;z-index:8;pointer-events:none;clip-path:polygon(-20% -40%,120% -40%,120% 5.5%,94.5% 5.5%,94.5% 73%,5.5% 73%,5.5% 5.5%,-20% 5.5%)}
+.k .pl img,.k .pl .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:26.5%;aspect-ratio:1}
+.k .pl img{filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 2cqw 2.5cqw rgba(0,0,0,.55))}
+.k .pl .crt{-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.k.nocut .pl{display:none}
+/* name plate A · chrome */
+.k .plate{position:absolute;left:5.5%;right:5.5%;bottom:5%;height:20%;z-index:5;border-radius:2.6cqw;overflow:hidden;background:linear-gradient(180deg,#0c1426,#03060c);box-shadow:inset 0 0 0 .6cqw rgba(255,255,255,.22),inset 0 .8cqw 0 rgba(255,255,255,.06)}
+.k .plate .tw{position:absolute;right:-4%;top:50%;transform:translate(calc((var(--mx) - .5)*-14cqw),-50%);font-family:var(--tk,'Teko'),sans-serif;font-weight:700;font-size:30cqw;line-height:.8;color:var(--tc);opacity:.2;white-space:nowrap;-webkit-mask:linear-gradient(90deg,transparent,#000 40%);mask:linear-gradient(90deg,transparent,#000 40%)}
+.k .plate .tx{position:absolute;inset:0;padding:0 6%;display:flex;flex-direction:column;justify-content:center}
+.k .plate .fn{font-size:2.6cqw;color:#a8c0e8;letter-spacing:.12em}
+.k .plate .ln{font-family:var(--tk,'Teko'),sans-serif;font-weight:700;line-height:.82;white-space:nowrap;margin:1.2cqw 0 .6cqw;
+  background:linear-gradient(calc(100deg + (var(--mx) - .5)*90deg),#cfd6e4 0%,#fff 30%,#9aa5bb 42%,#fff 55%,#e8ecf3 70%,#8e98ab 100%) calc(var(--mx)*100%) 0/260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .5cqw 0 #000)}
+.k .plate .tm{font-size:2.2cqw;color:color-mix(in srgb,var(--tc) 35%,#fff);letter-spacing:.14em;white-space:nowrap}
+.k .ov{z-index:9;border-radius:inherit;overflow:hidden}
+.k .glare{position:absolute;inset:0;z-index:10;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background:radial-gradient(circle at calc(var(--mx)*100%) calc(var(--my)*100%),rgba(255,255,255,.55),transparent 45%)}
 
-/* small card: name bar on top, portrait, footer with game time + FP */
-.k.sm{border-radius:8%/6%}
-.k.sm .in{left:5.5%;right:5.5%;top:4%;bottom:4%;border-radius:4cqw}
-.k.sm .tb{flex:none;background:#000;color:#fff;font-size:8cqw;text-align:center;padding:4.5cqw 1cqw 3.5cqw;white-space:nowrap;position:relative;z-index:4}
-.k.sm .art{flex:1;aspect-ratio:auto}
-.k.sm .ft{flex:none;display:flex;justify-content:space-between;align-items:baseline;background:#000;color:#cfe0ff;font-size:6.2cqw;padding:3.6cqw 4cqw;position:relative;z-index:4}
-.k.sm .ft b{font-weight:normal;color:#fff;font-size:8cqw}.k.sm .ft small{font-size:4.5cqw}
-.k.sm .glare{opacity:.8}
+/* small card · SNK vs. Capcom: white sticker, window with a black border, name bar, TIP/FP box */
+.k.sm{border-radius:2.5cqw;margin-top:22%}
+.k.sm .body{box-shadow:0 0 0 .7cqw #1a1a1a,.8cqw 1.4cqw 0 rgba(0,0,0,.35),0 3cqw 5cqw rgba(0,0,0,.45)}
+.k.sm.b-silver .fr{background:#f6f3ea}.k.sm.b-silver .fr::after{opacity:.5}
+.k.sm .in{left:4.5%;right:4.5%;top:4.5%;bottom:auto;height:58%;border-radius:0;border:1.4cqw solid #111;border-bottom:0;box-shadow:none}
+.k.sm .art{background:radial-gradient(circle,rgba(255,255,255,.18) 0 .9cqw,transparent 1cqw) 0 0/4.5cqw 4.5cqw,linear-gradient(170deg,color-mix(in srgb,var(--tc) 60%,#fff),var(--tc) 55%,color-mix(in srgb,var(--tc) 40%,#000))}
+.k.sm .pl{left:4.5%;right:4.5%;top:auto;bottom:33.5%;height:96%;inset:auto 4.5% 33.5% 4.5%;clip-path:polygon(-30% -60%,130% -60%,130% 35.4%,calc(100% - 1.4cqw) 35.4%,calc(100% - 1.4cqw) 100%,1.4cqw 100%,1.4cqw 35.4%,-30% 35.4%)}
+.k.sm .pl img,.k.sm .pl .crt{bottom:0}
+.k.sm .pl img{image-rendering:pixelated;filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
+.k.sm .tb{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:5;background:#111;display:flex;align-items:center;padding:0 5%;color:#fff;white-space:nowrap;line-height:1}
+.k.sm .ft{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:5;background:#fff;border:1.4cqw solid #111;border-top:0;display:grid;grid-template-rows:1fr 1fr;padding:0 5%}
+.k.sm .ft div{display:flex;align-items:center;justify-content:space-between;font-size:8.5cqw;line-height:1;color:#111}
+.k.sm .ft div+div{border-top:.6cqw solid #ddd}
+.k.sm .ft span{font-size:7cqw}.k.sm .ft .r{color:#e1121b}.k.sm .ft .b{color:#1aa7e0}.k.sm .ft small{font-size:5cqw;color:#666}
+.k.sm .glare{opacity:.6}
 
 /* ════ BORDERS ════ */
 .b-silver .fr{background:linear-gradient(160deg,#eef1f6,#aab3c4 45%,#d8dee8 60%,#8e98ab)}
@@ -70,7 +87,7 @@
 .b-bulbs .fr{background:radial-gradient(circle,#fff6c4 0 .7cqw,#ffb800 1cqw,transparent 1.6cqw) 0 0/5cqw 5cqw,#3a0812;animation:bulb .6s steps(2) infinite}
 .b-bulbs .fr::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,#ff5a3c 0 .7cqw,transparent 1.2cqw) 2.5cqw 2.5cqw/5cqw 5cqw;animation:bulb .6s steps(2) infinite reverse}
 @keyframes bulb{50%{filter:brightness(.45)}}
-.b-pixel{border-radius:0!important;clip-path:polygon(0 4cqw,2cqw 4cqw,2cqw 2cqw,4cqw 2cqw,4cqw 0,calc(100% - 4cqw) 0,calc(100% - 4cqw) 2cqw,calc(100% - 2cqw) 2cqw,calc(100% - 2cqw) 4cqw,100% 4cqw,100% calc(100% - 4cqw),calc(100% - 2cqw) calc(100% - 4cqw),calc(100% - 2cqw) calc(100% - 2cqw),calc(100% - 4cqw) calc(100% - 2cqw),calc(100% - 4cqw) 100%,4cqw 100%,4cqw calc(100% - 2cqw),2cqw calc(100% - 2cqw),2cqw calc(100% - 4cqw),0 calc(100% - 4cqw))}
+.b-pixel .body{border-radius:0!important;clip-path:polygon(0 4cqw,2cqw 4cqw,2cqw 2cqw,4cqw 2cqw,4cqw 0,calc(100% - 4cqw) 0,calc(100% - 4cqw) 2cqw,calc(100% - 2cqw) 2cqw,calc(100% - 2cqw) 4cqw,100% 4cqw,100% calc(100% - 4cqw),calc(100% - 2cqw) calc(100% - 4cqw),calc(100% - 2cqw) calc(100% - 2cqw),calc(100% - 4cqw) calc(100% - 2cqw),calc(100% - 4cqw) 100%,4cqw 100%,4cqw calc(100% - 2cqw),2cqw calc(100% - 2cqw),2cqw calc(100% - 4cqw),0 calc(100% - 4cqw))}
 .b-pixel .fr{background:#ff5f8f;box-shadow:inset 2cqw 2cqw 0 #ffd93d,inset -2cqw -2cqw 0 #b8336a}
 .b-pixel .in{border-radius:0;box-shadow:0 0 0 1.2cqw #000}
 .b-marble .fr{background:var(--marble) center/cover,#eee}
@@ -82,10 +99,10 @@
 .b-filigree .ov{display:block}
 .b-filigree .ov svg{width:100%;height:100%;display:block;filter:drop-shadow(0 .4cqw 0 #000)}
 .b-filigree .in{box-shadow:0 0 0 .4cqw #e3c272,0 0 0 1cqw #05040a,0 0 0 1.3cqw #8d6f2c}
-.b-ticket{border-radius:2cqw!important;-webkit-mask:radial-gradient(circle at 0 50%,transparent 4cqw,#000 4.2cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 50%,transparent 4cqw,#000 4.2cqw) right/51% 100% no-repeat;mask:radial-gradient(circle at 0 50%,transparent 4cqw,#000 4.2cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 50%,transparent 4cqw,#000 4.2cqw) right/51% 100% no-repeat}
+.b-ticket .body{border-radius:2cqw!important;-webkit-mask:radial-gradient(circle at 0 50%,transparent 4cqw,#000 4.2cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 50%,transparent 4cqw,#000 4.2cqw) right/51% 100% no-repeat;mask:radial-gradient(circle at 0 50%,transparent 4cqw,#000 4.2cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 50%,transparent 4cqw,#000 4.2cqw) right/51% 100% no-repeat}
 .b-ticket .fr{background:radial-gradient(circle,#c8b48a .5cqw,transparent .6cqw) center 0/3cqw 100% repeat-x,#f4ead2}
 .b-ticket .fr::after{content:'ADMIT ONE · NBA ARCADE · ADMIT ONE';position:absolute;left:0;right:0;bottom:.6%;text-align:center;font-size:2.2cqw;color:#a2272b;white-space:nowrap;letter-spacing:.1em}
-.b-ticket .in{top:4%;bottom:5.5%}
+
 .b-frost .fr{background:var(--frost) center/cover,linear-gradient(160deg,#e9f6ff,#9fd2ef 50%,#dff3ff)}
 
 /* ════ FINISHES ════ */
@@ -93,7 +110,7 @@
 .e-shine .ov{display:block;mix-blend-mode:overlay;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.85) 47%,rgba(255,255,255,.2) 52%,transparent 62%) calc(var(--mx)*100%) 0/260% 100%}
 /* 2 rainbow holo, behind */
 .e-holo .fx1{display:block;mix-blend-mode:color-dodge;opacity:.75;background:linear-gradient(calc(var(--mx)*120deg + 30deg),#ff4f8b,#ffb347,#fff35c,#5cff8a,#4adfff,#8a6bff,#ff4f8b) calc(var(--mx)*100%) calc(var(--my)*100%)/300% 300%}
-.e-holo .ov{display:block;mix-blend-mode:screen;opacity:.25;background:linear-gradient(calc(var(--mx)*120deg + 30deg),transparent 30%,#ff5fbf 40%,#4adfff 50%,#ffd93d 60%,transparent 70%) calc(var(--mx)*100%) 0/250% 100%}
+.e-holo .ov{display:block;mix-blend-mode:screen;opacity:.1;background:linear-gradient(calc(var(--mx)*120deg + 30deg),transparent 30%,#ff5fbf 40%,#4adfff 50%,#ffd93d 60%,transparent 70%) calc(var(--mx)*100%) 0/250% 100%}
 /* 3 cracked ice */
 .e-ice .fx1{display:block;opacity:.9;background:linear-gradient(calc(var(--mx)*180deg),#ff6fb5,#ffe36b,#6bffb0,#6bdcff,#b56bff,#ff6fb5) calc(var(--mx)*100%) 0/300% 300%;-webkit-mask:var(--ice) center/cover;mask:var(--ice) center/cover}
 .e-ice .fx2{display:block;mix-blend-mode:overlay;background:var(--shards) center/cover;opacity:.8}
@@ -128,7 +145,7 @@
 /* 11 neon */
 .e-neon .fx2{display:block;box-shadow:inset 0 0 0 .8cqw #ff3fd0,inset 0 0 4cqw #ff3fd0,inset 0 0 0 2cqw rgba(63,240,255,.0);animation:nf 2.6s steps(1) infinite}
 .e-neon .fx1{display:block;mix-blend-mode:color;opacity:.55;background:linear-gradient(160deg,#ff3fd0,#3a0b8c 55%,#3ff0ff)}
-.e-neon .nmp b.f2{color:#fff;text-shadow:0 0 1cqw #3ff0ff,0 0 3cqw #3ff0ff}
+.e-neon .plate .ln{background:none;-webkit-background-clip:border-box;background-clip:border-box;filter:none;color:#fff;text-shadow:0 0 1cqw #3ff0ff,0 0 3cqw #3ff0ff}
 /* 12 glitch */
 .e-glitch .fx1,.e-glitch .fx2{display:block;background:var(--src) center/cover;mix-blend-mode:screen;opacity:.85}
 .e-glitch .fx1{filter:url(#onlyR);animation:gR 3s steps(1) infinite}.e-glitch .fx2{filter:url(#onlyB);animation:gB 3s steps(1) infinite}

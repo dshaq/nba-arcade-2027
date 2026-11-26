@@ -3,7 +3,7 @@
 const PORTRAITS='https://ipsngddnavymcmfbbcxu.supabase.co/storage/v1/object/public/player-portraits';
 const pimg=(t,n)=>`${PORTRAITS}/${t}/${encodeURIComponent(n)}.jpeg`;
 const pcut=(t,n)=>`/cutouts/${t}/${encodeURIComponent(n).replace(/'/g,'%27')}.webp?v=2`;
-const PLAYERS=[['Jayson','Tatum','BOS','Boston Celtics','#007a33','7:30 PM','41'],['Shai','Gilgeous-Alexander','OKC','Oklahoma City Thunder','#007ac1','8:00 PM','52'],['Victor','Wembanyama','SAS','San Antonio Spurs','#8a96a0','8:30 PM','58']];
+const PLAYERS=[['Jayson','Tatum','BOS','Boston Celtics','#007a33','7:30 PM','41','F'],['Shai','Gilgeous-Alexander','OKC','Oklahoma City Thunder','#007ac1','8:00 PM','52','G'],['Victor','Wembanyama','SAS','San Antonio Spurs','#8a96a0','8:30 PM','58','C']];
 
 /* ── generated textures ── */
 let seed=11; const R=()=>(seed=(seed*16807)%2147483647)/2147483647;
@@ -88,13 +88,21 @@ function extras(fx,border){ let h='';
     h+=`<svg viewBox="0 0 100 140" preserveAspectRatio="none">${P.join('')}</svg>`; }
   return h; }
 function card({size='big',border='silver',fx='',p=0}){ const [f,l,t,tn,tc,tm,fp]=PLAYERS[p], src=pimg(t,f+' '+l), fil=border==='filigree'?[0,90,180,270].map((r,i)=>`<span style="position:absolute;${['left:2%;top:1.5%','right:2%;top:1.5%','right:2%;bottom:1.5%','left:2%;bottom:1.5%'][i]};transform:rotate(${r}deg);width:22cqw;height:22cqw;color:#e3c272">${corner}</span>`).join(''):'';
-  const cut=pcut(t,f+' '+l), art=`<div class="art"><img class="bgi" src="${src}" alt=""><div class="fx1"></div><div class="fx2"></div><img class="pl" src="${cut}" alt="" onload="this.parentNode.classList.add('cut')" onerror="this.remove()"><div class="crt" style="--cut:url('${cut}')"></div></div>`;
-  const L=l.toUpperCase(), lsz=Math.min(9.5,72/L.length).toFixed(2), ssz=Math.min(8,80/L.length).toFixed(2);
-  const inner= size==='big'
-    ? `${art}<div class="nmp"><b class="f1">${f.toUpperCase()}</b><b class="f2" style="font-size:${lsz}cqw">${L}</b><small>${tn.toUpperCase()}</small></div>`
-    : `<div class="tb" style="font-size:${ssz}cqw">${L}</div>${art}<div class="ft"><span>${tm}</span><span><b>${fp}</b><small>FP</small></span></div>`;
-  return `<div class="k ${size==='big'?'':'sm'} b-${border} ${fx?'e-'+fx:''}" style="--tc:${tc};--src:url('${src}')"><div class="fr"></div><div class="in">${inner}</div><div class="ov">${fil}${extras(fx,border)}</div><div class="glare"></div></div>`; }
-
+  const cut=pcut(t,f+' '+l), L=l.toUpperCase();
+  const art=`<div class="in"><div class="art"><img class="bgi" src="${src}" alt="">${size==='big'?`<div class="wm">${t}</div>`:''}<div class="fx1"></div><div class="fx2"></div></div></div>`;
+  const pl=`<div class="pl"><img src="${cut}" alt="" onload="kHead(this)" onerror="this.closest('.k').classList.add('nocut')"><div class="crt"></div></div>`;
+  const pos={G:'GUARD',F:'FORWARD',C:'CENTER'}[PLAYERS[p][7]]||'FORWARD';
+  const body= size==='big'
+    ? `<div class="body"><div class="fr"></div>${art}<div class="plate"><div class="tw">${t}</div><div class="tx"><span class="fn">${f.toUpperCase()}</span><span class="ln" style="font-size:${Math.min(16,108/Math.max(4,L.length)).toFixed(2)}cqw">${L}</span><span class="tm">${tn.toUpperCase()} · ${pos}</span></div></div></div>`
+    : `<div class="body"><div class="fr"></div>${art}<div class="tb" style="font-size:${Math.min(10,76/L.length).toFixed(2)}cqw">${L}</div><div class="ft"><div><span class="r">TIP</span>${tm.replace(' PM','P')}</div><div><span class="b">FP</span>${fp}<small>/G</small></div></div></div>`;
+  return `<div class="k ${size==='big'?'':'sm'} b-${border} ${fx?'e-'+fx:''}" style="--tc:${tc};--src:url('${src}');--cut:url('${cut}')">${body}${pl}<div class="ov">${fil}${extras(fx,border)}</div><div class="glare"></div></div>`; }
+/* centre each player's head in his card (same rule as the Base Card Lab) */
+const K_HX={};
+window.kHead=img=>{ const k=img.closest('.k'), put=v=>k&&k.style.setProperty('--hx',v.toFixed(1)+'%'); if(K_HX[img.src]!=null) return put(K_HX[img.src]);
+  try{ const S=96, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d'); g.drawImage(img,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
+    let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
+    let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
+    K_HX[img.src]=Math.max(-14,Math.min(14,(.5-(n?sx/n/S:.5))*75)); }catch(e){ K_HX[img.src]=0; } put(K_HX[img.src]); };
 
 /* ── tabs ── */
 const opts=document.getElementById('opts'), main=opts.parentNode;
@@ -106,7 +114,7 @@ const TABS={shape:'SHAPES',fin:'FINISHES · 20',bor:'BORDERS · 17',mix:'MIX & M
 function tabs(){ document.getElementById('tabs').innerHTML=Object.entries(TABS).map(([k,l])=>`<button class="${k===TAB?'on':''}" data-t="${k}">${l}</button>`).join('');
   document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ TAB=b.dataset.t; draw(); window.scrollTo({top:0}); }); }
 function draw(){ tabs(); opts.style.display=TAB==='shape'?'':'none'; pane.style.display=TAB==='shape'?'none':'';
-  if(TAB==='fin') pane.innerHTML=`<p class="intro">Twenty finishes, all on the silver frame so you can compare them. Tilt a card (or just watch, they move on their own). Every finish now sits <b>behind the player</b>: the portrait is cut out and laid on top, always with its CRT scanlines. Only light, sparks, embers and confetti pass in front. Players without a cut-out yet fall back to fading the effect out over the face. Tap any card to try it in Mix &amp; Match.</p><div class="grid">${FIN.map(([k,n,d,b],i)=>`<div class="tile" data-fx="${k}">${card({fx:k})}<h3><i>${String(i+1).padStart(2,'0')}</i>${n}</h3><p>${d}</p></div>`).join('')}</div>`;
+  if(TAB==='fin') pane.innerHTML=`<p class="intro">Twenty finishes, all on the silver frame so you can compare them. Tilt a card (or just watch, they move on their own). All cards use the <b>new base template</b> (the Base Card Lab design). Every finish sits <b>behind the player</b>: he's cut out, laid on top with his CRT scanlines, and bursts out of the top of the card. Only light, sparks, embers and confetti pass in front. Players without a cut-out yet fall back to fading the effect out over the face. Tap any card to try it in Mix &amp; Match.</p><div class="grid">${FIN.map(([k,n,d,b],i)=>`<div class="tile" data-fx="${k}">${card({fx:k})}<h3><i>${String(i+1).padStart(2,'0')}</i>${n}</h3><p>${d}</p></div>`).join('')}</div>`;
   if(TAB==='bor') pane.innerHTML=`<p class="intro">Seventeen frames, all with no finish so the border is the only change. Tap one to try it in Mix &amp; Match.</p><div class="grid">${BOR.map(([k,n,d],i)=>`<div class="tile" data-bo="${k}">${card({border:k})}<h3><i>${String(i+1).padStart(2,'0')}</i>${n}</h3><p>${d}</p></div>`).join('')}</div>`;
   if(TAB==='mix') mix();
   if(TAB==='cut') cuts();

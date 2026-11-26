@@ -62,7 +62,7 @@ function rcHead(img){ const c=img.closest('.rc16'); if(!c) return; c.classList.a
   try{ const S=96, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d'); g.drawImage(img,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
     let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
     let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
-    RC_HX[k]=Math.max(-14,Math.min(14,(.5-(n?sx/n/S:.5))*112)); }catch(e){ RC_HX[k]=0; }
+    RC_HX[k]=Math.max(-14,Math.min(14,(.5-(n?sx/n/S:.5))*75)); }catch(e){ RC_HX[k]=0; }
   put(RC_HX[k]); }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
 const scard = (n, o={}) => card16(n, null, o);

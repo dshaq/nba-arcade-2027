@@ -227,7 +227,7 @@ function headShift(src){ if(HX[src]!=null) return Promise.resolve(HX[src]);
   return new Promise(res=>{ const im=new Image(); im.onload=()=>{ try{ const S=120, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d'); g.drawImage(im,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
       let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
       let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
-      const cx=n?sx/n/S:.5; HX[src]=Math.max(-14,Math.min(14,(.5-cx)*100*1.12)); }catch(e){ HX[src]=0; } res(HX[src]); }; im.onerror=()=>res(HX[src]=0); im.src=src; }); }
+      const cx=n?sx/n/S:.5; HX[src]=Math.max(-14,Math.min(14,(.5-cx)*100*.75)); }catch(e){ HX[src]=0; } res(HX[src]); }; im.onerror=()=>res(HX[src]=0); im.src=src; }); }
 function centreHeads(){ document.querySelectorAll('.big,.sm').forEach(c=>{ const m=(c.getAttribute('style')||'').match(/--cut:url\('([^']+)'\)/); if(!m) return; headShift(m[1]).then(v=>c.style.setProperty('--hx',v.toFixed(1)+'%')); }); }
 function draw(){ const r=RAW[cur]; pk.textContent=r[0].toUpperCase()+' ▾';
   document.getElementById('bigst').innerHTML=big(r); document.getElementById('pnote').innerHTML=NOTES[PLATE]+' Glints flash off the edge of the card wherever the light catches it, and sparkles drift over the backdrop, never over his face.';

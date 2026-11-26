@@ -50,10 +50,20 @@ function card16(n, pos, o={}){
   const cut = `/cutouts/${p.t}/${encodeURIComponent(p.n).replace(/'/g,'%27')}.webp?v=2`;
   return `<div class="rc16 sk ${ups} ${pos==='i0'?'onir':''} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
     <div class="rc-in"><div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}<i class="stz"></i></div>
-    <div class="pop"><img src="${cut}" alt="" draggable="false" onload="this.closest('.rc16').classList.add('cut')" onerror="this.parentNode.remove()"><i class="crt" style="--cutm:url('${cut}')"></i></div>
+    <div class="pop"><img src="${cut}" alt="" draggable="false" onload="rcHead(this)" onerror="this.parentNode.remove()"><i class="crt" style="--cutm:url('${cut}')"></i></div>
     <div class="rc-top"><span class="nm" style="font-size:${nsz}cqw">${ln}</span></div>
     <div class="rc-bot"><div class="r1"><b class="gm ${gl==='OFF'?'x':''}">${lab}</b><span>${tv}</span></div><div class="r2"><i class="fp ${fm==='DAY'?'d':'a'}">FP</i><span>${fv}</span><small>${fs}</small></div></div></div></div>`;
 }
+/* cut-out loaded: show it, and nudge it sideways so his head sits mid-card (some portraits are framed off-centre) */
+const RC_HX={};
+function rcHead(img){ const c=img.closest('.rc16'); if(!c) return; c.classList.add('cut'); const k=img.src;
+  const put=v=>c.style.setProperty('--hx',v.toFixed(1)+'%');
+  if(RC_HX[k]!=null) return put(RC_HX[k]);
+  try{ const S=96, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d'); g.drawImage(img,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
+    let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
+    let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
+    RC_HX[k]=Math.max(-14,Math.min(14,(.5-(n?sx/n/S:.5))*112)); }catch(e){ RC_HX[k]=0; }
+  put(RC_HX[k]); }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
 const scard = (n, o={}) => card16(n, null, o);
 
@@ -402,8 +412,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 /* the player: head over the top, shoulders cut at the inside of the border */
 .rc16.sk .pop{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;z-index:2;pointer-events:none;
   clip-path:polygon(-30% -60%,130% -60%,130% 35.4%,calc(100% - 1.4cqw) 35.4%,calc(100% - 1.4cqw) 100%,1.4cqw 100%,1.4cqw 35.4%,-30% 35.4%)}
-.rc16.sk .pop img{position:absolute;left:-6%!important;width:112%!important;height:auto!important;top:auto!important;right:auto!important;bottom:0!important;object-fit:fill!important;border:0!important;border-radius:0!important;max-width:none!important;image-rendering:pixelated;filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
-.rc16.sk .pop .crt{position:absolute;left:-6%;width:112%;bottom:0;aspect-ratio:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px);-webkit-mask:var(--cutm) 0 0/100% 100%;mask:var(--cutm) 0 0/100% 100%}
+.rc16.sk .pop img{position:absolute;left:calc(-6% + var(--hx,0%))!important;width:112%!important;height:auto!important;top:auto!important;right:auto!important;bottom:0!important;object-fit:fill!important;border:0!important;border-radius:0!important;max-width:none!important;image-rendering:pixelated;filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
+.rc16.sk .pop .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:0;aspect-ratio:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px);-webkit-mask:var(--cutm) 0 0/100% 100%;mask:var(--cutm) 0 0/100% 100%}
 .rc16.sk:not(.cut) .pop{display:none}
 /* name bar */
 .rc16.sk .rc-top{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;border:0;padding:0 5%;justify-content:flex-start}

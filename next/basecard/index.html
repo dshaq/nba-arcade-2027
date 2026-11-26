@@ -56,12 +56,12 @@ h2 small{font-size:5.5px;color:var(--t3)}
 /* the player: nearest layer, head bursts out over the frame */
 /* the player sits outside the card body: above the art window he can rise past the card's top edge; below it he's cut at the window's sides */
 .big .pl{z-index:8;clip-path:polygon(-20% -40%,120% -40%,120% 5.5%,94.5% 5.5%,94.5% 73%,5.5% 73%,5.5% 5.5%,-20% 5.5%)}
-.big .pl img{position:absolute;left:-6%;width:112%;bottom:26.5%;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));image-rendering:auto;
+.big .pl img{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:26.5%;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));image-rendering:auto;
   filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.6)) drop-shadow(0 2cqw 2.5cqw rgba(0,0,0,.55))}
-.big .crt{position:absolute;left:-6%;width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+.big .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
   -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px)}
-.big .gloss{position:absolute;left:-6%;width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+.big .gloss{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
   -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;mix-blend-mode:soft-light;
   background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.6) 48%,transparent 62%) calc(var(--mx)*100%) 50%/220% 220%}
 .big.nopop .pl{clip-path:inset(5.5% 5.5% 27% 5.5% round 2.6cqw)}
@@ -122,9 +122,9 @@ h2 small{font-size:5.5px;color:var(--t3)}
 /* above the top of the art window he can spill out anywhere; below it he's cut at the inside of the black border */
 .sm .who{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;z-index:2;
   clip-path:polygon(-30% -60%,130% -60%,130% 35.4%,calc(100% - 1.4cqw) 35.4%,calc(100% - 1.4cqw) 100%,1.4cqw 100%,1.4cqw 35.4%,-30% 35.4%)}
-.sm .who img{position:absolute;left:-6%;width:112%;bottom:0;image-rendering:pixelated;transform:translate(calc(var(--ry)*.25px),0);
+.sm .who img{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:0;image-rendering:pixelated;transform:translate(calc(var(--ry)*.25px),0);
   filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
-.sm .who .crt{position:absolute;left:-6%;width:112%;bottom:0;aspect-ratio:1;-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;transform:translate(calc(var(--ry)*.25px),0);
+.sm .who .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:0;aspect-ratio:1;-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;transform:translate(calc(var(--ry)*.25px),0);
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
 /* name bar under him, in the black band */
 .sm .nb{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;display:flex;align-items:center;padding:0 5%;overflow:hidden}
@@ -221,13 +221,21 @@ function small(r,o={}){ const [n,t,p,f]=r, T=TEAM[t]||['','','#1d428a'], l=n.sli
 const NOTES={'':'<b>A · CHROME.</b> His last name, big, in chrome that shifts as you tilt. The team code slides behind it in the team colour.',
   lent:'<b>B · LENTICULAR.</b> Like an old flicker card: tilt left for his name, tilt right for his team.',
   led:'<b>C · SCOREBOARD.</b> His name in amber arena-scoreboard lights, with a glow that follows the light.'};
+/* centre each player's head: find his head in the cut-out (the top part of the figure) and nudge the picture so it sits mid-card */
+const HX={};
+function headShift(src){ if(HX[src]!=null) return Promise.resolve(HX[src]);
+  return new Promise(res=>{ const im=new Image(); im.onload=()=>{ try{ const S=120, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d'); g.drawImage(im,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
+      let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
+      let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
+      const cx=n?sx/n/S:.5; HX[src]=Math.max(-14,Math.min(14,(.5-cx)*100*1.12)); }catch(e){ HX[src]=0; } res(HX[src]); }; im.onerror=()=>res(HX[src]=0); im.src=src; }); }
+function centreHeads(){ document.querySelectorAll('.big,.sm').forEach(c=>{ const m=(c.getAttribute('style')||'').match(/--cut:url\('([^']+)'\)/); if(!m) return; headShift(m[1]).then(v=>c.style.setProperty('--hx',v.toFixed(1)+'%')); }); }
 function draw(){ const r=RAW[cur]; pk.textContent=r[0].toUpperCase()+' ▾';
   document.getElementById('bigst').innerHTML=big(r); document.getElementById('pnote').innerHTML=NOTES[PLATE]+' Glints flash off the edge of the card wherever the light catches it, and sparkles drift over the backdrop, never over his face.';
   document.getElementById('smst').innerHTML=`<div style="width:min(190px,48vw)">${small(r)}</div>`;
   const five=[r, ...RAW.filter((_,i)=>i!==cur).slice(0,40).filter((_,i)=>i%7===0).slice(0,4)];
   document.getElementById('row').innerHTML=five.map((x,i)=>small(x,{out:i===3})).join('');
   document.getElementById('row2').innerHTML=RAW.slice(40,45).map(x=>small(x)).join('');
-  bind(); }
+  bind(); centreHeads(); }
 document.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{ PLATE=b.dataset.pl; document.querySelectorAll('[data-pl]').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
 document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OFF.has(k)?OFF.delete(k):OFF.add(k); b.classList.toggle('on',!OFF.has(k)); draw(); });
 

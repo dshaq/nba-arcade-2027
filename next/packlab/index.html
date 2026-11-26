@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>NBA Arcade · Pack Lab</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:ital,wght@1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
 <style>
 /* PACK LAB · three pack designs, each with its own way of opening, and one shared card reveal.
    Separate from the NEXT build. Real portraits; the pulls are random each time. */
@@ -216,6 +216,34 @@ img{-webkit-user-drag:none;user-select:none;pointer-events:none}
 .dgrid .dc .pk{position:relative!important;width:100%!important;max-width:150px}
 .dgrid .dc b{font-weight:normal;font-size:6px;color:#fff;text-align:center;line-height:1.7}.dgrid .dc.on b{color:var(--gold)}
 .dgrid .dc.on .pk{filter:drop-shadow(0 0 10px rgba(255,217,61,.8)) drop-shadow(0 14px 18px rgba(0,0,0,.6))}
+
+/* ── card face = the new base template (Base Card Lab): cut-out bursting out of the top, chrome name plate A ── */
+.cd .fc{padding:0;border:0;background:none;overflow:visible;display:block;container-type:inline-size}
+.cd .fc .bd{position:absolute;inset:0;border-radius:4.5%/3.2%;overflow:hidden;background:var(--fr);box-shadow:0 0 0 2px #000}
+.cd .fc .bd::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.55) 48%,transparent 60%) 0 0/260% 100%;animation:fsh 3.4s ease-in-out infinite;mix-blend-mode:overlay}
+@keyframes fsh{0%{background-position:140% 0}100%{background-position:-40% 0}}
+.cd.r-holo .fc .bd,.cd.r-star .fc .bd{background-size:300% 100%;animation:sheen 3s linear infinite}
+.cd .fc .win{position:absolute;left:5.5%;right:5.5%;top:5.5%;bottom:27%;border-radius:2.6cqw;overflow:hidden;box-shadow:inset 0 0 0 .6cqw rgba(0,0,0,.8);
+  background:radial-gradient(circle,rgba(255,255,255,.14) 0 .55cqw,transparent .65cqw) 0 0/3.2cqw 3.2cqw,repeating-conic-gradient(from 0deg at 50% 70%,rgba(255,255,255,.07) 0 6deg,transparent 6deg 14deg),
+    radial-gradient(85% 70% at 50% 62%,color-mix(in srgb,var(--tc) 85%,#fff 15%),var(--tc) 45%,color-mix(in srgb,var(--tc) 45%,#000) 100%)}
+.cd .fc .win .wm{position:absolute;left:50%;top:6%;transform:translateX(-50%);font-family:var(--tk);font-style:normal;font-weight:700;font-size:58cqw;line-height:.8;color:rgba(255,255,255,.08);white-space:nowrap}
+.cd .fc .win .bgi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 15%;display:none}
+.cd.nocut .fc .win .bgi{display:block}
+.cd.r-star .fc .win::after{content:'★';position:absolute;right:4cqw;top:3cqw;font-size:11cqw;color:#ffd93d;text-shadow:0 0 2cqw #000}
+.cd .fc .pl{position:absolute;inset:0;z-index:3;pointer-events:none;clip-path:polygon(-20% -40%,120% -40%,120% 5.5%,94.5% 5.5%,94.5% 73%,5.5% 73%,5.5% 5.5%,-20% 5.5%)}
+.cd .fc .pl img,.cd .fc .pl .crt{position:absolute;left:calc(-6% + var(--hx,0%));width:112%;bottom:26.5%;aspect-ratio:1}
+.cd .fc .pl img{filter:drop-shadow(0 2cqw 2.5cqw rgba(0,0,0,.55))}
+.cd .fc .pl .crt{-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.cd.nocut .fc .pl{display:none}
+.cd .fc .plate{position:absolute;left:5.5%;right:5.5%;bottom:5%;height:20%;z-index:2;border-radius:2.6cqw;overflow:hidden;background:linear-gradient(180deg,#0c1426,#03060c);box-shadow:inset 0 0 0 .6cqw rgba(255,255,255,.22)}
+.cd .fc .plate .tw{position:absolute;right:-4%;top:50%;transform:translateY(-50%);font-family:var(--tk);font-style:normal;font-weight:700;font-size:30cqw;line-height:.8;color:var(--tc);opacity:.22;white-space:nowrap;-webkit-mask:linear-gradient(90deg,transparent,#000 40%);mask:linear-gradient(90deg,transparent,#000 40%)}
+.cd .fc .plate .tx{position:absolute;inset:0;padding:0 6%;display:flex;flex-direction:column;justify-content:center}
+.cd .fc .plate .fn{font-size:2.6cqw;color:#a8c0e8;letter-spacing:.12em}
+.cd .fc .plate .ln{font-family:var(--tk);font-style:normal;font-weight:700;line-height:.82;white-space:nowrap;margin:1.2cqw 0 .6cqw;
+  background:linear-gradient(100deg,#cfd6e4 0%,#fff 30%,#9aa5bb 42%,#fff 55%,#e8ecf3 70%,#8e98ab 100%) 0 0/260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .5cqw 0 #000);animation:lnsh 4s ease-in-out infinite alternate}
+@keyframes lnsh{to{background-position:100% 0}}
+.cd .fc .plate .tm{font-size:2.2cqw;color:color-mix(in srgb,var(--tc) 35%,#fff);letter-spacing:.14em;white-space:nowrap}
+.cd .fc .rt{position:absolute;z-index:4;right:8%;bottom:22.5%;font-size:2.2cqw;padding:1cqw 1.6cqw;border-radius:1cqw;background:#000;color:var(--rc);box-shadow:0 0 0 .3cqw var(--rc)}
 </style>
 </head>
 <body>
@@ -261,8 +289,21 @@ const flash=()=>{ const f=st.querySelector('.flash')||st.appendChild(el('<div cl
 function burst(c,n=24){ const b=el('<div class="burst"></div>'); for(let i=0;i<n;i++){ const a=Math.random()*6.28, r=80+Math.random()*140; b.appendChild(el(`<i style="--c:${c};--x:${Math.cos(a)*r}px;--y:${Math.sin(a)*r}px"></i>`)); } st.appendChild(b); setTimeout(()=>b.remove(),1000); }
 
 /* ── shared reveal: a stack in the middle; tap the top card to flip it, it moves to the fan ── */
-function cardEl(c){ const last=c.n.split(' ').slice(1).join(' ').toUpperCase()||c.n.toUpperCase();
-  return el(`<div class="cd r-${c.r}"><div class="in"><div class="bk"></div><div class="fc" style="--tc:${TC[c.t]||'#1d428a'}"><div class="nm">${last}</div><div class="ph"><img src="${pimg(c.t,c.n)}" alt="" onerror="this.style.display='none'"></div><div class="ft"><span>${c.t}</span><span>${RAR[c.r]}</span></div></div><div class="glare"></div></div></div>`); }
+const TNAME={ATL:'ATLANTA HAWKS',BOS:'BOSTON CELTICS',BKN:'BROOKLYN NETS',CHA:'CHARLOTTE HORNETS',CHI:'CHICAGO BULLS',CLE:'CLEVELAND CAVALIERS',DAL:'DALLAS MAVERICKS',DEN:'DENVER NUGGETS',DET:'DETROIT PISTONS',GSW:'GOLDEN STATE WARRIORS',HOU:'HOUSTON ROCKETS',IND:'INDIANA PACERS',LAC:'LA CLIPPERS',LAL:'LOS ANGELES LAKERS',MEM:'MEMPHIS GRIZZLIES',MIA:'MIAMI HEAT',MIL:'MILWAUKEE BUCKS',MIN:'MINNESOTA TIMBERWOLVES',NOP:'NEW ORLEANS PELICANS',NYK:'NEW YORK KNICKS',OKC:'OKLAHOMA CITY THUNDER',ORL:'ORLANDO MAGIC',PHI:'PHILADELPHIA 76ERS',PHX:'PHOENIX SUNS',POR:'PORTLAND TRAIL BLAZERS',SAC:'SACRAMENTO KINGS',SAS:'SAN ANTONIO SPURS',TOR:'TORONTO RAPTORS',UTA:'UTAH JAZZ',WAS:'WASHINGTON WIZARDS'};
+const POSN={G:'GUARD',F:'FORWARD',C:'CENTER'}, PHX_={};
+/* centre his head in the card (same rule as the Base Card Lab) */
+window.pkHead=img=>{ const c=img.closest('.cd'), put=v=>c&&c.style.setProperty('--hx',v.toFixed(1)+'%'); if(PHX_[img.src]!=null) return put(PHX_[img.src]);
+  try{ const S=96, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d'); g.drawImage(img,0,0,S,S); const d=g.getImageData(0,0,S,S).data;
+    let top=-1; for(let y=0;y<S&&top<0;y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ top=y; break; }
+    let sx=0,n=0; for(let y=top;y<Math.min(S,top+S*.3);y++) for(let x=0;x<S;x++) if(d[(y*S+x)*4+3]>128){ sx+=x; n++; }
+    PHX_[img.src]=Math.max(-14,Math.min(14,(.5-(n?sx/n/S:.5))*75)); }catch(e){ PHX_[img.src]=0; } put(PHX_[img.src]); };
+function cardEl(c){ const sp=c.n.indexOf(' '), f=sp>0?c.n.slice(0,sp):'', L=(sp>0?c.n.slice(sp+1):c.n).toUpperCase(), cu=pcut(c.t,c.n), pos=(POOL.find(r=>r[0]===c.n)||[])[2];
+  return el(`<div class="cd r-${c.r}" style="--tc:${TC[c.t]||'#1d428a'};--cut:url('${cu}')"><div class="in"><div class="bk"></div><div class="fc">
+    <div class="bd"><div class="win"><div class="wm">${c.t}</div><img class="bgi" src="${pimg(c.t,c.n)}" alt=""></div>
+      <div class="plate"><div class="tw">${c.t}</div><div class="tx"><span class="fn">${f.toUpperCase()}</span><span class="ln" style="font-size:${Math.min(16,108/Math.max(4,L.length)).toFixed(2)}cqw">${L}</span><span class="tm">${TNAME[c.t]||c.t}${POSN[pos]?' · '+POSN[pos]:''}</span></div></div>
+      ${c.r!=='base'?`<span class="rt">${RAR[c.r]}</span>`:''}</div>
+    <div class="pl"><img src="${cu}" alt="" onload="pkHead(this)" onerror="this.closest('.cd').classList.add('nocut')"><div class="crt"></div></div>
+  </div><div class="glare"></div></div></div>`); }
 function reveal(cards, from={x:.5,y:.5}){
   const W=st.clientWidth, H=st.clientHeight, cw=Math.min(150, W*.36), ch=cw*1.4;
   const els=cards.map((c,i)=>{ const e=cardEl(c); e.style.width=cw+'px'; e.style.left=(W*from.x-cw/2)+'px'; e.style.top=(H*from.y-ch/2)+'px'; e.style.zIndex=20-i; e.style.transform='scale(.6)'; st.appendChild(e); return e; });

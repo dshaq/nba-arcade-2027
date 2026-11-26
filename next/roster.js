@@ -419,13 +419,13 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .rc16.sk .rc-top{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;border:0;padding:0 5%;justify-content:flex-start}
 .rc16.sk .rc-top .nm{color:#fff;letter-spacing:-.02em;overflow:visible;text-overflow:clip}
 /* info box: TIP / FP rows */
-.rc16.sk .rc-bot{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;display:grid;grid-template-rows:1fr 1fr;gap:0;padding:0 6%!important;background:#fff;border:1.4cqw solid #111;border-top:0;font-size:7.5cqw;letter-spacing:0}
-.rc16.sk .rc-bot>div{display:flex;align-items:center;gap:3%;min-width:0;color:#111;white-space:nowrap}
-.rc16.sk .rc-bot .r2{border-top:.6cqw solid #ddd}
-.rc16.sk .rc-bot b{color:#e1121b;font-size:.92em;overflow:visible}.rc16.sk .rc-bot b.x{color:#999}
+.rc16.sk .rc-bot{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;display:grid;grid-template-rows:1fr 1fr;gap:0;padding:0 6%!important;background:#111;border:1.4cqw solid #111;border-top:.5cqw solid #333;font-size:7.5cqw;letter-spacing:0}
+.rc16.sk .rc-bot>div{display:flex;align-items:center;gap:3%;min-width:0;color:#fff;white-space:nowrap}
+.rc16.sk .rc-bot .r2{border-top:.5cqw solid #2c2c2c}
+.rc16.sk .rc-bot b{color:#ff4d5a;font-size:.92em;overflow:visible}.rc16.sk .rc-bot b.x{color:#777}
 .rc16.sk .rc-bot>div>span{margin-left:auto}
-.rc16.sk .rc-bot i.fp{color:#1aa7e0;font-size:.92em}
-.rc16.sk .rc-bot small{font-size:.62em;color:#777;margin-left:1%}
+.rc16.sk .rc-bot i.fp{color:#3cc4ff;font-size:.92em}
+.rc16.sk .rc-bot small{font-size:.62em;color:#999;margin-left:1%}
 .rc16.sk .rc-art .injb{position:absolute;z-index:5;top:auto;bottom:4%;left:4%}
 /* states */
 .rc16.sk.out .pop img,.rc16.sk.out .rc-art>img{filter:grayscale(1) brightness(.7) drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111)}

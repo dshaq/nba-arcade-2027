@@ -95,15 +95,17 @@ const getSlot = pos => ({a:S.fl.act, b:S.fl.bench, i:S.fl.ir})[pos[0]][+pos.slic
 const setSlot = (pos,n) => { ({a:S.fl.act, b:S.fl.bench, i:S.fl.ir})[pos[0]][+pos.slice(1)] = n; };
 const nm = n => { const p=P(n); return p.s.charAt(0)+p.s.slice(1).toLowerCase(); };
 function recs(){
-  const A=S.fl.act, out=[], used=new Set();
+  const A=S.fl.act, out=[], used=new Set(), lk=n=>typeof lockedN==='function'&&lockedN(n);
   A.forEach((n,i)=>{ if(n && isOut(n) && !S.fl.ir[0] && !out.length) { out.push({from:'a'+i, to:'i0', a:n, why:`${nm(n)} is OUT · move him to IR`}); used.add('a'+i); } });
-  let bench = S.fl.bench.map((n,i)=>({n,pos:'b'+i})).filter(x=>plays(x.n)).sort((x,y)=>P(y.n).f-P(x.n).f);
+  let bench = S.fl.bench.map((n,i)=>({n,pos:'b'+i})).filter(x=>plays(x.n) && !lk(x.n)).sort((x,y)=>P(y.n).f-P(x.n).f);
   A.forEach((n,i)=>{ if(!n){ const b=bench.shift(); if(b) out.push({from:b.pos, to:'a'+i, a:b.n, why:`Open slot · start ${nm(b.n)} (${GAMES[P(b.n).t].time})`}); } });
-  const idle = A.map((n,i)=>({n,pos:'a'+i})).filter(x=>x.n && !used.has(x.pos) && !plays(x.n)).sort((x,y)=>P(x.n).f-P(y.n).f);
+  const idle = A.map((n,i)=>({n,pos:'a'+i})).filter(x=>x.n && !used.has(x.pos) && !plays(x.n) && !lk(x.n)).sort((x,y)=>P(x.n).f-P(y.n).f);
   idle.forEach(x=>{ const b=bench.shift(); if(b) out.push({from:b.pos, to:x.pos, a:b.n, b:x.n, why:`${nm(x.n)} ${isOut(x.n)?'is OUT':'has no game'} · ${nm(b.n)} plays ${GAMES[P(b.n).t].time}`}); });
-  const weak = A.map((n,i)=>({n,pos:'a'+i})).filter(x=>plays(x.n)).sort((x,y)=>P(x.n).f-P(y.n).f);
+  const weak = A.map((n,i)=>({n,pos:'a'+i})).filter(x=>plays(x.n) && !lk(x.n)).sort((x,y)=>P(x.n).f-P(y.n).f);
   bench.forEach(b=>{ const w=weak[0]; if(w && P(b.n).f > P(w.n).f+1){ weak.shift(); out.push({from:b.pos, to:w.pos, a:b.n, b:w.n, why:`${nm(b.n)} averages ${P(b.n).f} FP/G · ${nm(w.n)} ${P(w.n).f}`}); } });
-  return out;
+  /* a move is only possible if neither player's game has started; locked ones can't block today's task */
+  const free = n => !n || !(typeof lockedN==='function' && lockedN(n));
+  return out.filter(r=>free(r.a) && free(r.b));
 }
 function swapPos(a,b){
   const na=getSlot(a), nb=getSlot(b);

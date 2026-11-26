@@ -43,10 +43,16 @@ function card16(n, pos, o={}){
   /* footer: game on the left (start time, LIVE/FINAL, OFF), FP on the right (orange = FP/G, yellow = today) */
   const gl = off ? 'OFF' : /FINAL/i.test(g) ? 'FINAL' : /^\d/.test(g) ? g.split(' ')[0].replace(/P$/,'') : 'LIVE';
   const ups = typeof addOn==='function' ? VERS.filter(v=>addOn(n,v.k)).map(v=>'u-'+v.k).join(' ') : '';
-  return `<div class="rc16 ${ups} ${pos==='i0'?'onir':''} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
-    <div class="rc-in"><div class="rc-top"><span class="nm" style="${p.s.length>9?`font-size:${Math.max(3.4,46/p.s.length).toFixed(1)}px`:''}">${p.s}</span></div>
-    <div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}<i class="stz"></i></div>
-    <div class="rc-bot"><b class="gm ${gl==='OFF'?'x':''}">${o.gl??gl}</b><i class="fp ${fm==='DAY'?'d':'a'}">${fp}</i></div></div></div>`;
+  /* SNK vs. Capcom style: white sticker card, cut-out player popping out of the top, name bar under him, info box below */
+  const lab = o.gl!=null ? o.gl : /^\d/.test(gl) ? 'TIP' : gl, tv = o.gl!=null ? '' : /^\d/.test(gl) ? gl : '';
+  const fv = String(fp).replace(/<small>FP<\/small>/,'').trim(), fs = o.fpv!=null ? '' : fm==='DAY' ? 'TDY' : '/G';
+  const ln = p.s, nsz = Math.min(8.4, 66/Math.max(4,ln.length)).toFixed(2);
+  const cut = `/cutouts/${p.t}/${encodeURIComponent(p.n).replace(/'/g,'%27')}.webp?v=2`;
+  return `<div class="rc16 sk ${ups} ${pos==='i0'?'onir':''} ${p.inj==='OUT'?'out':''} ${off&&!o.nofoot?'idle':''} ${o.p1?'p1':''}" data-own="1" ${pos?`data-pos="${pos}"`:''} ${o.noTap?'':`data-pn="${escA(n)}"`} style="--tc:${p.c};--d:${(hsh(n)*-4).toFixed(2)}s">
+    <div class="rc-in"><div class="rc-art">${face(p.t,p.n)}${o.p1?'<span class="p1t">P1</span>':''}${/^(OUT|INJ)$/.test(p.inj||'')&&!o.noinj?`<span class="injb o">${p.inj}</span>`:''}<i class="stz"></i></div>
+    <div class="pop"><img src="${cut}" alt="" draggable="false" onload="this.closest('.rc16').classList.add('cut')" onerror="this.parentNode.remove()"><i class="crt" style="--cutm:url('${cut}')"></i></div>
+    <div class="rc-top"><span class="nm" style="font-size:${nsz}cqw">${ln}</span></div>
+    <div class="rc-bot"><div class="r1"><b class="gm ${gl==='OFF'?'x':''}">${lab}</b><span>${tv}</span></div><div class="r2"><i class="fp ${fm==='DAY'?'d':'a'}">FP</i><span>${fv}</span><small>${fs}</small></div></div></div></div>`;
 }
 /* small card for lists outside the roster (waivers, draft, challenge, home…) */
 const scard = (n, o={}) => card16(n, null, o);
@@ -380,4 +386,57 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .cgrid.fan>.irtray>span{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:3;font-size:6px;color:#fff;background:#7a3cff;padding:2px 6px;border:1px solid #000}
 .cgrid.fan>.irtray>.rc16{width:100%;max-width:none;margin:0;transform:rotate(-8deg)}
 .cgrid.fan>.rc16:nth-last-child(2){margin-right:0}
+</style>`);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* ═══ small card, SNK vs. Capcom style (Base Card Lab) ═══ */
+.rc16.sk{container-type:inline-size;padding:0;background:none;border-radius:0;box-shadow:none;overflow:visible}
+.rc16.sk .rc-in{display:block;padding:0;height:100%;border-radius:2.5cqw;overflow:visible;background:#f6f3ea;box-shadow:0 0 0 .7cqw #1a1a1a,.8cqw 1.4cqw 0 rgba(0,0,0,.35),0 3cqw 5cqw rgba(0,0,0,.4)}
+.rc16.sk .rc-in::after{inset:0;border-radius:inherit;transform:none;mix-blend-mode:soft-light;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.8) 50%,transparent 62%) -60% 0/260% 100% no-repeat;animation:skg 7s ease-in-out infinite;animation-delay:var(--d,0s)}
+@keyframes skg{0%,70%{background-position:160% 0}100%{background-position:-60% 0}}
+/* art window: team colour + halftone; the old square portrait shows only when there's no cut-out */
+.rc16.sk .rc-art{position:absolute;left:4.5%;right:4.5%;top:4.5%;height:58%;border:1.4cqw solid #111;border-bottom:0;box-shadow:none;
+  background:radial-gradient(circle,rgba(255,255,255,.18) 0 .9cqw,transparent 1cqw) 0 0/4.5cqw 4.5cqw,linear-gradient(170deg,color-mix(in srgb,var(--tc) 60%,#fff),var(--tc) 55%,color-mix(in srgb,var(--tc) 40%,#000))}
+.rc16.sk.cut .rc-art>img{display:none}
+.rc16.sk.cut .rc-art::after{display:none}
+/* the player: head over the top, shoulders cut at the inside of the border */
+.rc16.sk .pop{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;z-index:2;pointer-events:none;
+  clip-path:polygon(-30% -60%,130% -60%,130% 35.4%,calc(100% - 1.4cqw) 35.4%,calc(100% - 1.4cqw) 100%,1.4cqw 100%,1.4cqw 35.4%,-30% 35.4%)}
+.rc16.sk .pop img{position:absolute;left:-6%!important;width:112%!important;height:auto!important;top:auto!important;right:auto!important;bottom:0!important;object-fit:fill!important;border:0!important;border-radius:0!important;max-width:none!important;image-rendering:pixelated;filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
+.rc16.sk .pop .crt{position:absolute;left:-6%;width:112%;bottom:0;aspect-ratio:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px);-webkit-mask:var(--cutm) 0 0/100% 100%;mask:var(--cutm) 0 0/100% 100%}
+.rc16.sk:not(.cut) .pop{display:none}
+/* name bar */
+.rc16.sk .rc-top{position:absolute;left:4.5%;right:4.5%;top:62%;height:12%;z-index:3;background:#111;border:0;padding:0 5%;justify-content:flex-start}
+.rc16.sk .rc-top .nm{color:#fff;letter-spacing:-.02em;overflow:visible;text-overflow:clip}
+/* info box: TIP / FP rows */
+.rc16.sk .rc-bot{position:absolute;left:4.5%;right:4.5%;top:74%;bottom:4.5%;z-index:3;display:grid;grid-template-rows:1fr 1fr;gap:0;padding:0 6%!important;background:#fff;border:1.4cqw solid #111;border-top:0;font-size:7.5cqw;letter-spacing:0}
+.rc16.sk .rc-bot>div{display:flex;align-items:center;gap:3%;min-width:0;color:#111;white-space:nowrap}
+.rc16.sk .rc-bot .r2{border-top:.6cqw solid #ddd}
+.rc16.sk .rc-bot b{color:#e1121b;font-size:.92em;overflow:visible}.rc16.sk .rc-bot b.x{color:#999}
+.rc16.sk .rc-bot>div>span{margin-left:auto}
+.rc16.sk .rc-bot i.fp{color:#1aa7e0;font-size:.92em}
+.rc16.sk .rc-bot small{font-size:.62em;color:#777;margin-left:1%}
+.rc16.sk .rc-art .injb{position:absolute;z-index:5;top:auto;bottom:4%;left:4%}
+/* states */
+.rc16.sk.out .pop img,.rc16.sk.out .rc-art>img{filter:grayscale(1) brightness(.7) drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111)}
+.rc16.sk.out .rc-art{filter:grayscale(1)}
+.rc16.sk.idle .pop img{filter:grayscale(.6) brightness(.85) drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111)}
+.rc16.sk.idle .rc-bot b{color:#999}
+.rc16.sk.p1 .rc-in{box-shadow:0 0 0 .9cqw #e94560,0 0 16px rgba(233,69,96,.7)}
+.rc16.sk.over .rc-in{box-shadow:0 0 0 1.2cqw var(--gold)}
+/* add-ons on the sticker */
+.rc16.sk:not(.empty){--fr:#f6f3ea;--fr2:#f6f3ea}
+.rc16.sk.u-gold .rc-in{background:linear-gradient(125deg,#b07a10,#e9c25a 22%,#fff2b0 34%,#d9a520 48%,#f5d061 66%,#fff8d6 76%,#c8901a 90%);background-size:260% 260%}
+.rc16.sk.u-holo .rc-top{background:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);background-size:300% 100%}
+.rc16.sk.onir .rc-in{background:linear-gradient(160deg,#e6d6ff,#b48cff)!important}
+.rc16.sk.big{width:116px}
+.rc16.sk.big .rc-top .nm{font-size:inherit}
+/* rows need headroom for the heads */
+.cgrid.fan{gap:30px 0!important;padding-top:22px!important}
+.cgrid.fan>.rc16.sk .rc-bot,.cgrid.fan>.rc16.sk .rc-top{padding-right:6%!important}
+.cgrid.fan .rc16.sk .rc-bot{font-size:7.5cqw;letter-spacing:-.02em}
+.cgrid:not(.fan){row-gap:30px}
+.tgrid,.qgrid{row-gap:24px!important;padding-top:14px}
+.cw>.rc16.sk{height:auto!important;aspect-ratio:5/7}
+.ct .ph.cw{margin-top:22%}
 </style>`);

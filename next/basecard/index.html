@@ -54,16 +54,18 @@ h2 small{font-size:5.5px;color:var(--t3)}
     radial-gradient(85% 70% at 50% 62%,color-mix(in srgb,var(--tc) 85%,#fff 15%),var(--tc) 45%,color-mix(in srgb,var(--tc) 45%,#000) 100%)}
 .big .wm{position:absolute;left:50%;top:6%;transform:translate(calc(-50% + var(--ry)*-.9px),calc(var(--rx)*.6px));font-family:var(--tk);font-weight:700;font-size:58cqw;line-height:.8;color:rgba(255,255,255,.08);letter-spacing:-.02em;white-space:nowrap}
 /* the player: nearest layer, head bursts out over the frame */
-.big .pl{clip-path:inset(0 5.5% 27% 5.5% round 0 0 2.6cqw 2.6cqw);z-index:3}
-.big .pl img{position:absolute;left:-4%;width:108%;bottom:26.5%;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));image-rendering:auto;
+/* the player sits outside the card body: above the art window he can rise past the card's top edge; below it he's cut at the window's sides */
+.big .pl{z-index:8;clip-path:polygon(-20% -40%,120% -40%,120% 5.5%,94.5% 5.5%,94.5% 73%,5.5% 73%,5.5% 5.5%,-20% 5.5%)}
+.big .pl img{position:absolute;left:-6%;width:112%;bottom:26.5%;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));image-rendering:auto;
   filter:drop-shadow(1px 0 0 rgba(255,40,80,.35)) drop-shadow(-1px 0 0 rgba(40,140,255,.35)) drop-shadow(0 0 1.5px rgba(255,255,255,.6)) drop-shadow(0 2cqw 2.5cqw rgba(0,0,0,.55))}
-.big .crt{position:absolute;left:-4%;width:108%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+.big .crt{position:absolute;left:-6%;width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
   -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(255,0,60,.06) 0 1px,rgba(0,255,120,.05) 1px 2px,rgba(40,120,255,.06) 2px 3px)}
-.big .gloss{position:absolute;left:-4%;width:108%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
+.big .gloss{position:absolute;left:-6%;width:112%;bottom:26.5%;aspect-ratio:1;transform:translate(calc(var(--ry)*.55px),calc(var(--rx)*-.45px));
   -webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;mix-blend-mode:soft-light;
   background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 30%,rgba(255,255,255,.6) 48%,transparent 62%) calc(var(--mx)*100%) 50%/220% 220%}
 .big.nopop .pl{clip-path:inset(5.5% 5.5% 27% 5.5% round 2.6cqw)}
+.big .num{z-index:9}
 .big .num{position:absolute;z-index:6;top:2.4%;left:7%;font-size:2.3cqw;padding:1.2cqw 1.8cqw;border-radius:1.2cqw;background:#000;box-shadow:0 0 0 .3cqw rgba(255,255,255,.3)}
 
 /* ── name plate: bigger name, and it reacts to the tilt ── */
@@ -201,11 +203,11 @@ function big(r){ const [n,t,p]=r, T=TEAM[t]||['','', '#1d428a'], sp=n.indexOf(' 
     <div class="body"><div class="L frame"></div>
       <div class="win"><div class="bk"></div><div class="wm">${t}</div></div>
       <div class="L sheen"></div>
-      <div class="L pl"><img src="${cut(t,n)}" alt="${n}"><div class="crt"></div><div class="gloss"></div></div>
       <div class="L spk">${sparks}</div>
       <span class="num">#${String(Math.floor(hsh(n)*300)+1).padStart(3,'0')}</span>
       <div class="plate"><div class="tw">${t}</div>${plate('a',f.toUpperCase(),l,`${(T[0]+' '+T[1]).toUpperCase()} · ${POS[p]||p}`)}${plate('b lent',T[0].toUpperCase(),T[1].toUpperCase(),`${n.toUpperCase()} · ${POS[p]||p}`)}</div>
       <div class="L glare"></div></div>
+    <div class="L pl"><img src="${cut(t,n)}" alt="${n}"><div class="crt"></div><div class="gloss"></div></div>
     ${[0,1,2,3].map(k=>`<i class="gl" data-g="${k}"></i>`).join('')}</div>`; }
 
 function small(r,o={}){ const [n,t,p,f]=r, T=TEAM[t]||['','','#1d428a'], l=n.slice(n.indexOf(' ')+1).toUpperCase(), out=o.out;

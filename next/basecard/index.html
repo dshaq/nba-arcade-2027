@@ -117,7 +117,9 @@ h2 small{font-size:5.5px;color:var(--t3)}
   background-size:4.5cqw 4.5cqw,100% 100%}
 .sm .sk::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;mix-blend-mode:soft-light;background:linear-gradient(calc(110deg + var(--ry)*2deg),transparent 35%,rgba(255,255,255,.8) 50%,transparent 62%) calc(var(--mx)*100%) 0/260% 100%}
 /* the player: bigger than his box, head and shoulders out over the top */
-.sm .who{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;clip-path:inset(-40% -8% 0 -8%);z-index:2}
+/* above the top of the art window he can spill out anywhere; below it he's cut at the inside of the black border */
+.sm .who{position:absolute;left:4.5%;right:4.5%;bottom:33.5%;height:96%;z-index:2;
+  clip-path:polygon(-30% -60%,130% -60%,130% 35.4%,calc(100% - 1.4cqw) 35.4%,calc(100% - 1.4cqw) 100%,1.4cqw 100%,1.4cqw 35.4%,-30% 35.4%)}
 .sm .who img{position:absolute;left:-6%;width:112%;bottom:0;image-rendering:pixelated;transform:translate(calc(var(--ry)*.25px),0);
   filter:drop-shadow(1.2cqw 0 0 #111) drop-shadow(-1.2cqw 0 0 #111) drop-shadow(0 -1.2cqw 0 #111) drop-shadow(1cqw 1.6cqw 0 rgba(0,0,0,.35))}
 .sm .who .crt{position:absolute;left:-6%;width:112%;bottom:0;aspect-ratio:1;-webkit-mask:var(--cut) 0 0/100% 100%;mask:var(--cut) 0 0/100% 100%;transform:translate(calc(var(--ry)*.25px),0);

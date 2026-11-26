@@ -427,6 +427,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 /* add-ons on the sticker */
 .rc16.sk:not(.empty){--fr:#f6f3ea;--fr2:#f6f3ea}
 .rc16.sk.u-gold .rc-in{background:linear-gradient(125deg,#b07a10,#e9c25a 22%,#fff2b0 34%,#d9a520 48%,#f5d061 66%,#fff8d6 76%,#c8901a 90%);background-size:260% 260%}
+.rc16.sk.u-holo .rc-top .nm{color:#000;text-shadow:0 0 2px rgba(255,255,255,.8)}
 .rc16.sk.u-holo .rc-top{background:linear-gradient(90deg,#ff5fbf,#ffd93d,#39ff6a,#4adfff,#b36bff,#ff5fbf);background-size:300% 100%}
 .rc16.sk.onir .rc-in{background:linear-gradient(160deg,#e6d6ff,#b48cff)!important}
 .rc16.sk.big{width:116px}

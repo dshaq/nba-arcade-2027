@@ -187,13 +187,15 @@ function syncDuel(ls, mid, nameOf, today){
   FSTAND.length=0; (ls.managers||[]).map(m=>{ let hit=0, n=0; for(const st of Object.values(ls.futures||{})){ const p=st.picks?.[m.id]; if(p==null||!st.result) continue; n++; if(p===st.result) hit++; } return [m.display_name.replace(' (CPU)',''), String(m.id)===mid?null:chOfM(m), hit, n]; })
     .filter(r=>r[3]).sort((a,b)=>b[2]-a[2]).forEach(r=>FSTAND.push(r));
 }
-futuresToday = () => LIVE.on ? (LIVE.W.futuresNow?.()||[]).some(f=>!LIVE.W.futLocked(f)) : FUT.some(n=>n.today);
+/* futLocked is a const in app.js, so it isn't on the engine's window; read it through eval, and never let it break Home */
+const futLk = f => { try{ const fn = LIVE.W.futLocked || LIVE.E('futLocked'); return typeof fn==='function' ? fn(f) : false; }catch(e){ return false; } };
+futuresToday = () => { try{ return LIVE.on ? (LIVE.W.futuresNow?.()||[]).some(f=>!futLk(f)) : FUT.some(n=>n.today); }catch(e){ return false; } };
 const _futuresBody = futuresBody;
 futuresBody = function(){
   if(!LIVE.on) return _futuresBody();
   const W=LIVE.W, ls=LIVE.E('leagueState'), list=(W.futuresNow?.()||[]);
   if(!list.length) return `<div class="panel"><div class="sec">FUTURES DUEL</div><div class="reward">No Futures Duel today. NBA Cup knockout picks will show up here when they open.</div></div>`;
-  return list.map(f=>{ const st=(ls.futures||{})[f.id]||{}, mine=st.picks?.[LIVE.mid], locked=W.futLocked(f);
+  return list.map(f=>{ const st=(ls.futures||{})[f.id]||{}, mine=st.picks?.[LIVE.mid], locked=futLk(f);
     return `<div class="panel"><div class="sec" style="color:var(--violet)">${f.title}</div><div class="reward" style="margin:0 0 10px">${f.question}</div>
       <div class="fqbox">${(f.options||[]).map(t=>`<button class="${t===mine?'mine':''}" ${locked||mine?'disabled':''} onclick="liveFuture('${f.id}','${t}')"><img src="${LOGOJ(t)}" alt="">${t}</button>`).join('')}</div>
       <div class="reward">${st.result?`Winner: ${st.result}. ${mine===st.result?'✓ You hit it':'✗ Not this time'}`:mine?'Your pick is locked in.':locked?'🔒 Picks are locked.':'Your pick is final the moment you tap.'}</div></div>`; }).join('');
